@@ -1,0 +1,58 @@
+name: Backend Pytest
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pytest:
+    runs-on: ubuntu-24.04
+
+    # Variables de entorno para FastAPI y la base de datos de test
+    env:
+      POSTGRES_USER: vecinus_user
+      POSTGRES_PASSWORD: vecinus_password
+      POSTGRES_DB: vecinus_test_db
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: 5432
+      SUPABASE_URL: "http://127.0.0.1:8000" # URL simulada o de tu proyecto
+      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+
+    services:
+      # PostgreSQL para simular el entorno Supabase
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: vecinus_user
+          POSTGRES_PASSWORD: vecinus_password
+          POSTGRES_DB: vecinus_test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install pytest httpx pytest-asyncio
+
+      - name: Run Tests
+        # Ejecutamos los tests dentro del directorio del backend
+        run: |
+          cd backend
+          pytest
