@@ -1,4 +1,3 @@
-
 def test_dummy():
     """
     Test temporal para evitar que el CI falle en este sprint primero

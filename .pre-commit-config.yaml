@@ -29,12 +29,13 @@ repos:
         additional_dependencies: [flake8-pyproject]
         files: ^backend/
 
-  # --- FRONTEND (REACT NATIVE / TYPESCRIPT) ---
+# --- FRONTEND (REACT NATIVE / TYPESCRIPT) ---
   - repo: local
     hooks:
       - id: frontend-eslint
         name: ESLint (Frontend)
-        entry: bash -c 'cd frontend && npx expo lint --fix'
+        # Usamos npm --prefix para entrar a la carpeta de forma multiplataforma
+        entry: npm --prefix frontend run lint -- --fix
         language: system
         files: ^frontend/.*\.(ts|tsx|js|jsx)$
         stages: [pre-push]
@@ -42,7 +43,8 @@ repos:
 
       - id: frontend-tsc
         name: TypeScript Type Check (Frontend)
-        entry: bash -c 'cd frontend && npx tsc --noEmit'
+        # Usamos npm exec para ejecutar tsc en la carpeta correcta
+        entry: npm --prefix frontend exec -- tsc --project frontend/tsconfig.json --noEmit
         language: system
         files: ^frontend/.*\.(ts|tsx)$
         stages: [pre-push]
