@@ -19,6 +19,12 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
+      - name: Skip merge commits
+        run: |
+          if git log -1 --pretty=%B | grep -q '^Merge '; then
+            echo "Merge commit detected, skipping conventional commit check."
+            exit 0
+          fi
       # Step to validate commit messages following the Conventional Commits standard
       - name: Validate commit messages
         uses: webiny/action-conventional-commits@v1.3.0
