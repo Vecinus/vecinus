@@ -1,10 +1,11 @@
-import google.generativeai as genai
-import backend.services.Documents_ChatBotService as doc_service
-import backend.core.config as settings
+from fastapi.params import Body
+from google import genai
+import backend.services.documents_ChatBotService as doc_service
+from backend.core.config import settings
 from supabase import create_client
 import math
 
-genai.configure(api_key=settings.GEMINI_API_KEY)
+client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
 supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 
@@ -70,8 +71,6 @@ información extraída de los documentos de esta comunidad:
 
 Si la respuesta no está claramente en este texto, responde exactamente:
 "No he encontrado esta información en los documentos actuales."
-"""
-    prompt = f"""{system_prompt}
 
 Pregunta del vecino:
 {question}
@@ -79,7 +78,10 @@ Pregunta del vecino:
 Respuesta:
 """
 
-    resp = model.generate_content(prompt)
+    resp = client.models.generate_content(
+        model=MODEL_NAME,
+        contents=[{"parts": [{"text": system_prompt}]}],
+    )
 
     if not resp or not getattr(resp, "text", None):
         return "Ha ocurrido un problema al generar la respuesta."
@@ -88,7 +90,7 @@ Respuesta:
 
 ## Principal function
 
-def get_chatbot_response(comunidad_id, question, history=None):
+def get_chatbot_response(comunidad_id, question = Body(...), history=None):
     """
     1. Recupera chunks relevantes de los documentos de esa comunidad.
     2. Construye un contexto con esos chunks.
@@ -111,6 +113,6 @@ def get_chatbot_response(comunidad_id, question, history=None):
 
     return {
         "answer": answer,
-        "source": {"type": "RAG_IN_MEMORY", "reference": [c["chunk_id"] for c in chunks]},
+        "source": {"type": "RAG_IN_MEMORY", "reference": []},
         "disclaimer": DISCLAIMER,
     }

@@ -1,9 +1,11 @@
-import google.generativeai as genai
-import backend.core.config as settings
+from google import genai
+from backend.core.config import settings
 
-genai.configure(api_key=settings.GEMINI_API_KEY)
+client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
-EMBEDDING_MODEL = "text-embedding-004"  # GEMINI_EMBEDDING_MODEL
+# Modelo de embeddings compatible con la API v1beta del cliente actual
+# Formato aceptado por el cliente actual para embed_content.
+EMBEDDING_MODEL = "gemini-embedding-001"
 
 MEMORY = {}
 
@@ -19,12 +21,11 @@ def _chunk_text(text, max_chars=800):
     return chunks
 
 def _embed_text(text):
-    embeding = genai.embed_content(
+    embedding_response = client.models.embed_content(
         model=EMBEDDING_MODEL,
-        content=text,
-        task_type="retrieval_query",
+        contents=text
     )
-    return embeding["embedding"]
+    return embedding_response.embeddings[0].values
 
 def index_document(comunidad_id, document_title, raw_text):
     chunks = _chunk_text(raw_text)
@@ -37,10 +38,10 @@ def index_document(comunidad_id, document_title, raw_text):
         MEMORY[comunidad_id].append(
             {
                 "chunk_id": f"{document_title}-{i}",
-                text: chunk,
+                "text": chunk,
                 "embedding": embedding,
             }
         )
-        strored += 1
+        stored += 1
     
     return stored
