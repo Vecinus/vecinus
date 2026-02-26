@@ -14,6 +14,11 @@ def get_supabase() -> Client:
     """Dependency para inyectar el cliente de Supabase."""
     return supabase
 
+def get_admin_supabase() -> Client:
+    """Dependency para inyectar el cliente admin de Supabase con permisos (RLS bypass)."""
+    admin_options = ClientOptions(schema="dev")
+    return create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY, options=admin_options)
+
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
     """Dependency para validar el token JWT y obtener el usuario actual desde el esquema dev.profiles."""
     import jwt
@@ -30,12 +35,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
                 detail="Invalid authentication credentials",
             )
             
-        admin_options = ClientOptions(schema="dev")
-        admin_supabase: Client = create_client(
-            settings.SUPABASE_URL, 
-            settings.SUPABASE_SERVICE_KEY, 
-            options=admin_options
-        )
+        admin_supabase = get_admin_supabase()
         
         profile_res = admin_supabase.table("profiles").select("*").eq("id", user_id).execute()
         

@@ -10,7 +10,7 @@ os.environ["SUPABASE_KEY"] = "dummy"
 os.environ["SUPABASE_SERVICE_KEY"] = "dummy"
 
 from main import app
-from core.deps import get_current_user, get_supabase
+from core.deps import get_current_user, get_supabase, get_admin_supabase
 
 client = TestClient(app)
 
@@ -141,6 +141,7 @@ def override_get_supabase():
 def setup_overrides():
     app.dependency_overrides[get_current_user] = override_get_current_user
     app.dependency_overrides[get_supabase] = override_get_supabase
+    app.dependency_overrides[get_admin_supabase] = override_get_supabase
     
     # Patch create_client directly where it is used in the chat router
     patcher = patch("api.chat.create_client")

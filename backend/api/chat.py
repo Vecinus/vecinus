@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
 from typing import List, Dict
 from uuid import UUID
-from core.deps import get_supabase, get_current_user
+from core.deps import get_supabase, get_current_user, get_admin_supabase
 from core.config import settings
 from schemas.chat import ChatChannel, Message, MessageCreate, MessageUpdate, MessageWithSender, DirectMessageCreate
 from supabase import Client, create_client, ClientOptions
 import json
+from .chat_helpers import verify_channel_access, verify_message_ownership
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -13,10 +14,10 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 @router.get("/channels", response_model=List[ChatChannel])
 def get_user_channels(
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    admin_supabase: Client = Depends(get_admin_supabase)
 ):
     """Busca todos los canales a los que pertenece el usuario actual."""
-    admin_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY, options=ClientOptions(schema="dev"))
     
     res = admin_supabase.table("channel_participants").select("channel_id").eq("user_id", current_user["id"]).execute()
     if not res.data:
@@ -32,15 +33,11 @@ def get_user_channels(
 def get_channel_messages(
     channel_id: UUID,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase)
+    admin_supabase: Client = Depends(get_admin_supabase)
 ):
     """Busca el historial de mensajes de un canal, incluyendo la información del remitente."""
-    # Usamos el cliente admin_supabase para saltar RLS, ya hemos verificado el usuario a través de JWT
-    admin_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY, options=ClientOptions(schema="dev"))
-    
-    access_res = admin_supabase.table("channel_participants").select("*").eq("channel_id", str(channel_id)).eq("user_id", current_user["id"]).execute()
-    if not access_res.data:
-        raise HTTPException(status_code=403, detail="Access denied to this channel")
+    # Verificamos si el usuario pertenece al canal
+    verify_channel_access(channel_id, current_user["id"], admin_supabase)
 
     messages_res = admin_supabase.table("messages").select("*, sender:sender_id(id, username, avatar_url, created_at)").eq("channel_id", str(channel_id)).order("created_at", desc=False).execute()
     
@@ -51,17 +48,14 @@ def get_channel_messages(
 def create_direct_message(
     channel_id: UUID,
     dm_in: DirectMessageCreate,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    admin_supabase: Client = Depends(get_admin_supabase)
 ):
     """
     Crea un chat de mensaje directo con otro participante del mismo canal (comunidad).
     """
-    admin_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY, options=ClientOptions(schema="dev"))
-    
     # 1. Validar que el current_user está en el canal base para poder iniciar un DM
-    access_res = admin_supabase.table("channel_participants").select("*").eq("channel_id", str(channel_id)).eq("user_id", current_user["id"]).execute()
-    if not access_res.data:
-        raise HTTPException(status_code=403, detail="Access denied to the base channel")
+    verify_channel_access(channel_id, current_user["id"], admin_supabase)
         
     # 2. Obtener la comunidad a la que pertenece el canal base
     base_channel_res = admin_supabase.table("chat_channels").select("community_id").eq("id", str(channel_id)).execute()
@@ -131,17 +125,14 @@ def create_direct_message(
 @router.post("/channels/{channel_id}/block")
 def block_direct_message_channel(
     channel_id: UUID,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    admin_supabase: Client = Depends(get_admin_supabase)
 ):
     """
     Bloquea permanentemente un canal de mensaje directo.
     """
-    admin_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY, options=ClientOptions(schema="dev"))
-    
     # 1. Validar que el current_user es participante del canal
-    access_res = admin_supabase.table("channel_participants").select("*").eq("channel_id", str(channel_id)).eq("user_id", current_user["id"]).execute()
-    if not access_res.data:
-        raise HTTPException(status_code=403, detail="Access denied to this channel")
+    verify_channel_access(channel_id, current_user["id"], admin_supabase)
         
     # 2. Validar que el canal es un mensaje directo
     channel_res = admin_supabase.table("chat_channels").select("*").eq("id", str(channel_id)).execute()
@@ -167,17 +158,14 @@ def block_direct_message_channel(
 @router.post("/channels/{channel_id}/unblock")
 def unblock_direct_message_channel(
     channel_id: UUID,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    admin_supabase: Client = Depends(get_admin_supabase)
 ):
     """
     Desbloquea permanentemente un canal de mensaje directo, pero solo si eres la persona que lo bloqueó.
     """
-    admin_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY, options=ClientOptions(schema="dev"))
-    
     # 1. Validar que el current_user es participante del canal
-    access_res = admin_supabase.table("channel_participants").select("*").eq("channel_id", str(channel_id)).eq("user_id", current_user["id"]).execute()
-    if not access_res.data:
-        raise HTTPException(status_code=403, detail="Access denied to this channel")
+    verify_channel_access(channel_id, current_user["id"], admin_supabase)
         
     # 2. Validar que el canal es un mensaje directo
     channel_res = admin_supabase.table("chat_channels").select("*").eq("id", str(channel_id)).execute()
@@ -212,7 +200,8 @@ def unblock_direct_message_channel(
 async def send_message(
     channel_id: UUID,
     msg_in: MessageCreate,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    admin_supabase: Client = Depends(get_admin_supabase)
 ):
     """
     Envía un nuevo mensaje a un canal a través de la API REST oficial.
@@ -225,11 +214,7 @@ async def send_message(
        esta función invoca internamente al WebSocket manager para 'retransmitir' 
        (broadcast) el mensaje en vivo a todos los usuarios conectados instantáneamente.
     """
-    admin_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY, options=ClientOptions(schema="dev"))
-    
-    access_res = admin_supabase.table("channel_participants").select("*").eq("channel_id", str(channel_id)).eq("user_id", current_user["id"]).execute()
-    if not access_res.data:
-        raise HTTPException(status_code=403, detail="Access denied to this channel")
+    verify_channel_access(channel_id, current_user["id"], admin_supabase)
         
     if str(msg_in.channel_id) != str(channel_id):
         raise HTTPException(status_code=400, detail="Channel ID mismatch")
@@ -280,19 +265,12 @@ async def update_message(
     channel_id: UUID,
     message_id: UUID,
     msg_in: MessageUpdate,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    admin_supabase: Client = Depends(get_admin_supabase)
 ):
     """Edita un mensaje existente y actualiza la notificación (alerta) correspondiente."""
-    admin_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY, options=ClientOptions(schema="dev"))
-    
     # 1. Verificar si el mensaje existe y pertenece al usuario
-    msg_res = admin_supabase.table("messages").select("*").eq("id", str(message_id)).eq("channel_id", str(channel_id)).execute()
-    if not msg_res.data:
-        raise HTTPException(status_code=404, detail="Message not found")
-        
-    original_msg = msg_res.data[0]
-    if original_msg["sender_id"] != current_user["id"]:
-        raise HTTPException(status_code=403, detail="Not authorized to edit this message")
+    verify_message_ownership(message_id, channel_id, current_user["id"], admin_supabase)
         
     # 2. Actualizar el mensaje
     update_res = admin_supabase.table("messages").update({
@@ -328,19 +306,12 @@ async def update_message(
 async def delete_message(
     channel_id: UUID,
     message_id: UUID,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    admin_supabase: Client = Depends(get_admin_supabase)
 ):
     """Elimina un mensaje y sus notificaciones correspondientes."""
-    admin_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY, options=ClientOptions(schema="dev"))
-    
     # 1. Verificar si el mensaje existe y pertenece al usuario
-    msg_res = admin_supabase.table("messages").select("*").eq("id", str(message_id)).eq("channel_id", str(channel_id)).execute()
-    if not msg_res.data:
-        raise HTTPException(status_code=404, detail="Message not found")
-        
-    original_msg = msg_res.data[0]
-    if original_msg["sender_id"] != current_user["id"]:
-        raise HTTPException(status_code=403, detail="Not authorized to delete this message")
+    verify_message_ownership(message_id, channel_id, current_user["id"], admin_supabase)
         
     # 2. Eliminar el mensaje
     delete_res = admin_supabase.table("messages").delete().eq("id", str(message_id)).execute()
