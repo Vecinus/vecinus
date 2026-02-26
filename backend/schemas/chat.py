@@ -15,6 +15,11 @@ class ChatChannelBase(BaseModel):
     community_id: UUID
     name: Optional[str] = None
     is_direct_message: bool = False
+    is_blocked: bool = False
+    blocked_by: Optional[UUID] = None
+
+class DirectMessageCreate(BaseModel):
+    target_user_id: UUID
 
 class ChatChannelCreate(ChatChannelBase):
     pass

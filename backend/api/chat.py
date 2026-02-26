@@ -3,7 +3,7 @@ from typing import List, Dict
 from uuid import UUID
 from core.deps import get_supabase, get_current_user
 from core.config import settings
-from schemas.chat import ChatChannel, Message, MessageCreate, MessageUpdate, MessageWithSender
+from schemas.chat import ChatChannel, Message, MessageCreate, MessageUpdate, MessageWithSender, DirectMessageCreate
 from supabase import Client, create_client, ClientOptions
 import json
 
@@ -45,6 +45,167 @@ def get_channel_messages(
     messages_res = admin_supabase.table("messages").select("*, sender:sender_id(id, username, avatar_url, created_at)").eq("channel_id", str(channel_id)).order("created_at", desc=False).execute()
     
     return messages_res.data
+
+
+@router.post("/channels/{channel_id}/direct", response_model=ChatChannel)
+def create_direct_message(
+    channel_id: UUID,
+    dm_in: DirectMessageCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Crea un chat de mensaje directo con otro participante del mismo canal (comunidad).
+    """
+    admin_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY, options=ClientOptions(schema="dev"))
+    
+    # 1. Validar que el current_user está en el canal base para poder iniciar un DM
+    access_res = admin_supabase.table("channel_participants").select("*").eq("channel_id", str(channel_id)).eq("user_id", current_user["id"]).execute()
+    if not access_res.data:
+        raise HTTPException(status_code=403, detail="Access denied to the base channel")
+        
+    # 2. Obtener la comunidad a la que pertenece el canal base
+    base_channel_res = admin_supabase.table("chat_channels").select("community_id").eq("id", str(channel_id)).execute()
+    if not base_channel_res.data:
+        raise HTTPException(status_code=404, detail="Base channel not found")
+    community_id = base_channel_res.data[0]["community_id"]
+    
+    # 3. Validar que el target_user_id también está en la misma comunidad (comprobando su participación en canales de la comunidad, o en este canal)
+    target_access_res = admin_supabase.table("channel_participants").select("*").eq("channel_id", str(channel_id)).eq("user_id", str(dm_in.target_user_id)).execute()
+    if not target_access_res.data:
+        raise HTTPException(status_code=400, detail="Target user is not a participant of this channel")
+        
+    target_user_id = str(dm_in.target_user_id)
+    my_user_id = current_user["id"]
+    
+    # 4. Comprobar si ya existe un DM entre ellos en esta comunidad
+    # Una forma de hacerlo es buscar los DMs de la comunidad y ver si ambos participan
+    dm_channels_res = admin_supabase.table("chat_channels").select("id, is_blocked").eq("community_id", community_id).eq("is_direct_message", True).execute()
+    if dm_channels_res.data:
+        dm_channel_ids = [c["id"] for c in dm_channels_res.data]
+        
+        # Buscar en qué canales de DM participo yo
+        my_dms_res = admin_supabase.table("channel_participants").select("channel_id").eq("user_id", my_user_id).in_("channel_id", dm_channel_ids).execute()
+        my_dm_ids = [str(p["channel_id"]) for p in my_dms_res.data]
+        
+        if my_dm_ids:
+            # Buscar en cuáles de esos participa el target
+            target_dms_res = admin_supabase.table("channel_participants").select("channel_id").eq("user_id", target_user_id).in_("channel_id", my_dm_ids).execute()
+            
+            if target_dms_res.data:
+                # Ya existe un DM entre los dos en esta comunidad
+                existing_dm_id = str(target_dms_res.data[0]["channel_id"])
+                
+                # Obtener la info del canal para ver si está bloqueado
+                existing_channel = next((c for c in dm_channels_res.data if str(c["id"]) == existing_dm_id), None)
+                if existing_channel and existing_channel.get("is_blocked"):
+                    raise HTTPException(status_code=403, detail="This direct message chat is blocked.")
+                
+                # Retornar el canal existente
+                full_channel_res = admin_supabase.table("chat_channels").select("*").eq("id", existing_dm_id).execute()
+                return full_channel_res.data[0]
+                
+    # 5. Si no existe, crearlo
+    new_channel_data = {
+        "community_id": community_id,
+        "is_direct_message": True,
+        "is_blocked": False,
+        "blocked_by": None
+    }
+    
+    new_channel_res = admin_supabase.table("chat_channels").insert(new_channel_data).execute()
+    if not new_channel_res.data:
+        raise HTTPException(status_code=500, detail="Failed to create direct message channel")
+        
+    created_channel = new_channel_res.data[0]
+    
+    # 6. Insertar a los dos participantes
+    participants_data = [
+        {"channel_id": created_channel["id"], "user_id": my_user_id},
+        {"channel_id": created_channel["id"], "user_id": target_user_id}
+    ]
+    admin_supabase.table("channel_participants").insert(participants_data).execute()
+    
+    return created_channel
+
+
+@router.post("/channels/{channel_id}/block")
+def block_direct_message_channel(
+    channel_id: UUID,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Bloquea permanentemente un canal de mensaje directo.
+    """
+    admin_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY, options=ClientOptions(schema="dev"))
+    
+    # 1. Validar que el current_user es participante del canal
+    access_res = admin_supabase.table("channel_participants").select("*").eq("channel_id", str(channel_id)).eq("user_id", current_user["id"]).execute()
+    if not access_res.data:
+        raise HTTPException(status_code=403, detail="Access denied to this channel")
+        
+    # 2. Validar que el canal es un mensaje directo
+    channel_res = admin_supabase.table("chat_channels").select("*").eq("id", str(channel_id)).execute()
+    if not channel_res.data:
+        raise HTTPException(status_code=404, detail="Channel not found")
+        
+    channel_data = channel_res.data[0]
+    if not channel_data.get("is_direct_message"):
+        raise HTTPException(status_code=400, detail="Only direct message channels can be blocked through this endpoint")
+        
+    # 3. Marcar como bloqueado y guardar quién lo ha bloqueado
+    update_res = admin_supabase.table("chat_channels").update({
+        "is_blocked": True,
+        "blocked_by": current_user["id"]
+    }).eq("id", str(channel_id)).execute()
+    
+    if not update_res.data:
+        raise HTTPException(status_code=500, detail="Could not block the channel")
+        
+    return {"message": "Direct message channel successfully blocked."}
+
+
+@router.post("/channels/{channel_id}/unblock")
+def unblock_direct_message_channel(
+    channel_id: UUID,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Desbloquea permanentemente un canal de mensaje directo, pero solo si eres la persona que lo bloqueó.
+    """
+    admin_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY, options=ClientOptions(schema="dev"))
+    
+    # 1. Validar que el current_user es participante del canal
+    access_res = admin_supabase.table("channel_participants").select("*").eq("channel_id", str(channel_id)).eq("user_id", current_user["id"]).execute()
+    if not access_res.data:
+        raise HTTPException(status_code=403, detail="Access denied to this channel")
+        
+    # 2. Validar que el canal es un mensaje directo
+    channel_res = admin_supabase.table("chat_channels").select("*").eq("id", str(channel_id)).execute()
+    if not channel_res.data:
+        raise HTTPException(status_code=404, detail="Channel not found")
+        
+    channel_data = channel_res.data[0]
+    if not channel_data.get("is_direct_message"):
+        raise HTTPException(status_code=400, detail="Only direct message channels can be unblocked through this endpoint")
+        
+    # 3. Validar que está bloqueado
+    if not channel_data.get("is_blocked"):
+        raise HTTPException(status_code=400, detail="This channel is not blocked")
+        
+    # 4. Validar que la persona que intenta desbloquear es la que lo bloqueó
+    if str(channel_data.get("blocked_by")) != str(current_user["id"]):
+        raise HTTPException(status_code=403, detail="You are not authorized to unblock this channel because you did not block it")
+
+    # 5. Desbloquear
+    update_res = admin_supabase.table("chat_channels").update({
+        "is_blocked": False,
+        "blocked_by": None
+    }).eq("id", str(channel_id)).execute()
+    
+    if not update_res.data:
+        raise HTTPException(status_code=500, detail="Could not unblock the channel")
+        
+    return {"message": "Direct message channel successfully unblocked."}
 
 
 @router.post("/channels/{channel_id}/messages", response_model=Message)

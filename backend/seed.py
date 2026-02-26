@@ -94,14 +94,18 @@ def populate_db():
     channel_general = supabase.table("chat_channels").insert({
         "community_id": community_id,
         "name": "Canal General",
-        "is_direct_message": False
+        "is_direct_message": False,
+        "is_blocked": False,
+        "blocked_by": None
     }).execute()
     channel_general_id = channel_general.data[0]["id"]
     
     channel_dm = supabase.table("chat_channels").insert({
         "community_id": community_id,
         "name": None, # Los DMs no suelen tener nombre
-        "is_direct_message": True
+        "is_direct_message": True,
+        "is_blocked": False,
+        "blocked_by": None
     }).execute()
     channel_dm_id = channel_dm.data[0]["id"]
 

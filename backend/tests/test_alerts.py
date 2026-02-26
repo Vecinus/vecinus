@@ -1,5 +1,13 @@
 from fastapi.testclient import TestClient
 from uuid import uuid4
+import os
+from unittest.mock import patch
+
+# Set dummy env vars for pydantic settings before importing app
+os.environ["SUPABASE_URL"] = "http://localhost:8000"
+os.environ["SUPABASE_KEY"] = "dummy"
+os.environ["SUPABASE_SERVICE_KEY"] = "dummy"
+
 from main import app
 from core.deps import get_current_user, get_supabase
 
@@ -68,7 +76,15 @@ import pytest
 def setup_overrides():
     app.dependency_overrides[get_current_user] = override_get_current_user
     app.dependency_overrides[get_supabase] = override_get_supabase
+    
+    # Patch create_client directly where it is used in the alerts router
+    patcher = patch("api.alerts.create_client")
+    mock_create_client = patcher.start()
+    mock_create_client.return_value = override_get_supabase()
+    
     yield
+    
+    patcher.stop()
     app.dependency_overrides.clear()
 
 def test_get_alerts():
