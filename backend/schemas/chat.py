@@ -3,14 +3,14 @@ from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
 
-# Models for the dev.profiles table (simplified)
+# Models para la tabla dev.profiles (simplified)
 class ProfileResponse(BaseModel):
     id: UUID
     username: str
     avatar_url: Optional[str] = None
     created_at: Optional[datetime] = None
 
-# Models for the dev.chat_channels table
+# Models para la tabla dev.chat_channels
 class ChatChannelBase(BaseModel):
     community_id: UUID
     name: Optional[str] = None
@@ -25,7 +25,7 @@ class ChatChannel(ChatChannelBase):
     class Config:
         from_attributes = True
 
-# Models for the dev.messages table
+# Models para la tabla dev.messages
 class MessageBase(BaseModel):
     content: str
     channel_id: UUID
@@ -46,6 +46,6 @@ class Message(MessageBase):
     class Config:
         from_attributes = True
 
-# Extended Message Model to include sender username (helpful for UI)
+# Extended Message Model para incluir el nombre del remitente (útil para la UI)
 class MessageWithSender(Message):
     sender: Optional[ProfileResponse] = None

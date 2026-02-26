@@ -3,7 +3,7 @@ from supabase import create_client, Client, ClientOptions
 from dotenv import load_dotenv
 import uuid
 
-# Load environment variables
+# Cargamos las variables de entorno
 load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -13,7 +13,7 @@ if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
     print("Error: SUPABASE_URL or SUPABASE_SERVICE_KEY not found in .env")
     exit(1)
 
-# Initialize Supabase client targeting the 'dev' schema, using the service_role key to bypass RLS
+# Inicializamos el cliente de Supabase apuntando al schema 'dev', usando la service_role key para saltar RLS
 options = ClientOptions(schema="dev")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=options)
 

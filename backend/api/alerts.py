@@ -12,7 +12,6 @@ router = APIRouter(prefix="/alerts", tags=["alerts"])
 def get_alerts(
     current_user: dict = Depends(get_current_user)
 ):
-    """Fetch all alerts for the current user."""
     admin_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY, options=ClientOptions(schema="dev"))
     res = admin_supabase.table("alerts").select("*").eq("user_id", current_user["id"]).order("created_at", desc=True).execute()
     return res.data
@@ -22,7 +21,6 @@ def mark_alert_read(
     alert_id: UUID,
     current_user: dict = Depends(get_current_user)
 ):
-    """Mark a specific alert as read."""
     admin_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY, options=ClientOptions(schema="dev"))
     
     # Verificamos si la alerta pertenece al usuario

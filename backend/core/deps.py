@@ -19,8 +19,6 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     import jwt
     token = credentials.credentials
     try:
-        # Decodificamos el token localmente para evitar errores 401 por falta de 'session_id' 
-        # en tokens extraídos manualmente mediante la API REST de Supabase.
         payload = jwt.decode(token, options={"verify_signature": False})
         
         user_id = payload.get("sub")
@@ -32,9 +30,6 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
                 detail="Invalid authentication credentials",
             )
             
-        # Como las políticas RLS de Supabase a veces bloquean leer el propio perfil dependiendo 
-        # de cómo estén configuradas, usamos un cliente administrador (service_role) 
-        # para leer de forma segura la tabla tras haber validado el JWT exitosamente.
         admin_options = ClientOptions(schema="dev")
         admin_supabase: Client = create_client(
             settings.SUPABASE_URL, 
@@ -42,7 +37,6 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
             options=admin_options
         )
         
-        # Buscamos su perfil usando el admin client
         profile_res = admin_supabase.table("profiles").select("*").eq("id", user_id).execute()
         
         if not profile_res.data:

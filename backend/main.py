@@ -14,7 +14,7 @@ app.include_router(alerts_router)
 # Set up CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Should be tightened in production
+    allow_origins=["*"], # Debería ser limitado en producción
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

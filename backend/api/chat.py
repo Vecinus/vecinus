@@ -15,7 +15,7 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 def get_user_channels(
     current_user: dict = Depends(get_current_user)
 ):
-    """Fetch all channels the current user is a part of."""
+    """Busca todos los canales a los que pertenece el usuario actual."""
     admin_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY, options=ClientOptions(schema="dev"))
     
     res = admin_supabase.table("channel_participants").select("channel_id").eq("user_id", current_user["id"]).execute()
@@ -34,8 +34,8 @@ def get_channel_messages(
     current_user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase)
 ):
-    """Fetch message history for a channel, including sender profile info."""
-    # We use admin client to bypass RLS, we already verified the user via JWT
+    """Busca el historial de mensajes de un canal, incluyendo la información del remitente."""
+    # Usamos el cliente admin_supabase para saltar RLS, ya hemos verificado el usuario a través de JWT
     admin_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY, options=ClientOptions(schema="dev"))
     
     access_res = admin_supabase.table("channel_participants").select("*").eq("channel_id", str(channel_id)).eq("user_id", current_user["id"]).execute()
@@ -108,7 +108,7 @@ async def send_message(
         admin_supabase.table("alerts").insert(alerts_to_insert).execute()
     # -----------------------------------------------------------
     
-    # ¡Pieza Clave! Retransmitimos el mensaje ya guardado a todos los clientes del WebSocket
+    # Retransmitimos el mensaje ya guardado a todos los clientes del WebSocket
     await manager.broadcast(saved_message, str(channel_id))
     
     return saved_message
@@ -238,9 +238,6 @@ async def websocket_endpoint(websocket: WebSocket, channel_id: str):
     try:
         while True:
             data = await websocket.receive_text()
-            # Si el cliente nos envía algo directo por el socket (como la página local test_ws.html), 
-            # simplemente lo re-emitimos. En producción pura, podríamos ignorarlo 
-            # obligándole a usar el endpoint POST para escribir.
             await manager.broadcast({"channel_id": channel_id, "data": data, "type": "echo_test"}, channel_id)
     except WebSocketDisconnect:
         manager.disconnect(websocket, channel_id)
