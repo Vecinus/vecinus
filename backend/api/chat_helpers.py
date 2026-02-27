@@ -20,3 +20,19 @@ def verify_message_ownership(message_id: UUID | str, channel_id: UUID | str, use
         raise HTTPException(status_code=403, detail="Not authorized to perform this action on this message")
         
     return original_msg
+
+def verify_community_admin(association_id: UUID | str, user_id: str, supabase: Client):
+    """Verifica que un usuario tiene rol de administrador (role=1) en la comunidad dada. Lanza 403 o 404."""
+    # Ahora la tabla memberships tiene association_id directo, por lo que no es necesario pasar por properties
+    membership_res = supabase.table("memberships").select("role").eq("association_id", str(association_id)).eq("profile_id", str(user_id)).execute()
+    
+    if not membership_res.data:
+        raise HTTPException(status_code=404, detail="Membership not found in this community")
+        
+    user_role = membership_res.data[0].get("role")
+    
+    # 1 indica rol de administrador
+    if str(user_role) != "1":
+        raise HTTPException(status_code=403, detail="Admin access required for this action")
+        
+    return membership_res.data[0]

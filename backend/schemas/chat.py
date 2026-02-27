@@ -26,6 +26,7 @@ class ChatChannelCreate(ChatChannelBase):
 
 class ChatChannel(ChatChannelBase):
     id: UUID
+    created_by: UUID
 
     class Config:
         from_attributes = True

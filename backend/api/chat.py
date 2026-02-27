@@ -11,6 +11,126 @@ from .chat_helpers import verify_channel_access, verify_message_ownership
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 # --- REST Endpoints ---
+from .chat_helpers import verify_channel_access, verify_message_ownership, verify_community_admin
+from schemas.chat import ChatChannelCreate
+
+@router.post("/channels", response_model=ChatChannel)
+def create_group_channel(
+    channel_in: ChatChannelCreate,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase)
+):
+    """
+    Crea un nuevo canal de chat grupal. Solo los administradores de la comunidad pueden hacerlo.
+    """
+    # Verificar que el usuario es admin de la comunidad (role=1 en memberships)
+    verify_community_admin(channel_in.association_id, current_user["id"], supabase)
+    
+    new_channel_data = {
+        "association_id": str(channel_in.association_id),
+        "name": channel_in.name,
+        "is_direct_message": False,
+        "is_blocked": channel_in.is_blocked,
+        "blocked_by": str(channel_in.blocked_by) if channel_in.blocked_by else None
+    }
+    
+    new_channel_res = supabase.table("chat_channels").insert(new_channel_data).execute()
+    if not new_channel_res.data:
+        raise HTTPException(status_code=500, detail="Failed to create group channel")
+        
+    created_channel = new_channel_res.data[0]
+    
+    # Obtener todos los miembros de la comunidad para añadirlos al canal de forma automática
+    members_res = supabase.table("memberships").select("profile_id").eq("association_id", str(channel_in.association_id)).execute()
+    
+    participants_data = []
+    if members_res.data:
+        participants_data = [
+            {
+                "channel_id": created_channel["id"],
+                "user_id": member["profile_id"]
+            }
+            for member in members_res.data
+        ]
+        
+    # Nos aseguramos de que el creador esté siempre incluido por si acaso
+    if not any(p["user_id"] == current_user["id"] for p in participants_data):
+        participants_data.append({
+            "channel_id": created_channel["id"],
+            "user_id": current_user["id"]
+        })
+        
+    if participants_data:
+        supabase.table("channel_participants").insert(participants_data).execute()
+    
+    return created_channel
+
+@router.put("/channels/{channel_id}", response_model=ChatChannel)
+def update_group_channel(
+    channel_id: UUID,
+    channel_in: ChatChannelCreate, # Reutilizamos el schema de create para la actualización
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase)
+):
+    """
+    Actualiza la información de un canal de chat grupal. Solo admins pueden hacerlo.
+    """
+    # 1. Obtener la comunidad a la que pertenece el canal
+    channel_res = supabase.table("chat_channels").select("association_id, is_direct_message").eq("id", str(channel_id)).execute()
+    if not channel_res.data:
+        raise HTTPException(status_code=404, detail="Channel not found")
+        
+    channel_data = channel_res.data[0]
+    if channel_data.get("is_direct_message"):
+        raise HTTPException(status_code=400, detail="Cannot edit direct messages through this endpoint")
+        
+    association_id = channel_data["association_id"]
+    
+    # 2. Verificar que el usuario es admin de la comunidad
+    verify_community_admin(association_id, current_user["id"], supabase)
+    
+    # 3. Actualizar
+    update_data = {
+        "name": channel_in.name,
+        "is_blocked": channel_in.is_blocked,
+        "blocked_by": str(channel_in.blocked_by) if channel_in.blocked_by else None
+    }
+    
+    update_res = supabase.table("chat_channels").update(update_data).eq("id", str(channel_id)).execute()
+    
+    if not update_res.data:
+        raise HTTPException(status_code=500, detail="Could not update channel")
+        
+    return update_res.data[0]
+
+
+@router.delete("/channels/{channel_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_group_channel(
+    channel_id: UUID,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase)
+):
+    """
+    Elimina un canal de chat grupal. Solo admins pueden hacerlo.
+    """
+    # 1. Obtener la comunidad a la que pertenece el canal
+    channel_res = supabase.table("chat_channels").select("association_id, is_direct_message").eq("id", str(channel_id)).execute()
+    if not channel_res.data:
+        raise HTTPException(status_code=404, detail="Channel not found")
+        
+    channel_data = channel_res.data[0]
+    if channel_data.get("is_direct_message"):
+        raise HTTPException(status_code=400, detail="Cannot delete direct messages through this endpoint")
+        
+    association_id = channel_data["association_id"]
+    
+    # 2. Verificar que el usuario es admin de la comunidad
+    verify_community_admin(association_id, current_user["id"], supabase)
+    
+    # 3. Eliminar el canal (Postgres elimina en cascada automáticamente los mensajes y participantes ligados)
+    delete_res = supabase.table("chat_channels").delete().eq("id", str(channel_id)).execute()
+    
+    return None
 
 @router.get("/channels", response_model=List[ChatChannel])
 def get_user_channels(

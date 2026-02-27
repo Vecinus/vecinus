@@ -47,6 +47,8 @@ class MockSupabaseTable:
                 inserted_row["id"] = str(uuid4())
             if "created_at" not in inserted_row and "created_at" in self._all_data[0] if self._all_data else False:
                 inserted_row["created_at"] = datetime.utcnow().isoformat() + "Z"
+            if "created_by" not in inserted_row and self.table_name == "chat_channels":
+                inserted_row["created_by"] = mock_user["id"]
             inserted_rows.append(inserted_row)
             
         self._inserted = inserted_rows
@@ -137,12 +139,16 @@ def override_get_supabase():
             {"channel_id": mock_dm_blocked_by_other, "user_id": mock_user["id"]}
         ],
         "chat_channels": [
-            {"id": mock_channel_id, "association_id": mock_association_id, "name": "General", "is_direct_message": False, "is_blocked": False, "blocked_by": None},
-            {"id": mock_dm_channel_id, "association_id": mock_association_id, "name": None, "is_direct_message": True, "is_blocked": False, "blocked_by": None},
-            {"id": mock_dm_blocked_by_me, "association_id": mock_association_id, "name": None, "is_direct_message": True, "is_blocked": True, "blocked_by": mock_user["id"]},
-            {"id": mock_dm_blocked_by_other, "association_id": mock_association_id, "name": None, "is_direct_message": True, "is_blocked": True, "blocked_by": mock_target_user_id}
+            {"id": mock_channel_id, "association_id": mock_association_id, "name": "General", "is_direct_message": False, "is_blocked": False, "blocked_by": None, "created_by": mock_user["id"]},
+            {"id": mock_dm_channel_id, "association_id": mock_association_id, "name": None, "is_direct_message": True, "is_blocked": False, "blocked_by": None, "created_by": mock_user["id"]},
+            {"id": mock_dm_blocked_by_me, "association_id": mock_association_id, "name": None, "is_direct_message": True, "is_blocked": True, "blocked_by": mock_user["id"], "created_by": mock_user["id"]},
+            {"id": mock_dm_blocked_by_other, "association_id": mock_association_id, "name": None, "is_direct_message": True, "is_blocked": True, "blocked_by": mock_target_user_id, "created_by": mock_target_user_id}
         ],
-        "messages": [{"id": str(uuid4()), "channel_id": mock_channel_id, "sender_id": mock_user["id"], "content": "Hello", "created_at": "2026-02-22T00:00:00Z", "sender": mock_user}]
+        "messages": [{"id": str(uuid4()), "channel_id": mock_channel_id, "sender_id": mock_user["id"], "content": "Hello", "created_at": "2026-02-22T00:00:00Z", "sender": mock_user}],
+        "memberships": [
+            {"association_id": mock_association_id, "profile_id": mock_user["id"], "role": 1}, # Admin
+            {"association_id": mock_association_id, "profile_id": mock_target_user_id, "role": 2} # Not admin
+        ]
     })
 
 @pytest.fixture(autouse=True)
@@ -234,4 +240,87 @@ def test_unblock_not_blocked_channel():
     assert response.status_code == 400
     data = response.json()
     assert data["detail"] == "This channel is not blocked"
+
+def test_create_group_channel_as_admin():
+    req_data = {
+        "association_id": mock_association_id,
+        "name": "Anuncios Oficiales",
+        "is_direct_message": False,
+        "is_blocked": False
+    }
+    response = client.post("/chat/channels", json=req_data)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "Anuncios Oficiales"
+    assert data["association_id"] == mock_association_id
+    assert data["is_direct_message"] is False
+
+def test_update_group_channel_as_admin():
+    req_data = {
+        "association_id": mock_association_id,
+        "name": "General Actualizado",
+        "is_direct_message": False,
+        "is_blocked": False
+    }
+    response = client.put(f"/chat/channels/{mock_channel_id}", json=req_data)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "General Actualizado"
+
+def test_delete_group_channel_as_admin():
+    response = client.delete(f"/chat/channels/{mock_channel_id}")
+    assert response.status_code == 204
+
+def test_create_group_channel_not_admin():
+    # Setup mock user inline explicitly to prevent 401
+    mock_not_admin = {
+        "id": mock_target_user_id,
+        "username": "user2",
+        "role": "authenticated"
+    }
+    app.dependency_overrides[get_current_user] = lambda: mock_not_admin
+    
+    req_data = {
+        "association_id": mock_association_id,
+        "name": "Intento Fallido",
+        "is_direct_message": False,
+        "is_blocked": False
+    }
+    response = client.post("/chat/channels", json=req_data)
+    assert response.status_code == 403
+    
+    # Restore override for future tests
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+def test_update_group_channel_not_admin():
+    mock_not_admin = {
+        "id": mock_target_user_id,
+        "username": "user2",
+        "role": "authenticated"
+    }
+    app.dependency_overrides[get_current_user] = lambda: mock_not_admin
+    
+    req_data = {
+        "association_id": mock_association_id,
+        "name": "Intento Fallido",
+        "is_direct_message": False,
+        "is_blocked": False
+    }
+    response = client.put(f"/chat/channels/{mock_channel_id}", json=req_data)
+    assert response.status_code == 403
+    
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+def test_delete_group_channel_not_admin():
+    mock_not_admin = {
+        "id": mock_target_user_id,
+        "username": "user2",
+        "role": "authenticated"
+    }
+    app.dependency_overrides[get_current_user] = lambda: mock_not_admin
+    
+    response = client.delete(f"/chat/channels/{mock_channel_id}")
+    assert response.status_code == 403
+    
+    app.dependency_overrides[get_current_user] = override_get_current_user
 
