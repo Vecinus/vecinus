@@ -12,7 +12,7 @@ class ProfileResponse(BaseModel):
 
 # Models para la tabla dev.chat_channels
 class ChatChannelBase(BaseModel):
-    community_id: UUID
+    association_id: UUID
     name: Optional[str] = None
     is_direct_message: bool = False
     is_blocked: bool = False

@@ -10,25 +10,25 @@ router = APIRouter(prefix="/alerts", tags=["alerts"])
 
 @router.get("", response_model=List[Alert])
 def get_alerts(
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase)
 ):
-    admin_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY, options=ClientOptions(schema="dev"))
-    res = admin_supabase.table("alerts").select("*").eq("user_id", current_user["id"]).order("created_at", desc=True).execute()
+    res = supabase.table("alerts").select("*").eq("user_id", current_user["id"]).order("created_at", desc=True).execute()
     return res.data
 
 @router.put("/{alert_id}/read", response_model=Alert)
 def mark_alert_read(
     alert_id: UUID,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase)
 ):
-    admin_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY, options=ClientOptions(schema="dev"))
     
     # Verificamos si la alerta pertenece al usuario
-    alert_res = admin_supabase.table("alerts").select("*").eq("id", str(alert_id)).eq("user_id", current_user["id"]).execute()
+    alert_res = supabase.table("alerts").select("*").eq("id", str(alert_id)).eq("user_id", current_user["id"]).execute()
     if not alert_res.data:
         raise HTTPException(status_code=404, detail="Alert not found or access denied")
     
-    update_res = admin_supabase.table("alerts").update({"is_read": True}).eq("id", str(alert_id)).execute()
+    update_res = supabase.table("alerts").update({"is_read": True}).eq("id", str(alert_id)).execute()
     if not update_res.data:
         raise HTTPException(status_code=400, detail="Could not update alert")
         

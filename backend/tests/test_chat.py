@@ -7,10 +7,9 @@ from unittest.mock import patch
 # Set dummy env vars for pydantic settings before importing app
 os.environ["SUPABASE_URL"] = "http://localhost:8000"
 os.environ["SUPABASE_KEY"] = "dummy"
-os.environ["SUPABASE_SERVICE_KEY"] = "dummy"
 
 from main import app
-from core.deps import get_current_user, get_supabase, get_admin_supabase
+from core.deps import get_current_user, get_supabase
 
 client = TestClient(app)
 
@@ -109,7 +108,7 @@ def override_get_current_user():
     return mock_user
 
 mock_channel_id = str(uuid4())
-mock_community_id = str(uuid4())
+mock_association_id = str(uuid4())
 mock_dm_channel_id = str(uuid4())
 mock_target_user_id = str(uuid4())
 
@@ -129,10 +128,10 @@ def override_get_supabase():
             {"channel_id": mock_dm_blocked_by_other, "user_id": mock_user["id"]}
         ],
         "chat_channels": [
-            {"id": mock_channel_id, "community_id": mock_community_id, "name": "General", "is_direct_message": False, "is_blocked": False, "blocked_by": None},
-            {"id": mock_dm_channel_id, "community_id": mock_community_id, "name": None, "is_direct_message": True, "is_blocked": False, "blocked_by": None},
-            {"id": mock_dm_blocked_by_me, "community_id": mock_community_id, "name": None, "is_direct_message": True, "is_blocked": True, "blocked_by": mock_user["id"]},
-            {"id": mock_dm_blocked_by_other, "community_id": mock_community_id, "name": None, "is_direct_message": True, "is_blocked": True, "blocked_by": mock_target_user_id}
+            {"id": mock_channel_id, "association_id": mock_association_id, "name": "General", "is_direct_message": False, "is_blocked": False, "blocked_by": None},
+            {"id": mock_dm_channel_id, "association_id": mock_association_id, "name": None, "is_direct_message": True, "is_blocked": False, "blocked_by": None},
+            {"id": mock_dm_blocked_by_me, "association_id": mock_association_id, "name": None, "is_direct_message": True, "is_blocked": True, "blocked_by": mock_user["id"]},
+            {"id": mock_dm_blocked_by_other, "association_id": mock_association_id, "name": None, "is_direct_message": True, "is_blocked": True, "blocked_by": mock_target_user_id}
         ],
         "messages": [{"id": str(uuid4()), "channel_id": mock_channel_id, "sender_id": mock_user["id"], "content": "Hello", "created_at": "2026-02-22T00:00:00Z", "sender": mock_user}]
     })
@@ -141,7 +140,6 @@ def override_get_supabase():
 def setup_overrides():
     app.dependency_overrides[get_current_user] = override_get_current_user
     app.dependency_overrides[get_supabase] = override_get_supabase
-    app.dependency_overrides[get_admin_supabase] = override_get_supabase
     
     # Patch create_client directly where it is used in the chat router
     patcher = patch("api.chat.create_client")
@@ -197,7 +195,7 @@ def test_create_direct_message():
     assert response.status_code == 200
     data = response.json()
     assert data["is_direct_message"] is True
-    assert data["community_id"] == mock_community_id
+    assert data["association_id"] == mock_association_id
     assert "id" in data
 
 def test_block_direct_message():
