@@ -103,6 +103,15 @@ class MockSupabaseClient:
     def table(self, name: str):
         return MockSupabaseTable(name, self.mock_responses.get(name, []))
 
+    def rpc(self, name: str, params: dict):
+        class MockRPC:
+            def execute(self):
+                class MockResponse:
+                    def __init__(self, data):
+                        self.data = data
+                return MockResponse([])
+        return MockRPC()
+
 # Dependency overrides
 def override_get_current_user():
     return mock_user

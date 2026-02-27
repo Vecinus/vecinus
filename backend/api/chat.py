@@ -37,7 +37,7 @@ def get_channel_messages(
 ):
     """Busca el historial de mensajes de un canal, incluyendo la información del remitente."""
     # Verificamos si el usuario pertenece al canal
-    verify_channel_access(channel_id, current_user["id"], supabase)
+    verify_channel_access(str(str(channel_id)), current_user["id"], supabase)
 
     messages_res = supabase.table("messages").select("*, sender:sender_id(id, username, avatar_url, created_at)").eq("channel_id", str(channel_id)).order("created_at", desc=False).execute()
     
@@ -55,7 +55,7 @@ def create_direct_message(
     Crea un chat de mensaje directo con otro participante del mismo canal (comunidad).
     """
     # 1. Validar que el current_user está en el canal base para poder iniciar un DM
-    verify_channel_access(channel_id, current_user["id"], supabase)
+    verify_channel_access(str(str(channel_id)), current_user["id"], supabase)
         
     # 2. Obtener la comunidad a la que pertenece el canal base
     base_channel_res = supabase.table("chat_channels").select("association_id").eq("id", str(channel_id)).execute()
@@ -132,7 +132,7 @@ def block_direct_message_channel(
     Bloquea permanentemente un canal de mensaje directo.
     """
     # 1. Validar que el current_user es participante del canal
-    verify_channel_access(channel_id, current_user["id"], supabase)
+    verify_channel_access(str(str(channel_id)), current_user["id"], supabase)
         
     # 2. Validar que el canal es un mensaje directo
     channel_res = supabase.table("chat_channels").select("*").eq("id", str(channel_id)).execute()
@@ -165,7 +165,7 @@ def unblock_direct_message_channel(
     Desbloquea permanentemente un canal de mensaje directo, pero solo si eres la persona que lo bloqueó.
     """
     # 1. Validar que el current_user es participante del canal
-    verify_channel_access(channel_id, current_user["id"], supabase)
+    verify_channel_access(str(str(channel_id)), current_user["id"], supabase)
         
     # 2. Validar que el canal es un mensaje directo
     channel_res = supabase.table("chat_channels").select("*").eq("id", str(channel_id)).execute()
@@ -214,13 +214,13 @@ async def send_message(
        esta función invoca internamente al WebSocket manager para 'retransmitir' 
        (broadcast) el mensaje en vivo a todos los usuarios conectados instantáneamente.
     """
-    verify_channel_access(channel_id, current_user["id"], supabase)
+    verify_channel_access(str(str(channel_id)), current_user["id"], supabase)
         
-    if str(msg_in.channel_id) != str(channel_id):
+    if msg_in.channel_id != channel_id:
         raise HTTPException(status_code=400, detail="Channel ID mismatch")
 
     new_msg = {
-        "channel_id": str(channel_id),
+        "channel_id": str(str(channel_id)),
         "sender_id": current_user["id"],
         "content": msg_in.content
     }
@@ -246,12 +246,11 @@ async def send_message(
                 "user_id": p_id,
                 "title": f"Nuevo mensaje de {sender_name}",
                 "content": msg_preview,
-                "is_read": False,
                 "reference_id": saved_message["id"]
             }
             for p_id in participants
         ]
-        supabase.table("alerts").insert(alerts_to_insert).execute()
+        supabase.rpc("create_alerts_batch", {"payload": alerts_to_insert}).execute()
     # -----------------------------------------------------------
     
     # Retransmitimos el mensaje ya guardado a todos los clientes del WebSocket
@@ -270,14 +269,14 @@ async def update_message(
 ):
     """Edita un mensaje existente y actualiza la notificación (alerta) correspondiente."""
     # 1. Verificar si el mensaje existe y pertenece al usuario
-    verify_message_ownership(message_id, channel_id, current_user["id"], supabase)
+    verify_message_ownership(str(message_id), str(str(channel_id)), current_user["id"], supabase)
         
     # 2. Actualizar el mensaje
     update_res = supabase.table("messages").update({
         "content": msg_in.content,
         "is_edited": True,
         "updated_at": "now()"
-    }).eq("id", str(message_id)).execute()
+    }).eq("id", message_id).execute()
     
     if not update_res.data:
         raise HTTPException(status_code=500, detail="Could not update message")
@@ -288,9 +287,10 @@ async def update_message(
     sender_name = current_user.get("username", "Un vecino")
     msg_preview = msg_in.content[:100] + ("..." if len(msg_in.content) > 100 else "")
     
-    supabase.table("alerts").update({
-        "content": msg_preview
-    }).eq("reference_id", str(message_id)).execute()
+    supabase.rpc("update_alert_by_reference", {
+        "p_reference_id": str(message_id),
+        "p_content": msg_preview
+    }).execute()
     
     # 4. Retransmitir evento de edición al WebSocket
     broadcast_data = {
@@ -311,20 +311,20 @@ async def delete_message(
 ):
     """Elimina un mensaje y sus notificaciones correspondientes."""
     # 1. Verificar si el mensaje existe y pertenece al usuario
-    verify_message_ownership(message_id, channel_id, current_user["id"], supabase)
+    verify_message_ownership(str(message_id), str(str(channel_id)), current_user["id"], supabase)
         
     # 2. Eliminar el mensaje
-    delete_res = supabase.table("messages").delete().eq("id", str(message_id)).execute()
+    delete_res = supabase.table("messages").delete().eq("id", message_id).execute()
     # Supabase Python client .delete() might return data if it has returning=* or we can just rely on not raising
     
     # 3. Eliminar la alerta correspondiente (si reference_id = message_id)
-    supabase.table("alerts").delete().eq("reference_id", str(message_id)).execute()
+    supabase.rpc("delete_alert_by_reference", {"p_reference_id": str(message_id)}).execute()
     
     # 4. Retransmitir evento de borrado al WebSocket
     broadcast_data = {
         "event": "message_deleted",
         "message_id": str(message_id),
-        "channel_id": str(channel_id)
+        "channel_id": channel_id
     }
     await manager.broadcast(broadcast_data, str(channel_id))
     
@@ -335,20 +335,20 @@ class ConnectionManager:
     def __init__(self):
         self.active_connections: Dict[str, List[WebSocket]] = {}
 
-    async def connect(self, websocket: WebSocket, channel_id: str):
+    async def connect(self, websocket: WebSocket, channel_id: UUID):
         await websocket.accept()
         if channel_id not in self.active_connections:
             self.active_connections[channel_id] = []
         self.active_connections[channel_id].append(websocket)
 
-    def disconnect(self, websocket: WebSocket, channel_id: str):
+    def disconnect(self, websocket: WebSocket, channel_id: UUID):
         if channel_id in self.active_connections:
             if websocket in self.active_connections[channel_id]:
                 self.active_connections[channel_id].remove(websocket)
             if not self.active_connections[channel_id]:
                 del self.active_connections[channel_id]
 
-    async def broadcast(self, message: dict, channel_id: str):
+    async def broadcast(self, message: dict, channel_id: UUID):
         if channel_id in self.active_connections:
             for connection in self.active_connections[channel_id]:
                 # Send JSON stringified data to frontend
@@ -357,7 +357,7 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 @router.websocket("/ws/{channel_id}")
-async def websocket_endpoint(websocket: WebSocket, channel_id: str):
+async def websocket_endpoint(websocket: WebSocket, channel_id: UUID):
     """
     Túnel WebSocket para recibir notificaciones en Tiempo Real (Live Feed).
     
@@ -366,10 +366,10 @@ async def websocket_endpoint(websocket: WebSocket, channel_id: str):
     gestor de conexiones (ConnectionManager) les escupa los mensajes nuevos
     que se han guardado desde la API POST.
     """
-    await manager.connect(websocket, channel_id)
+    await manager.connect(websocket, str(channel_id))
     try:
         while True:
             data = await websocket.receive_text()
-            await manager.broadcast({"channel_id": channel_id, "data": data, "type": "echo_test"}, channel_id)
+            await manager.broadcast({"channel_id": str(str(channel_id)), "data": data, "type": "echo_test"}, str(channel_id))
     except WebSocketDisconnect:
-        manager.disconnect(websocket, channel_id)
+        manager.disconnect(websocket, str(channel_id))
