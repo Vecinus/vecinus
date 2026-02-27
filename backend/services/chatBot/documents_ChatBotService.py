@@ -7,7 +7,7 @@ client = genai.Client(api_key=settings.GEMINI_API_KEY)
 # Formato aceptado por el cliente actual para embed_content.
 EMBEDDING_MODEL = "gemini-embedding-001"
 
-MEMORY = {}
+supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 
 def _chunk_text(text, max_chars=800):
     text = text.strip()
@@ -29,19 +29,18 @@ def _embed_text(text):
 
 def index_document(comunidad_id, document_title, raw_text):
     chunks = _chunk_text(raw_text)
-    
-    if comunidad_id not in MEMORY:
-        MEMORY[comunidad_id] = []
     stored = 0
+
     for i, chunk in enumerate(chunks):
         embedding = _embed_text(chunk)
-        MEMORY[comunidad_id].append(
-            {
-                "chunk_id": f"{document_title}-{i}",
-                "text": chunk,
-                "embedding": embedding,
-            }
-        )
+
+        supabase.table("document_chunks").insert({
+            "comunidad_id": comunidad_id,
+            "title": document_title,
+            "chunk_index": i,
+            "texto": chunk,
+            "embedding": embedding,
+        }).execute()
         stored += 1
-    
+
     return stored

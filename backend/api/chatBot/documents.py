@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Body
 from pydantic import BaseModel
-from backend.services.documents_ChatBotService import index_document
+from backend.services.chatBot.documents_ChatBotService import index_document
 
 router = APIRouter(prefix="/comunities", tags=["documents"])
 

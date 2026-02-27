@@ -1,6 +1,6 @@
-from fastapi.params import Body
 from google import genai
-import backend.services.documents_ChatBotService as doc_service
+
+import backend.services.chatBot.documents_ChatBotService as doc_service
 from backend.core.config import settings
 from supabase import create_client
 import math
@@ -34,16 +34,27 @@ def _cosine_similarity(a, b):
     return dot / (norm_a * norm_b)
 
 def _retrieve_relevant_chunks(comunidad_id, question, top_k=5):
-    if comunidad_id not in doc_service.MEMORY:
-        return []
     question_embed = doc_service._embed_text(question)
-    scored = []
-    for chunk in doc_service.MEMORY[comunidad_id]:
-        similarity = _cosine_similarity(question_embed, chunk["embedding"])
-        scored.append((similarity, chunk))
-    scored.sort(key=lambda x: x[0], reverse=True)
 
-    top_chunks = [c for score,c in scored[:top_k] if score > 0.2]
+    res = supabase.table("document_chunks").select("id, document_title, chunk_index, text, embedding") \
+           .eq("comunidad_id", comunidad_id).execute()
+
+    rows = res.data or []
+
+    scored = []
+    for r in rows:
+        embedding = r["embedding"]
+        similarity = _cosine_similarity(question_embed, embedding)
+        scored.append((similarity,
+                       {
+                           "chunk_id": r["id"],
+                           "text": r["text"],
+                           "embedding": embedding,
+                           "document_title": r["document_title"],
+                           "chunk_index": r["chunk_index"],
+                       }))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    top_chunks = [c for score, c in scored[:top_k] if score > 0.2]
     return top_chunks
 
 
@@ -51,7 +62,7 @@ def _build_context(chunks, max_chars = 6000):
     parts = []
     total = 0
     for c in chunks:
-        t = c["texto"]
+        t = c["text"]
         if total + len(t) > max_chars:
             break
         parts.append(t)
@@ -90,7 +101,7 @@ Respuesta:
 
 ## Principal function
 
-def get_chatbot_response(comunidad_id, question = Body(...), history=None):
+def get_chatbot_response(comunidad_id, question, history=None):
     """
     1. Recupera chunks relevantes de los documentos de esa comunidad.
     2. Construye un contexto con esos chunks.
