@@ -23,7 +23,7 @@ markdown-it-py==4.0.0
 mdurl==0.1.2
 mmh3==5.2.0
 multidict==6.7.1
-packaging==26.0
+packaging
 postgrest==2.28.0
 propcache==0.4.1
 pycparser==3.0
@@ -59,7 +59,7 @@ yarl==1.22.0
 zstandard==0.25.0
 # --- Librerías para IA (Chatbot RAG) ---
 google-genai
-langchain==0.1.11
+langchain
 pypdf==4.1.0
 tiktoken==0.6.0
 pinecone-client==3.1.0
