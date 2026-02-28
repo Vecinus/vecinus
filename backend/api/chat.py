@@ -1,18 +1,25 @@
-from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
-from typing import List, Dict
-from uuid import UUID
-from core.deps import get_supabase, get_current_user
-from core.config import settings
-from schemas.chat import ChatChannel, Message, MessageCreate, MessageUpdate, MessageWithSender, DirectMessageCreate
-from supabase import Client, create_client, ClientOptions
 import json
+from typing import Dict, List
+from uuid import UUID
+
+from core.config import settings
+from core.deps import get_current_user, get_supabase
+from fastapi import (APIRouter, Depends, HTTPException, WebSocket,
+                     WebSocketDisconnect, status)
+from schemas.chat import (ChatChannel, DirectMessageCreate, Message,
+                          MessageCreate, MessageUpdate, MessageWithSender)
+from supabase import Client, ClientOptions, create_client
+
 from .chat_helpers import verify_channel_access, verify_message_ownership
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
-# --- REST Endpoints ---
-from .chat_helpers import verify_channel_access, verify_message_ownership, verify_community_admin
 from schemas.chat import ChatChannelCreate
+
+# --- REST Endpoints ---
+from .chat_helpers import (verify_association_admin, verify_channel_access,
+                           verify_message_ownership)
+
 
 @router.post("/channels", response_model=ChatChannel)
 def create_group_channel(
@@ -24,7 +31,7 @@ def create_group_channel(
     Crea un nuevo canal de chat grupal. Solo los administradores de la comunidad pueden hacerlo.
     """
     # Verificar que el usuario es admin de la comunidad (role=1 en memberships)
-    verify_community_admin(channel_in.association_id, current_user["id"], supabase)
+    verify_association_admin(channel_in.association_id, current_user["id"], supabase)
     
     new_channel_data = {
         "association_id": str(channel_in.association_id),
@@ -87,7 +94,7 @@ def update_group_channel(
     association_id = channel_data["association_id"]
     
     # 2. Verificar que el usuario es admin de la comunidad
-    verify_community_admin(association_id, current_user["id"], supabase)
+    verify_association_admin(association_id, current_user["id"], supabase)
     
     # 3. Actualizar
     update_data = {
@@ -125,7 +132,7 @@ def delete_group_channel(
     association_id = channel_data["association_id"]
     
     # 2. Verificar que el usuario es admin de la comunidad
-    verify_community_admin(association_id, current_user["id"], supabase)
+    verify_association_admin(association_id, current_user["id"], supabase)
     
     # 3. Eliminar el canal (Postgres elimina en cascada automáticamente los mensajes y participantes ligados)
     delete_res = supabase.table("chat_channels").delete().eq("id", str(channel_id)).execute()

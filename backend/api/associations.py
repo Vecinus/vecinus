@@ -1,13 +1,12 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
-from supabase import Client
-
-from api.chat_helpers import verify_community_admin, verify_property_owner
+from api.chat_helpers import verify_association_admin, verify_property_owner
 from core.deps import get_current_user, get_supabase, get_supabase_admin
+from fastapi import APIRouter, Depends, HTTPException
 from schemas.associations import (AcceptInvitationRequest, InvitationResponse,
                                   InviteAdminRequest, InviteTenantRequest,
                                   MembershipWithCommunity)
+from supabase import Client
 
 router = APIRouter()
 
@@ -40,7 +39,7 @@ def invite_admin(
             status_code=400, detail="Cannot grant ADMIN role via invitation"
         )
 
-    verify_community_admin(body.association_id, current_user["id"], supabase)
+    verify_association_admin(body.association_id, current_user["id"], supabase)
 
     result = (
         supabase.table("invitations")

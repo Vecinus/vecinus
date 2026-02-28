@@ -1,6 +1,8 @@
+from uuid import UUID
+
 from fastapi import HTTPException
 from supabase import Client
-from uuid import UUID
+
 
 def verify_channel_access(channel_id: UUID | str, user_id: str, admin_supabase: Client):
     """Verifica que un usuario pertenece a un canal. Lanza 403 si no es así."""
@@ -21,7 +23,7 @@ def verify_message_ownership(message_id: UUID | str, channel_id: UUID | str, use
         
     return original_msg
 
-def verify_community_admin(association_id: UUID | str, user_id: str, supabase: Client):
+def verify_association_admin(association_id: UUID | str, user_id: str, supabase: Client):
     """Verifica que un usuario tiene rol de administrador (role=1) en la comunidad dada. Lanza 403 o 404."""
     # Ahora la tabla memberships tiene association_id directo, por lo que no es necesario pasar por properties
     membership_res = supabase.table("memberships").select("role").eq("association_id", str(association_id)).eq("profile_id", str(user_id)).execute()
