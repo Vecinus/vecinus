@@ -1,15 +1,18 @@
 from google import genai
+from pinecone import Pinecone
 
 import backend.services.chatBot.documents_ChatBotService as doc_service
 from backend.core.config import settings
 from supabase import create_client
 import math
 
+# Inicializamos clientes
 client = genai.Client(api_key=settings.GEMINI_API_KEY)
-
-supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+pc = Pinecone(api_key=settings.PINECONE_API_KEY)
+index = pc.Index(settings.PINECONE_INDEX_NAME)
 
 MODEL_NAME = "gemini-1.5-flash"
+PINECONE_MODEL = "llama-text-embed-v2" # El modelo que configurasteis en Pinecone
 
 DISCLAIMER = (
     "Esta respuesta es meramente informativa y se basa en la normativa general "
@@ -18,43 +21,33 @@ DISCLAIMER = (
     "administrador de la comunidad."
 )
 
-## Helpers
-
-def _cosine_similarity(a, b):
-    if len(a) != len(b):
-        return 0.0
-    
-    dot = sum(x * y for x, y in zip(a, b))
-    norm_a = math.sqrt(sum(x * x for x in a))
-    norm_b = math.sqrt(sum(y * y for y in b))
-
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-
-    return dot / (norm_a * norm_b)
 
 def _retrieve_relevant_chunks(comunidad_id, question, top_k=5):
-    question_embed = doc_service._embed_text(question)
+    # 1. Pinecone transforma la pregunta en vectores automáticamente
+    embedding_response = pc.inference.embed(
+        model=PINECONE_MODEL,
+        inputs=[question],
+        parameters={"input_type": "query"}
+    )
+    question_vector = embedding_response[0].values
 
-    res = supabase.table("document_chunks").select("id, document_title, chunk_index, text, embedding") \
-           .eq("comunidad_id", comunidad_id).execute()
+    # 2. Buscamos en la base de datos solo los documentos de esta comunidad
+    res = index.query(
+        vector=question_vector,
+        top_k=top_k,
+        filter={"comunidad_id": int(comunidad_id)},
+        include_metadata=True
+    )
 
-    rows = res.data or []
-
-    scored = []
-    for r in rows:
-        embedding = r["embedding"]
-        similarity = _cosine_similarity(question_embed, embedding)
-        scored.append((similarity,
-                       {
-                           "chunk_id": r["id"],
-                           "text": r["text"],
-                           "embedding": embedding,
-                           "document_title": r["document_title"],
-                           "chunk_index": r["chunk_index"],
-                       }))
-    scored.sort(key=lambda x: x[0], reverse=True)
-    top_chunks = [c for score, c in scored[:top_k] if score > 0.2]
+    # 3. Extraemos el texto de los resultados
+    top_chunks = []
+    for match in res.matches:
+        if match.score > 0.2: # Filtro de confianza
+            top_chunks.append({
+                "text": match.metadata.get("texto", ""),
+                "document_title": match.metadata.get("document_title", ""),
+                "chunk_index": match.metadata.get("chunk_index", 0)
+            })
     return top_chunks
 
 
@@ -75,19 +68,19 @@ def _ask_gemini_with_context(context, question):
     system_prompt = f"""
     Eres el asistente de una comunidad de vecinos.
 
-Debes responder a la pregunta del usuario utilizando ÚNICAMENTE la siguiente
-información extraída de los documentos de esta comunidad:
+    Debes responder a la pregunta del usuario utilizando ÚNICAMENTE la siguiente
+    información extraída de los documentos de esta comunidad:
 
-{context}
+    {context}
 
-Si la respuesta no está claramente en este texto, responde exactamente:
-"No he encontrado esta información en los documentos actuales."
+    Si la respuesta no está claramente en este texto, responde exactamente:
+    "No he encontrado esta información en los documentos actuales."
 
-Pregunta del vecino:
-{question}
+    Pregunta del vecino:
+    {question}
 
-Respuesta:
-"""
+    Respuesta:
+    """
 
     resp = client.models.generate_content(
         model=MODEL_NAME,
@@ -102,28 +95,24 @@ Respuesta:
 ## Principal function
 
 def get_chatbot_response(comunidad_id, question, history=None):
-    """
-    1. Recupera chunks relevantes de los documentos de esa comunidad.
-    2. Construye un contexto con esos chunks.
-    3. Llama a Gemini con ese contexto + pregunta.
-    """
-    
     chunks = _retrieve_relevant_chunks(comunidad_id, question)
 
     if not chunks:
         answer = "Lo siento, no puedo encontrar ningún documento relevante en esta comunidad."
         return {
             "answer": answer,
-            "source": {"type": "RAG_IN_MEMORY", "reference": None},
+            "source": {"type": "RAG_PINECONE", "reference": None},
             "disclaimer": DISCLAIMER,
         }
     
     context = _build_context(chunks)
-
     answer = _ask_gemini_with_context(context, question)
+
+    # Recopilamos los títulos de los documentos usados para las referencias
+    sources = list(set([c["document_title"] for c in chunks]))
 
     return {
         "answer": answer,
-        "source": {"type": "RAG_IN_MEMORY", "reference": []},
+        "source": {"type": "RAG_PINECONE", "reference": ", ".join(sources)},
         "disclaimer": DISCLAIMER,
     }

@@ -1,7 +1,11 @@
 from google import genai
 from backend.core.config import settings
+import uuid
+from pinecone import Pinecone
 
-client = genai.Client(api_key=settings.GEMINI_API_KEY)
+# Conectamos con Pinecone
+pc = Pinecone(api_key=settings.PINECONE_API_KEY)
+index = pc.Index(settings.PINECONE_INDEX_NAME)
 
 # Modelo de embeddings compatible con la API v1beta del cliente actual
 # Formato aceptado por el cliente actual para embed_content.
@@ -20,27 +24,27 @@ def _chunk_text(text, max_chars=800):
         start = end
     return chunks
 
-def _embed_text(text):
-    embedding_response = client.models.embed_content(
-        model=EMBEDDING_MODEL,
-        contents=text
-    )
-    return embedding_response.embeddings[0].values
-
 def index_document(comunidad_id, document_title, raw_text):
     chunks = _chunk_text(raw_text)
-    stored = 0
+    records = []
 
     for i, chunk in enumerate(chunks):
-        embedding = _embed_text(chunk)
+        doc_title_clean = document_title.replace(" ", "_")
+        chunk_id = f"{comunidad_id}-{doc_title_clean}-{i}-{uuid.uuid4().hex[:4]}"
+        
+        records.append({
+            "id": chunk_id,
+            "text": chunk, # Este campo es el que lee Pinecone para hacer la vectorización mágica
+            "metadata": {
+                "comunidad_id": int(comunidad_id),
+                "document_title": document_title,
+                "chunk_index": i,
+                "texto": chunk # Lo guardamos también aquí para leerlo fácil en las respuestas
+            }
+        })
 
-        supabase.table("document_chunks").insert({
-            "comunidad_id": comunidad_id,
-            "title": document_title,
-            "chunk_index": i,
-            "texto": chunk,
-            "embedding": embedding,
-        }).execute()
-        stored += 1
+    # Subimos todos los trozos de golpe a Pinecone
+    if records:
+        index.upsert(records)
 
-    return stored
+    return len(records)
