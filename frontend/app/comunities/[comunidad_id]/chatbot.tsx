@@ -12,11 +12,8 @@ import {
   Alert,
   useWindowDimensions 
 } from 'react-native';
-// ---> AÑADIDO POR TI: Importamos el icono "Menu"
 import { Bot, Send, Sparkles, FileText, UploadCloud, Menu } from 'lucide-react-native';
-// ---> AÑADIDO POR TI: Importamos useNavigation
 import { useLocalSearchParams, useNavigation } from 'expo-router';
-// ---> AÑADIDO POR TI: Importamos las acciones del Drawer
 import { DrawerActions } from '@react-navigation/native';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
@@ -39,10 +36,8 @@ const isManager = true;
 export default function ChatBotScreen() {
   const { comunidad_id } = useLocalSearchParams<{ comunidad_id: string }>();
   
-  // ---> AÑADIDO POR TI: Inicializamos la navegación
   const navigation = useNavigation();
   
-  // MAGIA RESPONSIVA NATIVA: Detectamos el ancho de la pantalla
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768; // 768px es el salto típico de móvil a tablet/PC
 
@@ -161,7 +156,7 @@ export default function ChatBotScreen() {
       {/* HEADER */}
       <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#F1F5F9', backgroundColor: '#ffffff' }}>
         
-        {/* ---> AÑADIDO POR TI: El botón que abre el menú lateral */}
+        {/* Botón que abre el menú lateral */}
         <TouchableOpacity 
           style={{ marginRight: 16, padding: 4 }}
           onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())}
@@ -178,7 +173,7 @@ export default function ChatBotScreen() {
         </View>
       </View>
 
-      {/* CONTENEDOR PRINCIPAL: Aquí aplicamos el isDesktop dinámico */}
+      {/* CONTENEDOR PRINCIPAL: isDesktop dinámico */}
       <View style={{ flex: 1, flexDirection: isDesktop ? 'row' : 'column', backgroundColor: '#ffffff' }}>
         
         {/* ZONA IZQUIERDA: EL CHAT */}
@@ -230,9 +225,9 @@ export default function ChatBotScreen() {
         {isManager && (
           <View 
             style={{ 
-              width: isDesktop ? 340 : '100%', // En PC mide 340px fijos, en móvil ocupa todo el ancho
-              borderLeftWidth: isDesktop ? 1 : 0, // Borde izquierdo solo en PC
-              borderTopWidth: isDesktop ? 0 : 1, // Borde superior solo en móvil
+              width: isDesktop ? 340 : '100%', 
+              borderLeftWidth: isDesktop ? 1 : 0,
+              borderTopWidth: isDesktop ? 0 : 1,
               backgroundColor: '#F8FAFC', 
               borderColor: '#E2E8F0', 
               padding: 24 

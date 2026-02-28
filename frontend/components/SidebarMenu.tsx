@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { DrawerContentComponentProps } from '@react-navigation/drawer';
-// ---> 1. IMPORTACIONES PARA LA MEMORIA Y NAVEGACIÓN
 import { useRouter } from 'expo-router';
 import { useCommunityStore } from '../store/useCommunityStore';
 
@@ -13,23 +12,20 @@ interface MenuItemType {
   name: string;
   icon: IconName | MaterialIconName;
   library?: 'MaterialCommunityIcons';
-  route?: string; // ---> 2. AÑADIMOS PROPIEDAD DE RUTA
+  route?: string; 
 }
 
 export default function SidebarMenu(props: DrawerContentComponentProps) {
-  // Inicializamos router y sacamos los datos de la memoria global
   const router = useRouter();
   const { activeCommunityId, activeCommunityName } = useCommunityStore();
   
-  // Por defecto empezamos en Chat que es lo que tenemos hecho
-  const [activeItem, setActiveItem] = useState<string>('Chat');
+  const [activeItem, setActiveItem] = useState<string>('');
 
-  // 3. ACTUALIZAMOS LA LISTA CON LAS RUTAS REALES
   const menuItems: MenuItemType[] = [
-    { name: 'Chat', icon: 'chatbubble-outline' as IconName, route: 'chatbot' },
+    { name: 'Chat', icon: 'chatbubble-outline' as IconName },
     { name: 'Avisos', icon: 'notifications-outline' as IconName },
     { name: 'Tablón', icon: 'megaphone-outline' as IconName },
-    { name: 'Asistente IA', icon: 'robot-outline' as MaterialIconName, library: 'MaterialCommunityIcons' },
+    { name: 'Asistente IA', icon: 'robot-outline' as MaterialIconName, library: 'MaterialCommunityIcons', route: 'chatbot' },
     { name: 'Reservas', icon: 'calendar-outline' as IconName },
     { name: 'Votaciones', icon: 'checkbox-outline' as IconName },
     { name: 'Incidencias', icon: 'warning-outline' as IconName },
@@ -42,7 +38,6 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
   return (
     <View style={styles.container}>
       
-      {/* CABECERA */}
       <View style={styles.header}>
         <Image 
           source={require('../assets/logos/VecinusLogotipoTransparente.png')} 
@@ -55,7 +50,6 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
         </View>
       </View>
 
-      {/* SELECTOR DE COMUNIDAD: Ahora lee de Zustand */}
       <TouchableOpacity style={styles.communitySelector}>
         <Text style={styles.communityText}>{activeCommunityName}</Text>
         <Ionicons name="chevron-down" size={18} color="#9CA3AF" />
@@ -76,8 +70,8 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
                 
                 // 4. LÓGICA DE NAVEGACIÓN DINÁMICA
                 if (item.route) {
-                  // Construye la URL: /comunities/123/chatbot
-                  router.push(`/comunities/${activeCommunityId}/${item.route}` as any);                  props.navigation.closeDrawer(); // Cierra el menú al navegar
+                  router.push(`/comunities/${activeCommunityId}/${item.route}` as any);
+                  props.navigation.closeDrawer();
                 }
               }}
             >
@@ -105,7 +99,6 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
   );
 }
 
-// ESTILOS (Mantenemos los tuyos que están perfectos)
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0B1221', paddingTop: 50, paddingHorizontal: 16 },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
