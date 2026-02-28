@@ -10,10 +10,14 @@ import {
   ActivityIndicator,
   Keyboard,
   Alert,
-  useWindowDimensions // <-- IMPORTANTE: Añadimos esto
+  useWindowDimensions 
 } from 'react-native';
-import { Bot, Send, Sparkles, FileText, UploadCloud } from 'lucide-react-native';
-import { useLocalSearchParams } from 'expo-router';
+// ---> AÑADIDO POR TI: Importamos el icono "Menu"
+import { Bot, Send, Sparkles, FileText, UploadCloud, Menu } from 'lucide-react-native';
+// ---> AÑADIDO POR TI: Importamos useNavigation
+import { useLocalSearchParams, useNavigation } from 'expo-router';
+// ---> AÑADIDO POR TI: Importamos las acciones del Drawer
+import { DrawerActions } from '@react-navigation/native';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -34,6 +38,9 @@ const isManager = true;
 
 export default function ChatBotScreen() {
   const { comunidad_id } = useLocalSearchParams<{ comunidad_id: string }>();
+  
+  // ---> AÑADIDO POR TI: Inicializamos la navegación
+  const navigation = useNavigation();
   
   // MAGIA RESPONSIVA NATIVA: Detectamos el ancho de la pantalla
   const { width } = useWindowDimensions();
@@ -153,6 +160,15 @@ export default function ChatBotScreen() {
     >
       {/* HEADER */}
       <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#F1F5F9', backgroundColor: '#ffffff' }}>
+        
+        {/* ---> AÑADIDO POR TI: El botón que abre el menú lateral */}
+        <TouchableOpacity 
+          style={{ marginRight: 16, padding: 4 }}
+          onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())}
+        >
+          <Menu color="#0F172A" size={28} />
+        </TouchableOpacity>
+
         <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
           <Bot color="#4F46E5" size={24} />
         </View>
