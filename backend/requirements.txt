@@ -62,3 +62,4 @@ google-genai
 langchain==0.1.11
 pypdf==4.1.0
 tiktoken==0.6.0
+pinecone-client==3.1.0

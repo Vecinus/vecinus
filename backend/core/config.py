@@ -11,6 +11,8 @@ load_dotenv(ENV_PATH)
 class Settings:
     PROJECT_NAME: str = "VecinUs Backend"
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    PINECONE_API_KEY: str = os.getenv("PINECONE_API_KEY", "")
+    PINECONE_INDEX_NAME: str = os.getenv("PINECONE_INDEX_NAME", "")
     SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "")
     SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
 
