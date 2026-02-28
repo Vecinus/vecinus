@@ -52,3 +52,18 @@ def verify_association_president(association_id: UUID | str, user_id: str, supab
         raise HTTPException(status_code=403, detail="Association president access required for this action")
         
     return membership_res.data[0]
+
+def verify_property_owner(property_id: UUID | str, user_id: str, supabase: Client):
+    """Verifica que un usuario es propietario de una propiedad dada. Lanza 403 o 404."""
+    ownership_res = supabase.table("memberships").select("*").eq("property_id", str(property_id)).eq("profile_id", str(user_id)).execute()
+    
+    if not ownership_res.data:
+        raise HTTPException(status_code=404, detail="Property not found")
+    
+    user_role = ownership_res.data[0].get("role")
+
+    # 2 indica rol de propietario
+    if str(user_role) != "2":
+        raise HTTPException(status_code=403, detail="Property owner access required for this action")
+        
+    return ownership_res.data[0]
