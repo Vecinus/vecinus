@@ -25,7 +25,6 @@ def verify_message_ownership(message_id: UUID | str, channel_id: UUID | str, use
 
 def verify_association_admin(association_id: UUID | str, user_id: str, supabase: Client):
     """Verifica que un usuario tiene rol de administrador (role=1) en la comunidad dada. Lanza 403 o 404."""
-    # Ahora la tabla memberships tiene association_id directo, por lo que no es necesario pasar por properties
     membership_res = supabase.table("memberships").select("role").eq("association_id", str(association_id)).eq("profile_id", str(user_id)).execute()
     
     if not membership_res.data:
@@ -36,5 +35,20 @@ def verify_association_admin(association_id: UUID | str, user_id: str, supabase:
     # 1 indica rol de administrador
     if str(user_role) != "1":
         raise HTTPException(status_code=403, detail="Admin access required for this action")
+        
+    return membership_res.data[0]
+
+def verify_association_president(association_id: UUID | str, user_id: str, supabase: Client):
+    """Verifica que un usuario tiene rol de presidente (role=4) en la comunidad dada. Lanza 403 o 404."""
+    membership_res = supabase.table("memberships").select("role").eq("association_id", str(association_id)).eq("profile_id", str(user_id)).execute()
+    
+    if not membership_res.data:
+        raise HTTPException(status_code=404, detail="Membership not found in this community")
+        
+    user_role = membership_res.data[0].get("role")
+    
+    # 4 indica rol de presidente
+    if str(user_role) != "4":
+        raise HTTPException(status_code=403, detail="Association president access required for this action")
         
     return membership_res.data[0]
