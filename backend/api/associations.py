@@ -149,3 +149,18 @@ def accept_invitation(
     ).execute()
 
     return {"message": "Invitation accepted", "user_id": user_id}
+
+@router.delete("/members/{membership_id}")
+def delete_member(
+    membership_id: str,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+):
+    verify_association_admin(membership_id, current_user["id"], supabase)
+    
+    membership_res = supabase.table("memberships").select("*").eq("id", membership_id).execute()
+    if not membership_res.data:
+        raise HTTPException(status_code=404, detail="Membership not found")
+        
+    supabase.table("memberships").delete().eq("id", membership_id).execute()
+    return {"message": f"Membership {membership_id} deleted successfully"}
