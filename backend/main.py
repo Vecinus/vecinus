@@ -6,3 +6,7 @@ app = FastAPI()
 
 app.include_router(chatBotRouter)
 app.include_router(documentsRouter)
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
