@@ -69,7 +69,7 @@ export default function ReservasComunidad() {
           text: "Sí, reservar", 
           onPress: () => {
             Alert.alert("¡Reserva Confirmada!", "Recuerda ser puntual.");
-            setHoraSeleccionada(null); // Reseteamos tras reservar
+            setHoraSeleccionada(null); 
           }
         }
       ]
@@ -96,7 +96,7 @@ export default function ReservasComunidad() {
             ]}
             onPress={() => {
               setInstalacionActiva(inst);
-              setHoraSeleccionada(null); // Limpiamos hora al cambiar pista
+              setHoraSeleccionada(null);
             }}
           >
             <Text style={[
@@ -112,7 +112,6 @@ export default function ReservasComunidad() {
       {/* 3. Componente de Calendario */}
       <View style={styles.calendarContainer}>
         <Calendar
-          // Estilizado para encajar con tus colores
           theme={{
             backgroundColor: COLORS.white,
             calendarBackground: COLORS.white,
@@ -126,11 +125,10 @@ export default function ReservasComunidad() {
             monthTextColor: COLORS.darkBlue,
             textMonthFontWeight: 'bold',
           }}
-          // Fecha mínima hoy (no puedes reservar en el pasado)
           minDate={new Date().toISOString().split('T')[0]}
           onDayPress={(day: any) => {
             setFechaSeleccionada(day.dateString);
-            setHoraSeleccionada(null); // Limpiamos hora al cambiar día
+            setHoraSeleccionada(null); 
           }}
           markedDates={{
             [fechaSeleccionada]: { 
@@ -199,7 +197,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 20,
     paddingTop: 60,
-    paddingBottom: 100, // Espacio para el botón de confirmar
+    paddingBottom: 100, 
   },
   headerTitle: {
     fontSize: 32,
@@ -261,10 +259,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 10, // Requiere React Native >= 0.71 (si usas uno viejo, dímelo y lo cambiamos por margin)
+    gap: 10,
   },
   slotButton: {
-    width: '30%', // 3 columnas
+    width: '30%', 
     paddingVertical: 12,
     backgroundColor: COLORS.white,
     borderRadius: 12,
