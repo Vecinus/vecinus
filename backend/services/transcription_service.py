@@ -39,38 +39,25 @@ async def generate_minutes(transcription: str) -> MinutesResponse:
         model=OLLAMA_MODEL,
         base_url=OLLAMA_BASE_URL,
         temperature=0,
-        format="json",
     )
+
+    structured_llm = llm.with_structured_output(MinutesResponse)
 
     prompt = ChatPromptTemplate.from_messages(
         [
             (
                 "system",
-                (
-                    "You are an expert assistant that generates structured meeting "
-                    "minutes from transcriptions. You MUST respond ONLY with a valid "
-                    "JSON object with the following keys:\n"
-                    '- "summary": a concise summary of the meeting\n'
-                    '- "topics": a list of discussed topics\n'
-                    '- "agreements": a list of agreements reached\n'
-                    '- "tasks": a list of objects with keys "responsible", '
-                    '"description", and "deadline"\n'
-                    "Do not include any text outside the JSON object."
-                ),
+                "Eres un asistente experto que genera actas de reuniones estructuradas a partir de transcripciones. Debes responder siempre en español.",
             ),
             (
                 "human",
-                "Generate structured meeting minutes from the following "
-                "transcription:\n\n{transcription}",
+                "Genera un acta de reunión estructurada en español a partir de la siguiente transcripción:\n\n{transcription}",
             ),
         ]
     )
 
-    chain = prompt | llm
-    response = chain.invoke({"transcription": transcription})
-
-    parsed = json.loads(response.content)
-    return MinutesResponse(**parsed)
+    chain = prompt | structured_llm
+    return chain.invoke({"transcription": transcription})
 
 
 async def process_audio_to_minutes(audio_bytes: bytes) -> MinutesResponse:
