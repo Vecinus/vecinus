@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { cn } from '@/lib/utils';
 
 interface TabsContextValue {
@@ -65,24 +65,45 @@ function TabsTrigger({ value, className, children }: TabsTriggerProps) {
   const isSelected = selectedValue === value;
 
   return (
-    <TouchableOpacity
-      className={cn(
-        'flex-1 items-center justify-center rounded-sm px-3 py-1.5',
-        isSelected && 'bg-background shadow-sm',
-        className
-      )}
-      onPress={() => onValueChange(value)}
-      activeOpacity={0.7}>
+    <Pressable
+      style={[styles.trigger, isSelected && styles.triggerSelected]}
+      onPress={() => onValueChange(value)}>
       <Text
-        className={cn(
-          'text-sm font-medium',
-          isSelected ? 'text-foreground' : 'text-muted-foreground'
-        )}>
+        style={[styles.triggerText, isSelected ? styles.triggerTextSelected : styles.triggerTextUnselected]}>
         {children}
       </Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  trigger: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  triggerSelected: {
+    backgroundColor: 'white',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  triggerText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  triggerTextSelected: {
+    color: '#09090b',
+  },
+  triggerTextUnselected: {
+    color: '#71717a',
+  },
+});
 
 interface TabsContentProps {
   value: string;

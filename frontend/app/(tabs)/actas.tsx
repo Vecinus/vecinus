@@ -164,9 +164,7 @@ export default function MeetingMinutesScreen() {
   useEffect(() => {
     if (!editorOpen && pendingSignatureRef.current) {
       pendingSignatureRef.current = false;
-      // Wait for the editor Modal's slide animation to fully finish on Android
-      const timer = setTimeout(() => setSignatureOpen(true), 200);
-      return () => clearTimeout(timer);
+      setSignatureOpen(true);
     }
   }, [editorOpen]);
 
