@@ -1,18 +1,14 @@
-from google import genai
-from backend.core.config import settings
-import uuid
 from pinecone import Pinecone
-
-client = genai.Client(api_key=settings.GEMINI_API_KEY)
+from backend.core.config import settings
 
 # Conectamos con Pinecone
 pc = Pinecone(api_key=settings.PINECONE_API_KEY)
 
-index = pc.Index("chatbot-3072")
+# ATENCIÓN: Ahora coge el nombre del índice correctamente desde tu .env
+index = pc.Index(settings.PINECONE_INDEX_NAME)
 
-# Modelo de embeddings compatible con la API v1beta del cliente actual
-# Formato aceptado por el cliente actual para embed_content.
-EMBEDDING_MODEL = "gemini-embedding-001"
+# Modelo de embeddings nativo de Pinecone (1024 dimensiones)
+PINECONE_MODEL = "llama-text-embed-v2"
 
 def _chunk_text(text, max_chars=800):
     text = text.strip()
@@ -25,36 +21,34 @@ def _chunk_text(text, max_chars=800):
         start = end
     return chunks
 
-def _embed_content(text):
-    response = client.models.embed_content(
-        model=EMBEDDING_MODEL,
-        contents=text,
-    )
-    return response.embeddings[0].values
-
 def index_document(comunidad_id, document_title, raw_text):
-    comunidad_id = comunidad_id
     chunks = _chunk_text(raw_text)
-    vectors = []
+    if not chunks:
+        return 0
 
-    for i, chunk in enumerate(chunks):
-        if not chunk.strip():
-            continue
+    # Pinecone transforma TODOS los trozos en vectores de golpe
+    embedding_response = pc.inference.embed(
+        model=PINECONE_MODEL,
+        inputs=chunks,
+        parameters={"input_type": "passage", "truncate": "END"}
+    )
+
+    vectors = []
+    for i, embedding_data in enumerate(embedding_response.data):
         chunk_id = f"{comunidad_id}-{document_title}-{i}"
-        embedding = _embed_content(chunk)
         
         vectors.append({
             "id": chunk_id,
-            "values": embedding, # Este campo es el que lee Pinecone para hacer la vectorización mágica
+            "values": embedding_data.values, # Genera los 1024 números
             "metadata": {
                 "comunidad_id": comunidad_id,
                 "document_title": document_title,
                 "chunk_index": i,
-                "texto": chunk # Lo guardamos también aquí para leerlo fácil en las respuestas
+                "texto": chunks[i]
             }
         })
 
-    # Subimos todos los trozos de golpe a Pinecone
+    # Subimos todos los vectores a Pinecone
     if vectors:
         index.upsert(
             vectors=vectors,

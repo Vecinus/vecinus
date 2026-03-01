@@ -1,20 +1,14 @@
 from google import genai
-
-
-import backend.services.chatBot.documents_ChatBotService as doc_service
-from backend.services.chatBot.documents_ChatBotService import index, _embed_content
 from pinecone import Pinecone
 from backend.core.config import settings
-import math
+from backend.services.chatBot.documents_ChatBotService import index, PINECONE_MODEL
 
 # Inicializamos clientes
 client = genai.Client(api_key=settings.GEMINI_API_KEY)
-
 pc = Pinecone(api_key=settings.PINECONE_API_KEY)
 
-
-MODEL_NAME = "gemini-2.5-flash"
-PINECONE_MODEL = "llama-text-embed-v2" # El modelo que configurasteis en Pinecone
+MODEL_NAME = "gemini-1.5-flash"
+CONFIDENCE_THRESHOLD = 0.2  # Umbral relajado al 20% para asegurar que pille textos cortos
 
 DISCLAIMER = (
     "Esta respuesta es meramente informativa y se basa en la normativa general "
@@ -23,17 +17,16 @@ DISCLAIMER = (
     "administrador de la comunidad."
 )
 
-
 def _retrieve_relevant_chunks(comunidad_id: int, question, top_k=5):
-    # 1. Pinecone transforma la pregunta en vectores automáticamente
+    # Embebemos la pregunta usando Pinecone (1024 dimensiones)
     embedding_response = pc.inference.embed(
         model=PINECONE_MODEL,
         inputs=[question],
         parameters={"input_type": "query"}
     )
-    question_vector = _embed_content(question)
+    question_vector = embedding_response.data[0].values
 
-    # 2. Buscamos en la base de datos solo los documentos de esta comunidad
+    # Buscamos en la base de datos
     res = index.query(
         namespace=str(comunidad_id),
         vector=question_vector,
@@ -41,7 +34,7 @@ def _retrieve_relevant_chunks(comunidad_id: int, question, top_k=5):
         include_metadata=True
     )
 
-    # 3. Extraemos el texto de los resultados
+    # Extraemos el texto
     top_chunks = []
     for match in res.get("matches", []):
         score = match.get("score", 0.0)
@@ -50,7 +43,9 @@ def _retrieve_relevant_chunks(comunidad_id: int, question, top_k=5):
         document_title = metadata.get("document_title", "")
         chunk_index = metadata.get("chunk_index", 0)
 
-        if score > 0.2: # Filtro de confianza
+        print(f"[DEBUG] Documento: {document_title} | Score: {score:.4f} | Threshold: {CONFIDENCE_THRESHOLD}")
+
+        if score > CONFIDENCE_THRESHOLD:
             top_chunks.append({
                 "text": text,
                 "document_title": document_title,
@@ -58,7 +53,6 @@ def _retrieve_relevant_chunks(comunidad_id: int, question, top_k=5):
                 "score": score
             })
     return top_chunks
-
 
 def _build_context(chunks, max_chars = 6000):
     parts = []
@@ -72,26 +66,31 @@ def _build_context(chunks, max_chars = 6000):
     return "\n\n---\n\n".join(parts)
 
 def _ask_gemini_with_context(context, question):
-    system_prompt = f"""
-    Eres el asistente de una comunidad de vecinos.
+    system_instruction = """Eres el asistente de una comunidad de vecinos.
 
-    Debes responder a la pregunta del usuario utilizando ÚNICAMENTE la siguiente
-    información extraída de los documentos de esta comunidad:
+Debes responder a la pregunta del usuario utilizando ÚNICAMENTE la información 
+proporcionada en los documentos. 
 
-    {context}
+REGLA DE CONTRADICCIONES: Si encuentras información contradictoria entre varios documentos, NO digas que no tienes la información. En su lugar, explica amablemente que hay una contradicción, detalla cuáles son las distintas opciones que has encontrado y menciona de qué documento proviene cada una.
 
-    Si la respuesta no está claramente en este texto, responde exactamente:
-    "No he encontrado esta información en los documentos actuales."
+Si la información no aparece en absoluto en los documentos, responde exactamente: "No he encontrado esta información en los documentos actuales."
 
-    Pregunta del vecino:
-    {question}
+Sé claro, conciso y útil."""
 
-    Respuesta:
-    """
+    user_message = f"""DOCUMENTOS DISPONIBLES:
+
+{context}
+
+---
+
+PREGUNTA DEL USUARIO: {question}
+
+Por favor, responde usando SOLO la información de los documentos anteriores."""
 
     resp = client.models.generate_content(
         model=MODEL_NAME,
-        contents=system_prompt,
+        contents=user_message,
+        config={"system_instruction": system_instruction}
     )
 
     if not resp or not getattr(resp, "text", None):
@@ -99,10 +98,11 @@ def _ask_gemini_with_context(context, question):
 
     return resp.text.strip()
 
-## Principal function
-
 def get_chatbot_response(comunidad_id, question):
+    print(f"\n[DEBUG] Pregunta: {question}")
     chunks = _retrieve_relevant_chunks(comunidad_id, question)
+    
+    print(f"[DEBUG] Chunks encontrados: {len(chunks)}")
 
     if not chunks:
         answer = "Lo siento, no puedo encontrar ningún documento relevante en esta comunidad."
@@ -115,7 +115,6 @@ def get_chatbot_response(comunidad_id, question):
     context = _build_context(chunks)
     answer = _ask_gemini_with_context(context, question)
 
-    # Recopilamos los títulos de los documentos usados para las referencias
     sources = list(set([c["document_title"] for c in chunks if c["document_title"]]))
 
     return {
