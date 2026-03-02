@@ -41,27 +41,34 @@ def get_supabase_admin() -> Client:
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> dict:
-    """Extrae datos del usuario desde el JWT sin consultar la DB."""
-    import jwt
-
+    """Valida el JWT contra Supabase Auth y extrae datos del usuario."""
     token = credentials.credentials
     try:
-        payload = jwt.decode(token, options={"verify_signature": False})
+        client = create_client(
+            settings.SUPABASE_URL,
+            settings.SUPABASE_KEY,
+            options=ClientOptions(schema="dev"),
+        )
+        user_response = client.auth.get_user(token)
 
-        user_id = payload.get("sub")
-        role = payload.get("role")
-        email = payload.get("email")
+        if not user_response.user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication credentials",
+            )
 
-        if not user_id or role != "authenticated":
+        user = user_response.user
+
+        if user.role != "authenticated":
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication credentials",
             )
 
         return {
-            "id": user_id,
-            "role": role,
-            "email": email,
+            "id": str(user.id),
+            "role": user.role,
+            "email": user.email,
         }
 
     except HTTPException:
