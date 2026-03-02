@@ -1,0 +1,4 @@
+# Ignore claude files
+.claude/
+CLAUDE.md
+.mcp.json
