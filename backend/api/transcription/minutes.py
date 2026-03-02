@@ -1,7 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
 
-from schemas.minutes import MinutesResponse
-from services.transcription_service import process_audio_to_minutes
+from schemas.transcription.minutes import MinutesResponse
+from services.transcription.transcription_service import process_audio_to_minutes
 
 router = APIRouter(prefix="/api/minutes", tags=["Minutes"])
 

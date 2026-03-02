@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from api.minutes import router as minutes_router
+from api.transcription.minutes import router as minutes_router
 
 app = FastAPI(title="Vecinus API")
 
