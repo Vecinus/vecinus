@@ -1,45 +1,76 @@
-from fastapi import Depends, HTTPException, status, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from supabase import create_client, Client, ClientOptions
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from supabase import Client, ClientOptions, create_client
+
 from .config import settings
 
 # Authentication scheme
 security = HTTPBearer()
 
-def get_supabase(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Client:
-    """Dependency para inyectar el cliente de Supabase autenticado con el rol del usuario."""
+
+def get_supabase(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> Client:
+    """Cliente Supabase autenticado con el JWT del usuario (respeta RLS)."""
     token = credentials.credentials
     options = ClientOptions(schema="dev")
     client: Client = create_client(
-        settings.SUPABASE_URL, 
-        settings.SUPABASE_KEY, 
-        options=options
+        settings.SUPABASE_URL, settings.SUPABASE_KEY, options=options
     )
 
     client.postgrest.auth(token)
     return client
 
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
-    """Dependency para obtener la info del usuario desde el JWT sin consultar repetidamente la DB."""
-    import jwt
+
+def get_supabase_anon() -> Client:
+    """Cliente anon para endpoints públicos (ej: aceptar invitación)."""
+    options = ClientOptions(schema="dev")
+    return create_client(
+        settings.SUPABASE_URL, settings.SUPABASE_KEY, options=options
+    )
+
+
+def get_supabase_admin() -> Client:
+    """Cliente con service role para operaciones que bypasean RLS."""
+    options = ClientOptions(schema="dev")
+    return create_client(
+        settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY, options=options
+    )
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> dict:
+    """Valida el JWT contra Supabase Auth y extrae datos del usuario."""
     token = credentials.credentials
     try:
-        payload = jwt.decode(token, options={"verify_signature": False})
-        
-        user_id = payload.get("sub")
-        role = payload.get("role")
-        
-        if not user_id or role != "authenticated":
+        client = create_client(
+            settings.SUPABASE_URL,
+            settings.SUPABASE_KEY,
+            options=ClientOptions(schema="dev"),
+        )
+        user_response = client.auth.get_user(token)
+
+        if not user_response.user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication credentials",
             )
-            
+
+        user = user_response.user
+
+        if user.role != "authenticated":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication credentials",
+            )
+
         return {
-            "id": user_id,
-            "role": role,
+            "id": str(user.id),
+            "role": user.role,
+            "email": user.email,
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
