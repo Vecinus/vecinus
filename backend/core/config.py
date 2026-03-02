@@ -1,4 +1,5 @@
 import os
+
 from dotenv import load_dotenv
 
 # Carga las variables desde el .env situado en la carpeta backend,
