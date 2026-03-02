@@ -8,6 +8,7 @@ class Task(BaseModel):
 
 
 class MinutesResponse(BaseModel):
+    transcription: str
     summary: str
     topics: list[str]
     agreements: list[str]

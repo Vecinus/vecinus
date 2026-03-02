@@ -28,7 +28,7 @@ async def process_audio_to_minutes(audio_bytes: bytes) -> MinutesResponse:
         prompt = """
         Eres un asistente experto que genera actas de reuniones de comunidades de vecinos.
         Escucha el siguiente audio y elabora un acta estructurada en español.
-        Debes extraer las tareas (tasks), los temas tratados (topics), los acuerdos (agreements) y un resumen (summary).
+        Debes extraer la transcripción literal (transcription), las tareas (tasks), los temas tratados (topics), los acuerdos (agreements) y un resumen (summary).
         """
 
         response = await client.aio.models.generate_content(
