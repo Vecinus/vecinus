@@ -7,6 +7,7 @@ import os
 from faster_whisper import WhisperModel
 from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
+from pydantic import BaseModel
 
 from schemas.minutes import MinutesResponse
 
@@ -14,6 +15,13 @@ from schemas.minutes import MinutesResponse
 WHISPER_MODEL_SIZE = os.getenv("WHISPER_MODEL_SIZE", "base")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+
+
+class LLMMinutesResponse(BaseModel):    
+    summary: str
+    topics: list[str]
+    agreements: list[str]
+    tasks: list[dict]
 
 
 async def transcribe_audio(audio_bytes: bytes) -> str:
@@ -41,7 +49,7 @@ async def generate_minutes(transcription: str) -> MinutesResponse:
         temperature=0,
     )
 
-    structured_llm = llm.with_structured_output(MinutesResponse)
+    structured_llm = llm.with_structured_output(LLMMinutesResponse)
 
     prompt = ChatPromptTemplate.from_messages(
         [
@@ -57,7 +65,15 @@ async def generate_minutes(transcription: str) -> MinutesResponse:
     )
 
     chain = prompt | structured_llm
-    return chain.invoke({"transcription": transcription})
+    llm_result = chain.invoke({"transcription": transcription})
+
+    return MinutesResponse(
+        transcription=transcription,
+        summary=llm_result.summary,
+        topics=llm_result.topics,
+        agreements=llm_result.agreements,
+        tasks=llm_result.tasks,
+    )
 
 
 async def process_audio_to_minutes(audio_bytes: bytes) -> MinutesResponse:

@@ -1,7 +1,9 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi.responses import StreamingResponse
 
 from schemas.minutes import MinutesResponse
 from services.transcription_service import process_audio_to_minutes
+from services.document_service import generate_docx
 
 router = APIRouter(prefix="/api/minutes", tags=["Minutes"])
 
@@ -47,3 +49,21 @@ async def transcribe_meeting(audio: UploadFile = File(...)):
     finally:
         del audio_bytes
         await audio.close()
+
+
+@router.post("/generate-document")
+async def generate_minutes_document(minutes: MinutesResponse):
+    try:
+        buffer = generate_docx(minutes)
+        return StreamingResponse(
+            buffer,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={
+                "Content-Disposition": "attachment; filename=acta_reunion.docx"
+            },
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating document: {str(e)}",
+        )
