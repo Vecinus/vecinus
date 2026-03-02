@@ -2,6 +2,7 @@ import json
 from typing import Dict, List
 from uuid import UUID
 
+from core.deps import get_current_user, get_supabase
 from fastapi import (
     APIRouter,
     Depends,
@@ -10,31 +11,26 @@ from fastapi import (
     WebSocketDisconnect,
     status,
 )
-from supabase import Client, ClientOptions, create_client
-
-from core.config import settings
-from core.deps import get_current_user, get_supabase
 from schemas.chat import (
     ChatChannel,
+    ChatChannelCreate,
     DirectMessageCreate,
     Message,
     MessageCreate,
     MessageUpdate,
     MessageWithSender,
 )
+from supabase import Client, create_client  # noqa: F401
 
-from .chat_helpers import verify_channel_access, verify_message_ownership
-
-router = APIRouter(prefix="/chat", tags=["chat"])
-
-from schemas.chat import ChatChannelCreate
-
-# --- REST Endpoints ---
 from .chat_helpers import (
     verify_association_admin,
     verify_channel_access,
     verify_message_ownership,
 )
+
+router = APIRouter(prefix="/chat", tags=["chat"])
+
+# --- REST Endpoints ---
 
 
 @router.post("/channels", response_model=ChatChannel)
@@ -44,7 +40,8 @@ def create_group_channel(
     supabase: Client = Depends(get_supabase),
 ):
     """
-    Crea un nuevo canal de chat grupal. Solo los administradores de la comunidad pueden hacerlo.
+    Crea un nuevo canal de chat grupal.
+    Solo los administradores de la comunidad pueden hacerlo.
     """
     # Verificar que el usuario es admin de la comunidad (role=1 en memberships)
     verify_association_admin(
@@ -71,7 +68,8 @@ def create_group_channel(
 
     created_channel = new_channel_res.data[0]
 
-    # Obtener todos los miembros de la comunidad para añadirlos al canal de forma automática
+    # Obtener todos los miembros de la comunidad para añadirlos
+    # al canal de forma automática
     members_res = (
         supabase.table("memberships")
         .select("profile_id")
@@ -109,12 +107,14 @@ def create_group_channel(
 @router.put("/channels/{channel_id}", response_model=ChatChannel)
 def update_group_channel(
     channel_id: UUID,
-    channel_in: ChatChannelCreate,  # Reutilizamos el schema de create para la actualización
+    # Reutilizamos el schema de create para la actualización
+    channel_in: ChatChannelCreate,
     current_user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
 ):
     """
-    Actualiza la información de un canal de chat grupal. Solo admins pueden hacerlo.
+    Actualiza la información de un canal de chat grupal.
+    Solo admins pueden hacerlo.
     """
     # 1. Obtener la comunidad a la que pertenece el canal
     channel_res = (
@@ -193,8 +193,9 @@ def delete_group_channel(
     # 2. Verificar que el usuario es admin de la comunidad
     verify_association_admin(association_id, current_user["id"], supabase)
 
-    # 3. Eliminar el canal (Postgres elimina en cascada automáticamente los mensajes y participantes ligados)
-    delete_res = (
+    # 3. Eliminar el canal (Postgres elimina en cascada automáticamente
+    # los mensajes y participantes ligados)
+    (
         supabase.table("chat_channels")
         .delete()
         .eq("id", str(channel_id))
@@ -239,7 +240,10 @@ def get_channel_messages(
     current_user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
 ):
-    """Busca el historial de mensajes de un canal, incluyendo la información del remitente."""
+    """
+    Busca el historial de mensajes de un canal, incluyendo
+    la información del remitente.
+    """
     # Verificamos si el usuario pertenece al canal
     verify_channel_access(str(str(channel_id)), current_user["id"], supabase)
 
@@ -262,9 +266,11 @@ def create_direct_message(
     supabase: Client = Depends(get_supabase),
 ):
     """
-    Crea un chat de mensaje directo con otro participante del mismo canal (comunidad).
+    Crea un chat de mensaje directo con otro participante
+    del mismo canal (comunidad).
     """
-    # 1. Validar que el current_user está en el canal base para poder iniciar un DM
+    # 1. Validar que el current_user está en el canal base
+    # para poder iniciar un DM
     verify_channel_access(str(str(channel_id)), current_user["id"], supabase)
 
     # 2. Obtener la comunidad a la que pertenece el canal base
@@ -278,7 +284,9 @@ def create_direct_message(
         raise HTTPException(status_code=404, detail="Base channel not found")
     association_id = base_channel_res.data[0]["association_id"]
 
-    # 3. Validar que el target_user_id también está en la misma comunidad (comprobando su participación en canales de la comunidad, o en este canal)
+    # 3. Validar que el target_user_id también está en la misma comunidad
+    # (comprobando su participación en canales de la comunidad,
+    # o en este canal)
     target_access_res = (
         supabase.table("channel_participants")
         .select("*")
@@ -296,7 +304,8 @@ def create_direct_message(
     my_user_id = current_user["id"]
 
     # 4. Comprobar si ya existe un DM entre ellos en esta comunidad
-    # Una forma de hacerlo es buscar los DMs de la comunidad y ver si ambos participan
+    # Una forma de hacerlo es buscar los DMs de la comunidad
+    # y ver si ambos participan
     dm_channels_res = (
         supabase.table("chat_channels")
         .select("id, is_blocked")
@@ -409,7 +418,10 @@ def block_direct_message_channel(
     if not channel_data.get("is_direct_message"):
         raise HTTPException(
             status_code=400,
-            detail="Only direct message channels can be blocked through this endpoint",
+            detail=(
+                "Only direct message channels can be blocked"
+                " through this endpoint"
+            ),
         )
 
     # 3. Marcar como bloqueado y guardar quién lo ha bloqueado
@@ -435,7 +447,8 @@ def unblock_direct_message_channel(
     supabase: Client = Depends(get_supabase),
 ):
     """
-    Desbloquea permanentemente un canal de mensaje directo, pero solo si eres la persona que lo bloqueó.
+    Desbloquea permanentemente un canal de mensaje directo,
+    pero solo si eres la persona que lo bloqueó.
     """
     # 1. Validar que el current_user es participante del canal
     verify_channel_access(str(str(channel_id)), current_user["id"], supabase)
@@ -454,7 +467,10 @@ def unblock_direct_message_channel(
     if not channel_data.get("is_direct_message"):
         raise HTTPException(
             status_code=400,
-            detail="Only direct message channels can be unblocked through this endpoint",
+            detail=(
+                "Only direct message channels can be unblocked"
+                " through this endpoint"
+            ),
         )
 
     # 3. Validar que está bloqueado
@@ -467,7 +483,10 @@ def unblock_direct_message_channel(
     if str(channel_data.get("blocked_by")) != str(current_user["id"]):
         raise HTTPException(
             status_code=403,
-            detail="You are not authorized to unblock this channel because you did not block it",
+            detail=(
+                "You are not authorized to unblock this channel"
+                " because you did not block it"
+            ),
         )
 
     # 5. Desbloquear
@@ -497,12 +516,14 @@ async def send_message(
     Envía un nuevo mensaje a un canal a través de la API REST oficial.
 
     ¿Por qué hay un endpoint POST normal si también hay un WebSocket?
-    1. Persistencia y Seguridad: Este endpoint (REST / POST) es el canal oficial para
-       escribir. Comprueba tu token JWT firmemente, valida permisos seguros (RLS manual)
-       y guarda el mensaje de forma persistente en Supabase.
-    2. Tiempo Real: Justo después de guardar el mensaje en la base de datos,
-       esta función invoca internamente al WebSocket manager para 'retransmitir'
-       (broadcast) el mensaje en vivo a todos los usuarios conectados instantáneamente.
+    1. Persistencia y Seguridad: Este endpoint (REST / POST) es el canal
+       oficial para escribir. Comprueba tu token JWT firmemente, valida
+       permisos seguros (RLS manual) y guarda el mensaje de forma
+       persistente en Supabase.
+    2. Tiempo Real: Justo después de guardar el mensaje en la base de
+       datos, esta función invoca internamente al WebSocket manager para
+       'retransmitir' (broadcast) el mensaje en vivo a todos los usuarios
+       conectados instantáneamente.
     """
     verify_channel_access(str(str(channel_id)), current_user["id"], supabase)
 
@@ -525,7 +546,8 @@ async def send_message(
     # --- Añadimos lógica de notificaciones de chat (Alertas) ---
     sender_name = current_user.get("username", "Un vecino")
 
-    # Obtenemos todos los participantes del canal para notificarles, excluyendo al remitente
+    # Obtenemos todos los participantes del canal para notificarles,
+    # excluyendo al remitente
     all_participants_res = (
         supabase.table("channel_participants")
         .select("user_id")
@@ -572,7 +594,10 @@ async def update_message(
     current_user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
 ):
-    """Edita un mensaje existente y actualiza la notificación (alerta) correspondiente."""
+    """
+    Edita un mensaje existente y actualiza la notificación
+    (alerta) correspondiente.
+    """
     # 1. Verificar si el mensaje existe y pertenece al usuario
     verify_message_ownership(
         str(message_id), str(str(channel_id)), current_user["id"], supabase
@@ -598,7 +623,6 @@ async def update_message(
     updated_message = update_res.data[0]
 
     # 3. Actualizar la notificación (alerta) correspondiente
-    sender_name = current_user.get("username", "Un vecino")
     msg_preview = msg_in.content[:100] + (
         "..." if len(msg_in.content) > 100 else ""
     )
@@ -632,10 +656,9 @@ async def delete_message(
     )
 
     # 2. Eliminar el mensaje
-    delete_res = (
-        supabase.table("messages").delete().eq("id", message_id).execute()
-    )
-    # Supabase Python client .delete() might return data if it has returning=* or we can just rely on not raising
+    (supabase.table("messages").delete().eq("id", message_id).execute())
+    # Supabase Python client .delete() might return data if it has
+    # returning=* or we can just rely on not raising
 
     # 3. Eliminar la alerta correspondiente (si reference_id = message_id)
     supabase.rpc(

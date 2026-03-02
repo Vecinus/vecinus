@@ -1,16 +1,31 @@
 import asyncio
 
-from google import genai
-from pinecone import Pinecone
-
 from backend.core.config import settings
 
-# ==========================================
-# INICIALIZACIÓN GLOBAL (Ahorra RAM en Render)
-# ==========================================
-pc = Pinecone(api_key=settings.PINECONE_API_KEY)
-index = pc.Index(settings.PINECONE_INDEX_NAME)
-client = genai.Client(api_key=settings.GEMINI_API_KEY)
+# Lazy singletons — se crean la primera vez que se usan,
+# no al importar el módulo (evita llamadas de red en tests).
+_index = None
+_client = None
+
+
+def _get_index():
+    global _index
+    if _index is None:
+        from pinecone import Pinecone
+
+        pc = Pinecone(api_key=settings.PINECONE_API_KEY)
+        _index = pc.Index(settings.PINECONE_INDEX_NAME)
+    return _index
+
+
+def _get_client():
+    global _client
+    if _client is None:
+        from google import genai
+
+        _client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    return _client
+
 
 # Modelos exactos
 LLM_MODEL = "gemini-2.5-flash"
@@ -27,7 +42,7 @@ DISCLAIMER = (
 
 
 def _get_gemini_embedding(text: str):
-    response = client.models.embed_content(
+    response = _get_client().models.embed_content(
         model=EMBEDDING_MODEL, contents=text
     )
     return response.embeddings[0].values
@@ -36,7 +51,7 @@ def _get_gemini_embedding(text: str):
 def _retrieve_and_rerank(comunidad_id: int, question: str):
     query_vector = _get_gemini_embedding(question)
 
-    res = index.query(
+    res = _get_index().query(
         namespace=str(comunidad_id),
         vector=query_vector,
         top_k=5,
@@ -93,7 +108,7 @@ async def _ask_gemini_with_timeout(context: str, question: str):
     try:
         # Petición asíncrona con límite de tiempo
         resp = await asyncio.wait_for(
-            client.aio.models.generate_content(
+            _get_client().aio.models.generate_content(
                 model=LLM_MODEL,
                 contents=user_message,
                 config={"system_instruction": system_instruction},

@@ -1,11 +1,10 @@
 from api.alerts import router as alerts_router
-from api.associations import router as associations_router
+from api.associations.associations import router as associations_router
 from api.chat import router as chat_router
+from api.chatBot.chatBot import router as chatBotRouter
+from api.chatBot.documents import router as documentsRouter
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-from backend.api.chatBot.chatBot import router as chatBotRouter
-from backend.api.chatBot.documents import router as documentsRouter
 
 app = FastAPI(
     title="Vecinus API",

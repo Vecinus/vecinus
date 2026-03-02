@@ -1,12 +1,10 @@
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from supabase import Client, ClientOptions, create_client
-
-from core.config import settings
 from core.deps import get_current_user, get_supabase
-from schemas.alert import Alert, AlertCreate
+from fastapi import APIRouter, Depends, HTTPException
+from schemas.alert import Alert
+from supabase import Client, create_client  # noqa: F401
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
