@@ -22,6 +22,7 @@ mock_property_id = str(uuid4())
 mock_membership_id = str(uuid4())
 mock_invitation_id = str(uuid4())
 mock_target_user_id = str(uuid4())
+mock_membership2_id = str(uuid4())
 
 mock_user = {
     "id": mock_user_id,
@@ -76,6 +77,10 @@ class MockSupabaseTable:
             self._updated.append(updated)
         if not self._updated:
             self._updated = [{"id": "dummy", **data}]
+        return self
+
+    def delete(self, *args, **kwargs):
+        self._operation = "delete"
         return self
 
     def execute(self):
@@ -373,5 +378,88 @@ def test_accept_invitation_not_found():
         )
         assert response.status_code == 404
         assert response.json()["detail"] == "Invitation not found or already used"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_remove_member_success():
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    admin_mock = make_mock_supabase()
+    app.dependency_overrides[get_supabase] = lambda: admin_mock
+    try:
+        response = client.delete(
+            f"/members/{mock_membership_id}",
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["message"] == f"Membership {mock_membership_id} deleted successfully"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_remove_member_not_admin_fails():
+    app.dependency_overrides[get_current_user] = lambda: mock_non_owner
+    non_admin_mock = make_mock_supabase()
+    app.dependency_overrides[get_supabase] = lambda: non_admin_mock
+    try:
+        response = client.delete(
+            f"/members/{mock_membership_id}",
+        )
+        assert response.status_code == 403
+        assert response.json()["detail"] == "Admin access required for this action"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_remove_member_different_association_fails():
+    memberships = {"memberships": [
+                {
+                    "id": mock_membership_id,
+                    "association_id": mock_association_id,
+                    "profile_id": mock_user_id,
+                    "role": 2,  # OWNER
+                    "property_id": mock_property_id,
+                    "joined_at": "2026-02-22T00:00:00Z",
+                    "neighborhood_associations": {
+                        "id": mock_association_id,
+                        "name": "Comunidad Test",
+                        "address": "Calle Mayor 1",
+                    },},
+                {
+                    "id": mock_membership2_id,
+                    "association_id": str(uuid4()),
+                    "profile_id": str(uuid4()),
+                    "role": 2,
+                    "property_id": str(uuid4()),
+                    "joined_at": "2026-02-28T00:00:00Z",
+                    "neighborhood_associations": {
+                        "id": str(uuid4()),
+                        "name": "Comunidad Test 2",
+                        "address": "Calle Mayor 2",
+                    },}
+            ]}
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    admin_mock = make_mock_supabase(extra=memberships)
+    app.dependency_overrides[get_supabase] = lambda: admin_mock
+    try:
+        response = client.delete(
+            f"/members/{mock_membership2_id}",
+        )
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Membership not found in this community"
+    finally:
+        app.dependency_overrides.clear()
+
+def test_remove_member_not_found():
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    admin_mock = make_mock_supabase()
+    app.dependency_overrides[get_supabase] = lambda: admin_mock
+    wrong_membership_id = "33"
+    try:
+        response = client.delete(
+            f"/members/{wrong_membership_id}",
+        )
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Membership not found"
     finally:
         app.dependency_overrides.clear()
