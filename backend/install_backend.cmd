@@ -1,12 +1,8 @@
 @echo off
-echo ================================
-echo  INICIANDO BACKEND VECINUS
-echo ================================
+cd /d "%~dp0backend"
 
-REM Activar entorno virtual
+python -m venv venv
 call venv\Scripts\activate
-
-REM Ejecutar FastAPI con reload
-uvicorn main:app --reload
+pip install -r requirements.txt
 
 pause
