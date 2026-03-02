@@ -5,6 +5,10 @@ on:
     branches: [develop]
   pull_request:
     branches: [main]
+  workflow_call:
+    secrets:
+      SUPABASE_KEY:
+        required: false
 
 jobs:
   pytest:
