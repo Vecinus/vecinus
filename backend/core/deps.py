@@ -11,7 +11,7 @@ security = HTTPBearer()
 def get_supabase(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> Client:
-    """Dependency para inyectar el cliente de Supabase autenticado con el rol del usuario."""
+    """Cliente Supabase autenticado con el JWT del usuario (respeta RLS)."""
     token = credentials.credentials
     options = ClientOptions(schema="dev")
     client: Client = create_client(
@@ -20,6 +20,14 @@ def get_supabase(
 
     client.postgrest.auth(token)
     return client
+
+
+def get_supabase_anon() -> Client:
+    """Cliente anon para endpoints públicos (ej: aceptar invitación)."""
+    options = ClientOptions(schema="dev")
+    return create_client(
+        settings.SUPABASE_URL, settings.SUPABASE_KEY, options=options
+    )
 
 
 def get_supabase_admin() -> Client:
@@ -33,7 +41,7 @@ def get_supabase_admin() -> Client:
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> dict:
-    """Dependency para obtener la info del usuario desde el JWT sin consultar repetidamente la DB."""
+    """Extrae datos del usuario desde el JWT sin consultar la DB."""
     import jwt
 
     token = credentials.credentials

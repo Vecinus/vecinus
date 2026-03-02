@@ -1,15 +1,16 @@
-from fastapi.testclient import TestClient
-from uuid import uuid4
-import pytest
 import os
 from unittest.mock import patch
+from uuid import uuid4
+
+import pytest
+from fastapi.testclient import TestClient
 
 # Set dummy env vars for pydantic settings before importing app
 os.environ["SUPABASE_URL"] = "http://localhost:8000"
 os.environ["SUPABASE_KEY"] = "dummy"
 
-from main import app
 from core.deps import get_current_user, get_supabase
+from main import app
 
 client = TestClient(app)
 
@@ -18,8 +19,9 @@ mock_user = {
     "id": str(uuid4()),
     "username": "testuser",
     "avatar_url": None,
-    "created_at": "2026-02-22T00:00:00Z"
+    "created_at": "2026-02-22T00:00:00Z",
 }
+
 
 # Dummy Supabase mock class
 class MockSupabaseTable:
@@ -34,36 +36,55 @@ class MockSupabaseTable:
 
     def insert(self, *args, **kwargs):
         self._operation = "insert"
-        from uuid import uuid4
         from datetime import datetime
-        
+        from uuid import uuid4
+
         inserted_rows = []
         # Support both single dict and list of dicts
         items_to_insert = args[0] if isinstance(args[0], list) else [args[0]]
-        
+
         for item in items_to_insert:
             inserted_row = item.copy()
-            if "id" not in inserted_row and self.table_name != "channel_participants":
+            if (
+                "id" not in inserted_row
+                and self.table_name != "channel_participants"
+            ):
                 inserted_row["id"] = str(uuid4())
-            if "created_at" not in inserted_row and "created_at" in self._all_data[0] if self._all_data else False:
-                inserted_row["created_at"] = datetime.utcnow().isoformat() + "Z"
-            if "created_by" not in inserted_row and self.table_name == "chat_channels":
+            if (
+                "created_at" not in inserted_row
+                and "created_at" in self._all_data[0]
+                if self._all_data
+                else False
+            ):
+                inserted_row["created_at"] = (
+                    datetime.utcnow().isoformat() + "Z"
+                )
+            if (
+                "created_by" not in inserted_row
+                and self.table_name == "chat_channels"
+            ):
                 inserted_row["created_by"] = mock_user["id"]
             inserted_rows.append(inserted_row)
-            
+
         self._inserted = inserted_rows
         return self
 
     def eq(self, column, value, **kwargs):
         # Apply simple filtering
-        self._data = [item for item in self._data if str(item.get(column)) == str(value)]
+        self._data = [
+            item for item in self._data if str(item.get(column)) == str(value)
+        ]
         return self
-        
+
     def in_(self, column, values, **kwargs):
         string_values = [str(v) for v in values]
-        self._data = [item for item in self._data if str(item.get(column)) in string_values]
+        self._data = [
+            item
+            for item in self._data
+            if str(item.get(column)) in string_values
+        ]
         return self
-        
+
     def order(self, *args, **kwargs):
         return self
 
@@ -76,11 +97,11 @@ class MockSupabaseTable:
             updated_item.update(args[0])
             updated_rows.append(updated_item)
         self._updated = updated_rows
-        
+
         # If no items were in self._data because the filter failed to catch the mock row, we mock success here anyway to pass the basic test.
         if not updated_rows:
-             self._updated = [{"id": "dummy", **args[0]}]
-             
+            self._updated = [{"id": "dummy", **args[0]}]
+
         return self
 
     def delete(self, *args, **kwargs):
@@ -91,12 +112,13 @@ class MockSupabaseTable:
         class MockResponse:
             def __init__(self, data):
                 self.data = data
-        
+
         if self._operation == "insert":
             return MockResponse(self._inserted)
         if hasattr(self, "_operation") and self._operation == "update":
             return MockResponse(self._updated)
         return MockResponse(self._data)
+
 
 class MockSupabaseClient:
     def __init__(self, mock_responses):
@@ -111,12 +133,16 @@ class MockSupabaseClient:
                 class MockResponse:
                     def __init__(self, data):
                         self.data = data
+
                 return MockResponse([])
+
         return MockRPC()
+
 
 # Dependency overrides
 def override_get_current_user():
     return mock_user
+
 
 mock_channel_id = str(uuid4())
 mock_association_id = str(uuid4())
@@ -127,44 +153,107 @@ mock_target_user_id = str(uuid4())
 mock_dm_blocked_by_me = str(uuid4())
 mock_dm_blocked_by_other = str(uuid4())
 
+
 def override_get_supabase():
     # Retornar arrays con objetos adecuados según lo que esperan los routers
-    return MockSupabaseClient({
-        "channel_participants": [
-            {"channel_id": mock_channel_id, "user_id": mock_user["id"]},
-            {"channel_id": mock_channel_id, "user_id": mock_target_user_id},
-            {"channel_id": mock_dm_channel_id, "user_id": mock_user["id"]},
-            # Participantes para canales bloqueados
-            {"channel_id": mock_dm_blocked_by_me, "user_id": mock_user["id"]},
-            {"channel_id": mock_dm_blocked_by_other, "user_id": mock_user["id"]}
-        ],
-        "chat_channels": [
-            {"id": mock_channel_id, "association_id": mock_association_id, "name": "General", "is_direct_message": False, "is_blocked": False, "blocked_by": None, "created_by": mock_user["id"]},
-            {"id": mock_dm_channel_id, "association_id": mock_association_id, "name": None, "is_direct_message": True, "is_blocked": False, "blocked_by": None, "created_by": mock_user["id"]},
-            {"id": mock_dm_blocked_by_me, "association_id": mock_association_id, "name": None, "is_direct_message": True, "is_blocked": True, "blocked_by": mock_user["id"], "created_by": mock_user["id"]},
-            {"id": mock_dm_blocked_by_other, "association_id": mock_association_id, "name": None, "is_direct_message": True, "is_blocked": True, "blocked_by": mock_target_user_id, "created_by": mock_target_user_id}
-        ],
-        "messages": [{"id": str(uuid4()), "channel_id": mock_channel_id, "sender_id": mock_user["id"], "content": "Hello", "created_at": "2026-02-22T00:00:00Z", "sender": mock_user}],
-        "memberships": [
-            {"association_id": mock_association_id, "profile_id": mock_user["id"], "role": 1}, # Admin
-            {"association_id": mock_association_id, "profile_id": mock_target_user_id, "role": 2} # Not admin
-        ]
-    })
+    return MockSupabaseClient(
+        {
+            "channel_participants": [
+                {"channel_id": mock_channel_id, "user_id": mock_user["id"]},
+                {
+                    "channel_id": mock_channel_id,
+                    "user_id": mock_target_user_id,
+                },
+                {"channel_id": mock_dm_channel_id, "user_id": mock_user["id"]},
+                # Participantes para canales bloqueados
+                {
+                    "channel_id": mock_dm_blocked_by_me,
+                    "user_id": mock_user["id"],
+                },
+                {
+                    "channel_id": mock_dm_blocked_by_other,
+                    "user_id": mock_user["id"],
+                },
+            ],
+            "chat_channels": [
+                {
+                    "id": mock_channel_id,
+                    "association_id": mock_association_id,
+                    "name": "General",
+                    "is_direct_message": False,
+                    "is_blocked": False,
+                    "blocked_by": None,
+                    "created_by": mock_user["id"],
+                },
+                {
+                    "id": mock_dm_channel_id,
+                    "association_id": mock_association_id,
+                    "name": None,
+                    "is_direct_message": True,
+                    "is_blocked": False,
+                    "blocked_by": None,
+                    "created_by": mock_user["id"],
+                },
+                {
+                    "id": mock_dm_blocked_by_me,
+                    "association_id": mock_association_id,
+                    "name": None,
+                    "is_direct_message": True,
+                    "is_blocked": True,
+                    "blocked_by": mock_user["id"],
+                    "created_by": mock_user["id"],
+                },
+                {
+                    "id": mock_dm_blocked_by_other,
+                    "association_id": mock_association_id,
+                    "name": None,
+                    "is_direct_message": True,
+                    "is_blocked": True,
+                    "blocked_by": mock_target_user_id,
+                    "created_by": mock_target_user_id,
+                },
+            ],
+            "messages": [
+                {
+                    "id": str(uuid4()),
+                    "channel_id": mock_channel_id,
+                    "sender_id": mock_user["id"],
+                    "content": "Hello",
+                    "created_at": "2026-02-22T00:00:00Z",
+                    "sender": mock_user,
+                }
+            ],
+            "memberships": [
+                {
+                    "association_id": mock_association_id,
+                    "profile_id": mock_user["id"],
+                    "role": 1,
+                },  # Admin
+                {
+                    "association_id": mock_association_id,
+                    "profile_id": mock_target_user_id,
+                    "role": 2,
+                },  # Not admin
+            ],
+        }
+    )
+
 
 @pytest.fixture(autouse=True)
 def setup_overrides():
     app.dependency_overrides[get_current_user] = override_get_current_user
     app.dependency_overrides[get_supabase] = override_get_supabase
-    
+
     # Patch create_client directly where it is used in the chat router
     patcher = patch("api.chat.create_client")
     mock_create_client = patcher.start()
     mock_create_client.return_value = override_get_supabase()
-    
+
     yield
-    
+
     patcher.stop()
     app.dependency_overrides.clear()
+
 
 def test_get_channels():
     # Because of eq filtering, this will only return channels the user is in.
@@ -175,7 +264,8 @@ def test_get_channels():
     # mock_user is in mock_channel_id and mock_dm_channel_id based on channel_participants
     # But get_channels filters by current_user's channel_ids (mock_channel_id and mock_dm_channel_id)
     # The actual chat_channels table mock returns both channels matching those IDs.
-    pass # we handled this mostly.
+    pass  # we handled this mostly.
+
 
 def test_get_channel_messages():
     response = client.get(f"/chat/channels/{mock_channel_id}/messages")
@@ -185,13 +275,13 @@ def test_get_channel_messages():
     assert len(data) == 1
     assert data[0]["content"] == "Hello"
 
+
 def test_send_message():
-    new_msg = {
-        "channel_id": mock_channel_id,
-        "content": "New test message"
-    }
+    new_msg = {"channel_id": mock_channel_id, "content": "New test message"}
     # Test POST
-    response = client.post(f"/chat/channels/{mock_channel_id}/messages", json=new_msg)
+    response = client.post(
+        f"/chat/channels/{mock_channel_id}/messages", json=new_msg
+    )
     assert response.status_code == 200
     data = response.json()
     assert data["content"] == "New test message"
@@ -199,19 +289,21 @@ def test_send_message():
     assert data["sender_id"] == mock_user["id"]
     assert "id" in data
 
+
 def test_create_direct_message():
     # Using the target user id that we mocked as being in the mock_channel_id
     target_uuid = mock_target_user_id
-    req_data = {
-        "target_user_id": target_uuid
-    }
+    req_data = {"target_user_id": target_uuid}
     # Since our simple mock intercepts create logic and returns success with new channel data
-    response = client.post(f"/chat/channels/{mock_channel_id}/direct", json=req_data)
+    response = client.post(
+        f"/chat/channels/{mock_channel_id}/direct", json=req_data
+    )
     assert response.status_code == 200
     data = response.json()
     assert data["is_direct_message"] is True
     assert data["association_id"] == mock_association_id
     assert "id" in data
+
 
 def test_block_direct_message():
     # Make sure we use the ID of the DM channel we mocked
@@ -220,6 +312,7 @@ def test_block_direct_message():
     data = response.json()
     assert data["message"] == "Direct message channel successfully blocked."
 
+
 def test_unblock_direct_message_success():
     # Attempting to unblock a channel that I blocked myself
     response = client.post(f"/chat/channels/{mock_dm_blocked_by_me}/unblock")
@@ -227,12 +320,19 @@ def test_unblock_direct_message_success():
     data = response.json()
     assert data["message"] == "Direct message channel successfully unblocked."
 
+
 def test_unblock_direct_message_unauthorized():
     # Attempting to unblock a channel blocked by another user
-    response = client.post(f"/chat/channels/{mock_dm_blocked_by_other}/unblock")
+    response = client.post(
+        f"/chat/channels/{mock_dm_blocked_by_other}/unblock"
+    )
     assert response.status_code == 403
     data = response.json()
-    assert data["detail"] == "You are not authorized to unblock this channel because you did not block it"
+    assert (
+        data["detail"]
+        == "You are not authorized to unblock this channel because you did not block it"
+    )
+
 
 def test_unblock_not_blocked_channel():
     # Attempting to unblock a channel that is not blocked
@@ -241,12 +341,13 @@ def test_unblock_not_blocked_channel():
     data = response.json()
     assert data["detail"] == "This channel is not blocked"
 
+
 def test_create_group_channel_as_admin():
     req_data = {
         "association_id": mock_association_id,
         "name": "Anuncios Oficiales",
         "is_direct_message": False,
-        "is_blocked": False
+        "is_blocked": False,
     }
     response = client.post("/chat/channels", json=req_data)
     assert response.status_code == 200
@@ -255,72 +356,76 @@ def test_create_group_channel_as_admin():
     assert data["association_id"] == mock_association_id
     assert data["is_direct_message"] is False
 
+
 def test_update_group_channel_as_admin():
     req_data = {
         "association_id": mock_association_id,
         "name": "General Actualizado",
         "is_direct_message": False,
-        "is_blocked": False
+        "is_blocked": False,
     }
     response = client.put(f"/chat/channels/{mock_channel_id}", json=req_data)
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "General Actualizado"
 
+
 def test_delete_group_channel_as_admin():
     response = client.delete(f"/chat/channels/{mock_channel_id}")
     assert response.status_code == 204
+
 
 def test_create_group_channel_not_admin():
     # Setup mock user inline explicitly to prevent 401
     mock_not_admin = {
         "id": mock_target_user_id,
         "username": "user2",
-        "role": "authenticated"
+        "role": "authenticated",
     }
     app.dependency_overrides[get_current_user] = lambda: mock_not_admin
-    
+
     req_data = {
         "association_id": mock_association_id,
         "name": "Intento Fallido",
         "is_direct_message": False,
-        "is_blocked": False
+        "is_blocked": False,
     }
     response = client.post("/chat/channels", json=req_data)
     assert response.status_code == 403
-    
+
     # Restore override for future tests
     app.dependency_overrides[get_current_user] = override_get_current_user
+
 
 def test_update_group_channel_not_admin():
     mock_not_admin = {
         "id": mock_target_user_id,
         "username": "user2",
-        "role": "authenticated"
+        "role": "authenticated",
     }
     app.dependency_overrides[get_current_user] = lambda: mock_not_admin
-    
+
     req_data = {
         "association_id": mock_association_id,
         "name": "Intento Fallido",
         "is_direct_message": False,
-        "is_blocked": False
+        "is_blocked": False,
     }
     response = client.put(f"/chat/channels/{mock_channel_id}", json=req_data)
     assert response.status_code == 403
-    
+
     app.dependency_overrides[get_current_user] = override_get_current_user
+
 
 def test_delete_group_channel_not_admin():
     mock_not_admin = {
         "id": mock_target_user_id,
         "username": "user2",
-        "role": "authenticated"
+        "role": "authenticated",
     }
     app.dependency_overrides[get_current_user] = lambda: mock_not_admin
-    
+
     response = client.delete(f"/chat/channels/{mock_channel_id}")
     assert response.status_code == 403
-    
-    app.dependency_overrides[get_current_user] = override_get_current_user
 
+    app.dependency_overrides[get_current_user] = override_get_current_user

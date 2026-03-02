@@ -1,5 +1,5 @@
 import os
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -9,7 +9,7 @@ os.environ["SUPABASE_URL"] = "http://localhost:8000"
 os.environ["SUPABASE_KEY"] = "dummy"
 os.environ["SUPABASE_SERVICE_KEY"] = "dummy-service"
 
-from core.deps import get_current_user, get_supabase, get_supabase_admin
+from core.deps import get_current_user, get_supabase, get_supabase_anon
 from main import app
 
 client = TestClient(app)
@@ -39,11 +39,13 @@ mock_non_owner = {
 
 
 class MockSupabaseTable:
-    def __init__(self, table_name, data):
+    def __init__(self, table_name, data, rls_blocked_ops=None):
         self.table_name = table_name
         self._all_data = data
         self._data = list(data)
         self._operation = "select"
+        # Operations that raise RLS error: {"insert", "delete", "update"}
+        self._rls_blocked_ops = rls_blocked_ops or set()
 
     def select(self, *args, **kwargs):
         self._operation = "select"
@@ -84,6 +86,18 @@ class MockSupabaseTable:
         return self
 
     def execute(self):
+        from postgrest.exceptions import APIError
+
+        if self._operation in self._rls_blocked_ops:
+            raise APIError(
+                {
+                    "code": "42501",
+                    "message": "new row violates row-level security policy",
+                    "details": None,
+                    "hint": None,
+                }
+            )
+
         class MockResponse:
             def __init__(self, data):
                 self.data = data
@@ -96,14 +110,21 @@ class MockSupabaseTable:
 
 
 class MockSupabaseClient:
-    def __init__(self, mock_responses):
+    def __init__(self, mock_responses, rls_blocked=None):
         self.mock_responses = mock_responses
+        # {"table_name": {"insert", "delete"}} — ops that raise RLS error
+        self.rls_blocked = rls_blocked or {}
 
     def table(self, name: str):
-        return MockSupabaseTable(name, self.mock_responses.get(name, []))
+        table = MockSupabaseTable(
+            name,
+            self.mock_responses.get(name, []),
+            rls_blocked_ops=self.rls_blocked.get(name, set()),
+        )
+        return table
 
 
-def make_mock_supabase(extra=None):
+def make_mock_supabase(extra=None, rls_blocked=None):
     base = {
         "memberships": [
             {
@@ -144,7 +165,7 @@ def make_mock_supabase(extra=None):
     if extra:
         for k, v in extra.items():
             base[k] = v
-    return MockSupabaseClient(base)
+    return MockSupabaseClient(base, rls_blocked=rls_blocked)
 
 
 def make_owner_supabase():
@@ -233,30 +254,19 @@ def test_invite_admin_cannot_grant_admin_role():
             },
         )
         assert response.status_code == 400
-        assert response.json()["detail"] == "Cannot grant ADMIN role via invitation"
+        assert (
+            response.json()["detail"]
+            == "Cannot grant ADMIN role via invitation"
+        )
     finally:
         app.dependency_overrides.clear()
 
 
 def test_invite_admin_non_admin_fails():
     app.dependency_overrides[get_current_user] = lambda: mock_non_owner
-    # Supabase where mock_non_owner has role=3 (TENANT), not admin
-    non_admin_supabase = MockSupabaseClient(
-        {
-            "memberships": [
-                {
-                    "id": str(uuid4()),
-                    "association_id": mock_association_id,
-                    "profile_id": mock_non_owner_id,
-                    "role": 3,  # TENANT, not ADMIN
-                    "property_id": mock_property_id,
-                    "joined_at": "2026-02-22T00:00:00Z",
-                }
-            ],
-            "invitations": [],
-        }
-    )
-    app.dependency_overrides[get_supabase] = lambda: non_admin_supabase
+    # RLS blocks INSERT on invitations because non_owner is not ADMIN
+    blocked_mock = make_mock_supabase(rls_blocked={"invitations": {"insert"}})
+    app.dependency_overrides[get_supabase] = lambda: blocked_mock
     try:
         response = client.post(
             "/invite/admin",
@@ -299,13 +309,12 @@ def test_invite_tenant_success():
 
 def test_invite_tenant_not_owner_fails():
     app.dependency_overrides[get_current_user] = lambda: mock_non_owner
-    non_owner_supabase = MockSupabaseClient(
-        {
-            "memberships": [],  # no ownership record
-            "invitations": [],
-        }
+    # RLS blocks INSERT on invitations because non_owner is not OWNER of this property
+    blocked_mock = MockSupabaseClient(
+        {"memberships": [], "invitations": []},
+        rls_blocked={"invitations": {"insert"}},
     )
-    app.dependency_overrides[get_supabase] = lambda: non_owner_supabase
+    app.dependency_overrides[get_supabase] = lambda: blocked_mock
     try:
         response = client.post(
             "/invite/tenant",
@@ -328,46 +337,58 @@ def test_invite_tenant_not_owner_fails():
 def test_accept_invitation_success():
     new_user_id = str(uuid4())
 
+    mock_session = MagicMock()
+    mock_session.access_token = "fake-jwt-token"
+
     mock_new_user = MagicMock()
     mock_new_user.id = new_user_id
 
     mock_auth_response = MagicMock()
     mock_auth_response.user = mock_new_user
+    mock_auth_response.session = mock_session
 
-    admin_mock = make_mock_supabase()
-    admin_mock.auth = MagicMock()
-    admin_mock.auth.admin = MagicMock()
-    admin_mock.auth.admin.create_user = MagicMock(return_value=mock_auth_response)
+    anon_mock = make_mock_supabase()
+    anon_mock.auth = MagicMock()
+    anon_mock.auth.sign_up = MagicMock(return_value=mock_auth_response)
 
-    app.dependency_overrides[get_supabase_admin] = lambda: admin_mock
-    try:
-        response = client.post(
-            "/auth/accept-invitation",
-            json={
-                "invitation_token": mock_invitation_id,
-                "password": "SecurePass123!",
-            },
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["message"] == "Invitation accepted"
-        assert data["user_id"] == new_user_id
-        admin_mock.auth.admin.create_user.assert_called_once()
-    finally:
-        app.dependency_overrides.clear()
+    # Mock the user-scoped client created inside the endpoint after sign_up
+    user_client_mock = make_mock_supabase()
+    user_client_mock.postgrest = MagicMock()
+
+    app.dependency_overrides[get_supabase_anon] = lambda: anon_mock
+    with patch(
+        "api.associations.create_client", return_value=user_client_mock
+    ):
+        try:
+            response = client.post(
+                "/auth/accept-invitation",
+                json={
+                    "invitation_token": mock_invitation_id,
+                    "password": "SecurePass123!",
+                },
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert data["message"] == "Invitation accepted"
+            assert data["user_id"] == new_user_id
+            anon_mock.auth.sign_up.assert_called_once_with(
+                {"email": "invited@test.com", "password": "SecurePass123!"}
+            )
+        finally:
+            app.dependency_overrides.clear()
 
 
 def test_accept_invitation_not_found():
-    admin_mock = MockSupabaseClient(
+    anon_mock = MockSupabaseClient(
         {
             "invitations": [],  # no PENDING invitation with this token
             "profiles": [],
             "memberships": [],
         }
     )
-    admin_mock.auth = MagicMock()
+    anon_mock.auth = MagicMock()
 
-    app.dependency_overrides[get_supabase_admin] = lambda: admin_mock
+    app.dependency_overrides[get_supabase_anon] = lambda: anon_mock
     try:
         response = client.post(
             "/auth/accept-invitation",
@@ -377,88 +398,70 @@ def test_accept_invitation_not_found():
             },
         )
         assert response.status_code == 404
-        assert response.json()["detail"] == "Invitation not found or already used"
+        assert (
+            response.json()["detail"] == "Invitation not found or already used"
+        )
     finally:
         app.dependency_overrides.clear()
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Test: DELETE /members/{membership_id}
+# ──────────────────────────────────────────────────────────────────────────────
+
+
 def test_remove_member_success():
     app.dependency_overrides[get_current_user] = lambda: mock_user
-    admin_mock = make_mock_supabase()
-    app.dependency_overrides[get_supabase] = lambda: admin_mock
+    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
     try:
-        response = client.delete(
-            f"/members/{mock_membership_id}",
-        )
+        response = client.delete(f"/members/{mock_membership_id}")
         assert response.status_code == 200
         data = response.json()
-        assert data["message"] == f"Membership {mock_membership_id} deleted successfully"
+        assert (
+            data["message"]
+            == f"Membership {mock_membership_id} deleted successfully"
+        )
     finally:
         app.dependency_overrides.clear()
 
 
 def test_remove_member_not_admin_fails():
     app.dependency_overrides[get_current_user] = lambda: mock_non_owner
-    non_admin_mock = make_mock_supabase()
-    app.dependency_overrides[get_supabase] = lambda: non_admin_mock
+    # RLS blocks DELETE on memberships because non_owner is not ADMIN
+    blocked_mock = make_mock_supabase(rls_blocked={"memberships": {"delete"}})
+    app.dependency_overrides[get_supabase] = lambda: blocked_mock
     try:
-        response = client.delete(
-            f"/members/{mock_membership_id}",
-        )
+        response = client.delete(f"/members/{mock_membership_id}")
         assert response.status_code == 403
-        assert response.json()["detail"] == "Admin access required for this action"
+        assert (
+            response.json()["detail"]
+            == "Admin access required for this action"
+        )
     finally:
         app.dependency_overrides.clear()
 
 
 def test_remove_member_different_association_fails():
-    memberships = {"memberships": [
-                {
-                    "id": mock_membership_id,
-                    "association_id": mock_association_id,
-                    "profile_id": mock_user_id,
-                    "role": 2,  # OWNER
-                    "property_id": mock_property_id,
-                    "joined_at": "2026-02-22T00:00:00Z",
-                    "neighborhood_associations": {
-                        "id": mock_association_id,
-                        "name": "Comunidad Test",
-                        "address": "Calle Mayor 1",
-                    },},
-                {
-                    "id": mock_membership2_id,
-                    "association_id": str(uuid4()),
-                    "profile_id": str(uuid4()),
-                    "role": 2,
-                    "property_id": str(uuid4()),
-                    "joined_at": "2026-02-28T00:00:00Z",
-                    "neighborhood_associations": {
-                        "id": str(uuid4()),
-                        "name": "Comunidad Test 2",
-                        "address": "Calle Mayor 2",
-                    },}
-            ]}
+    # With RLS, user cannot see memberships of associations they don't belong to.
+    # SELECT returns empty → 404 before even attempting DELETE.
     app.dependency_overrides[get_current_user] = lambda: mock_user
-    admin_mock = make_mock_supabase(extra=memberships)
-    app.dependency_overrides[get_supabase] = lambda: admin_mock
+    # Empty memberships: RLS hides mock_membership2_id (different association)
+    hidden_mock = make_mock_supabase(extra={"memberships": []})
+    app.dependency_overrides[get_supabase] = lambda: hidden_mock
     try:
-        response = client.delete(
-            f"/members/{mock_membership2_id}",
-        )
+        response = client.delete(f"/members/{mock_membership2_id}")
         assert response.status_code == 404
-        assert response.json()["detail"] == "Membership not found in this community"
+        assert response.json()["detail"] == "Membership not found"
     finally:
         app.dependency_overrides.clear()
 
+
 def test_remove_member_not_found():
     app.dependency_overrides[get_current_user] = lambda: mock_user
-    admin_mock = make_mock_supabase()
-    app.dependency_overrides[get_supabase] = lambda: admin_mock
+    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
     wrong_membership_id = "33"
     try:
-        response = client.delete(
-            f"/members/{wrong_membership_id}",
-        )
+        response = client.delete(f"/members/{wrong_membership_id}")
         assert response.status_code == 404
         assert response.json()["detail"] == "Membership not found"
     finally:

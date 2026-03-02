@@ -1,7 +1,9 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List
 from datetime import datetime
+from typing import List, Optional
 from uuid import UUID
+
+from pydantic import BaseModel, Field
+
 
 # Models para la tabla dev.profiles (simplified)
 class ProfileResponse(BaseModel):
@@ -9,6 +11,7 @@ class ProfileResponse(BaseModel):
     username: str
     avatar_url: Optional[str] = None
     created_at: Optional[datetime] = None
+
 
 # Models para la tabla dev.chat_channels
 class ChatChannelBase(BaseModel):
@@ -18,11 +21,14 @@ class ChatChannelBase(BaseModel):
     is_blocked: bool = False
     blocked_by: Optional[UUID] = None
 
+
 class DirectMessageCreate(BaseModel):
     target_user_id: UUID
 
+
 class ChatChannelCreate(ChatChannelBase):
     pass
+
 
 class ChatChannel(ChatChannelBase):
     id: UUID
@@ -31,6 +37,7 @@ class ChatChannel(ChatChannelBase):
     class Config:
         from_attributes = True
 
+
 # Models para la tabla dev.messages
 class MessageBase(BaseModel):
     content: str
@@ -38,11 +45,14 @@ class MessageBase(BaseModel):
     updated_at: Optional[datetime] = None
     is_edited: bool = False
 
+
 class MessageCreate(MessageBase):
     pass
 
+
 class MessageUpdate(BaseModel):
     content: str
+
 
 class Message(MessageBase):
     id: UUID
@@ -51,6 +61,7 @@ class Message(MessageBase):
 
     class Config:
         from_attributes = True
+
 
 # Extended Message Model para incluir el nombre del remitente (útil para la UI)
 class MessageWithSender(Message):
