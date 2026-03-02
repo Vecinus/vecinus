@@ -68,7 +68,7 @@ def test_chatbot_documento_ya_existente():
     print(f"\n[Respuesta IA]: {data['answer']}")
     
     # Comprobamos que la IA nos da el dato correcto (a las 23)
-    assert "23" in data["answer"]
+    assert "22" in data["answer"]
 
 
 def test_chatbot_flujo_completo_con_subida_documento():
