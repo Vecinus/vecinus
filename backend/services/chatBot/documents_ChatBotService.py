@@ -1,50 +1,50 @@
 from pinecone import Pinecone
+from google import genai
 from backend.core.config import settings
 
-# Conectamos con Pinecone
+# Conectamos con Pinecone y Gemini
 pc = Pinecone(api_key=settings.PINECONE_API_KEY)
-
-# ATENCIÓN: Ahora coge el nombre del índice correctamente desde tu .env
 index = pc.Index(settings.PINECONE_INDEX_NAME)
+client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
-# Modelo de embeddings nativo de Pinecone (1024 dimensiones)
-PINECONE_MODEL = "llama-text-embed-v2"
+# Nombre exacto del modelo para evitar el error 404
+EMBEDDING_MODEL = "gemini-embedding-001"
 
-def _chunk_text(text, max_chars=800):
+def _chunk_text_with_overlap(text, chunk_size=800, overlap=150):
+    """Corta el texto superponiendo un poco para no perder contexto entre trozos."""
     text = text.strip()
     chunks = []
     start = 0
     while start < len(text):
-        end = start + max_chars
+        end = start + chunk_size
         chunk = text[start:end]
         chunks.append(chunk)
-        start = end
+        start += (chunk_size - overlap)
     return chunks
 
 def index_document(comunidad_id, document_title, raw_text):
-    chunks = _chunk_text(raw_text)
+    chunks = _chunk_text_with_overlap(raw_text)
     if not chunks:
         return 0
 
-    # Pinecone transforma TODOS los trozos en vectores de golpe
-    embedding_response = pc.inference.embed(
-        model=PINECONE_MODEL,
-        inputs=chunks,
-        parameters={"input_type": "passage", "truncate": "END"}
-    )
-
     vectors = []
-    for i, embedding_data in enumerate(embedding_response.data):
+    for i, chunk_text in enumerate(chunks):
         chunk_id = f"{comunidad_id}-{document_title}-{i}"
+        
+        # Generar embedding con Google Gemini (768 dimensiones)
+        response = client.models.embed_content(
+            model=EMBEDDING_MODEL,
+            contents=chunk_text
+        )
         
         vectors.append({
             "id": chunk_id,
-            "values": embedding_data.values, # Genera los 1024 números
+            "values": response.embeddings[0].values,
             "metadata": {
-                "comunidad_id": comunidad_id,
+                "comunidad_id": str(comunidad_id),
                 "document_title": document_title,
                 "chunk_index": i,
-                "texto": chunks[i]
+                "texto": chunk_text
             }
         })
 

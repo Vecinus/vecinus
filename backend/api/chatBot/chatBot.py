@@ -12,6 +12,7 @@ async def chatbot_with_documents(comunidad_id: int, request: ChatBotRequest):
     if not pregunta.strip():
         raise HTTPException(status_code=400, detail="La pregunta no puede estar vacía.")
 
-    data = get_chatbot_response(comunidad_id, pregunta)
+    # LLAMADA ASÍNCRONA (Añadido 'await')
+    data = await get_chatbot_response(comunidad_id, pregunta)
 
     return data

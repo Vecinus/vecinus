@@ -1,71 +1,59 @@
+import asyncio
 from google import genai
 from pinecone import Pinecone
 from backend.core.config import settings
-from backend.services.chatBot.documents_ChatBotService import index, PINECONE_MODEL
 
-# Inicializamos clientes
-client = genai.Client(api_key=settings.GEMINI_API_KEY)
+# ==========================================
+# INICIALIZACIÓN GLOBAL (Ahorra RAM en Render)
+# ==========================================
 pc = Pinecone(api_key=settings.PINECONE_API_KEY)
+index = pc.Index(settings.PINECONE_INDEX_NAME)
+client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
-MODEL_NAME = "gemini-1.5-flash"
-CONFIDENCE_THRESHOLD = 0.2  # Umbral relajado al 20% para asegurar que pille textos cortos
+# Modelos exactos
+LLM_MODEL = "gemini-2.5-flash"
+EMBEDDING_MODEL = "gemini-embedding-001"
 
-DISCLAIMER = (
-    "Esta respuesta es meramente informativa y se basa en la normativa general "
-    "sobre comunidades de propietarios. No sustituye el asesoramiento legal "
-    "profesional. Para decisiones importantes, consulta con un abogado o con el "
-    "administrador de la comunidad."
-)
+# Configuración del RAG
+CONFIDENCE_THRESHOLD = 0.75
+CONTEXT_LIMIT = 3000
 
-def _retrieve_relevant_chunks(comunidad_id: int, question, top_k=5):
-    # Embebemos la pregunta usando Pinecone (1024 dimensiones)
-    embedding_response = pc.inference.embed(
-        model=PINECONE_MODEL,
-        inputs=[question],
-        parameters={"input_type": "query"}
+DISCLAIMER = "Respuesta meramente informativa basada en estatutos. No sustituye asesoramiento legal."
+
+def _get_gemini_embedding(text: str):
+    response = client.models.embed_content(
+        model=EMBEDDING_MODEL,
+        contents=text
     )
-    question_vector = embedding_response.data[0].values
+    return response.embeddings[0].values
 
-    # Buscamos en la base de datos
+def _retrieve_and_rerank(comunidad_id: int, question: str):
+    query_vector = _get_gemini_embedding(question)
+    
     res = index.query(
         namespace=str(comunidad_id),
-        vector=question_vector,
-        top_k=top_k,
+        vector=query_vector,
+        top_k=5,
         include_metadata=True
     )
 
-    # Extraemos el texto
-    top_chunks = []
-    for match in res.get("matches", []):
-        score = match.get("score", 0.0)
-        metadata = match.get("metadata") or {}
-        text = metadata.get("texto", "")
-        document_title = metadata.get("document_title", "")
-        chunk_index = metadata.get("chunk_index", 0)
+    valid_chunks = [
+        match for match in res.get("matches", []) 
+        if match.get("score", 0.0) > CONFIDENCE_THRESHOLD
+    ]
 
-        print(f"[DEBUG] Documento: {document_title} | Score: {score:.4f} | Threshold: {CONFIDENCE_THRESHOLD}")
+    if not valid_chunks:
+        return []
 
-        if score > CONFIDENCE_THRESHOLD:
-            top_chunks.append({
-                "text": text,
-                "document_title": document_title,
-                "chunk_index": chunk_index,
-                "score": score
-            })
-    return top_chunks
+    # Nos quedamos con los 2 mejores para no saturar a Gemini
+    valid_chunks = sorted(valid_chunks, key=lambda x: x['score'], reverse=True)[:2]
+    
+    return [{
+        "text": c["metadata"]["texto"],
+        "document_title": c["metadata"]["document_title"]
+    } for c in valid_chunks]
 
-def _build_context(chunks, max_chars = 6000):
-    parts = []
-    total = 0
-    for c in chunks:
-        t = c["text"]
-        if total + len(t) > max_chars:
-            break
-        parts.append(t)
-        total += len(t)
-    return "\n\n---\n\n".join(parts)
-
-def _ask_gemini_with_context(context, question):
+async def _ask_gemini_with_timeout(context: str, question: str):
     system_instruction = """Eres el asistente de una comunidad de vecinos.
 
 Debes responder a la pregunta del usuario utilizando ÚNICAMENTE la información 
@@ -77,45 +65,40 @@ Si la información no aparece en absoluto en los documentos, responde exactament
 
 Sé claro, conciso y útil."""
 
-    user_message = f"""DOCUMENTOS DISPONIBLES:
+    user_message = f"DOCUMENTOS:\n{context}\n\nPREGUNTA: {question}"
 
-{context}
+    try:
+        # Petición asíncrona con límite de tiempo
+        resp = await asyncio.wait_for(
+            client.aio.models.generate_content(
+                model=LLM_MODEL,
+                contents=user_message,
+                config={"system_instruction": system_instruction}
+            ),
+            timeout=15.0
+        )
+        return resp.text.strip()
+    except asyncio.TimeoutError:
+        return "El servicio está tardando demasiado. Por favor, inténtalo de nuevo en unos segundos."
+    except Exception as e:
+        print(f"[ERROR] Fallo en Gemini: {e}")
+        return "El servicio de IA está temporalmente saturado."
 
----
-
-PREGUNTA DEL USUARIO: {question}
-
-Por favor, responde usando SOLO la información de los documentos anteriores."""
-
-    resp = client.models.generate_content(
-        model=MODEL_NAME,
-        contents=user_message,
-        config={"system_instruction": system_instruction}
-    )
-
-    if not resp or not getattr(resp, "text", None):
-        return "Ha ocurrido un problema al generar la respuesta."
-
-    return resp.text.strip()
-
-def get_chatbot_response(comunidad_id, question):
-    print(f"\n[DEBUG] Pregunta: {question}")
-    chunks = _retrieve_relevant_chunks(comunidad_id, question)
+async def get_chatbot_response(comunidad_id: int, question: str):
+    chunks = _retrieve_and_rerank(comunidad_id, question)
     
-    print(f"[DEBUG] Chunks encontrados: {len(chunks)}")
-
     if not chunks:
-        answer = "Lo siento, no puedo encontrar ningún documento relevante en esta comunidad."
         return {
-            "answer": answer,
+            "answer": "No he encontrado esta información en los estatutos o normas de la comunidad.",
             "source": {"type": "RAG_PINECONE", "reference": None},
             "disclaimer": DISCLAIMER,
         }
     
-    context = _build_context(chunks)
-    answer = _ask_gemini_with_context(context, question)
-
-    sources = list(set([c["document_title"] for c in chunks if c["document_title"]]))
+    raw_context = "\n\n".join([c["text"] for c in chunks])
+    context = raw_context[:CONTEXT_LIMIT] 
+    
+    answer = await _ask_gemini_with_timeout(context, question)
+    sources = list(set([c["document_title"] for c in chunks]))
 
     return {
         "answer": answer,
