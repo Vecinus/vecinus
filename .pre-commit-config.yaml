@@ -1,0 +1,51 @@
+repos:
+  # --- VALIDACIÓN DE COMMITS ---
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v4.13.9
+    hooks:
+      - id: commitizen
+        stages: [commit-msg]
+
+  # --- BACKEND (PYTHON) ---
+  - repo: https://github.com/psf/black
+    rev: 26.1.0
+    hooks:
+      - id: black
+        stages: [pre-push]
+        files: ^backend/
+
+  - repo: https://github.com/pycqa/isort
+    rev: 8.0.0
+    hooks:
+      - id: isort
+        stages: [pre-push]
+        files: ^backend/
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.3.0
+    hooks:
+      - id: flake8
+        stages: [pre-push]
+        additional_dependencies: [flake8-pyproject]
+        files: ^backend/
+
+# --- FRONTEND (REACT NATIVE / TYPESCRIPT) ---
+  - repo: local
+    hooks:
+      - id: frontend-eslint
+        name: ESLint (Frontend)
+        # Usamos npm --prefix para entrar a la carpeta de forma multiplataforma
+        entry: npm --prefix frontend run lint -- --fix
+        language: system
+        files: ^frontend/.*\.(ts|tsx|js|jsx)$
+        stages: [pre-push]
+        pass_filenames: false
+
+      - id: frontend-tsc
+        name: TypeScript Type Check (Frontend)
+        # Usamos npm exec para ejecutar tsc en la carpeta correcta
+        entry: npm --prefix frontend exec -- tsc --project frontend/tsconfig.json --noEmit
+        language: system
+        files: ^frontend/.*\.(ts|tsx)$
+        stages: [pre-push]
+        pass_filenames: false
