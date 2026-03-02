@@ -1,9 +1,11 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
 from api.alerts import router as alerts_router
 from api.associations import router as associations_router
 from api.chat import router as chat_router
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from backend.api.chatBot.chatBot import router as chatBotRouter
+from backend.api.chatBot.documents import router as documentsRouter
 
 app = FastAPI(
     title="Vecinus API",
@@ -11,9 +13,6 @@ app = FastAPI(
     version="1.0.0",
 )
 
-app.include_router(chat_router)
-app.include_router(alerts_router)
-app.include_router(associations_router)
 # Set up CORS
 app.add_middleware(
     CORSMiddleware,
@@ -23,7 +22,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(chatBotRouter)
+app.include_router(documentsRouter)
+app.include_router(chat_router)
+app.include_router(alerts_router)
+app.include_router(associations_router)
+
 
 @app.get("/health")
-def health_check():
-    return {"status": "ok"}
+def health():
+    return {"status": "ok", "message": "Backend funcionando perfectamente"}
