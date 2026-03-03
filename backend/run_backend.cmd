@@ -7,6 +7,6 @@ REM Activar entorno virtual
 call venv\Scripts\activate
 
 REM Ejecutar FastAPI con reload
-uvicorn main:app --reload
+uvicorn backend.main:app --reload
 
 pause

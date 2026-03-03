@@ -1,4 +1,5 @@
 import os
+
 from dotenv import load_dotenv
 
 # Carga las variables desde el .env situado en la carpeta backend,
@@ -15,6 +16,7 @@ class Settings:
     PINECONE_INDEX_NAME: str = os.getenv("PINECONE_INDEX_NAME", "")
     SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "")
     SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
+    SUPABASE_SCHEMA: str = os.getenv("SUPABASE_SCHEMA", "dev")
 
 
 settings = Settings()
