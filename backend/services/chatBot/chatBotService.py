@@ -1,16 +1,31 @@
 import asyncio
 
-from google import genai
-from pinecone import Pinecone
+from core.config import settings
 
-from backend.core.config import settings
+# Lazy singletons — se crean la primera vez que se usan,
+# no al importar el módulo (evita llamadas de red en tests).
+_index = None
+_client = None
 
-# ==========================================
-# INICIALIZACIÓN GLOBAL (Ahorra RAM en Render)
-# ==========================================
-pc = Pinecone(api_key=settings.PINECONE_API_KEY)
-index = pc.Index(settings.PINECONE_INDEX_NAME)
-client = genai.Client(api_key=settings.GEMINI_API_KEY)
+
+def _get_index():
+    global _index
+    if _index is None:
+        from pinecone import Pinecone
+
+        pc = Pinecone(api_key=settings.PINECONE_API_KEY)
+        _index = pc.Index(settings.PINECONE_INDEX_NAME)
+    return _index
+
+
+def _get_client():
+    global _client
+    if _client is None:
+        from google import genai
+
+        _client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    return _client
+
 
 # Modelos exactos
 LLM_MODEL = "gemini-2.5-flash"
@@ -20,34 +35,25 @@ EMBEDDING_MODEL = "gemini-embedding-001"
 CONFIDENCE_THRESHOLD = 0.75
 CONTEXT_LIMIT = 3000
 
-DISCLAIMER = (
-    "Respuesta meramente informativa basada en estatutos."
-    " No sustituye asesoramiento legal."
-)
+DISCLAIMER = "Respuesta meramente informativa basada en estatutos." " No sustituye asesoramiento legal."
 
 
 def _get_gemini_embedding(text: str):
-    response = client.models.embed_content(
-        model=EMBEDDING_MODEL, contents=text
-    )
+    response = _get_client().models.embed_content(model=EMBEDDING_MODEL, contents=text)
     return response.embeddings[0].values
 
 
 def _retrieve_and_rerank(comunidad_id: int, question: str):
     query_vector = _get_gemini_embedding(question)
 
-    res = index.query(
+    res = _get_index().query(
         namespace=str(comunidad_id),
         vector=query_vector,
         top_k=5,
         include_metadata=True,
     )
 
-    valid_chunks = [
-        match
-        for match in res.get("matches", [])
-        if match.get("score", 0.0) > CONFIDENCE_THRESHOLD
-    ]
+    valid_chunks = [match for match in res.get("matches", []) if match.get("score", 0.0) > CONFIDENCE_THRESHOLD]
 
     if not valid_chunks:
         return []
@@ -93,7 +99,7 @@ async def _ask_gemini_with_timeout(context: str, question: str):
     try:
         # Petición asíncrona con límite de tiempo
         resp = await asyncio.wait_for(
-            client.aio.models.generate_content(
+            _get_client().aio.models.generate_content(
                 model=LLM_MODEL,
                 contents=user_message,
                 config={"system_instruction": system_instruction},
@@ -102,11 +108,7 @@ async def _ask_gemini_with_timeout(context: str, question: str):
         )
         return resp.text.strip()
     except asyncio.TimeoutError:
-        return (
-            "El servicio está tardando demasiado."
-            " Por favor, inténtalo de nuevo en unos"
-            " segundos."
-        )
+        return "El servicio está tardando demasiado." " Por favor, inténtalo de nuevo en unos" " segundos."
     except Exception as e:
         print(f"[ERROR] Fallo en Gemini: {e}")
         return "El servicio de IA está temporalmente saturado."
@@ -117,11 +119,7 @@ async def get_chatbot_response(comunidad_id: int, question: str):
 
     if not chunks:
         return {
-            "answer": (
-                "No he encontrado esta información"
-                " en los estatutos o normas de la"
-                " comunidad."
-            ),
+            "answer": ("No he encontrado esta información" " en los estatutos o normas de la" " comunidad."),
             "source": {
                 "type": "RAG_PINECONE",
                 "reference": None,

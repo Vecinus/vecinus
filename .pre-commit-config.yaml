@@ -21,6 +21,12 @@ repos:
         stages: [pre-commit]
         files: ^backend/
 
+  - repo: https://github.com/PyCQA/autoflake
+    rev: v2.3.3
+    hooks:
+      - id: autoflake
+        args: [--remove-all-unused-imports, --remove-unused-variables, --in-place, --recursive]
+
   - repo: https://github.com/pycqa/flake8
     rev: 7.3.0
     hooks:

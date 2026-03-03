@@ -1,12 +1,29 @@
-from google import genai
-from pinecone import Pinecone
+from core.config import settings
 
-from backend.core.config import settings
+# Lazy singletons — se crean la primera vez que se usan,
+# no al importar el módulo (evita llamadas de red en tests).
+_index = None
+_client = None
 
-# Conectamos con Pinecone y Gemini
-pc = Pinecone(api_key=settings.PINECONE_API_KEY)
-index = pc.Index(settings.PINECONE_INDEX_NAME)
-client = genai.Client(api_key=settings.GEMINI_API_KEY)
+
+def _get_index():
+    global _index
+    if _index is None:
+        from pinecone import Pinecone
+
+        pc = Pinecone(api_key=settings.PINECONE_API_KEY)
+        _index = pc.Index(settings.PINECONE_INDEX_NAME)
+    return _index
+
+
+def _get_client():
+    global _client
+    if _client is None:
+        from google import genai
+
+        _client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    return _client
+
 
 # Nombre exacto del modelo para evitar el error 404
 EMBEDDING_MODEL = "gemini-embedding-001"
@@ -35,9 +52,7 @@ def index_document(comunidad_id, document_title, raw_text):
         chunk_id = f"{comunidad_id}-{document_title}-{i}"
 
         # Generar embedding con Google Gemini (768 dimensiones)
-        response = client.models.embed_content(
-            model=EMBEDDING_MODEL, contents=chunk_text
-        )
+        response = _get_client().models.embed_content(model=EMBEDDING_MODEL, contents=chunk_text)
 
         vectors.append(
             {
@@ -54,7 +69,7 @@ def index_document(comunidad_id, document_title, raw_text):
 
     # Subimos todos los vectores a Pinecone
     if vectors:
-        index.upsert(
+        _get_index().upsert(
             vectors=vectors,
             namespace=str(comunidad_id),
         )

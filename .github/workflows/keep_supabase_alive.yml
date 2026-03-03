@@ -1,0 +1,50 @@
+# ----------------------------------------------------------------------------
+# Keep Supabase Alive
+# Prevents the Supabase free-tier project from hibernating after 7 days
+# of inactivity by executing a real database query every day.
+#
+# Queries directly against the Supabase REST API — no dependency on
+# any backend deployment.
+#
+# Required repository secrets:
+#   • SUPABASE_URL – Project URL (e.g. https://xxxx.supabase.co)
+#   • SUPABASE_KEY – Anon/public key
+# ----------------------------------------------------------------------------
+
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    # Runs every day at 07:00 UTC
+    - cron: '0 7 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  keep-alive:
+    name: Query Supabase directly
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Execute real query against Supabase
+        run: |
+          echo "Querying Supabase REST API to prevent hibernation..."
+
+          HTTP_RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/roles?select=id&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY }}" \
+            -H "Accept-Profile: dev")
+
+          HTTP_BODY=$(echo "$HTTP_RESPONSE" | sed '/HTTP_STATUS/d')
+          HTTP_STATUS=$(echo "$HTTP_RESPONSE" | grep "HTTP_STATUS" | cut -d: -f2)
+
+          echo "Status code: $HTTP_STATUS"
+          echo "Response body:"
+          echo "$HTTP_BODY" | python3 -m json.tool 2>/dev/null || echo "$HTTP_BODY"
+
+          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
+            echo "✓ Supabase is awake"
+          else
+            echo "::error::Supabase query failed with status $HTTP_STATUS"
+            exit 1
+          fi
