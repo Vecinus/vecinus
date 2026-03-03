@@ -1,4 +1,4 @@
-from backend.core.config import settings
+from core.config import settings
 
 # Lazy singletons — se crean la primera vez que se usan,
 # no al importar el módulo (evita llamadas de red en tests).

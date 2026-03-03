@@ -4,7 +4,7 @@ from typing import Optional
 import pypdf
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 
-from backend.services.chatBot.documents_ChatBotService import index_document
+from services.chatBot.documents_ChatBotService import index_document
 
 router = APIRouter(prefix="/comunities", tags=["documents"])
 
