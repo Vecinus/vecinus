@@ -99,8 +99,6 @@ async def process_audio_to_minutes(audio_bytes: bytes, mime_type: str = "audio/m
                 ),
             )
 
-            await client.aio.files.delete(name=audio_file.name)
-
             acta_dict = json.loads(response.text)
             return MinutesResponse(**acta_dict)
 
@@ -108,7 +106,10 @@ async def process_audio_to_minutes(audio_bytes: bytes, mime_type: str = "audio/m
             # LIMPIEZA EN LA NUBE: Se ejecuta si la subida tuvo éxito
             # independientemente del resultado del procesamiento
             if audio_file:
-                await client.aio.files.delete(name=audio_file.name)
+                try:
+                    await client.aio.files.delete(name=audio_file.name)
+                except Exception:
+                    pass
 
     finally:
         # LIMPIEZA LOCAL: Se ejecuta siempre para no llenar el disco del servidor.
