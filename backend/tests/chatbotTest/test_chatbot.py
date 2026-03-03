@@ -3,8 +3,8 @@ import time
 import pytest  # noqa: F401
 from fastapi.testclient import TestClient
 
-from backend.core.config import settings
-from backend.main import app
+from core.config import settings
+from main import app
 
 client = TestClient(app)
 

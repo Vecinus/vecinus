@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
-from backend.schemas.chatBot.chatBot import ChatBotRequest, ChatBotResponse
-from backend.services.chatBot.chatBotService import get_chatbot_response
+from schemas.chatBot.chatBot import ChatBotRequest, ChatBotResponse
+from services.chatBot.chatBotService import get_chatbot_response
 
 router = APIRouter(prefix="/comunities", tags=["chatbot"])
 
