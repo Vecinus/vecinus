@@ -133,9 +133,13 @@ def accept_invitation(
 
     invitation = inv_res.data[0]
 
-    # 2. Registrar usuario: email de la invitación, contraseña del usuario
+    # 2. Registrar usuario: email de la invitación,
+    # contraseña del usuario
     auth_response = supabase_anon.auth.sign_up(
-        {"email": invitation["target_email"], "password": body.password}
+        {
+            "email": invitation["target_email"],
+            "password": body.password,
+        }
     )
 
     if not auth_response.user:
@@ -156,7 +160,7 @@ def accept_invitation(
     user_client = create_client(
         settings.SUPABASE_URL,
         settings.SUPABASE_KEY,
-        options=ClientOptions(schema="dev"),
+        options=ClientOptions(schema=settings.SUPABASE_SCHEMA),
     )
     user_client.postgrest.auth(auth_response.session.access_token)
 
