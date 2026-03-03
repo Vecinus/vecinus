@@ -245,7 +245,7 @@ def setup_overrides():
     app.dependency_overrides[get_supabase] = override_get_supabase
 
     # Patch create_client directly where it is used in the chat router
-    patcher = patch("api.chat.create_client")
+    patcher = patch("api.chat.chat.create_client")
     mock_create_client = patcher.start()
     mock_create_client.return_value = override_get_supabase()
 

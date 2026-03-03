@@ -3,7 +3,7 @@ from uuid import UUID
 
 from core.deps import get_current_user, get_supabase
 from fastapi import APIRouter, Depends, HTTPException
-from schemas.alert import Alert
+from schemas.chat.alert import Alert
 from supabase import Client, create_client  # noqa: F401
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])

@@ -11,7 +11,7 @@ from fastapi import (
     WebSocketDisconnect,
     status,
 )
-from schemas.chat import (
+from schemas.chat.chat import (
     ChatChannel,
     ChatChannelCreate,
     DirectMessageCreate,
