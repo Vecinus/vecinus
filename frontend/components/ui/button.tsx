@@ -9,7 +9,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "flex-row items-center justify-center rounded-md font-medium transition-colors disabled:opacity-50",
+  "flex-row items-center justify-center rounded-md font-medium transition-colors",
   {
     variants: {
       variant: {
@@ -56,13 +56,14 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<View, ButtonProps>(
-  ({ className, variant, size, children, disabled, ...props }, ref) => {
+  ({ className, variant, size, children, disabled, style, ...props }, ref) => {
     return (
       <TouchableOpacity
         className={cn(buttonVariants({ variant, size, className }))}
         disabled={disabled}
         activeOpacity={0.7}
         ref={ref}
+        style={style as any}
         {...props}
       >
         {typeof children === "string" ? (

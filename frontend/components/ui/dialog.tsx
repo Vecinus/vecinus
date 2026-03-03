@@ -3,9 +3,8 @@ import {
   Modal,
   View,
   Text,
-  Pressable,
   TouchableOpacity,
-  ScrollView,
+  StyleSheet,
 } from "react-native";
 import { X } from "lucide-react-native";
 import { cn } from "@/lib/utils";
@@ -72,34 +71,66 @@ function DialogContent({ className, children }: DialogContentProps) {
       animationType="fade"
       onRequestClose={() => onOpenChange(false)}
     >
-      <Pressable
-        className="flex-1 items-center justify-center bg-black/80"
-        onPress={() => onOpenChange(false)}
-      >
-        <Pressable
+      {/*
+        Contenedor raíz: ocupa toda la pantalla, solo para centrar el card.
+        No tiene handlers de toque para no interferir con gestos internos.
+      */}
+      <View style={styles.container}>
+        {/*
+          Backdrop: View absolutamente posicionada detrás del card.
+          El TouchableOpacity aquí no envuelve el card, por lo que
+          los gestos sobre el card NUNCA llegan a este handler.
+        */}
+        <TouchableOpacity
+          style={StyleSheet.absoluteFillObject}
+          activeOpacity={1}
+          onPress={() => onOpenChange(false)}
+        />
+
+        {/*
+          Card: View independiente, encima del backdrop por orden de renderizado.
+          No tiene ningún handler de toque, así que todos los gestos
+          (scroll, tap en botones) se propagan normalmente a sus hijos.
+        */}
+        <View
+          style={styles.card}
           className={cn(
             "w-11/12 max-w-lg rounded-lg border border-border bg-background p-6 shadow-lg",
             className,
           )}
-          onPress={(e) => e.stopPropagation()}
         >
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            className="max-h-[85vh]"
-          >
-            {children}
-          </ScrollView>
+          {children}
+
           <TouchableOpacity
-            className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity active:opacity-100"
+            style={styles.closeButton}
             onPress={() => onOpenChange(false)}
           >
             <X size={16} color="hsl(215.4 16.3% 46.9%)" />
           </TouchableOpacity>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.8)",
+  },
+  card: {
+    maxHeight: "85%",
+    flexDirection: "column",
+  },
+  closeButton: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    opacity: 0.7,
+  },
+});
 
 interface DialogHeaderProps {
   className?: string;
@@ -152,7 +183,7 @@ interface DialogFooterProps {
 
 function DialogFooter({ className, children }: DialogFooterProps) {
   return (
-    <View className={cn("flex flex-col-reverse gap-2 mt-4", className)}>
+    <View className={cn("flex flex-col gap-2 mt-4", className)}>
       {children}
     </View>
   );

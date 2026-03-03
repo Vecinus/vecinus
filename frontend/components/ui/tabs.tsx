@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { cn } from '@/lib/utils';
 
 interface TabsContextValue {
@@ -48,9 +48,14 @@ interface TabsListProps {
 
 function TabsList({ className, children }: TabsListProps) {
   return (
-    <View className={cn('flex-row h-10 items-center justify-center rounded-md bg-muted p-1', className)}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      className={cn('rounded-md bg-muted p-1', className)}
+      contentContainerStyle={styles.listContent}
+    >
       {children}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -77,6 +82,12 @@ function TabsTrigger({ value, className, children }: TabsTriggerProps) {
 }
 
 const styles = StyleSheet.create({
+  listContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexGrow: 1,
+    gap: 2,
+  },
   trigger: {
     flex: 1,
     alignItems: 'center',
@@ -84,6 +95,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     paddingHorizontal: 12,
     paddingVertical: 6,
+    height: 32,
   },
   triggerSelected: {
     backgroundColor: 'white',
