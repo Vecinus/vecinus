@@ -57,12 +57,17 @@ typing_extensions==4.15.0
 urllib3==2.6.3
 uvicorn==0.41.0
 watchfiles==1.1.1
-websockets==15.0.1
+websockets==14.1
 yarl==1.22.0
 zstandard==0.25.0
+pre-commit==4.5.1
+commitizen==4.13.9
+python-multipart==0.0.22
+google-genai==0.3.0
+python-docx==1.1.2
 # --- Librerías para IA (Chatbot RAG) ---
-google-genai
 langchain
 pypdf==4.1.0
 tiktoken
 pinecone-client==3.1.0
+email-validator
