@@ -35,73 +35,82 @@ async def process_audio_to_minutes(audio_bytes: bytes, mime_type: str = "audio/m
         tmp_file.write(audio_bytes)
         tmp_path = tmp_file.name
 
+    audio_file = None  # Inicializamos fuera del try para rastrear
     try:
+        # 1. Subida del archivo
         audio_file = await client.aio.files.upload(
             path=tmp_path,
             config=types.UploadFileConfig(mime_type=mime_type),
         )
 
-        # Wait until the file is processed and ACTIVE
-        while audio_file.state == "PROCESSING":
-            await asyncio.sleep(1)
-            audio_file = await client.aio.files.get(name=audio_file.name)
+        try:
+            # Wait until the file is processed and ACTIVE
+            while audio_file.state == "PROCESSING":
+                await asyncio.sleep(1)
+                audio_file = await client.aio.files.get(name=audio_file.name)
 
-        if audio_file.state == "FAILED":
-            raise RuntimeError("Gemini file processing failed.")
+            if audio_file.state == "FAILED":
+                raise RuntimeError("Gemini file processing failed.")
 
-        prompt = """
-        Eres un asistente experto que genera actas de reuniones de comunidades de vecinos.
-        Escucha el siguiente audio y elabora un acta estructurada en español.
-        Debes extraer la transcripción literal (transcription),
-        las tareas (tasks), los temas tratados (topics),
-        los acuerdos (agreements) y un resumen (summary).
-        """
+            prompt = """
+            Eres un asistente experto que genera actas de reuniones de comunidades de vecinos.
+            Escucha el siguiente audio y elabora un acta estructurada en español.
+            Debes extraer la transcripción literal (transcription), las tareas (tasks),
+            los temas tratados (topics), los acuerdos (agreements) y un resumen (summary).
+            """
 
-        file_part = types.Part.from_uri(
-            file_uri=audio_file.uri,
-            mime_type=audio_file.mime_type,
-        )
+            file_part = types.Part.from_uri(
+                file_uri=audio_file.uri,
+                mime_type=audio_file.mime_type,
+            )
 
-        # Se define el schema manualmente para evitar errores
-        # con los Pydantic $ref/$defs, que Gemini no maneja correctamente.
-        minutes_schema = {
-            "type": "OBJECT",
-            "properties": {
-                "transcription": {"type": "STRING"},
-                "summary": {"type": "STRING"},
-                "topics": {"type": "ARRAY", "items": {"type": "STRING"}},
-                "agreements": {"type": "ARRAY", "items": {"type": "STRING"}},
-                "tasks": {
-                    "type": "ARRAY",
-                    "items": {
-                        "type": "OBJECT",
-                        "properties": {
-                            "responsible": {"type": "STRING"},
-                            "description": {"type": "STRING"},
-                            "deadline": {"type": "STRING"},
+            # Se define el schema manualmente para evitar errores
+            # con los Pydantic $ref/$defs, que Gemini no maneja correctamente.
+            minutes_schema = {
+                "type": "OBJECT",
+                "properties": {
+                    "transcription": {"type": "STRING"},
+                    "summary": {"type": "STRING"},
+                    "topics": {"type": "ARRAY", "items": {"type": "STRING"}},
+                    "agreements": {"type": "ARRAY", "items": {"type": "STRING"}},
+                    "tasks": {
+                        "type": "ARRAY",
+                        "items": {
+                            "type": "OBJECT",
+                            "properties": {
+                                "responsible": {"type": "STRING"},
+                                "description": {"type": "STRING"},
+                                "deadline": {"type": "STRING"},
+                            },
+                            "required": ["responsible", "description", "deadline"],
                         },
-                        "required": ["responsible", "description", "deadline"],
                     },
                 },
-            },
-            "required": ["transcription", "summary", "topics", "agreements", "tasks"],
-        }
+                "required": ["transcription", "summary", "topics", "agreements", "tasks"],
+            }
 
-        response = await client.aio.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=[prompt, file_part],
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=minutes_schema,
-                temperature=0.2,
-            ),
-        )
+            response = await client.aio.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=[prompt, file_part],
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=minutes_schema,
+                    temperature=0.2,
+                ),
+            )
 
-        await client.aio.files.delete(name=audio_file.name)
+            await client.aio.files.delete(name=audio_file.name)
 
-        acta_dict = json.loads(response.text)
-        return MinutesResponse(**acta_dict)
+            acta_dict = json.loads(response.text)
+            return MinutesResponse(**acta_dict)
+
+        finally:
+            # LIMPIEZA EN LA NUBE: Se ejecuta si la subida tuvo éxito
+            # independientemente del resultado del procesamiento
+            if audio_file:
+                await client.aio.files.delete(name=audio_file.name)
 
     finally:
+        # LIMPIEZA LOCAL: Se ejecuta siempre para no llenar el disco del servidor.
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
