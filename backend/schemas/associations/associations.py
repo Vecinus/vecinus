@@ -43,3 +43,9 @@ class InvitationResponse(BaseModel):
     association_id: UUID
     role_to_grant: int
     status: int
+
+
+class CommunityUser(BaseModel):
+    id: UUID
+    username: Optional[str] = None
+    role: int

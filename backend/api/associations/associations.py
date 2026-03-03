@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from postgrest.exceptions import APIError
 from schemas.associations import (
     AcceptInvitationRequest,
+    CommunityUser,
     InvitationResponse,
     InviteAdminRequest,
     InviteTenantRequest,
@@ -186,3 +187,43 @@ def delete_member(
         raise HTTPException(status_code=500, detail="Database error")
 
     return {"message": f"Membership {membership_id} deleted successfully"}
+
+
+@router.get("/{association_id}/users", response_model=List[CommunityUser])
+def get_community_users(
+    association_id: str,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+):
+    """
+    Obtiene todos los usuarios miembros de una comunidad específica.
+    
+    Args:
+        association_id: ID de la comunidad/asociación
+        current_user: Usuario actual autenticado
+        supabase: Cliente de Supabase con RLS
+    
+    Returns:
+        Lista con ID, nombre de usuario y rol de cada miembro
+    """
+    response = (
+        supabase.table("memberships")
+        .select("role, profiles(id, username)")
+        .eq("association_id", association_id)
+        .execute()
+    )
+
+    if not response.data:
+        return []
+
+    users_list = []
+    for item in response.data:
+        profile = item.get("profiles") or {}
+        if profile.get("id"):
+            users_list.append({
+                "id": profile.get("id"),
+                "username": profile.get("username"),
+                "role": item.get("role")
+            })
+            
+    return users_list
