@@ -91,7 +91,7 @@ export default function CommunityAdminScreen() {
           <Menu color="#0F172A" size={28} />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Administración</Text>
+          <Text style={styles.headerTitle}>Comunidades</Text>
           <Text style={styles.headerSubtitle} numberOfLines={1}>Gestión de comunidad</Text>
         </View>
         <TouchableOpacity hitSlop={10}>
