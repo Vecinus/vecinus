@@ -14,9 +14,7 @@ def get_supabase(
     """Cliente Supabase autenticado con el JWT del usuario (respeta RLS)."""
     token = credentials.credentials
     options = ClientOptions(schema=settings.SUPABASE_SCHEMA)
-    client: Client = create_client(
-        settings.SUPABASE_URL, settings.SUPABASE_KEY, options=options
-    )
+    client: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY, options=options)
 
     client.postgrest.auth(token)
     return client
@@ -25,17 +23,13 @@ def get_supabase(
 def get_supabase_anon() -> Client:
     """Cliente anon para endpoints públicos (ej: aceptar invitación)."""
     options = ClientOptions(schema=settings.SUPABASE_SCHEMA)
-    return create_client(
-        settings.SUPABASE_URL, settings.SUPABASE_KEY, options=options
-    )
+    return create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY, options=options)
 
 
 def get_supabase_admin() -> Client:
     """Cliente con service role para operaciones que bypasean RLS."""
     options = ClientOptions(schema=settings.SUPABASE_SCHEMA)
-    return create_client(
-        settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY, options=options
-    )
+    return create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY, options=options)
 
 
 def get_current_user(

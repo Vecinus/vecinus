@@ -15,11 +15,7 @@ def get_alerts(
     supabase: Client = Depends(get_supabase),
 ):
     res = (
-        supabase.table("alerts")
-        .select("*")
-        .eq("user_id", current_user["id"])
-        .order("created_at", desc=True)
-        .execute()
+        supabase.table("alerts").select("*").eq("user_id", current_user["id"]).order("created_at", desc=True).execute()
     )
     return res.data
 
@@ -32,24 +28,11 @@ def mark_alert_read(
 ):
 
     # Verificamos si la alerta pertenece al usuario
-    alert_res = (
-        supabase.table("alerts")
-        .select("*")
-        .eq("id", str(alert_id))
-        .eq("user_id", current_user["id"])
-        .execute()
-    )
+    alert_res = supabase.table("alerts").select("*").eq("id", str(alert_id)).eq("user_id", current_user["id"]).execute()
     if not alert_res.data:
-        raise HTTPException(
-            status_code=404, detail="Alert not found or access denied"
-        )
+        raise HTTPException(status_code=404, detail="Alert not found or access denied")
 
-    update_res = (
-        supabase.table("alerts")
-        .update({"is_read": True})
-        .eq("id", str(alert_id))
-        .execute()
-    )
+    update_res = supabase.table("alerts").update({"is_read": True}).eq("id", str(alert_id)).execute()
     if not update_res.data:
         raise HTTPException(status_code=400, detail="Could not update alert")
 

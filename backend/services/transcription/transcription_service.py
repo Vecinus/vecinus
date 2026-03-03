@@ -1,20 +1,20 @@
-import json
-import tempfile
-import os
 import asyncio
-
-from google import genai
-from google.genai import types
-
-from schemas.transcription.minutes import MinutesResponse
+import json
+import os
+import tempfile
 
 # The client will be initialized inside the function to ensure .env is loaded first.
 from dotenv import load_dotenv
+from google import genai
+from google.genai import types
+from schemas.transcription.minutes import MinutesResponse
+
 
 def get_genai_client():
     load_dotenv()
     api_key = os.environ.get("GEMINI_API_KEY")
     return genai.Client(api_key=api_key)
+
 
 async def process_audio_to_minutes(audio_bytes: bytes, mime_type: str = "audio/mpeg") -> MinutesResponse:
     client = get_genai_client()
@@ -52,7 +52,9 @@ async def process_audio_to_minutes(audio_bytes: bytes, mime_type: str = "audio/m
         prompt = """
         Eres un asistente experto que genera actas de reuniones de comunidades de vecinos.
         Escucha el siguiente audio y elabora un acta estructurada en español.
-        Debes extraer la transcripción literal (transcription), las tareas (tasks), los temas tratados (topics), los acuerdos (agreements) y un resumen (summary).
+        Debes extraer la transcripción literal (transcription),
+        las tareas (tasks), los temas tratados (topics),
+        los acuerdos (agreements) y un resumen (summary).
         """
 
         file_part = types.Part.from_uri(
@@ -60,7 +62,8 @@ async def process_audio_to_minutes(audio_bytes: bytes, mime_type: str = "audio/m
             mime_type=audio_file.mime_type,
         )
 
-        # Se define el schema manualmente para evitar errores con los Pydantic $ref/$defs, que Gemini no maneja correctamente.
+        # Se define el schema manualmente para evitar errores
+        # con los Pydantic $ref/$defs, que Gemini no maneja correctamente.
         minutes_schema = {
             "type": "OBJECT",
             "properties": {
@@ -91,11 +94,11 @@ async def process_audio_to_minutes(audio_bytes: bytes, mime_type: str = "audio/m
                 response_mime_type="application/json",
                 response_schema=minutes_schema,
                 temperature=0.2,
-            )
+            ),
         )
-        
+
         await client.aio.files.delete(name=audio_file.name)
-        
+
         acta_dict = json.loads(response.text)
         return MinutesResponse(**acta_dict)
 

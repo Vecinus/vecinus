@@ -35,16 +35,11 @@ EMBEDDING_MODEL = "gemini-embedding-001"
 CONFIDENCE_THRESHOLD = 0.75
 CONTEXT_LIMIT = 3000
 
-DISCLAIMER = (
-    "Respuesta meramente informativa basada en estatutos."
-    " No sustituye asesoramiento legal."
-)
+DISCLAIMER = "Respuesta meramente informativa basada en estatutos." " No sustituye asesoramiento legal."
 
 
 def _get_gemini_embedding(text: str):
-    response = _get_client().models.embed_content(
-        model=EMBEDDING_MODEL, contents=text
-    )
+    response = _get_client().models.embed_content(model=EMBEDDING_MODEL, contents=text)
     return response.embeddings[0].values
 
 
@@ -58,11 +53,7 @@ def _retrieve_and_rerank(comunidad_id: int, question: str):
         include_metadata=True,
     )
 
-    valid_chunks = [
-        match
-        for match in res.get("matches", [])
-        if match.get("score", 0.0) > CONFIDENCE_THRESHOLD
-    ]
+    valid_chunks = [match for match in res.get("matches", []) if match.get("score", 0.0) > CONFIDENCE_THRESHOLD]
 
     if not valid_chunks:
         return []
@@ -117,11 +108,7 @@ async def _ask_gemini_with_timeout(context: str, question: str):
         )
         return resp.text.strip()
     except asyncio.TimeoutError:
-        return (
-            "El servicio está tardando demasiado."
-            " Por favor, inténtalo de nuevo en unos"
-            " segundos."
-        )
+        return "El servicio está tardando demasiado." " Por favor, inténtalo de nuevo en unos" " segundos."
     except Exception as e:
         print(f"[ERROR] Fallo en Gemini: {e}")
         return "El servicio de IA está temporalmente saturado."
@@ -132,11 +119,7 @@ async def get_chatbot_response(comunidad_id: int, question: str):
 
     if not chunks:
         return {
-            "answer": (
-                "No he encontrado esta información"
-                " en los estatutos o normas de la"
-                " comunidad."
-            ),
+            "answer": ("No he encontrado esta información" " en los estatutos o normas de la" " comunidad."),
             "source": {
                 "type": "RAG_PINECONE",
                 "reference": None,

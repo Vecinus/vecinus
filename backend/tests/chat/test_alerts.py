@@ -2,6 +2,7 @@ import os
 from unittest.mock import patch
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 # Set dummy env vars for pydantic settings before importing app
@@ -9,8 +10,8 @@ os.environ["SUPABASE_URL"] = "http://localhost:8000"
 os.environ["SUPABASE_KEY"] = "dummy"
 os.environ["SUPABASE_SERVICE_KEY"] = "dummy"
 
-from core.deps import get_current_user, get_supabase
-from main import app
+from core.deps import get_current_user, get_supabase  # noqa: E402
+from main import app  # noqa: E402
 
 client = TestClient(app)
 
@@ -49,9 +50,7 @@ class MockSupabaseTableAlerts:
 
         if self._operation == "update":
             # Just create a fake updated alert object
-            updated_alert = (
-                {**self._data[0], **self._payload} if self._data else {}
-            )
+            updated_alert = {**self._data[0], **self._payload} if self._data else {}
             return MockResponse([updated_alert])
         return MockResponse(self._data)
 
@@ -79,9 +78,6 @@ def override_get_current_user():
 
 def override_get_supabase():
     return MockSupabaseClientAlerts()
-
-
-import pytest
 
 
 @pytest.fixture(autouse=True)

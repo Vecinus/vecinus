@@ -9,8 +9,8 @@ from fastapi.testclient import TestClient
 os.environ["SUPABASE_URL"] = "http://localhost:8000"
 os.environ["SUPABASE_KEY"] = "dummy"
 
-from core.deps import get_current_user, get_supabase
-from main import app
+from core.deps import get_current_user, get_supabase  # noqa: E402
+from main import app  # noqa: E402
 
 client = TestClient(app)
 
@@ -45,24 +45,11 @@ class MockSupabaseTable:
 
         for item in items_to_insert:
             inserted_row = item.copy()
-            if (
-                "id" not in inserted_row
-                and self.table_name != "channel_participants"
-            ):
+            if "id" not in inserted_row and self.table_name != "channel_participants":
                 inserted_row["id"] = str(uuid4())
-            if (
-                "created_at" not in inserted_row
-                and "created_at" in self._all_data[0]
-                if self._all_data
-                else False
-            ):
-                inserted_row["created_at"] = (
-                    datetime.utcnow().isoformat() + "Z"
-                )
-            if (
-                "created_by" not in inserted_row
-                and self.table_name == "chat_channels"
-            ):
+            if "created_at" not in inserted_row and "created_at" in self._all_data[0] if self._all_data else False:
+                inserted_row["created_at"] = datetime.utcnow().isoformat() + "Z"
+            if "created_by" not in inserted_row and self.table_name == "chat_channels":
                 inserted_row["created_by"] = mock_user["id"]
             inserted_rows.append(inserted_row)
 
@@ -71,18 +58,12 @@ class MockSupabaseTable:
 
     def eq(self, column, value, **kwargs):
         # Apply simple filtering
-        self._data = [
-            item for item in self._data if str(item.get(column)) == str(value)
-        ]
+        self._data = [item for item in self._data if str(item.get(column)) == str(value)]
         return self
 
     def in_(self, column, values, **kwargs):
         string_values = [str(v) for v in values]
-        self._data = [
-            item
-            for item in self._data
-            if str(item.get(column)) in string_values
-        ]
+        self._data = [item for item in self._data if str(item.get(column)) in string_values]
         return self
 
     def order(self, *args, **kwargs):
@@ -98,7 +79,8 @@ class MockSupabaseTable:
             updated_rows.append(updated_item)
         self._updated = updated_rows
 
-        # If no items were in self._data because the filter failed to catch the mock row, we mock success here anyway to pass the basic test.
+        # If no items were in self._data because the filter failed
+        # to catch the mock row, we mock success here anyway.
         if not updated_rows:
             self._updated = [{"id": "dummy", **args[0]}]
 
@@ -279,9 +261,7 @@ def test_get_channel_messages():
 def test_send_message():
     new_msg = {"channel_id": mock_channel_id, "content": "New test message"}
     # Test POST
-    response = client.post(
-        f"/chat/channels/{mock_channel_id}/messages", json=new_msg
-    )
+    response = client.post(f"/chat/channels/{mock_channel_id}/messages", json=new_msg)
     assert response.status_code == 200
     data = response.json()
     assert data["content"] == "New test message"
@@ -295,9 +275,7 @@ def test_create_direct_message():
     target_uuid = mock_target_user_id
     req_data = {"target_user_id": target_uuid}
     # Since our simple mock intercepts create logic and returns success with new channel data
-    response = client.post(
-        f"/chat/channels/{mock_channel_id}/direct", json=req_data
-    )
+    response = client.post(f"/chat/channels/{mock_channel_id}/direct", json=req_data)
     assert response.status_code == 200
     data = response.json()
     assert data["is_direct_message"] is True
@@ -323,15 +301,10 @@ def test_unblock_direct_message_success():
 
 def test_unblock_direct_message_unauthorized():
     # Attempting to unblock a channel blocked by another user
-    response = client.post(
-        f"/chat/channels/{mock_dm_blocked_by_other}/unblock"
-    )
+    response = client.post(f"/chat/channels/{mock_dm_blocked_by_other}/unblock")
     assert response.status_code == 403
     data = response.json()
-    assert (
-        data["detail"]
-        == "You are not authorized to unblock this channel because you did not block it"
-    )
+    assert data["detail"] == "You are not authorized to unblock this channel because you did not block it"
 
 
 def test_unblock_not_blocked_channel():
