@@ -6,7 +6,7 @@ router = APIRouter(prefix="/comunities", tags=["chatbot"])
 
 
 @router.post("/{comunidad_id}/chatbot", response_model=ChatBotResponse)
-async def chatbot_with_documents(comunidad_id: int, request: ChatBotRequest):
+async def chatbot_with_documents(comunidad_id: str, request: ChatBotRequest):
     # Sacamos la pregunta en formato texto del request
     pregunta = request.question
 

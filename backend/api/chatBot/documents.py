@@ -10,7 +10,7 @@ router = APIRouter(prefix="/comunities", tags=["documents"])
 
 @router.post("/{comunidad_id}/documents")
 async def upload_document(
-    comunidad_id: int,
+    comunidad_id: str,
     request: Request,
     file: Optional[UploadFile] = File(None),
 ):

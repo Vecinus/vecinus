@@ -1,17 +1,18 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
   KeyboardAvoidingView, Platform, ActivityIndicator,
-  Keyboard, Alert, useWindowDimensions, StyleSheet, StatusBar,
+  Alert, useWindowDimensions, StyleSheet, StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bot, Send, Sparkles, FileText, UploadCloud, Menu, MessageSquare, Library } from 'lucide-react-native';
-import { useNavigation } from 'expo-router';
+import { useNavigation, useLocalSearchParams } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
 import { useCommunityStore } from '@/store/useCommunityStore';
-import { API_URL } from '@/constants/api'; //
+import { API_URL } from '@/constants/api';
+import { loadUserCommunities } from '@/services/communityService';
 
-// --- TYPES  ---
+// --- TYPES ---
 interface ChatAnswerSource {
   type: string;
   reference?: string;
@@ -21,23 +22,32 @@ interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  source?: ChatAnswerSource; 
-  disclaimer?: string;      
+  source?: ChatAnswerSource;
+  disclaimer?: string;
 }
 
 export default function ChatBotScreen() {
-  const { activeCommunityId, activeCommunityName } = useCommunityStore();
+  const { comunidad_id } = useLocalSearchParams();
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  
+
+  // Sacamos todo lo necesario del Store
+  const { 
+    activeCommunityId, 
+    activeCommunityName, 
+    userToken, 
+    setActiveCommunity, 
+    communities 
+  } = useCommunityStore();
+
   const isDesktop = width >= 768;
   const [activeTab, setActiveTab] = useState<'chat' | 'docs'>('chat');
   const isManager = true; 
 
   // --- ESTADOS ---
   const [messages, setMessages] = useState<Message[]>([
-    { id: 'welcome', role: 'assistant', content: `👋 ¡Hola! Soy el asistente de ${activeCommunityName}. ¿En qué puedo ayudarte?` },
+    { id: 'welcome', role: 'assistant', content: `👋 ¡Hola! Soy el asistente. ¿En qué puedo ayudarte?` },
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -47,109 +57,159 @@ export default function ChatBotScreen() {
   
   const flatListRef = useRef<FlatList>(null);
 
-  // --- LÓGICA ---
-const handleSend = useCallback(async () => {
-  if (!input.trim()) return;
+  // 1. Efecto para cargar comunidades si el store está vacío (necesario si entras directo por URL)
+  useEffect(() => {
+    if (communities.length === 0 && userToken) {
+      loadUserCommunities(userToken);
+    }
+  }, [userToken]);
 
-  const userText = input.trim();
-  const newUserMsg: Message = { id: `u-${Date.now()}`, role: 'user', content: userText };
-  
-  setMessages(prev => [...prev, newUserMsg]);
-  setInput('');
-  setIsTyping(true);
-  
-  try {
-    const response = await fetch(`${API_URL}/comunities/${activeCommunityId}/chatbot`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        comunidad_id: activeCommunityId, // OBLIGATORIO: según ChatBotRequest
-        question: userText,
-        history: [] // Opcional, pero lo puedes inicializar vacío
-      }),
-    });
+  // 2. Efecto para sincronizar la comunidad activa basándonos en el ID de la URL
+  useEffect(() => {
+    if (comunidad_id && communities.length > 0) {
+      const currentComm = communities.find(c => String(c.id) === String(comunidad_id));
+      if (currentComm) {
+        setActiveCommunity(currentComm.id, currentComm.name);
+      }
+    }
+  }, [comunidad_id, communities, setActiveCommunity]);
 
-    if (!response.ok) throw new Error('Error 422 o similar');
+  // 3. Efecto para actualizar el saludo cuando ya tenemos el nombre real
+  useEffect(() => {
+    if (activeCommunityName && activeCommunityName !== 'Seleccione una comunidad') {
+      setMessages(prev => prev.map(m => 
+        m.id === 'welcome' 
+          ? { ...m, content: `👋 ¡Hola! Soy el asistente de ${activeCommunityName}. ¿En qué puedo ayudarte?` }
+          : m
+      ));
+    }
+  }, [activeCommunityName]);
 
-    const data = await response.json(); // Data es de tipo ChatBotResponse
+  // --- LÓGICA DE ENVÍO ---
+  const handleSend = useCallback(async () => {
+    console.log("ID de la ruta:", comunidad_id);
+    console.log("ID del Store:", activeCommunityId);
 
-    const botMsg: Message = { 
-      id: `a-${Date.now()}`, 
-      role: 'assistant', 
-      content: data.answer,
-      source: data.source,      // Mapeo directo del objeto source
-      disclaimer: data.disclaimer // Guardamos el aviso legal
-    };
+    // CORRECCIÓN: !comunidad_id (Si NO hay ID, salimos)
+    if (!input.trim() || !comunidad_id || isTyping) return;
+
+    const userText = input.trim();
+    const newUserMsg: Message = { id: `u-${Date.now()}`, role: 'user', content: userText };
     
-    setMessages(prev => [...prev, botMsg]);
-  } catch (error) {
-    const msg = "No se pudo conectar con el asistente.";
-    Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
-  } finally {
-    setIsTyping(false);
-  }
-}, [input, activeCommunityId, activeCommunityName]);
+    setMessages(prev => [...prev, newUserMsg]);
+    setInput('');
+    setIsTyping(true);
+    
+    try {
+      const response = await fetch(`${API_URL}/comunities/${comunidad_id}/chatbot`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userToken}`
+        },
+        body: JSON.stringify({ 
+          comunidad_id: comunidad_id,
+          question: userText,
+          history: [] 
+        }),
+      });
 
-  const handleUploadDocument = async () => {
-  if (!docTitle.trim() || !docContent.trim()) {
-    const msg = "Por favor, rellena todos los campos.";
-    Platform.OS === 'web' ? alert(msg) : Alert.alert("Atención", msg);
-    return;
-  }
-  
-  setIsUploading(true);
-  
-  try {
-    const response = await fetch(`${API_URL}/comunities/${activeCommunityId}/documents`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }, // Activamos el caso JSON del backend
-      body: JSON.stringify({
-        title: docTitle,
-        content: docContent
-      }),
-    });
+      if (!response.ok) throw new Error('Error en la respuesta del servidor');
 
-    if (!response.ok) throw new Error('Error al subir documento');
+      const data = await response.json();
 
-    const msg = `✅ ¡Subido!\n"${docTitle}" ya es parte del conocimiento.`;
-    Platform.OS === 'web' ? alert(msg) : Alert.alert("Éxito", msg);
-    setDocTitle('');
-    setDocContent('');
-  } catch (error) {
-    const msg = "Hubo un problema al subir el documento.";
-    Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
-  } finally {
-    setIsUploading(false);
-  }
-};
-  // --- COMPONENTES INTERNOS ---
-  const renderMessage = ({ item }: { item: Message }) => (
-  <View style={[styles.msgRow, { justifyContent: item.role === 'user' ? 'flex-end' : 'flex-start' }]}>
-    <View style={[styles.msgBubble, { 
-      backgroundColor: item.role === 'user' ? '#4F46E5' : '#F1F5F9',
-      maxWidth: isDesktop ? '70%' : '85%',
-    }]}>
-      <Text style={{ fontSize: 15, color: item.role === 'user' ? '#fff' : '#1E293B' }}>{item.content}</Text>
+      const botMsg: Message = { 
+        id: `a-${Date.now()}`, 
+        role: 'assistant', 
+        content: data.answer,
+        source: data.source,
+        disclaimer: data.disclaimer
+      };
       
-      {/* Renderizado de la fuente única */}
-      {item.source && (
-        <View style={styles.sourceTag}>
-          <Text style={[styles.sourceText, { fontWeight: '700' }]}>Fuente: {item.source.type}</Text>
-          {item.source.reference && (
-            <Text style={styles.sourceText}>• {item.source.reference}</Text>
-          )}
-        </View>
-      )}
+      setMessages(prev => [...prev, botMsg]);
+    } catch (error) {
+      const msg = "No se pudo conectar con el asistente.";
+      Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
+    } finally {
+      setIsTyping(false);
+    }
+  }, [input, comunidad_id, userToken, isTyping, activeCommunityId]);
 
-      {/* Renderizado del disclaimer */}
-      {item.disclaimer && (
-        <Text style={[styles.sourceText, { marginTop: 4, color: '#EF4444' }]}>
-          ⚠️ {item.disclaimer}
-        </Text>
-      )}
+    const handleUploadDocument = async () => {
+    // 1. Validación de campos vacíos y de ID de comunidad
+    if (!docTitle.trim() || !docContent.trim()) {
+      const msg = "Por favor, rellena todos los campos.";
+      Platform.OS === 'web' ? alert(msg) : Alert.alert("Atención", msg);
+      return;
+    }
+
+    if (!comunidad_id) {
+      const msg = "No se pudo identificar la comunidad activa.";
+      Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
+      return;
+    }
+    
+    setIsUploading(true);
+    
+    try {
+      const response = await fetch(`${API_URL}/comunities/${comunidad_id}/documents`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userToken}`
+        },
+        body: JSON.stringify({
+          title: docTitle,
+          content: docContent
+        }),
+      });
+
+      // 2. Mejoramos el manejo de la respuesta para ver el error real
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Error del servidor al subir:", errorData);
+        throw new Error(errorData.detail || 'Error al subir documento');
+      }
+
+      const msg = `✅ ¡Subido!\n"${docTitle}" ya es parte del conocimiento.`;
+      Platform.OS === 'web' ? alert(msg) : Alert.alert("Éxito", msg);
+      
+      // Limpiar campos tras éxito
+      setDocTitle('');
+      setDocContent('');
+    } catch (error: any) {
+      const msg = error.message || "Hubo un problema al subir el documento.";
+      Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const renderMessage = ({ item }: { item: Message }) => (
+    <View style={[styles.msgRow, { justifyContent: item.role === 'user' ? 'flex-end' : 'flex-start' }]}>
+      <View style={[styles.msgBubble, { 
+        backgroundColor: item.role === 'user' ? '#4F46E5' : '#F1F5F9',
+        maxWidth: isDesktop ? '70%' : '85%',
+      }]}>
+        <Text style={{ fontSize: 15, color: item.role === 'user' ? '#fff' : '#1E293B' }}>{item.content}</Text>
+        
+        {item.source && (
+          <View style={styles.sourceTag}>
+            <Text style={[styles.sourceText, { fontWeight: '700' }]}>Fuente: {item.source.type}</Text>
+            {item.source.reference && (
+              <Text style={styles.sourceText}>• {item.source.reference}</Text>
+            )}
+          </View>
+        )}
+
+        {item.disclaimer && (
+          <Text style={[styles.sourceText, { marginTop: 4, color: '#EF4444' }]}>
+            ⚠️ {item.disclaimer}
+          </Text>
+        )}
+      </View>
     </View>
-  </View>
-);
+  );
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
@@ -163,7 +223,7 @@ const handleSend = useCallback(async () => {
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>Asistente VecinUs</Text>
           <Text style={styles.headerSubtitle} numberOfLines={1}>
-            {activeCommunityName} • ID: {activeCommunityId}
+            {activeCommunityName} • ID: {comunidad_id}
           </Text>
         </View>
         <Bot color="#4F46E5" size={24} />
@@ -187,11 +247,11 @@ const handleSend = useCallback(async () => {
         </View>
       )}
 
-        <KeyboardAvoidingView 
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20} 
-        >
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20} 
+      >
         <View style={{ flex: 1, flexDirection: isDesktop ? 'row' : 'column' }}>
           
           {/* SECCIÓN CHAT */}
@@ -227,7 +287,8 @@ const handleSend = useCallback(async () => {
                   />
                   <TouchableOpacity 
                     onPress={handleSend}
-                    style={[styles.sendBtn, { backgroundColor: '#4F46E5' }]}
+                    disabled={isTyping}
+                    style={[styles.sendBtn, { backgroundColor: isTyping ? '#94A3B8' : '#4F46E5' }]}
                   >
                     <Send color="#fff" size={18} />
                   </TouchableOpacity>
@@ -319,14 +380,13 @@ const styles = StyleSheet.create({
   typingText: { fontSize: 12, color: '#64748B', marginLeft: 6 },
   inputWrapper: {
     flexDirection: 'row',
-    alignItems: 'center', // Cambiado de 'flex-end' a 'center' para mejor alineación
-    backgroundColor: '#fff', // Fondo blanco puro para resaltar del fondo gris
-    borderRadius: 28, // Más redondeado
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 28,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     paddingHorizontal: 16,
     paddingVertical: Platform.OS === 'ios' ? 10 : 4,
-    // Añadimos una pequeña sombra para dar profundidad
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -343,13 +403,13 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   inputContainer: {
-  paddingVertical: 12,
-  paddingHorizontal: 16,
-  borderTopWidth: 1,
-  borderTopColor: '#F1F5F9',
-  backgroundColor: '#fff', 
-  marginBottom: Platform.OS === 'android' ? 10 : 0, 
-},
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    backgroundColor: '#fff', 
+    marginBottom: Platform.OS === 'android' ? 10 : 0, 
+  },
   sendBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
   docsPanel: { backgroundColor: '#F8FAFC', padding: 24, borderLeftWidth: 1, borderLeftColor: '#E2E8F0' },
   docsHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
