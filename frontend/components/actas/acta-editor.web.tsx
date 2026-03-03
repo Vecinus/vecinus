@@ -29,7 +29,8 @@ export function ActaEditor({ initialContent = "", onChange }: ActaEditorProps) {
         autoFocus
         style={{
           flex: 1,
-          minHeight: 300,
+          minHeight: 0,
+          height: "100%",
           padding: 16,
           borderRadius: 8,
           border: `1px solid ${BORDER}`,
@@ -37,7 +38,7 @@ export function ActaEditor({ initialContent = "", onChange }: ActaEditorProps) {
           color: COLORS.foreground,
           fontSize: 14,
           lineHeight: 1.6,
-          resize: "vertical",
+          resize: "none",
           fontFamily: "inherit",
           outline: "none",
         }}

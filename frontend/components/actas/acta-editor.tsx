@@ -1,41 +1,32 @@
 import React from "react";
-import { View } from "react-native";
-import {
-  RichText,
-  Toolbar,
-  useEditorBridge,
-  useEditorContent,
-} from "@10play/tentap-editor";
+import { ScrollView, TextInput } from "react-native";
 
 interface ActaEditorProps {
   initialContent?: string;
-  onChange: (html: string) => void;
+  onChange: (text: string) => void;
 }
 
 export function ActaEditor({ initialContent = "", onChange }: ActaEditorProps) {
-  const editor = useEditorBridge({
-    autofocus: true,
-    avoidIosKeyboard: true,
-    initialContent,
-  });
-
-  const content = useEditorContent(editor, { type: "html" });
-
-  React.useEffect(() => {
-    if (content) {
-      onChange(content);
-    }
-  }, [content, onChange]);
-
   return (
-    <View
-      style={{ flex: 1, borderWidth: 1, borderRadius: 8, overflow: "hidden" }}
+    <ScrollView
+      style={{ flex: 1, borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 8 }}
+      keyboardShouldPersistTaps="handled"
     >
-      <RichText
-        editor={editor}
-        style={{ flex: 1, padding: 16, minHeight: 200 }}
+      <TextInput
+        defaultValue={initialContent}
+        onChangeText={onChange}
+        multiline
+        textAlignVertical="top"
+        style={{
+          flex: 1,
+          padding: 16,
+          minHeight: 300,
+          fontSize: 15,
+          color: "#1E293B",
+          lineHeight: 22,
+        }}
       />
-      <Toolbar editor={editor} />
-    </View>
+    </ScrollView>
   );
 }
+
