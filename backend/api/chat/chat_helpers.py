@@ -4,9 +4,7 @@ from fastapi import HTTPException
 from supabase import Client
 
 
-def verify_channel_access(
-    channel_id: UUID | str, user_id: str, admin_supabase: Client
-):
+def verify_channel_access(channel_id: UUID | str, user_id: str, admin_supabase: Client):
     """Verifica que un usuario pertenece a un canal. Lanza 403 si no es así."""
     access_res = (
         admin_supabase.table("channel_participants")
@@ -16,9 +14,7 @@ def verify_channel_access(
         .execute()
     )
     if not access_res.data:
-        raise HTTPException(
-            status_code=403, detail="Access denied to this channel"
-        )
+        raise HTTPException(status_code=403, detail="Access denied to this channel")
     return access_res.data[0]
 
 
@@ -49,9 +45,7 @@ def verify_message_ownership(
     return original_msg
 
 
-def verify_association_admin(
-    association_id: UUID | str, user_id: str, supabase: Client
-):
+def verify_association_admin(association_id: UUID | str, user_id: str, supabase: Client):
     """Verifica que un usuario tiene rol de administrador (role=1) en la comunidad dada. Lanza 403 o 404."""
     membership_res = (
         supabase.table("memberships")
@@ -62,24 +56,18 @@ def verify_association_admin(
     )
 
     if not membership_res.data:
-        raise HTTPException(
-            status_code=404, detail="Membership not found in this community"
-        )
+        raise HTTPException(status_code=404, detail="Membership not found in this community")
 
     user_role = membership_res.data[0].get("role")
 
     # 1 indica rol de administrador
     if str(user_role) != "1":
-        raise HTTPException(
-            status_code=403, detail="Admin access required for this action"
-        )
+        raise HTTPException(status_code=403, detail="Admin access required for this action")
 
     return membership_res.data[0]
 
 
-def verify_association_president(
-    association_id: UUID | str, user_id: str, supabase: Client
-):
+def verify_association_president(association_id: UUID | str, user_id: str, supabase: Client):
     """Verifica que un usuario tiene rol de presidente (role=4) en la comunidad dada. Lanza 403 o 404."""
     membership_res = (
         supabase.table("memberships")
@@ -90,9 +78,7 @@ def verify_association_president(
     )
 
     if not membership_res.data:
-        raise HTTPException(
-            status_code=404, detail="Membership not found in this community"
-        )
+        raise HTTPException(status_code=404, detail="Membership not found in this community")
 
     user_role = membership_res.data[0].get("role")
 
@@ -106,9 +92,7 @@ def verify_association_president(
     return membership_res.data[0]
 
 
-def verify_property_owner(
-    property_id: UUID | str, user_id: str, supabase: Client
-):
+def verify_property_owner(property_id: UUID | str, user_id: str, supabase: Client):
     """Verifica que un usuario es propietario de una propiedad dada. Lanza 403 o 404."""
     ownership_res = (
         supabase.table("memberships")

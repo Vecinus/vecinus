@@ -3,7 +3,6 @@ from typing import Optional
 
 import pypdf
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
-
 from services.chatBot.documents_ChatBotService import index_document
 
 router = APIRouter(prefix="/comunities", tags=["documents"])
@@ -37,9 +36,7 @@ async def upload_document(
     # CASO 2: Si es un Archivo Físico (PDF o TXT)
     elif "multipart/form-data" in content_type:
         if not file:
-            raise HTTPException(
-                status_code=400, detail="No se ha enviado un archivo válido."
-            )
+            raise HTTPException(status_code=400, detail="No se ha enviado un archivo válido.")
 
         texto_extraido = ""
         # Leer TXT
@@ -64,9 +61,7 @@ async def upload_document(
         if not texto_extraido.strip():
             raise HTTPException(
                 status_code=400,
-                detail=(
-                    "El documento está vacío o" " no se pudo extraer el texto."
-                ),
+                detail=("El documento está vacío o" " no se pudo extraer el texto."),
             )
 
         chunks = index_document(comunidad_id, file.filename, texto_extraido)

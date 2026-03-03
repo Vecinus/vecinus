@@ -52,9 +52,7 @@ def index_document(comunidad_id, document_title, raw_text):
         chunk_id = f"{comunidad_id}-{document_title}-{i}"
 
         # Generar embedding con Google Gemini (768 dimensiones)
-        response = _get_client().models.embed_content(
-            model=EMBEDDING_MODEL, contents=chunk_text
-        )
+        response = _get_client().models.embed_content(model=EMBEDDING_MODEL, contents=chunk_text)
 
         vectors.append(
             {

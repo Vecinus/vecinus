@@ -1,9 +1,8 @@
 import time
 
 import pytest  # noqa: F401
-from fastapi.testclient import TestClient
-
 from core.config import settings
+from fastapi.testclient import TestClient
 from main import app
 
 client = TestClient(app)
@@ -11,12 +10,8 @@ client = TestClient(app)
 
 def test_variables_entorno_cargadas():
     """Verifica variables críticas antes de tests."""
-    assert (
-        settings.PINECONE_INDEX_NAME != ""
-    ), "¡Error! El índice de Pinecone está vacío."
-    assert (
-        settings.GEMINI_API_KEY != ""
-    ), "¡Error! La API Key de Gemini está vacía."
+    assert settings.PINECONE_INDEX_NAME != "", "¡Error! El índice de Pinecone está vacío."
+    assert settings.GEMINI_API_KEY != "", "¡Error! La API Key de Gemini está vacía."
     print(f"\n[OK] Apuntando al índice: " f"{settings.PINECONE_INDEX_NAME}")
 
 
@@ -110,33 +105,21 @@ def test_chatbot_flujo_completo_con_subida_documento():
     }
 
     print("\n[1/3] Subiendo documento a " "Pinecone (Comunidad 9999)...")
-    upload_response = client.post(
-        f"/comunities/{comunidad_test_id}/documents", files=archivos
-    )
-    assert upload_response.status_code == 200, (
-        f"Error al subir documento: " f"{upload_response.text}"
-    )
+    upload_response = client.post(f"/comunities/{comunidad_test_id}/documents", files=archivos)
+    assert upload_response.status_code == 200, f"Error al subir documento: " f"{upload_response.text}"
 
     # Pinecone necesita segundos para indexar
-    print(
-        "[2/3] Documento subido. Esperando 15s" " a que Pinecone lo indexe..."
-    )
+    print("[2/3] Documento subido. Esperando 15s" " a que Pinecone lo indexe...")
     time.sleep(15)
 
     chat_payload = {
         "comunidad_id": str(comunidad_test_id),
-        "question": (
-            "¿Quién es el nuevo presidente y" " cuál es la clave de las bicis?"
-        ),
+        "question": ("¿Quién es el nuevo presidente y" " cuál es la clave de las bicis?"),
     }
 
     print("[3/3] Preguntando al Chatbot...")
-    chat_response = client.post(
-        f"/comunities/{comunidad_test_id}/chatbot", json=chat_payload
-    )
-    assert chat_response.status_code == 200, (
-        f"Error en el chatbot: " f"{chat_response.text}"
-    )
+    chat_response = client.post(f"/comunities/{comunidad_test_id}/chatbot", json=chat_payload)
+    assert chat_response.status_code == 200, f"Error en el chatbot: " f"{chat_response.text}"
 
     data = chat_response.json()
     respuesta_ia = data["answer"].lower()

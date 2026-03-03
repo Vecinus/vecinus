@@ -44,27 +44,19 @@ def create_group_channel(
     Solo los administradores de la comunidad pueden hacerlo.
     """
     # Verificar que el usuario es admin de la comunidad (role=1 en memberships)
-    verify_association_admin(
-        channel_in.association_id, current_user["id"], supabase
-    )
+    verify_association_admin(channel_in.association_id, current_user["id"], supabase)
 
     new_channel_data = {
         "association_id": str(channel_in.association_id),
         "name": channel_in.name,
         "is_direct_message": False,
         "is_blocked": channel_in.is_blocked,
-        "blocked_by": (
-            str(channel_in.blocked_by) if channel_in.blocked_by else None
-        ),
+        "blocked_by": (str(channel_in.blocked_by) if channel_in.blocked_by else None),
     }
 
-    new_channel_res = (
-        supabase.table("chat_channels").insert(new_channel_data).execute()
-    )
+    new_channel_res = supabase.table("chat_channels").insert(new_channel_data).execute()
     if not new_channel_res.data:
-        raise HTTPException(
-            status_code=500, detail="Failed to create group channel"
-        )
+        raise HTTPException(status_code=500, detail="Failed to create group channel")
 
     created_channel = new_channel_res.data[0]
 
@@ -97,9 +89,7 @@ def create_group_channel(
         )
 
     if participants_data:
-        supabase.table("channel_participants").insert(
-            participants_data
-        ).execute()
+        supabase.table("channel_participants").insert(participants_data).execute()
 
     return created_channel
 
@@ -118,10 +108,7 @@ def update_group_channel(
     """
     # 1. Obtener la comunidad a la que pertenece el canal
     channel_res = (
-        supabase.table("chat_channels")
-        .select("association_id, is_direct_message")
-        .eq("id", str(channel_id))
-        .execute()
+        supabase.table("chat_channels").select("association_id, is_direct_message").eq("id", str(channel_id)).execute()
     )
     if not channel_res.data:
         raise HTTPException(status_code=404, detail="Channel not found")
@@ -142,17 +129,10 @@ def update_group_channel(
     update_data = {
         "name": channel_in.name,
         "is_blocked": channel_in.is_blocked,
-        "blocked_by": (
-            str(channel_in.blocked_by) if channel_in.blocked_by else None
-        ),
+        "blocked_by": (str(channel_in.blocked_by) if channel_in.blocked_by else None),
     }
 
-    update_res = (
-        supabase.table("chat_channels")
-        .update(update_data)
-        .eq("id", str(channel_id))
-        .execute()
-    )
+    update_res = supabase.table("chat_channels").update(update_data).eq("id", str(channel_id)).execute()
 
     if not update_res.data:
         raise HTTPException(status_code=500, detail="Could not update channel")
@@ -160,9 +140,7 @@ def update_group_channel(
     return update_res.data[0]
 
 
-@router.delete(
-    "/channels/{channel_id}", status_code=status.HTTP_204_NO_CONTENT
-)
+@router.delete("/channels/{channel_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_group_channel(
     channel_id: UUID,
     current_user: dict = Depends(get_current_user),
@@ -173,10 +151,7 @@ def delete_group_channel(
     """
     # 1. Obtener la comunidad a la que pertenece el canal
     channel_res = (
-        supabase.table("chat_channels")
-        .select("association_id, is_direct_message")
-        .eq("id", str(channel_id))
-        .execute()
+        supabase.table("chat_channels").select("association_id, is_direct_message").eq("id", str(channel_id)).execute()
     )
     if not channel_res.data:
         raise HTTPException(status_code=404, detail="Channel not found")
@@ -195,12 +170,7 @@ def delete_group_channel(
 
     # 3. Eliminar el canal (Postgres elimina en cascada automáticamente
     # los mensajes y participantes ligados)
-    (
-        supabase.table("chat_channels")
-        .delete()
-        .eq("id", str(channel_id))
-        .execute()
-    )
+    (supabase.table("chat_channels").delete().eq("id", str(channel_id)).execute())
 
     return None
 
@@ -212,29 +182,17 @@ def get_user_channels(
 ):
     """Busca todos los canales a los que pertenece el usuario actual."""
 
-    res = (
-        supabase.table("channel_participants")
-        .select("channel_id")
-        .eq("user_id", current_user["id"])
-        .execute()
-    )
+    res = supabase.table("channel_participants").select("channel_id").eq("user_id", current_user["id"]).execute()
     if not res.data:
         return []
 
     channel_ids = [str(item["channel_id"]) for item in res.data]
 
-    channels_res = (
-        supabase.table("chat_channels")
-        .select("*")
-        .in_("id", channel_ids)
-        .execute()
-    )
+    channels_res = supabase.table("chat_channels").select("*").in_("id", channel_ids).execute()
     return channels_res.data
 
 
-@router.get(
-    "/channels/{channel_id}/messages", response_model=List[MessageWithSender]
-)
+@router.get("/channels/{channel_id}/messages", response_model=List[MessageWithSender])
 def get_channel_messages(
     channel_id: UUID,
     current_user: dict = Depends(get_current_user),
@@ -274,12 +232,7 @@ def create_direct_message(
     verify_channel_access(str(str(channel_id)), current_user["id"], supabase)
 
     # 2. Obtener la comunidad a la que pertenece el canal base
-    base_channel_res = (
-        supabase.table("chat_channels")
-        .select("association_id")
-        .eq("id", str(channel_id))
-        .execute()
-    )
+    base_channel_res = supabase.table("chat_channels").select("association_id").eq("id", str(channel_id)).execute()
     if not base_channel_res.data:
         raise HTTPException(status_code=404, detail="Base channel not found")
     association_id = base_channel_res.data[0]["association_id"]
@@ -342,11 +295,7 @@ def create_direct_message(
 
                 # Obtener la info del canal para ver si está bloqueado
                 existing_channel = next(
-                    (
-                        c
-                        for c in dm_channels_res.data
-                        if str(c["id"]) == existing_dm_id
-                    ),
+                    (c for c in dm_channels_res.data if str(c["id"]) == existing_dm_id),
                     None,
                 )
                 if existing_channel and existing_channel.get("is_blocked"):
@@ -356,12 +305,7 @@ def create_direct_message(
                     )
 
                 # Retornar el canal existente
-                full_channel_res = (
-                    supabase.table("chat_channels")
-                    .select("*")
-                    .eq("id", existing_dm_id)
-                    .execute()
-                )
+                full_channel_res = supabase.table("chat_channels").select("*").eq("id", existing_dm_id).execute()
                 return full_channel_res.data[0]
 
     # 5. Si no existe, crearlo
@@ -372,13 +316,9 @@ def create_direct_message(
         "blocked_by": None,
     }
 
-    new_channel_res = (
-        supabase.table("chat_channels").insert(new_channel_data).execute()
-    )
+    new_channel_res = supabase.table("chat_channels").insert(new_channel_data).execute()
     if not new_channel_res.data:
-        raise HTTPException(
-            status_code=500, detail="Failed to create direct message channel"
-        )
+        raise HTTPException(status_code=500, detail="Failed to create direct message channel")
 
     created_channel = new_channel_res.data[0]
 
@@ -405,12 +345,7 @@ def block_direct_message_channel(
     verify_channel_access(str(str(channel_id)), current_user["id"], supabase)
 
     # 2. Validar que el canal es un mensaje directo
-    channel_res = (
-        supabase.table("chat_channels")
-        .select("*")
-        .eq("id", str(channel_id))
-        .execute()
-    )
+    channel_res = supabase.table("chat_channels").select("*").eq("id", str(channel_id)).execute()
     if not channel_res.data:
         raise HTTPException(status_code=404, detail="Channel not found")
 
@@ -418,10 +353,7 @@ def block_direct_message_channel(
     if not channel_data.get("is_direct_message"):
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Only direct message channels can be blocked"
-                " through this endpoint"
-            ),
+            detail=("Only direct message channels can be blocked" " through this endpoint"),
         )
 
     # 3. Marcar como bloqueado y guardar quién lo ha bloqueado
@@ -433,9 +365,7 @@ def block_direct_message_channel(
     )
 
     if not update_res.data:
-        raise HTTPException(
-            status_code=500, detail="Could not block the channel"
-        )
+        raise HTTPException(status_code=500, detail="Could not block the channel")
 
     return {"message": "Direct message channel successfully blocked."}
 
@@ -454,12 +384,7 @@ def unblock_direct_message_channel(
     verify_channel_access(str(str(channel_id)), current_user["id"], supabase)
 
     # 2. Validar que el canal es un mensaje directo
-    channel_res = (
-        supabase.table("chat_channels")
-        .select("*")
-        .eq("id", str(channel_id))
-        .execute()
-    )
+    channel_res = supabase.table("chat_channels").select("*").eq("id", str(channel_id)).execute()
     if not channel_res.data:
         raise HTTPException(status_code=404, detail="Channel not found")
 
@@ -467,26 +392,18 @@ def unblock_direct_message_channel(
     if not channel_data.get("is_direct_message"):
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Only direct message channels can be unblocked"
-                " through this endpoint"
-            ),
+            detail=("Only direct message channels can be unblocked" " through this endpoint"),
         )
 
     # 3. Validar que está bloqueado
     if not channel_data.get("is_blocked"):
-        raise HTTPException(
-            status_code=400, detail="This channel is not blocked"
-        )
+        raise HTTPException(status_code=400, detail="This channel is not blocked")
 
     # 4. Validar que la persona que intenta desbloquear es la que lo bloqueó
     if str(channel_data.get("blocked_by")) != str(current_user["id"]):
         raise HTTPException(
             status_code=403,
-            detail=(
-                "You are not authorized to unblock this channel"
-                " because you did not block it"
-            ),
+            detail=("You are not authorized to unblock this channel" " because you did not block it"),
         )
 
     # 5. Desbloquear
@@ -498,9 +415,7 @@ def unblock_direct_message_channel(
     )
 
     if not update_res.data:
-        raise HTTPException(
-            status_code=500, detail="Could not unblock the channel"
-        )
+        raise HTTPException(status_code=500, detail="Could not unblock the channel")
 
     return {"message": "Direct message channel successfully unblocked."}
 
@@ -549,21 +464,12 @@ async def send_message(
     # Obtenemos todos los participantes del canal para notificarles,
     # excluyendo al remitente
     all_participants_res = (
-        supabase.table("channel_participants")
-        .select("user_id")
-        .eq("channel_id", str(channel_id))
-        .execute()
+        supabase.table("channel_participants").select("user_id").eq("channel_id", str(channel_id)).execute()
     )
-    participants = [
-        p["user_id"]
-        for p in all_participants_res.data
-        if p["user_id"] != current_user["id"]
-    ]
+    participants = [p["user_id"] for p in all_participants_res.data if p["user_id"] != current_user["id"]]
 
     if participants:
-        msg_preview = msg_in.content[:100] + (
-            "..." if len(msg_in.content) > 100 else ""
-        )
+        msg_preview = msg_in.content[:100] + ("..." if len(msg_in.content) > 100 else "")
         alerts_to_insert = [
             {
                 "user_id": p_id,
@@ -573,9 +479,7 @@ async def send_message(
             }
             for p_id in participants
         ]
-        supabase.rpc(
-            "create_alerts_batch", {"payload": alerts_to_insert}
-        ).execute()
+        supabase.rpc("create_alerts_batch", {"payload": alerts_to_insert}).execute()
     # -----------------------------------------------------------
 
     # Retransmitimos el mensaje ya guardado a todos los clientes del WebSocket
@@ -584,9 +488,7 @@ async def send_message(
     return saved_message
 
 
-@router.put(
-    "/channels/{channel_id}/messages/{message_id}", response_model=Message
-)
+@router.put("/channels/{channel_id}/messages/{message_id}", response_model=Message)
 async def update_message(
     channel_id: UUID,
     message_id: UUID,
@@ -599,9 +501,7 @@ async def update_message(
     (alerta) correspondiente.
     """
     # 1. Verificar si el mensaje existe y pertenece al usuario
-    verify_message_ownership(
-        str(message_id), str(str(channel_id)), current_user["id"], supabase
-    )
+    verify_message_ownership(str(message_id), str(str(channel_id)), current_user["id"], supabase)
 
     # 2. Actualizar el mensaje
     update_res = (
@@ -623,9 +523,7 @@ async def update_message(
     updated_message = update_res.data[0]
 
     # 3. Actualizar la notificación (alerta) correspondiente
-    msg_preview = msg_in.content[:100] + (
-        "..." if len(msg_in.content) > 100 else ""
-    )
+    msg_preview = msg_in.content[:100] + ("..." if len(msg_in.content) > 100 else "")
 
     supabase.rpc(
         "update_alert_by_reference",
@@ -651,9 +549,7 @@ async def delete_message(
 ):
     """Elimina un mensaje y sus notificaciones correspondientes."""
     # 1. Verificar si el mensaje existe y pertenece al usuario
-    verify_message_ownership(
-        str(message_id), str(str(channel_id)), current_user["id"], supabase
-    )
+    verify_message_ownership(str(message_id), str(str(channel_id)), current_user["id"], supabase)
 
     # 2. Eliminar el mensaje
     (supabase.table("messages").delete().eq("id", message_id).execute())
@@ -661,9 +557,7 @@ async def delete_message(
     # returning=* or we can just rely on not raising
 
     # 3. Eliminar la alerta correspondiente (si reference_id = message_id)
-    supabase.rpc(
-        "delete_alert_by_reference", {"p_reference_id": str(message_id)}
-    ).execute()
+    supabase.rpc("delete_alert_by_reference", {"p_reference_id": str(message_id)}).execute()
 
     # 4. Retransmitir evento de borrado al WebSocket
     broadcast_data = {

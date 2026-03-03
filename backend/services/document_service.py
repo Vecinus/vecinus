@@ -2,9 +2,8 @@ import io
 from datetime import datetime
 
 from docx import Document
-from docx.shared import Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-
+from docx.shared import Pt, RGBColor
 from schemas.transcription.minutes import MinutesResponse
 
 
@@ -33,9 +32,7 @@ def generate_docx(minutes: MinutesResponse) -> io.BytesIO:
 
     date_paragraph = doc.add_paragraph()
     date_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = date_paragraph.add_run(
-        f"Fecha de generación: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
-    )
+    run = date_paragraph.add_run(f"Fecha de generación: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
     run.font.size = Pt(10)
     run.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
 
@@ -71,6 +68,7 @@ def generate_docx(minutes: MinutesResponse) -> io.BytesIO:
                     run.font.size = Pt(10)
                     run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
             from docx.oxml.ns import qn
+
             shading = header_cells[i]._element.get_or_add_tcPr()
             shading_elm = shading.makeelement(
                 qn("w:shd"),

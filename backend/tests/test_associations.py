@@ -9,8 +9,8 @@ os.environ["SUPABASE_URL"] = "http://localhost:8000"
 os.environ["SUPABASE_KEY"] = "dummy"
 os.environ["SUPABASE_SERVICE_KEY"] = "dummy-service"
 
-from core.deps import get_current_user, get_supabase, get_supabase_anon
-from main import app
+from core.deps import get_current_user, get_supabase, get_supabase_anon  # noqa: E402
+from main import app  # noqa: E402
 
 client = TestClient(app)
 
@@ -65,9 +65,7 @@ class MockSupabaseTable:
         return self
 
     def eq(self, column, value, **kwargs):
-        self._data = [
-            item for item in self._data if str(item.get(column)) == str(value)
-        ]
+        self._data = [item for item in self._data if str(item.get(column)) == str(value)]
         return self
 
     def update(self, data, *args, **kwargs):
@@ -254,10 +252,7 @@ def test_invite_admin_cannot_grant_admin_role():
             },
         )
         assert response.status_code == 400
-        assert (
-            response.json()["detail"]
-            == "Cannot grant ADMIN role via invitation"
-        )
+        assert response.json()["detail"] == "Cannot grant ADMIN role via invitation"
     finally:
         app.dependency_overrides.clear()
 
@@ -356,9 +351,7 @@ def test_accept_invitation_success():
     user_client_mock.postgrest = MagicMock()
 
     app.dependency_overrides[get_supabase_anon] = lambda: anon_mock
-    with patch(
-        "api.associations.create_client", return_value=user_client_mock
-    ):
+    with patch("api.associations.create_client", return_value=user_client_mock):
         try:
             response = client.post(
                 "/auth/accept-invitation",
@@ -371,9 +364,7 @@ def test_accept_invitation_success():
             data = response.json()
             assert data["message"] == "Invitation accepted"
             assert data["user_id"] == new_user_id
-            anon_mock.auth.sign_up.assert_called_once_with(
-                {"email": "invited@test.com", "password": "SecurePass123!"}
-            )
+            anon_mock.auth.sign_up.assert_called_once_with({"email": "invited@test.com", "password": "SecurePass123!"})
         finally:
             app.dependency_overrides.clear()
 
@@ -398,9 +389,7 @@ def test_accept_invitation_not_found():
             },
         )
         assert response.status_code == 404
-        assert (
-            response.json()["detail"] == "Invitation not found or already used"
-        )
+        assert response.json()["detail"] == "Invitation not found or already used"
     finally:
         app.dependency_overrides.clear()
 
@@ -417,10 +406,7 @@ def test_remove_member_success():
         response = client.delete(f"/members/{mock_membership_id}")
         assert response.status_code == 200
         data = response.json()
-        assert (
-            data["message"]
-            == f"Membership {mock_membership_id} deleted successfully"
-        )
+        assert data["message"] == f"Membership {mock_membership_id} deleted successfully"
     finally:
         app.dependency_overrides.clear()
 
@@ -433,10 +419,7 @@ def test_remove_member_not_admin_fails():
     try:
         response = client.delete(f"/members/{mock_membership_id}")
         assert response.status_code == 403
-        assert (
-            response.json()["detail"]
-            == "Admin access required for this action"
-        )
+        assert response.json()["detail"] == "Admin access required for this action"
     finally:
         app.dependency_overrides.clear()
 

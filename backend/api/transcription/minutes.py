@@ -1,9 +1,8 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
-
 from schemas.transcription.minutes import MinutesResponse
-from services.transcription.transcription_service import process_audio_to_minutes
 from services.document_service import generate_docx
+from services.transcription.transcription_service import process_audio_to_minutes
 
 router = APIRouter(prefix="/api/minutes", tags=["Minutes"])
 
@@ -58,9 +57,7 @@ async def generate_minutes_document(minutes: MinutesResponse):
         return StreamingResponse(
             buffer,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            headers={
-                "Content-Disposition": "attachment; filename=acta_reunion.docx"
-            },
+            headers={"Content-Disposition": "attachment; filename=acta_reunion.docx"},
         )
     except Exception as e:
         raise HTTPException(
