@@ -9,22 +9,20 @@ import { Bot, Send, Sparkles, FileText, UploadCloud, Menu, MessageSquare, Librar
 import { useNavigation } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
 import { useCommunityStore } from '@/store/useCommunityStore';
+import { API_URL } from '@/constants/api'; //
 
-// --- TYPES ACTUALIZADOS ---
-interface Source {
-  metadata: {
-    source: string;
-    page?: number;
-    [key: string]: any;
-  };
-  page_content: string;
+// --- TYPES  ---
+interface ChatAnswerSource {
+  type: string;
+  reference?: string;
 }
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  sources?: Source[]; // Cambiado de 'source' a 'sources' (array)
+  source?: ChatAnswerSource; 
+  disclaimer?: string;      
 }
 
 export default function ChatBotScreen() {
@@ -50,75 +48,108 @@ export default function ChatBotScreen() {
   const flatListRef = useRef<FlatList>(null);
 
   // --- LÓGICA ---
-  const handleSend = useCallback(async () => {
-    if (!input.trim()) return;
+const handleSend = useCallback(async () => {
+  if (!input.trim()) return;
 
-    const userText = input.trim();
-    const newUserMsg: Message = { id: `u-${Date.now()}`, role: 'user', content: userText };
+  const userText = input.trim();
+  const newUserMsg: Message = { id: `u-${Date.now()}`, role: 'user', content: userText };
+  
+  setMessages(prev => [...prev, newUserMsg]);
+  setInput('');
+  setIsTyping(true);
+  
+  try {
+    const response = await fetch(`${API_URL}/comunities/${activeCommunityId}/chatbot`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        comunidad_id: activeCommunityId, // OBLIGATORIO: según ChatBotRequest
+        question: userText,
+        history: [] // Opcional, pero lo puedes inicializar vacío
+      }),
+    });
+
+    if (!response.ok) throw new Error('Error 422 o similar');
+
+    const data = await response.json(); // Data es de tipo ChatBotResponse
+
+    const botMsg: Message = { 
+      id: `a-${Date.now()}`, 
+      role: 'assistant', 
+      content: data.answer,
+      source: data.source,      // Mapeo directo del objeto source
+      disclaimer: data.disclaimer // Guardamos el aviso legal
+    };
     
-    setMessages(prev => [...prev, newUserMsg]);
-    setInput('');
-    setIsTyping(true);
-    
-    if (!isDesktop) Keyboard.dismiss();
+    setMessages(prev => [...prev, botMsg]);
+  } catch (error) {
+    const msg = "No se pudo conectar con el asistente.";
+    Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
+  } finally {
+    setIsTyping(false);
+  }
+}, [input, activeCommunityId, activeCommunityName]);
 
-    // Simulación de respuesta adaptada a la nueva interfaz
-    setTimeout(() => {
-      const botMsg: Message = { 
-        id: `a-${Date.now()}`, 
-        role: 'assistant', 
-        content: `Recibido. Estoy analizando tu consulta sobre "${userText}" para ${activeCommunityName}.`,
-        sources: [
-          { 
-            metadata: { source: "Manual General.pdf", page: 1 },
-            page_content: "Contenido de referencia del manual..."
-          }
-        ]
-      };
-      setMessages(prev => [...prev, botMsg]);
-      setIsTyping(false);
-    }, 1000);
-  }, [input, activeCommunityName]);
+  const handleUploadDocument = async () => {
+  if (!docTitle.trim() || !docContent.trim()) {
+    const msg = "Por favor, rellena todos los campos.";
+    Platform.OS === 'web' ? alert(msg) : Alert.alert("Atención", msg);
+    return;
+  }
+  
+  setIsUploading(true);
+  
+  try {
+    const response = await fetch(`${API_URL}/comunities/${activeCommunityId}/documents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }, // Activamos el caso JSON del backend
+      body: JSON.stringify({
+        title: docTitle,
+        content: docContent
+      }),
+    });
 
-  const handleUploadDocument = () => {
-    if (!docTitle.trim() || !docContent.trim()) {
-      const msg = "Por favor, rellena todos los campos.";
-      Platform.OS === 'web' ? alert(msg) : Alert.alert("Atención", msg);
-      return;
-    }
-    setIsUploading(true);
-    setTimeout(() => {
-      const msg = `✅ ¡Subido!\n"${docTitle}" ya es parte del conocimiento.`;
-      Platform.OS === 'web' ? alert(msg) : Alert.alert("Éxito", msg);
-      setDocTitle('');
-      setDocContent('');
-      setIsUploading(false);
-    }, 1500);
-  };
+    if (!response.ok) throw new Error('Error al subir documento');
 
+    const msg = `✅ ¡Subido!\n"${docTitle}" ya es parte del conocimiento.`;
+    Platform.OS === 'web' ? alert(msg) : Alert.alert("Éxito", msg);
+    setDocTitle('');
+    setDocContent('');
+  } catch (error) {
+    const msg = "Hubo un problema al subir el documento.";
+    Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
+  } finally {
+    setIsUploading(false);
+  }
+};
   // --- COMPONENTES INTERNOS ---
   const renderMessage = ({ item }: { item: Message }) => (
-    <View style={[styles.msgRow, { justifyContent: item.role === 'user' ? 'flex-end' : 'flex-start' }]}>
-      <View style={[styles.msgBubble, { 
-        backgroundColor: item.role === 'user' ? '#4F46E5' : '#F1F5F9',
-        maxWidth: isDesktop ? '70%' : '85%',
-      }]}>
-        <Text style={{ fontSize: 15, color: item.role === 'user' ? '#fff' : '#1E293B' }}>{item.content}</Text>
-        
-        {/* Renderizado adaptado para múltiples fuentes */}
-        {item.sources && item.sources.length > 0 && (
-          <View style={styles.sourceTag}>
-            <Text style={[styles.sourceText, { fontWeight: '700' }]}>Fuentes:</Text>
-            {item.sources.map((src, index) => (
-              <Text key={index} style={styles.sourceText}>
-                • {src.metadata.source} {src.metadata.page ? `(pág. ${src.metadata.page})` : ''}
-              </Text>
-            ))}
-          </View>
-        )}
-      </View>
+  <View style={[styles.msgRow, { justifyContent: item.role === 'user' ? 'flex-end' : 'flex-start' }]}>
+    <View style={[styles.msgBubble, { 
+      backgroundColor: item.role === 'user' ? '#4F46E5' : '#F1F5F9',
+      maxWidth: isDesktop ? '70%' : '85%',
+    }]}>
+      <Text style={{ fontSize: 15, color: item.role === 'user' ? '#fff' : '#1E293B' }}>{item.content}</Text>
+      
+      {/* Renderizado de la fuente única */}
+      {item.source && (
+        <View style={styles.sourceTag}>
+          <Text style={[styles.sourceText, { fontWeight: '700' }]}>Fuente: {item.source.type}</Text>
+          {item.source.reference && (
+            <Text style={styles.sourceText}>• {item.source.reference}</Text>
+          )}
+        </View>
+      )}
+
+      {/* Renderizado del disclaimer */}
+      {item.disclaimer && (
+        <Text style={[styles.sourceText, { marginTop: 4, color: '#EF4444' }]}>
+          ⚠️ {item.disclaimer}
+        </Text>
+      )}
     </View>
-  );
+  </View>
+);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
