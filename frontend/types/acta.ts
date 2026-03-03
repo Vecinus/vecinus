@@ -1,3 +1,9 @@
+export interface ActaTask {
+  responsible: string;
+  description: string;
+  deadline: string;
+}
+
 export interface Acta {
   id: string;
   title: string;
@@ -5,6 +11,8 @@ export interface Acta {
   executiveSummary: string;
   agreements: string[];
   transcript: string;
+  topics?: string[];
+  tasks?: ActaTask[];
   createdBy: string;
   status: "draft" | "published";
   signature?: string; // Base64 de la firma
