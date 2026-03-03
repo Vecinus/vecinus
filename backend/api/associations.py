@@ -1,11 +1,9 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
-from postgrest.exceptions import APIError
-from supabase import Client, ClientOptions, create_client
-
 from core.config import settings
 from core.deps import get_current_user, get_supabase, get_supabase_anon
+from fastapi import APIRouter, Depends, HTTPException
+from postgrest.exceptions import APIError
 from schemas.associations import (
     AcceptInvitationRequest,
     InvitationResponse,
@@ -13,6 +11,7 @@ from schemas.associations import (
     InviteTenantRequest,
     MembershipWithCommunity,
 )
+from supabase import Client, ClientOptions, create_client
 
 router = APIRouter()
 
@@ -134,9 +133,13 @@ def accept_invitation(
 
     invitation = inv_res.data[0]
 
-    # 2. Registrar usuario: email viene de la invitación, usuario aporta contraseña
+    # 2. Registrar usuario: email viene de la invitación,
+    # usuario aporta contraseña
     auth_response = supabase_anon.auth.sign_up(
-        {"email": invitation["target_email"], "password": body.password}
+        {
+            "email": invitation["target_email"],
+            "password": body.password,
+        }
     )
 
     if not auth_response.user:
@@ -157,7 +160,7 @@ def accept_invitation(
     user_client = create_client(
         settings.SUPABASE_URL,
         settings.SUPABASE_KEY,
-        options=ClientOptions(schema="dev"),
+        options=ClientOptions(schema=settings.SUPABASE_SCHEMA),
     )
     user_client.postgrest.auth(auth_response.session.access_token)
 
