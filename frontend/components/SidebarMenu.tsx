@@ -17,8 +17,12 @@ interface MenuItemType {
 
 export default function SidebarMenu(props: DrawerContentComponentProps) {
   const router = useRouter();
-  const { activeCommunityId, activeCommunityName } = useCommunityStore();
   
+  // 1. EXTRAEMOS LA LISTA Y EL SETTER (AÑADIDO)
+  const { activeCommunityId, activeCommunityName, communities, setActiveCommunity } = useCommunityStore();
+  
+  // 2. ESTADO PARA ABRIR EL DESPLEGABLE (AÑADIDO)
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const [activeItem, setActiveItem] = useState<string>('');
 
   const menuItems: MenuItemType[] = [
@@ -50,10 +54,34 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.communitySelector}>
+      {/* 3. AÑADIMOS EL ONPRESS PARA TOGGLE (MODIFICADO) */}
+      <TouchableOpacity 
+        style={styles.communitySelector}
+        onPress={() => setIsSelectorOpen(!isSelectorOpen)}
+      >
         <Text style={styles.communityText}>{activeCommunityName}</Text>
-        <Ionicons name="chevron-down" size={18} color="#9CA3AF" />
+        <Ionicons name={isSelectorOpen ? "chevron-up" : "chevron-down"} size={18} color="#9CA3AF" />
       </TouchableOpacity>
+
+      {/* 4. RENDERIZAMOS LAS OPCIONES SI ESTÁ ABIERTO (AÑADIDO) */}
+      {isSelectorOpen && (
+        <View style={styles.dropdownContainer}>
+          {communities.map((comunidad) => (
+            <TouchableOpacity
+              key={comunidad.id}
+              style={[styles.dropdownItem, comunidad.id === activeCommunityId && styles.dropdownItemActive]}
+              onPress={() => {
+                setActiveCommunity(comunidad.id, comunidad.name);
+                setIsSelectorOpen(false);
+              }}
+            >
+              <Text style={[styles.dropdownText, comunidad.id === activeCommunityId && styles.dropdownTextActive]}>
+                {comunidad.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       <Text style={styles.navLabel}>Navegación</Text>
 
@@ -67,8 +95,6 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
               style={[styles.menuItem, isActive && styles.menuItemActive]}
               onPress={() => {
                 setActiveItem(item.name);
-                
-                // 4. LÓGICA DE NAVEGACIÓN DINÁMICA
                 if (item.route) {
                   router.push(`/comunities/${activeCommunityId}/${item.route}` as any);
                   props.navigation.closeDrawer();
@@ -108,6 +134,13 @@ const styles = StyleSheet.create({
   subtitle: { color: '#9CA3AF', fontSize: 14 },
   communitySelector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 14, backgroundColor: '#161F33', borderRadius: 8, marginBottom: 24 },
   communityText: { color: '#E5E7EB', fontSize: 14, fontWeight: '500' },
+  // NUEVOS ESTILOS PARA EL DESPLEGABLE
+  dropdownContainer: { backgroundColor: '#161F33', borderRadius: 8, marginTop: -20, marginBottom: 20, padding: 4 },
+  dropdownItem: { paddingVertical: 10, paddingHorizontal: 12, borderRadius: 6 },
+  dropdownItemActive: { backgroundColor: '#1F2937' },
+  dropdownText: { color: '#9CA3AF', fontSize: 14 },
+  dropdownTextActive: { color: '#FFFFFF', fontWeight: 'bold' },
+  // RESTO DE ESTILOS IGUALES
   navLabel: { color: '#9CA3AF', fontSize: 14, fontWeight: '600', marginBottom: 12, paddingHorizontal: 4 },
   scrollContent: { paddingBottom: 30 },
   menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, marginBottom: 6, borderWidth: 1.5, borderColor: 'transparent' },
