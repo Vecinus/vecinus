@@ -85,23 +85,25 @@ export function ActaSignature({
           </View>
 
           {/* Actions */}
-          <View className="flex-row gap-2 p-4 border-t border-border">
+          <View className="gap-2 p-4 border-t border-border">
+            <View className="flex-row gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onPress={() => signatureRef.current?.clearSignature()}
+              >
+                <Text className="text-sm font-medium text-foreground">
+                  Limpiar
+                </Text>
+              </Button>
+              <Button variant="outline" className="flex-1" onPress={onClose}>
+                <Text className="text-sm font-medium text-foreground">
+                  Cancelar
+                </Text>
+              </Button>
+            </View>
             <Button
-              variant="outline"
-              className="flex-1"
-              onPress={() => signatureRef.current?.clearSignature()}
-            >
-              <Text className="text-sm font-medium text-foreground">
-                Limpiar
-              </Text>
-            </Button>
-            <Button variant="outline" className="flex-1" onPress={onClose}>
-              <Text className="text-sm font-medium text-foreground">
-                Cancelar
-              </Text>
-            </Button>
-            <Button
-              className="flex-1"
+              className="w-full"
               onPress={() => signatureRef.current?.readSignature()}
             >
               <Text className="text-sm font-medium text-primary-foreground">
