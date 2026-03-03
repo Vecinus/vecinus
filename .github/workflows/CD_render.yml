@@ -4,7 +4,7 @@
 #
 # Workflow:
 #   1. Resolves the sprint identifier from the branch name (e.g. "sprint1").
-#   2. Runs the backend test suite (pytest) against a PostgreSQL 15 service.
+#   2. Calls the reusable CI_pytest workflow to run the backend test suite.
 #   3. Deploys Backend + Frontend to Render via Deploy Hook URLs stored as
 #      secrets inside the corresponding GitHub Environment.
 #
@@ -42,54 +42,12 @@ jobs:
           echo "Detected environment: $BRANCH"
           echo "env_name=$BRANCH" >> "$GITHUB_OUTPUT"
 
-  # ---- 1. Backend Tests ----
+  # ---- 1. Backend Tests (reutiliza CI_pytest.yml) ----
   testing:
     name: Run Backend Tests
-    runs-on: ubuntu-24.04
-
-    env:
-      POSTGRES_USER: vecinus_user
-      POSTGRES_PASSWORD: vecinus_password
-      POSTGRES_DB: vecinus_test_db
-      POSTGRES_HOST: 127.0.0.1
-      POSTGRES_PORT: 5432
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    uses: ./.github/workflows/CI_pytest.yml
+    secrets:
       SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: vecinus_user
-          POSTGRES_PASSWORD: vecinus_password
-          POSTGRES_DB: vecinus_test_db
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r backend/requirements.txt
-          pip install pytest httpx pytest-asyncio
-
-      - name: Run Tests
-        run: |
-          cd backend
-          pytest
 
   # ---- 2. Deploy to Render ----
   deploy:
