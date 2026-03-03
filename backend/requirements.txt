@@ -70,3 +70,4 @@ langchain
 pypdf==4.1.0
 tiktoken
 pinecone-client==3.1.0
+email-validator
