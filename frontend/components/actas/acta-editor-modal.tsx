@@ -52,7 +52,7 @@ export function ActaEditorModal({
                 Revisar transcripción
               </Text>
               <Text className="text-sm text-muted-foreground mt-1">
-                Corrige el texto antes de firmar el acta
+                Corrige el texto antes de guardar el acta
               </Text>
             </View>
           </View>
@@ -74,7 +74,7 @@ export function ActaEditorModal({
             </Button>
             <Button className="flex-1 bg-primary" onPress={handleConfirm}>
               <Text className="text-sm font-medium text-primary-foreground">
-                Confirmar y firmar
+                Guardar
               </Text>
             </Button>
           </View>
