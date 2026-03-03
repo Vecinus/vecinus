@@ -39,7 +39,7 @@ async def transcribe_meeting(audio: UploadFile = File(...)):
         )
 
     try:
-        result = await process_audio_to_minutes(audio_bytes)
+        result = await process_audio_to_minutes(audio_bytes, mime_type=audio.content_type)
         return result
     except Exception as e:
         raise HTTPException(
