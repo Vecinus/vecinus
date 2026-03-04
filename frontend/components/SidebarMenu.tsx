@@ -53,7 +53,6 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
 
   useEffect(() => {
     if (activeCommunityId) {
-      console.log(`Actualizando datos para la comunidad: ${activeCommunityId}`);
       fetchMembers(activeCommunityId);
       fetchAvailableProperties(activeCommunityId);
     }

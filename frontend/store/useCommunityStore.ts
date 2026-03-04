@@ -34,7 +34,7 @@ interface CommunityState {
   fetchCommunities: () => Promise<void>;
 }
 
-export const useCommunityStore = create<CommunityState>((set) => ({
+export const useCommunityStore = create<CommunityState>((set,get) => ({
   activeCommunityId: null, 
   activeCommunityName: null,
   activeCommunityAddress: null,
@@ -70,25 +70,27 @@ export const useCommunityStore = create<CommunityState>((set) => ({
       }
 
       const rawData: BackendCommunityResponse[] = await response.json();
-      
       const formattedCommunities: Community[] = rawData.map(item => ({
         id: item.neighborhood_associations.id,
         name: item.neighborhood_associations.name,
         address: item.neighborhood_associations.address,
         role: item.role
       }));
+      const currentActiveId = get().activeCommunityId;
+      const stillExists = formattedCommunities.find(c => c.id === currentActiveId);
+      
+      const communityToSet = stillExists || (formattedCommunities.length > 0 ? formattedCommunities[0] : null);
       
       set({ 
         communities: formattedCommunities, 
         isLoading: false,
-        activeCommunityId: formattedCommunities.length > 0 ? formattedCommunities[0].id : null,
-        activeCommunityName: formattedCommunities.length > 0 ? formattedCommunities[0].name : null,
-        activeCommunityAddress: formattedCommunities.length > 0 ? formattedCommunities[0].address : null,
-        activeCommunityRole: formattedCommunities.length > 0 ? formattedCommunities[0].role : null,
+        activeCommunityId: communityToSet?.id || null,
+        activeCommunityName: communityToSet?.name || null,
+        activeCommunityAddress: communityToSet?.address || null,
+        activeCommunityRole: communityToSet?.role || null,
       });
       
     } catch (error: any) {
-      console.error("Error en fetchCommunities:", error);
       set({ isLoading: false, error: error.message });
     }
   }
