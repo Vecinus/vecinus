@@ -188,10 +188,11 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
                 // 4. LÓGICA DE NAVEGACIÓN DINÁMICA
                 if (item.route) {
                   if (item.isGlobal) {
+                    props.navigation.closeDrawer();
                     router.push(item.route as any);
-                  } else {
-                    router.push(`/comunities/${activeCommunityId}/${item.route}` as any);
+                    return;
                   }
+
                   if (!activeCommunityId && !item.absolute) {
                     alert("Por favor, selecciona una comunidad primero.");
                     return;
