@@ -18,9 +18,17 @@ class TestMinutesAPI:
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 files = {"audio": ("reunion.mp3", b"fake-audio-data", "audio/mpeg")}
                 response = await ac.post("/api/minutes/transcribe", files=files)
+                response_data = response.json()
 
-        assert response.status_code == 200
-        assert "transcription" in response.json()
+        if response.status_code != 200:
+            raise AssertionError(f"Se esperaba 200 pero se obtuvo {response.status_code}")
+
+        target_key = "transcription"
+        if target_key not in response_data:
+            raise AssertionError(
+                f"La clave {target_key} no está presente en la respuesta."
+                + f"Claves recibidas: {list(response_data.keys())}"
+            )
 
     # --- TESTS NEGATIVOS ---
 
@@ -29,7 +37,8 @@ class TestMinutesAPI:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             files = {"audio": ("notas.txt", b"esto no es audio", "text/plain")}
             response = await ac.post("/api/minutes/transcribe", files=files)
-        assert response.status_code == 415
+        if response.status_code != 415:
+            raise AssertionError(f"Se esperaba 415 pero se obtuvo {response.status_code}")
 
     async def test_transcribe_file_exceeds_limit(self):
         """Prueba que un archivo de >150MB es rechazado con 413."""
@@ -37,4 +46,5 @@ class TestMinutesAPI:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             files = {"audio": ("gigante.mp3", content, "audio/mpeg")}
             response = await ac.post("/api/minutes/transcribe", files=files)
-        assert response.status_code == 413
+        if response.status_code != 413:
+            raise AssertionError(f"Se esperaba 413 pero se obtuvo {response.status_code}")

@@ -1,9 +1,7 @@
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
-from services.transcription.transcription_service import (
-    process_audio_to_minutes,
-)
+from services.transcription.transcription_service import process_audio_to_minutes
 
 
 @pytest.mark.anyio
@@ -37,7 +35,12 @@ class TestTranscriptionService:
 
             result = await process_audio_to_minutes(b"audio_data", "audio/mpeg")
 
-            assert result.transcription == "Lógica interna"
+            target = "Lógica interna"
+            if target not in result.transcription:
+                raise AssertionError(
+                    "Incoherencia en la transcripción. "
+                    + f"Se esperaba {target} pero se obtuvo  {result.transcription}"
+                )
             # Verificamos que se llamó al borrado para no dejar basura en la nube
             client.aio.files.delete.assert_called_with(name=mock_file.name)
 

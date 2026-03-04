@@ -18,13 +18,27 @@ def test_docx_generation_integrity():
     buffer = generate_docx(mock_data)
 
     # Validaciones físicas del archivo
-    assert isinstance(buffer, io.BytesIO)
+    if not isinstance(buffer, io.BytesIO):
+        raise AssertionError(
+            "Tipo de salida incorrecto." + f"Se esperaba io.BytesIO pero se obtuvo {type(buffer).__name__}"
+        )
     doc = Document(buffer)
 
     # Verificamos que el título esté presente
     texts = [p.text for p in doc.paragraphs]
-    assert "Acta de Reunión" in texts
+    target_title = "Acta de Reunión"
+    if target_title not in texts:
+        raise AssertionError(
+            f"El título '{target_title}' no se encontró en el documento generado." f"Textos detectados: {texts}"
+        )
 
     # Verificar que la tabla de tareas se creó (mínimo 2 filas: cabecera + 1 tarea)
-    assert len(doc.tables) > 0
-    assert len(doc.tables[0].rows) == 2
+    num_tablas = len(doc.tables)
+    if num_tablas <= 0:
+        raise AssertionError("Fallo en la estructura:" + "El documento generado no contiene ninguna tabla.")
+
+    num_filas = len(doc.tables[0].rows)
+    if num_filas != 2:
+        raise AssertionError(
+            "Contenido de tabla incorrecto. " + f"Se esperaban 2 filas (cabecera + tarea), pero hay {num_filas}"
+        )
