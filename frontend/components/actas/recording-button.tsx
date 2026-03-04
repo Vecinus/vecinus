@@ -25,14 +25,14 @@ export function RecordingButton({ onRecordingComplete }: RecordingButtonProps) {
           <>
             <MicOff size={20} color={COLORS.primaryForeground} />
             <Text className="text-base font-medium text-destructive-foreground">
-              Detener grabacion ({formatTime(durationMillis)})
+              Detener grabación ({formatTime(durationMillis)})
             </Text>
           </>
         ) : (
           <>
             <Mic size={20} color={COLORS.foreground} />
             <Text className="text-base font-medium text-foreground">
-              Grabar sesion
+              Grabar sesión
             </Text>
           </>
         )}

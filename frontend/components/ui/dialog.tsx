@@ -99,14 +99,17 @@ function DialogContent({ className, children }: DialogContentProps) {
             className,
           )}
         >
-          {children}
+          {/* Close button row — always rendered above children so nothing gets obscured */}
+          <View style={styles.closeRow}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => onOpenChange(false)}
+            >
+              <X size={16} color="hsl(215.4 16.3% 46.9%)" />
+            </TouchableOpacity>
+          </View>
 
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => onOpenChange(false)}
-          >
-            <X size={16} color="hsl(215.4 16.3% 46.9%)" />
-          </TouchableOpacity>
+          {children}
         </View>
       </View>
     </Modal>
@@ -124,11 +127,14 @@ const styles = StyleSheet.create({
     maxHeight: "85%",
     flexDirection: "column",
   },
+  closeRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginBottom: 4,
+  },
   closeButton: {
-    position: "absolute",
-    top: 16,
-    right: 16,
     opacity: 0.7,
+    padding: 4,
   },
 });
 
@@ -139,7 +145,7 @@ interface DialogHeaderProps {
 
 function DialogHeader({ className, children }: DialogHeaderProps) {
   return (
-    <View className={cn("flex flex-col gap-1.5 mb-4", className)}>
+    <View className={cn("flex flex-col gap-1.5 mb-3", className)}>
       {children}
     </View>
   );

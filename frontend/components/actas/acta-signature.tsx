@@ -62,7 +62,7 @@ export function ActaSignature({
               Firmar acta
             </Text>
             <Text className="text-sm text-muted-foreground mt-1">
-              Dibuje su firma en el area blanca
+              Dibuje su firma en el área blanca
             </Text>
           </View>
 

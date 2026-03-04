@@ -44,7 +44,7 @@ import { API_URL } from "@/constants/api";
 
 // ─── Pantalla principal ──────────────────────────────────────────────
 
-export default function MeetingMinutesScreen() {
+export default function ActasScreen() {
   // TODO: obtener del contexto de autenticacion
   const isPresidente = true;
   const userName = "Adrián Díaz";
@@ -81,12 +81,12 @@ export default function MeetingMinutesScreen() {
 
   const handleRecordingComplete = ({ uri, durationMs }: RecordingResult) => {
     if (!uri) {
-      Alert.alert("Error", "No se recibio el archivo de audio correctamente");
+      Alert.alert("Error", "No se recibió el archivo de audio correctamente");
       return;
     }
     setAudioUri(uri);
     setAudioDurationMs(durationMs);
-    Alert.alert("Exito", "Audio grabado correctamente");
+    Alert.alert("Éxito", "Audio grabado correctamente");
   };
 
   const clearAudio = () => {
@@ -294,7 +294,7 @@ export default function MeetingMinutesScreen() {
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>
-            {isPresidente ? "Gestion de Actas" : "Actas de la Junta"}
+            {isPresidente ? "Gestión de Actas" : "Actas de la Junta"}
           </Text>
           <Text style={styles.headerSubtitle} numberOfLines={1}>
             {isPresidente
