@@ -26,6 +26,7 @@ interface CommunityState {
   activeCommunityName: string | null;
   activeCommunityAddress: string | null;
   activeCommunityRole: number | null;
+  currentUserId?: string;
   communities: Community[];
   isLoading: boolean;
   error: string | null;
@@ -90,8 +91,12 @@ export const useCommunityStore = create<CommunityState>((set,get) => ({
         activeCommunityRole: communityToSet?.role || null,
       });
       
-    } catch (error: any) {
-      set({ isLoading: false, error: error.message });
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        set({ isLoading: false, error: error.message });
+      } else {
+        set({ isLoading: false, error: 'Ocurrió un error desconocido' });
+      }
     }
   }
 }));
