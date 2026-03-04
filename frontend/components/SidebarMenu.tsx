@@ -1,11 +1,22 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { DrawerContentComponentProps } from '@react-navigation/drawer';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Image,
+  ActivityIndicator,
+} from "react-native";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { DrawerContentComponentProps } from "@react-navigation/drawer";
+import { useRouter } from "expo-router";
 import { useAuthStore } from '../store/useAuthStore';
-import { useCommunityStore } from '../store/useCommunityStore';
+import { useCommunityStore } from "../store/useCommunityStore";
+import { useMembersStore } from "../store/useMembersStore"; 
+import { usePropertyStore } from "../store/usePropertyStore"; 
 
+// Tipado para los iconos
 type IconName = keyof typeof Ionicons.glyphMap;
 type MaterialIconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
@@ -15,27 +26,69 @@ interface MenuItemType {
   library?: 'MaterialCommunityIcons';
   route?: string;
   isGlobal?: boolean;
+  absolute?: boolean;
+  requiresAdmin?: boolean;
 }
 
 export default function SidebarMenu(props: DrawerContentComponentProps) {
   const router = useRouter();
-  const { activeCommunityId, activeCommunityName } = useCommunityStore();
+
+  const {
+    activeCommunityId,
+    activeCommunityName,
+    activeCommunityRole,
+    communities,
+    isLoading,
+    setActiveCommunity,
+    fetchCommunities,
+  } = useCommunityStore();
+
   const { isAuthenticated } = useAuthStore();
-  
-  const [activeItem, setActiveItem] = useState<string>('');
+  const { fetchMembers } = useMembersStore();
+  const { fetchAvailableProperties } = usePropertyStore();
+  const [activeItem, setActiveItem] = useState<string>("");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const isAdmin = activeCommunityRole === 1 || activeCommunityRole === 4;
+
+  useEffect(() => {
+    fetchCommunities();
+  }, []);
+
+  useEffect(() => {
+    if (activeCommunityId) {
+      fetchMembers(activeCommunityId);
+      fetchAvailableProperties(activeCommunityId);
+    }
+  }, [activeCommunityId]); 
 
   const menuItems: MenuItemType[] = [
-    { name: 'Chat', icon: 'chatbubble-outline' as IconName },
-    { name: 'Avisos', icon: 'notifications-outline' as IconName },
-    { name: 'Tablón', icon: 'megaphone-outline' as IconName },
-    { name: 'Asistente IA', icon: 'robot-outline' as MaterialIconName, library: 'MaterialCommunityIcons', route: 'chatbot' },
-    { name: 'Reservas', icon: 'calendar-outline' as IconName },
-    { name: 'Votaciones', icon: 'checkbox-outline' as IconName },
-    { name: 'Incidencias', icon: 'warning-outline' as IconName },
-    { name: 'Actas', icon: 'document-text-outline' as IconName },
-    { name: 'Economía', icon: 'wallet-outline' as IconName },
-    { name: 'Comunidades', icon: 'business-outline' as IconName },
-    { name: 'Administración', icon: 'settings-outline' as IconName },
+    { name: "Chat", icon: "chatbubble-outline" as IconName },
+    { name: "Avisos", icon: "notifications-outline" as IconName },
+    { name: "Tablón", icon: "megaphone-outline" as IconName },
+    {
+      name: "Asistente IA",
+      icon: "robot-outline" as MaterialIconName,
+      library: "MaterialCommunityIcons",
+      route: "chatbot",
+    },
+    { name: "Reservas", icon: "calendar-outline" as IconName },
+    { name: "Votaciones", icon: "checkbox-outline" as IconName },
+    { name: "Incidencias", icon: "warning-outline" as IconName },
+    {
+      name: "Actas",
+      icon: "document-text-outline" as IconName,
+      route: "actas/actas",
+      absolute: true,
+    },
+    { name: "Economía", icon: "wallet-outline" as IconName },
+    {
+      name: "Comunidades",
+      icon: "business-outline" as IconName,
+      route: "admin",
+      requiresAdmin: true,
+    },
+    { name: "Administración", icon: "settings-outline" as IconName },
   ];
 
   if (isAuthenticated) {
@@ -43,14 +96,16 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
   } else {
     menuItems.push({ name: 'Iniciar Sesión', icon: 'log-in-outline' as IconName, route: '/auth/login', isGlobal: true });
   }
+  const visibleMenuItems = menuItems.filter(
+    (item) => !item.requiresAdmin || isAdmin
+  );
 
   return (
     <View style={styles.container}>
-      
       <View style={styles.header}>
-        <Image 
-          source={require('../assets/logos/VecinusLogotipoTransparente.png')} 
-          style={styles.logo} 
+        <Image
+          source={require("../assets/logos/VecinusLogotipoTransparente.png")}
+          style={styles.logo}
           resizeMode="contain"
         />
         <View style={styles.headerTextContainer}>
@@ -59,20 +114,73 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.communitySelector}>
-        <Text style={styles.communityText}>{activeCommunityName}</Text>
-        <Ionicons name="chevron-down" size={18} color="#9CA3AF" />
+      <TouchableOpacity
+        style={[
+          styles.communitySelector,
+          isDropdownOpen && styles.communitySelectorOpen,
+        ]}
+        onPress={() => setIsDropdownOpen(!isDropdownOpen)}
+        disabled={isLoading}
+      >
+        {isLoading ? (
+          <ActivityIndicator color="#E5E7EB" size="small" />
+        ) : (
+          <Text style={styles.communityText}>
+            {activeCommunityName || "Cargando..."}
+          </Text>
+        )}
+        <Ionicons
+          name={isDropdownOpen ? "chevron-up" : "chevron-down"}
+          size={18}
+          color="#9CA3AF"
+        />
       </TouchableOpacity>
+
+      {isDropdownOpen && communities.length > 0 && (
+        <View style={styles.dropdownList}>
+          {communities.map((community) => (
+            <TouchableOpacity
+              key={community.id}
+              style={styles.dropdownItem}
+              onPress={() => {
+                setActiveCommunity(
+                  community.id,
+                  community.name,
+                  community.address,
+                  community.role
+                );
+                setIsDropdownOpen(false);
+              }}
+            >
+              <Text
+                style={[
+                  styles.dropdownItemText,
+                  activeCommunityId === community.id &&
+                    styles.dropdownItemTextActive,
+                ]}
+              >
+                {community.name}
+              </Text>
+              {activeCommunityId === community.id && (
+                <Ionicons name="checkmark" size={16} color="#3B82F6" />
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       <Text style={styles.navLabel}>Navegación</Text>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {menuItems.map((item) => {
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {visibleMenuItems.map((item) => {
           const isActive = activeItem === item.name;
-          
+
           return (
-            <TouchableOpacity 
-              key={item.name} 
+            <TouchableOpacity
+              key={item.name}
               style={[styles.menuItem, isActive && styles.menuItemActive]}
               onPress={() => {
                 setActiveItem(item.name);
@@ -84,24 +192,40 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
                   } else {
                     router.push(`/comunities/${activeCommunityId}/${item.route}` as any);
                   }
+                  if (!activeCommunityId && !item.absolute) {
+                    alert("Por favor, selecciona una comunidad primero.");
+                    return;
+                  }
+
                   props.navigation.closeDrawer();
+
+                  const targetPath = item.absolute
+                    ? `/${item.route}`
+                    : `/comunities/${activeCommunityId}/${item.route}`;
+
+                  router.push(targetPath as any);
                 }
               }}
             >
-              {item.library === 'MaterialCommunityIcons' ? (
-                <MaterialCommunityIcons 
-                  name={item.icon as MaterialIconName} 
-                  size={22} 
-                  color={isActive ? '#FFFFFF' : '#D1D5DB'} 
+              {item.library === "MaterialCommunityIcons" ? (
+                <MaterialCommunityIcons
+                  name={item.icon as MaterialIconName}
+                  size={22}
+                  color={isActive ? "#FFFFFF" : "#D1D5DB"}
                 />
               ) : (
-                <Ionicons 
-                  name={item.icon as IconName} 
-                  size={22} 
-                  color={isActive ? '#FFFFFF' : '#D1D5DB'} 
+                <Ionicons
+                  name={item.icon as IconName}
+                  size={22}
+                  color={isActive ? "#FFFFFF" : "#D1D5DB"}
                 />
               )}
-              <Text style={[styles.menuItemText, isActive && styles.menuItemTextActive]}>
+              <Text
+                style={[
+                  styles.menuItemText,
+                  isActive && styles.menuItemTextActive,
+                ]}
+              >
                 {item.name}
               </Text>
             </TouchableOpacity>
@@ -113,18 +237,77 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B1221', paddingTop: 50, paddingHorizontal: 16 },
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  container: {
+    flex: 1,
+    backgroundColor: "#0B1221",
+    paddingTop: 50,
+    paddingHorizontal: 16,
+  },
+  header: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
   logo: { width: 42, height: 42 },
   headerTextContainer: { marginLeft: 12 },
-  title: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold', letterSpacing: 0.5 },
-  subtitle: { color: '#9CA3AF', fontSize: 14 },
-  communitySelector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 14, backgroundColor: '#161F33', borderRadius: 8, marginBottom: 24 },
-  communityText: { color: '#E5E7EB', fontSize: 14, fontWeight: '500' },
-  navLabel: { color: '#9CA3AF', fontSize: 14, fontWeight: '600', marginBottom: 12, paddingHorizontal: 4 },
+  title: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "bold",
+    letterSpacing: 0.5,
+  },
+  subtitle: { color: "#9CA3AF", fontSize: 14 },
+  communitySelector: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: "#161F33",
+    borderRadius: 8,
+    marginBottom: 24,
+  },
+  communitySelectorOpen: {
+    marginBottom: 8,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  communityText: { color: "#E5E7EB", fontSize: 14, fontWeight: "500" },
+  dropdownList: {
+    backgroundColor: "#1E293B",
+    borderRadius: 8,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    marginBottom: 24,
+    paddingVertical: 4,
+  },
+  dropdownItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  dropdownItemText: { color: "#9CA3AF", fontSize: 14 },
+  dropdownItemTextActive: { color: "#3B82F6", fontWeight: "bold" },
+  navLabel: {
+    color: "#9CA3AF",
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
   scrollContent: { paddingBottom: 30 },
-  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, marginBottom: 6, borderWidth: 1.5, borderColor: 'transparent' },
-  menuItemActive: { borderColor: '#3B82F6', backgroundColor: 'rgba(59, 130, 246, 0.05)' },
-  menuItemText: { color: '#D1D5DB', marginLeft: 16, fontSize: 15 },
-  menuItemTextActive: { color: '#FFFFFF', fontWeight: 'bold' },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginBottom: 6,
+    borderWidth: 1.5,
+    borderColor: "transparent",
+  },
+  menuItemActive: {
+    borderColor: "#3B82F6",
+    backgroundColor: "rgba(59, 130, 246, 0.05)",
+  },
+  menuItemText: { color: "#D1D5DB", marginLeft: 16, fontSize: 15 },
+  menuItemTextActive: { color: "#FFFFFF", fontWeight: "bold" },
 });

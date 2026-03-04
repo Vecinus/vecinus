@@ -43,19 +43,42 @@ def _get_gemini_embedding(text: str):
     return response.embeddings[0].values
 
 
-def _retrieve_and_rerank(comunidad_id: int, question: str):
+def _normalize_namespace(comunidad_id: str) -> str:
+    return str(comunidad_id).strip()
+
+
+def _retrieve_and_rerank(comunidad_id: str, question: str):
+    namespace = _normalize_namespace(comunidad_id)
     query_vector = _get_gemini_embedding(question)
 
     res = _get_index().query(
-        namespace=str(comunidad_id),
+        namespace=namespace,
         vector=query_vector,
         top_k=5,
         include_metadata=True,
     )
 
-    valid_chunks = [match for match in res.get("matches", []) if match.get("score", 0.0) > CONFIDENCE_THRESHOLD]
+    matches = res.get("matches", [])
+
+    # DEBUG: Imprimir información detallada
+    print(f"\n[DEBUG RAG] Búsqueda para comunidad_id: {namespace}")
+    print(f"[DEBUG RAG] Pregunta: {question}")
+    print(f"[DEBUG RAG] Resultados encontrados: {len(matches)}")
+
+    if matches:
+        print(f"[DEBUG RAG] Score más alto: {matches[0].get('score', 0.0):.4f}")
+        print(f"[DEBUG RAG] Threshold configurado: {CONFIDENCE_THRESHOLD}")
+        for i, match in enumerate(matches, 1):
+            score = match.get("score", 0.0)
+            doc_title = match.get("metadata", {}).get("document_title", "unknown")
+            print(f"[RAG]Match {i}: score={score:.4f} doc='{doc_title}' pasa_threshold={score > CONFIDENCE_THRESHOLD}")
+    else:
+        print(f"[DEBUG RAG] ⚠️ No se encontraron vectores en el namespace '{namespace}'")
+
+    valid_chunks = [match for match in matches if match.get("score", 0.0) > CONFIDENCE_THRESHOLD]
 
     if not valid_chunks:
+        print(f"[DEBUG RAG] ❌ Ningún resultado supera el threshold de {CONFIDENCE_THRESHOLD}")
         return []
 
     # Nos quedamos con los 2 mejores para no saturar a Gemini
@@ -64,6 +87,8 @@ def _retrieve_and_rerank(comunidad_id: int, question: str):
         key=lambda x: x["score"],
         reverse=True,
     )[:2]
+
+    print(f"[DEBUG RAG] ✅ Usando {len(valid_chunks)} chunks válidos")
 
     return [
         {
@@ -114,7 +139,7 @@ async def _ask_gemini_with_timeout(context: str, question: str):
         return "El servicio de IA está temporalmente saturado."
 
 
-async def get_chatbot_response(comunidad_id: int, question: str):
+async def get_chatbot_response(comunidad_id: str, question: str):
     chunks = _retrieve_and_rerank(comunidad_id, question)
 
     if not chunks:

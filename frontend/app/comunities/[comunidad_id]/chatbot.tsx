@@ -1,45 +1,54 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
   KeyboardAvoidingView, Platform, ActivityIndicator,
-  Keyboard, Alert, useWindowDimensions, StyleSheet, StatusBar,
+  Alert, useWindowDimensions, StyleSheet, StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bot, Send, Sparkles, FileText, UploadCloud, Menu, MessageSquare, Library } from 'lucide-react-native';
-import { useNavigation } from 'expo-router';
+import { useNavigation, useLocalSearchParams } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
 import { useCommunityStore } from '@/store/useCommunityStore';
+import { API_URL } from '@/constants/api';
+import { loadUserCommunities } from '@/services/communityService';
 
-// --- TYPES ACTUALIZADOS ---
-interface Source {
-  metadata: {
-    source: string;
-    page?: number;
-    [key: string]: any;
-  };
-  page_content: string;
+// --- TYPES ---
+interface ChatAnswerSource {
+  type: string;
+  reference?: string;
 }
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  sources?: Source[]; // Cambiado de 'source' a 'sources' (array)
+  source?: ChatAnswerSource;
+  disclaimer?: string;
 }
 
 export default function ChatBotScreen() {
-  const { activeCommunityId, activeCommunityName } = useCommunityStore();
+  const { comunidad_id } = useLocalSearchParams();
+  const normalizedComunidadId = Array.isArray(comunidad_id) ? comunidad_id[0] : comunidad_id;
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  
+
+  // Sacamos todo lo necesario del Store
+  const { 
+    activeCommunityId, 
+    activeCommunityName, 
+    userToken, 
+    setActiveCommunity, 
+    communities 
+  } = useCommunityStore();
+
   const isDesktop = width >= 768;
   const [activeTab, setActiveTab] = useState<'chat' | 'docs'>('chat');
   const isManager = true; 
 
   // --- ESTADOS ---
   const [messages, setMessages] = useState<Message[]>([
-    { id: 'welcome', role: 'assistant', content: `👋 ¡Hola! Soy el asistente de ${activeCommunityName}. ¿En qué puedo ayudarte?` },
+    { id: 'welcome', role: 'assistant', content: `👋 ¡Hola! Soy el asistente. ¿En qué puedo ayudarte?` },
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -49,9 +58,41 @@ export default function ChatBotScreen() {
   
   const flatListRef = useRef<FlatList>(null);
 
-  // --- LÓGICA ---
+  // 1. Efecto para cargar comunidades si el store está vacío (necesario si entras directo por URL)
+  useEffect(() => {
+    if (communities.length === 0 && userToken) {
+      loadUserCommunities(userToken);
+    }
+  }, [userToken]);
+
+  // 2. Efecto para sincronizar la comunidad activa basándonos en el ID de la URL
+  useEffect(() => {
+    if (normalizedComunidadId && communities.length > 0) {
+      const currentComm = communities.find(c => String(c.id) === String(normalizedComunidadId));
+      if (currentComm) {
+        setActiveCommunity(currentComm.id, currentComm.name);
+      }
+    }
+  }, [normalizedComunidadId, communities, setActiveCommunity]);
+
+  // 3. Efecto para actualizar el saludo cuando ya tenemos el nombre real
+  useEffect(() => {
+    if (activeCommunityName && activeCommunityName !== 'Seleccione una comunidad') {
+      setMessages(prev => prev.map(m => 
+        m.id === 'welcome' 
+          ? { ...m, content: `👋 ¡Hola! Soy el asistente de ${activeCommunityName}. ¿En qué puedo ayudarte?` }
+          : m
+      ));
+    }
+  }, [activeCommunityName]);
+
+  // --- LÓGICA DE ENVÍO ---
   const handleSend = useCallback(async () => {
-    if (!input.trim()) return;
+    console.log("ID de la ruta:", normalizedComunidadId);
+    console.log("ID del Store:", activeCommunityId);
+
+    // CORRECCIÓN: !comunidad_id (Si NO hay ID, salimos)
+    if (!input.trim() || !normalizedComunidadId || isTyping) return;
 
     const userText = input.trim();
     const newUserMsg: Message = { id: `u-${Date.now()}`, role: 'user', content: userText };
@@ -60,43 +101,91 @@ export default function ChatBotScreen() {
     setInput('');
     setIsTyping(true);
     
-    if (!isDesktop) Keyboard.dismiss();
+    try {
+      const response = await fetch(`${API_URL}/comunities/${normalizedComunidadId}/chatbot`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userToken}`
+        },
+        body: JSON.stringify({ 
+          comunidad_id: normalizedComunidadId,
+          question: userText,
+          history: [] 
+        }),
+      });
 
-    // Simulación de respuesta adaptada a la nueva interfaz
-    setTimeout(() => {
+      if (!response.ok) throw new Error('Error en la respuesta del servidor');
+
+      const data = await response.json();
+
       const botMsg: Message = { 
         id: `a-${Date.now()}`, 
         role: 'assistant', 
-        content: `Recibido. Estoy analizando tu consulta sobre "${userText}" para ${activeCommunityName}.`,
-        sources: [
-          { 
-            metadata: { source: "Manual General.pdf", page: 1 },
-            page_content: "Contenido de referencia del manual..."
-          }
-        ]
+        content: data.answer,
+        source: data.source,
+        disclaimer: data.disclaimer
       };
+      
       setMessages(prev => [...prev, botMsg]);
+    } catch (error) {
+      const msg = "No se pudo conectar con el asistente.";
+      Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
+    } finally {
       setIsTyping(false);
-    }, 1000);
-  }, [input, activeCommunityName]);
+    }
+  }, [input, normalizedComunidadId, userToken, isTyping, activeCommunityId]);
 
-  const handleUploadDocument = () => {
+    const handleUploadDocument = async () => {
+    // 1. Validación de campos vacíos y de ID de comunidad
     if (!docTitle.trim() || !docContent.trim()) {
       const msg = "Por favor, rellena todos los campos.";
       Platform.OS === 'web' ? alert(msg) : Alert.alert("Atención", msg);
       return;
     }
+
+    if (!normalizedComunidadId) {
+      const msg = "No se pudo identificar la comunidad activa.";
+      Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
+      return;
+    }
+    
     setIsUploading(true);
-    setTimeout(() => {
+    
+    try {
+      const response = await fetch(`${API_URL}/comunities/${normalizedComunidadId}/documents`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userToken}`
+        },
+        body: JSON.stringify({
+          title: docTitle,
+          content: docContent
+        }),
+      });
+
+      // 2. Mejoramos el manejo de la respuesta para ver el error real
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Error del servidor al subir:", errorData);
+        throw new Error(errorData.detail || 'Error al subir documento');
+      }
+
       const msg = `✅ ¡Subido!\n"${docTitle}" ya es parte del conocimiento.`;
       Platform.OS === 'web' ? alert(msg) : Alert.alert("Éxito", msg);
+      
+      // Limpiar campos tras éxito
       setDocTitle('');
       setDocContent('');
+    } catch (error: any) {
+      const msg = error.message || "Hubo un problema al subir el documento.";
+      Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
+    } finally {
       setIsUploading(false);
-    }, 1500);
+    }
   };
 
-  // --- COMPONENTES INTERNOS ---
   const renderMessage = ({ item }: { item: Message }) => (
     <View style={[styles.msgRow, { justifyContent: item.role === 'user' ? 'flex-end' : 'flex-start' }]}>
       <View style={[styles.msgBubble, { 
@@ -105,16 +194,19 @@ export default function ChatBotScreen() {
       }]}>
         <Text style={{ fontSize: 15, color: item.role === 'user' ? '#fff' : '#1E293B' }}>{item.content}</Text>
         
-        {/* Renderizado adaptado para múltiples fuentes */}
-        {item.sources && item.sources.length > 0 && (
+        {item.source && (
           <View style={styles.sourceTag}>
-            <Text style={[styles.sourceText, { fontWeight: '700' }]}>Fuentes:</Text>
-            {item.sources.map((src, index) => (
-              <Text key={index} style={styles.sourceText}>
-                • {src.metadata.source} {src.metadata.page ? `(pág. ${src.metadata.page})` : ''}
-              </Text>
-            ))}
+            <Text style={[styles.sourceText, { fontWeight: '700' }]}>Fuente: {item.source.type}</Text>
+            {item.source.reference && (
+              <Text style={styles.sourceText}>• {item.source.reference}</Text>
+            )}
           </View>
+        )}
+
+        {item.disclaimer && (
+          <Text style={[styles.sourceText, { marginTop: 4, color: '#EF4444' }]}>
+            ⚠️ {item.disclaimer}
+          </Text>
         )}
       </View>
     </View>
@@ -132,7 +224,7 @@ export default function ChatBotScreen() {
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>Asistente VecinUs</Text>
           <Text style={styles.headerSubtitle} numberOfLines={1}>
-            {activeCommunityName} • ID: {activeCommunityId}
+            {activeCommunityName} • ID: {normalizedComunidadId}
           </Text>
         </View>
         <Bot color="#4F46E5" size={24} />
@@ -156,11 +248,11 @@ export default function ChatBotScreen() {
         </View>
       )}
 
-        <KeyboardAvoidingView 
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20} 
-        >
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20} 
+      >
         <View style={{ flex: 1, flexDirection: isDesktop ? 'row' : 'column' }}>
           
           {/* SECCIÓN CHAT */}
@@ -196,7 +288,8 @@ export default function ChatBotScreen() {
                   />
                   <TouchableOpacity 
                     onPress={handleSend}
-                    style={[styles.sendBtn, { backgroundColor: '#4F46E5' }]}
+                    disabled={isTyping}
+                    style={[styles.sendBtn, { backgroundColor: isTyping ? '#94A3B8' : '#4F46E5' }]}
                   >
                     <Send color="#fff" size={18} />
                   </TouchableOpacity>
@@ -288,14 +381,13 @@ const styles = StyleSheet.create({
   typingText: { fontSize: 12, color: '#64748B', marginLeft: 6 },
   inputWrapper: {
     flexDirection: 'row',
-    alignItems: 'center', // Cambiado de 'flex-end' a 'center' para mejor alineación
-    backgroundColor: '#fff', // Fondo blanco puro para resaltar del fondo gris
-    borderRadius: 28, // Más redondeado
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 28,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     paddingHorizontal: 16,
     paddingVertical: Platform.OS === 'ios' ? 10 : 4,
-    // Añadimos una pequeña sombra para dar profundidad
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -312,13 +404,13 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   inputContainer: {
-  paddingVertical: 12,
-  paddingHorizontal: 16,
-  borderTopWidth: 1,
-  borderTopColor: '#F1F5F9',
-  backgroundColor: '#fff', 
-  marginBottom: Platform.OS === 'android' ? 10 : 0, 
-},
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    backgroundColor: '#fff', 
+    marginBottom: Platform.OS === 'android' ? 10 : 0, 
+  },
   sendBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
   docsPanel: { backgroundColor: '#F8FAFC', padding: 24, borderLeftWidth: 1, borderLeftColor: '#E2E8F0' },
   docsHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },

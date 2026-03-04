@@ -10,10 +10,11 @@ router = APIRouter(prefix="/comunities", tags=["documents"])
 
 @router.post("/{comunidad_id}/documents")
 async def upload_document(
-    comunidad_id: int,
+    comunidad_id: str,
     request: Request,
     file: Optional[UploadFile] = File(None),
 ):
+    path_comunidad_id = str(comunidad_id).strip()
     content_type = request.headers.get("content-type", "")
 
     # CASO 1: Si es un JSON (Tests antiguos)
@@ -27,7 +28,7 @@ async def upload_document(
                 status_code=400,
                 detail="Faltan campos 'title' o 'content' en el JSON.",
             )
-        chunks = index_document(comunidad_id, title, content)
+        chunks = index_document(path_comunidad_id, title, content)
         return {
             "message": f"Documento '{title}' indexado con éxito",
             "chunks": chunks,
@@ -64,7 +65,7 @@ async def upload_document(
                 detail=("El documento está vacío o" " no se pudo extraer el texto."),
             )
 
-        chunks = index_document(comunidad_id, file.filename, texto_extraido)
+        chunks = index_document(path_comunidad_id, file.filename, texto_extraido)
         return {
             "message": f"Documento '{file.filename}' indexado con éxito",
             "chunks": chunks,
