@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, StatusBar, Modal, TextInput, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
@@ -26,7 +26,7 @@ export default function CommunityAdminScreen() {
   const insets = useSafeAreaInsets();
   const { comunidad_id } = useLocalSearchParams();
   
-  const { activeCommunityName, activeCommunityAddress } = useCommunityStore();
+  const { activeCommunityName, activeCommunityAddress, activeCommunityRole, currentUserId } = useCommunityStore() as any;
   const { deleteMember, isLoading, members, fetchMembers, inviteTenant } = useMembersStore();
   const { availableProperties, fetchAvailableProperties } = usePropertyStore();
 
@@ -35,6 +35,17 @@ export default function CommunityAdminScreen() {
   const [memberToDelete, setMemberToDelete] = useState({ id: '', name: '' });
   const [email, setEmail] = useState('');
   const [propertyId, setPropertyId] = useState('');
+
+  const isCurrentUserAdmin = activeCommunityRole === 1 || activeCommunityRole === 4;
+
+  const sortedMembers = useMemo(() => {
+    if (!members) return [];
+    return [...members].sort((a, b) => {
+      if (a.id === currentUserId) return -1;
+      if (b.id === currentUserId) return 1;
+      return a.roleId - b.roleId;
+    });
+  }, [members, currentUserId]);
 
   const openInviteModal = () => {
     fetchAvailableProperties(comunidad_id as string);
@@ -73,15 +84,18 @@ export default function CommunityAdminScreen() {
 
   const renderMember = ({ item }: { item: Member }) => {
     const { icon: RoleIcon, color: roleColor, bg: roleBg } = getRoleConfig(item.roleId);
+    const isMe = item.id === currentUserId;
 
     return (
-      <View style={styles.memberCard}>
+      <View style={[styles.memberCard, isMe && styles.currentUserCard]}>
         <View style={[styles.iconAvatar, { backgroundColor: roleBg }]}>
           <RoleIcon color={roleColor} size={24} />
         </View>
         
         <View style={styles.memberInfo}>
-          <Text style={styles.memberName}>{item.name}</Text>
+          <Text style={[styles.memberName, isMe && styles.currentUserName]}>
+            {item.name} {isMe ? '(Tú)' : ''}
+          </Text>
           <View style={styles.roleBadge}>
             <Text style={[styles.memberRole, { color: roleColor, fontWeight: item.roleId === 1 || item.roleId === 4 ? '600' : '400' }]}>
               {item.roleName}
@@ -89,7 +103,7 @@ export default function CommunityAdminScreen() {
           </View>
         </View>
         
-        {item.roleId !== 1 && item.roleId !== 4 && (
+        {isCurrentUserAdmin && !isMe && item.roleId !== 1 && item.roleId !== 4 && (
           <TouchableOpacity 
             style={styles.deleteButton}
             onPress={() => handleRemoveMemberClick(item.membershipId, item.name)}
@@ -101,7 +115,7 @@ export default function CommunityAdminScreen() {
       </View>
     );
   };
-
+  
   return (
     <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
@@ -130,7 +144,7 @@ export default function CommunityAdminScreen() {
       </View>
       
       <FlatList
-        data={members}
+        data={sortedMembers}
         keyExtractor={(item) => item.id}
         renderItem={renderMember}
         contentContainerStyle={styles.listContent}
@@ -238,22 +252,24 @@ export default function CommunityAdminScreen() {
         </View>
       </Modal>
 
-      <View style={styles.footerContainer}>
-        <TouchableOpacity 
-          style={styles.inviteButton} 
-          disabled={isLoading}
-          onPress={openInviteModal} 
-        >
-          {isLoading ? (
-            <ActivityIndicator color="#ffffff" />
-          ) : (
-            <>
-              <UserPlus color="#ffffff" size={20} style={styles.inviteIcon} />
-              <Text style={styles.inviteButtonText}>Invitar Nuevo Vecino</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
+      {isCurrentUserAdmin && (
+        <View style={styles.footerContainer}>
+          <TouchableOpacity 
+            style={styles.inviteButton} 
+            disabled={isLoading}
+            onPress={openInviteModal} 
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <>
+                <UserPlus color="#ffffff" size={20} style={styles.inviteIcon} />
+                <Text style={styles.inviteButtonText}>Invitar Nuevo Vecino</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
@@ -294,12 +310,18 @@ const styles = StyleSheet.create({
     borderColor: '#F1F5F9', shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03, shadowRadius: 4, elevation: 1,
   },
+  currentUserCard: {
+    borderColor: '#4F46E5',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+  },
   iconAvatar: {
     width: 50, height: 50, borderRadius: 25, 
     alignItems: 'center', justifyContent: 'center'
   },
   memberInfo: { flex: 1, marginLeft: 14 },
   memberName: { fontSize: 16, fontWeight: '600', color: '#1E293B', marginBottom: 2 },
+  currentUserName: { color: '#4F46E5', fontWeight: '700' },
   roleBadge: { flexDirection: 'row', alignItems: 'center' },
   memberRole: { fontSize: 13 },
   deleteButton: { padding: 10, backgroundColor: '#FEF2F2', borderRadius: 10 },

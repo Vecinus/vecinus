@@ -5,6 +5,7 @@ export interface Community {
   id: string; 
   name: string;
   address: string;
+  role: number;
 }
 
 interface BackendCommunityResponse {
@@ -23,12 +24,13 @@ interface BackendCommunityResponse {
 interface CommunityState {
   activeCommunityId: string | null;
   activeCommunityName: string | null;
+  activeCommunityAddress: string | null;
+  activeCommunityRole: number | null;
   communities: Community[];
   isLoading: boolean;
   error: string | null;
-  activeCommunityAddress: string | null;
   
-  setActiveCommunity: (id: string, name: string, address: string) => void;
+  setActiveCommunity: (id: string, name: string, address: string, role: number) => void;
   fetchCommunities: () => Promise<void>;
 }
 
@@ -36,14 +38,16 @@ export const useCommunityStore = create<CommunityState>((set) => ({
   activeCommunityId: null, 
   activeCommunityName: null,
   activeCommunityAddress: null,
+  activeCommunityRole: null,
   communities: [],
   isLoading: false,
   error: null,
   
-  setActiveCommunity: (id, name, address) => set({ 
+  setActiveCommunity: (id, name, address, role) => set({ 
     activeCommunityId: id, 
     activeCommunityName: name,
     activeCommunityAddress: address,
+    activeCommunityRole: role,
   }),
 
   fetchCommunities: async () => {
@@ -70,7 +74,8 @@ export const useCommunityStore = create<CommunityState>((set) => ({
       const formattedCommunities: Community[] = rawData.map(item => ({
         id: item.neighborhood_associations.id,
         name: item.neighborhood_associations.name,
-        address: item.neighborhood_associations.address
+        address: item.neighborhood_associations.address,
+        role: item.role
       }));
       
       set({ 
@@ -79,6 +84,7 @@ export const useCommunityStore = create<CommunityState>((set) => ({
         activeCommunityId: formattedCommunities.length > 0 ? formattedCommunities[0].id : null,
         activeCommunityName: formattedCommunities.length > 0 ? formattedCommunities[0].name : null,
         activeCommunityAddress: formattedCommunities.length > 0 ? formattedCommunities[0].address : null,
+        activeCommunityRole: formattedCommunities.length > 0 ? formattedCommunities[0].role : null,
       });
       
     } catch (error: any) {

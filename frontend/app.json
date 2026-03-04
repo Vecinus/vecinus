@@ -38,6 +38,12 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Permitir a $(PRODUCT_NAME) acceder al micrófono para grabar audio."
+        }
       ]
     ],
     "experiments": {

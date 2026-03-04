@@ -12,6 +12,7 @@ os.environ["SUPABASE_SERVICE_KEY"] = "dummy-service"
 from core.deps import (  # noqa: E402
     get_current_user,
     get_supabase,
+    get_supabase_admin,
     get_supabase_anon,
 )
 from main import app  # noqa: E402
@@ -409,6 +410,8 @@ def test_accept_invitation_not_found():
 def test_remove_member_success():
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
+
     try:
         response = client.delete(f"/members/{mock_membership_id}")
         assert response.status_code == 200
