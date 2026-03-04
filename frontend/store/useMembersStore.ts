@@ -1,12 +1,9 @@
 import { create } from 'zustand';
-import { API_URL } from '../constants/api';
-
-// ==========================================
-// 📝 DEFINICIÓN DE TIPOS
-// ==========================================
+import { API_URL } from '../constants/api'; // Verifica que esta ruta sea la correcta
 
 export interface Member {
-  id: string;
+  id: string;           // ID del perfil de usuario
+  membershipId: string; // ID de la membresía en la comunidad
   name: string;
   roleId: number;   
   roleName: string; 
@@ -40,8 +37,11 @@ export const useMembersStore = create<MembersState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const token = process.env.EXPO_PUBLIC_TEST_JWT;
+      const url = `${API_URL}/${communityId}/users`;
       
-      const response = await fetch(`${API_URL}/${communityId}/users`, {
+      console.log(`[GET] Obteniendo miembros de: ${url}`);
+      
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -49,7 +49,9 @@ export const useMembersStore = create<MembersState>((set, get) => ({
         }
       });
 
-      if (!response.ok) throw new Error('Error al obtener los miembros');
+      if (!response.ok) {
+        throw new Error(`Error HTTP: ${response.status}`);
+      }
 
       const data = await response.json();
 
@@ -58,6 +60,7 @@ export const useMembersStore = create<MembersState>((set, get) => ({
         
         return {
           id: item.id,
+          membershipId: item.membership_id, // Capturamos el nuevo campo del backend
           name: item.username || 'Usuario sin nombre',
           roleId: roleId,
           roleName: ROLE_NAMES[roleId] || 'Desconocido',
@@ -73,7 +76,53 @@ export const useMembersStore = create<MembersState>((set, get) => ({
     }
   },
 
-  fetchMemberById: async (membershipId) => { /* ... */ return null; },
-  inviteTenant: async (email, associationId, propertyId) => { /* ... */ return true; },
-  deleteMember: async (membershipId) => { /* ... */ return true; }
+  deleteMember: async (membershipId) => {
+    // 1. Validar que tenemos un ID correcto
+    if (!membershipId) {
+      console.error("Error crítico: membershipId es undefined o nulo.");
+      return false;
+    }
+
+    set({ isLoading: true, error: null });
+    try {
+      const token = process.env.EXPO_PUBLIC_TEST_JWT;
+      const url = `${API_URL}/members/${membershipId}`;
+      
+      console.log(`[DELETE] Intentando borrar miembro en: ${url}`);
+      
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log(`[DELETE] Código de respuesta: ${response.status}`);
+
+      // 2. Si hay error, capturarlo y mostrarlo
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("[DELETE] Detalle del error del servidor:", errorData);
+        throw new Error(errorData.detail || 'Error al eliminar al miembro. Verifica tus permisos.');
+      }
+
+      // 3. Borrado exitoso: Actualizamos la UI local
+      console.log("[DELETE] Borrado exitoso en BD. Actualizando interfaz...");
+      set((state) => ({
+        members: state.members.filter((m) => m.membershipId !== membershipId),
+        isLoading: false
+      }));
+
+      return true;
+    } catch (error: any) {
+      console.error("Error atrapado en deleteMember:", error.message);
+      set({ isLoading: false, error: error.message });
+      return false;
+    }
+  },
+
+  // Funciones placeholder
+  fetchMemberById: async (membershipId) => { return null; },
+  inviteTenant: async (email, associationId, propertyId) => { return true; }
 }));

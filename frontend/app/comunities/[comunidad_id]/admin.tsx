@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, StatusBar, Modal, TextInput, Button } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, StatusBar, Modal, TextInput, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
-import {   Menu, Trash2, UserPlus, Users, Settings, Building, ShieldCheck, Key, User, Crown, Briefcase} from 'lucide-react-native';
+import { Menu, Trash2, UserPlus, Users, Settings, Building, ShieldCheck, Key, User, Crown, Briefcase, Mail, Home, ChevronDown, AlertTriangle } from 'lucide-react-native';
+import { Picker } from '@react-native-picker/picker';
+
 import { useMembersStore, Member } from '../../../store/useMembersStore'; 
 import { useCommunityStore } from '../../../store/useCommunityStore';
+import { usePropertyStore, Property } from '@/store/usePropertyStore'; 
 
 const getRoleConfig = (roleId: number) => {
   switch (roleId) {
@@ -25,6 +28,18 @@ export default function CommunityAdminScreen() {
   
   const { activeCommunityName, activeCommunityAddress } = useCommunityStore();
   const { deleteMember, isLoading, members, fetchMembers, inviteTenant } = useMembersStore();
+  const { availableProperties, fetchAvailableProperties } = usePropertyStore();
+
+  const [modalVisible, setModalVisible] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [memberToDelete, setMemberToDelete] = useState({ id: '', name: '' });
+  const [email, setEmail] = useState('');
+  const [propertyId, setPropertyId] = useState('');
+
+  const openInviteModal = () => {
+    fetchAvailableProperties(comunidad_id as string);
+    setModalVisible(true);
+  };
 
   useEffect(() => {
     if (comunidad_id) {
@@ -32,23 +47,28 @@ export default function CommunityAdminScreen() {
     }
   }, [comunidad_id]);
 
-  const handleRemoveMember = (membershipId: string, name: string) => {
-    Alert.alert(
-      "Eliminar Miembro",
-      `¿Estás seguro de que deseas eliminar a ${name}?`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        { 
-          text: "Eliminar", 
-          style: "destructive",
-          onPress: async () => {
-            const success = await deleteMember(membershipId);
-            if (success) Alert.alert("Éxito", "Usuario eliminado.");
-            else Alert.alert("Error", "No se pudo eliminar al usuario.");
-          }
-        }
-      ]
-    );
+  const handleRemoveMemberClick = (membershipId: string, name: string) => {
+    if (!membershipId) return;
+    setMemberToDelete({ id: membershipId, name });
+    setDeleteModalVisible(true);
+  };
+
+  const executeDelete = async () => {
+    setDeleteModalVisible(false);
+    await deleteMember(memberToDelete.id);
+  };
+
+  const handleInvite = async () => {
+    if (!email || !propertyId) return;
+    
+    const success = await inviteTenant(email, comunidad_id as string, propertyId);
+    
+    if (success) {
+      setModalVisible(false);
+      setEmail('');
+      setPropertyId('');
+      fetchMembers(comunidad_id as string);
+    }
   };
 
   const renderMember = ({ item }: { item: Member }) => {
@@ -72,7 +92,7 @@ export default function CommunityAdminScreen() {
         {item.roleId !== 1 && item.roleId !== 4 && (
           <TouchableOpacity 
             style={styles.deleteButton}
-            onPress={() => handleRemoveMember(item.id, item.name)}
+            onPress={() => handleRemoveMemberClick(item.membershipId, item.name)}
             disabled={isLoading}
           >
             <Trash2 color="#EF4444" size={20} />
@@ -80,34 +100,6 @@ export default function CommunityAdminScreen() {
         )}
       </View>
     );
-  };
-
-  
-  // Nuevos estados para el Modal
-  const [modalVisible, setModalVisible] = useState(false);
-  const [email, setEmail] = useState('');
-  const [propertyId, setPropertyId] = useState('');
-
-  // Función para manejar la invitación
-  const handleInvite = async () => {
-    if (!email || !propertyId) {
-      Alert.alert("Error", "Por favor completa todos los campos.");
-      return;
-    }
-    
-    // Llamada a la función del store
-    const success = await inviteTenant(email, comunidad_id as string, propertyId);
-    
-    if (success) {
-      Alert.alert("Éxito", "Invitación enviada.");
-      setModalVisible(false);
-      setEmail('');
-      setPropertyId('');
-      // Opcional: recargar miembros
-      fetchMembers(comunidad_id as string);
-    } else {
-      Alert.alert("Error", "No se pudo enviar la invitación.");
-    }
   };
 
   return (
@@ -153,41 +145,106 @@ export default function CommunityAdminScreen() {
           </View>
         }
       />
-      <Modal visible={modalVisible} animationType="slide" transparent={true}>
+
+      <Modal visible={modalVisible} animationType="fade" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Invitar Vecino</Text>
             
-            <TextInput
-              style={styles.input}
-              placeholder="Correo electrónico"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="ID de la Propiedad"
-              value={propertyId}
-              onChangeText={setPropertyId}
-            />
+            <View style={styles.modalHeader}>
+              <View style={styles.modalIconWrapper}>
+                <UserPlus color="#4F46E5" size={28} />
+              </View>
+              <Text style={styles.modalTitle}>Invitar Nuevo Vecino</Text>
+              <Text style={styles.modalSubtitle}>Enviaremos un correo para que se una a la comunidad.</Text>
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Correo electrónico</Text>
+              <View style={styles.inputContainer}>
+                <Mail color="#94A3B8" size={20} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="ejemplo@correo.com"
+                  placeholderTextColor="#94A3B8"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Propiedad a asignar</Text>
+              <View style={styles.inputContainer}>
+                <Home color="#94A3B8" size={20} style={styles.inputIcon} />
+                <View style={styles.pickerWrapper}>
+                  <Picker
+                    selectedValue={propertyId}
+                    onValueChange={(itemValue) => setPropertyId(itemValue)}
+                    style={styles.picker}
+                    mode="dropdown"
+                    dropdownIconColor="#4F46E5"
+                  >
+                    <Picker.Item label="Selecciona una propiedad..." value="" color="#94A3B8" />
+                    {availableProperties.map((prop: Property) => (
+                      <Picker.Item key={prop.id} label={prop.number} value={prop.id} color="#1E293B" />
+                    ))}
+                  </Picker>
+                </View>
+                {Platform.OS === 'ios' && (
+                  <ChevronDown color="#94A3B8" size={20} style={styles.iosPickerIcon} />
+                )}
+              </View>
+            </View>
             
             <View style={styles.modalButtons}>
-              <Button title="Cancelar" color="#EF4444" onPress={() => setModalVisible(false)} />
-              <Button title="Enviar Invitación" color="#4F46E5" onPress={handleInvite} />
+              <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}>
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.submitButton} onPress={handleInvite}>
+                <Text style={styles.submitButtonText}>Enviar Invitación</Text>
+              </TouchableOpacity>
             </View>
+            
           </View>
         </View>
       </Modal>
 
-      {/* BOTÓN INVITAR ACTUALIZADO */}
+      <Modal visible={deleteModalVisible} animationType="fade" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            
+            <View style={styles.modalHeader}>
+              <View style={[styles.modalIconWrapper, styles.dangerIconWrapper]}>
+                <AlertTriangle color="#EF4444" size={32} />
+              </View>
+              <Text style={styles.modalTitle}>Eliminar Miembro</Text>
+              <Text style={styles.modalSubtitle}>
+                ¿Estás seguro de que deseas eliminar a {memberToDelete.name}? Esta acción no se puede deshacer.
+              </Text>
+            </View>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => setDeleteModalVisible(false)}>
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.submitButton, styles.dangerButton]} onPress={executeDelete}>
+                <Text style={styles.submitButtonText}>Eliminar</Text>
+              </TouchableOpacity>
+            </View>
+            
+          </View>
+        </View>
+      </Modal>
+
       <View style={styles.footerContainer}>
         <TouchableOpacity 
           style={styles.inviteButton} 
           disabled={isLoading}
-          onPress={() => setModalVisible(true)} // Abre el modal
-        >{isLoading ? (
+          onPress={openInviteModal} 
+        >
+          {isLoading ? (
             <ActivityIndicator color="#ffffff" />
           ) : (
             <>
@@ -210,6 +267,7 @@ const styles = StyleSheet.create({
   headerTitleContainer: { marginLeft: 16, flex: 1 },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#0F172A' },
   headerSubtitle: { fontSize: 13, color: '#64748B' },
+  
   communityCard: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff',
     marginHorizontal: 20, marginTop: 20, padding: 16, borderRadius: 16,
@@ -223,11 +281,13 @@ const styles = StyleSheet.create({
   communityTextWrapper: { flex: 1 },
   communityName: { fontSize: 18, fontWeight: 'bold', color: '#1E293B', marginBottom: 4 },
   communityAddress: { fontSize: 14, color: '#64748B' },
+  
   listContent: { padding: 20, paddingBottom: 100 },
   listHeader: { marginBottom: 20 },
   listHeaderTitleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   sectionTitle: { fontSize: 20, fontWeight: '700', color: '#0F172A' },
   sectionSubtitle: { fontSize: 14, color: '#64748B', marginLeft: 32 },
+  
   memberCard: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff',
     padding: 16, borderRadius: 16, marginBottom: 12, borderWidth: 1,
@@ -243,6 +303,7 @@ const styles = StyleSheet.create({
   roleBadge: { flexDirection: 'row', alignItems: 'center' },
   memberRole: { fontSize: 13 },
   deleteButton: { padding: 10, backgroundColor: '#FEF2F2', borderRadius: 10 },
+  
   footerContainer: {
     position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 20,
     paddingVertical: 16, backgroundColor: '#ffffff', borderTopWidth: 1, borderTopColor: '#E2E8F0',
@@ -254,9 +315,134 @@ const styles = StyleSheet.create({
   },
   inviteIcon: { marginRight: 8 },
   inviteButtonText: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
-  modalOverlay: { flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)', padding: 20 },
-  modalContent: { backgroundColor: 'white', padding: 20, borderRadius: 16, shadowColor: '#000', elevation: 5 },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, marginBottom: 15 },
-  modalButtons: { flexDirection: 'row', justifyContent: 'space-between' }
+
+  modalOverlay: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    backgroundColor: 'rgba(15, 23, 42, 0.6)', 
+    padding: 20 
+  },
+  modalContent: { 
+    backgroundColor: 'white', 
+    padding: 24, 
+    borderRadius: 24, 
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10 
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalIconWrapper: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#EEF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  dangerIconWrapper: {
+    backgroundColor: '#FEF2F2',
+  },
+  modalTitle: { 
+    fontSize: 22, 
+    fontWeight: '800', 
+    color: '#0F172A', 
+    marginBottom: 8, 
+    textAlign: 'center' 
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    paddingHorizontal: 10,
+    lineHeight: 20,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 56, 
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  input: { 
+    flex: 1,
+    fontSize: 16,
+    color: '#1E293B',
+    height: '100%',
+  },
+  pickerWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+    height: '100%',
+    marginLeft: -10,
+  },
+  picker: {
+    width: '100%',
+    color: '#1E293B',
+  },
+  iosPickerIcon: {
+    position: 'absolute',
+    right: 14,
+  },
+  modalButtons: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between',
+    marginTop: 16
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 16,
+    borderRadius: 14,
+    marginRight: 8,
+    alignItems: 'center'
+  },
+  cancelButtonText: {
+    color: '#64748B',
+    fontWeight: '700',
+    fontSize: 16
+  },
+  submitButton: {
+    flex: 1,
+    backgroundColor: '#4F46E5',
+    paddingVertical: 16,
+    borderRadius: 14,
+    marginLeft: 8,
+    alignItems: 'center',
+    shadowColor: '#4F46E5', 
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3, 
+    shadowRadius: 8, 
+    elevation: 4,
+  },
+  dangerButton: {
+    backgroundColor: '#EF4444',
+    shadowColor: '#EF4444',
+  },
+  submitButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 16
+  }
 });

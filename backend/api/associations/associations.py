@@ -197,18 +197,18 @@ def get_community_users(
 ):
     """
     Obtiene todos los usuarios miembros de una comunidad específica.
-    
+
     Args:
         association_id: ID de la comunidad/asociación
         current_user: Usuario actual autenticado
         supabase: Cliente de Supabase con RLS
-    
+
     Returns:
         Lista con ID, nombre de usuario y rol de cada miembro
     """
     response = (
         supabase.table("memberships")
-        .select("role, profiles(id, username)")
+        .select("id,role, profiles(id, username)")
         .eq("association_id", association_id)
         .execute()
     )
@@ -220,10 +220,38 @@ def get_community_users(
     for item in response.data:
         profile = item.get("profiles") or {}
         if profile.get("id"):
-            users_list.append({
-                "id": profile.get("id"),
-                "username": profile.get("username"),
-                "role": item.get("role")
-            })
-            
+            users_list.append(
+                {
+                    "id": profile.get("id"),
+                    "membership_id": item.get("id"),
+                    "username": profile.get("username"),
+                    "role": item.get("role"),
+                }
+            )
+
     return users_list
+
+
+@router.get("/{association_id}/properties/available")
+def get_available_properties(
+    association_id: str,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+):
+    # Obtener todas las propiedades de la comunidad
+    properties_res = supabase.table("properties").select("id, number").eq("association_id", association_id).execute()
+
+    memberships_res = (
+        supabase.table("memberships")
+        .select("property_id")
+        .eq("association_id", association_id)
+        .not_.is_("property_id", "null")
+        .execute()
+    )
+
+    assigned_property_ids = {m["property_id"] for m in memberships_res.data}
+
+    # Filtrar solo las que están libres
+    available_properties = [p for p in properties_res.data if p["id"] not in assigned_property_ids]
+
+    return available_properties

@@ -47,5 +47,6 @@ class InvitationResponse(BaseModel):
 
 class CommunityUser(BaseModel):
     id: UUID
+    membership_id: UUID
     username: Optional[str] = None
     role: int
