@@ -13,8 +13,9 @@ type MaterialIconName = keyof typeof MaterialCommunityIcons.glyphMap;
 interface MenuItemType {
   name: string;
   icon: IconName | MaterialIconName;
-  library?: 'MaterialCommunityIcons';
-  route?: string; 
+  library?: "MaterialCommunityIcons";
+  route?: string;
+  absolute?: boolean;
 }
 
 export default function SidebarMenu(props: DrawerContentComponentProps) {
@@ -44,25 +45,35 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
     }, [userToken, communities.length]);
 
   const menuItems: MenuItemType[] = [
-    { name: 'Chat', icon: 'chatbubble-outline' as IconName },
-    { name: 'Avisos', icon: 'notifications-outline' as IconName },
-    { name: 'Tablón', icon: 'megaphone-outline' as IconName },
-    { name: 'Asistente IA', icon: 'robot-outline' as MaterialIconName, library: 'MaterialCommunityIcons', route: 'chatbot' },
-    { name: 'Reservas', icon: 'calendar-outline' as IconName },
-    { name: 'Votaciones', icon: 'checkbox-outline' as IconName },
-    { name: 'Incidencias', icon: 'warning-outline' as IconName },
-    { name: 'Actas', icon: 'document-text-outline' as IconName },
-    { name: 'Economía', icon: 'wallet-outline' as IconName },
-    { name: 'Comunidades', icon: 'business-outline' as IconName },
-    { name: 'Administración', icon: 'settings-outline' as IconName },
+    { name: "Chat", icon: "chatbubble-outline" as IconName },
+    { name: "Avisos", icon: "notifications-outline" as IconName },
+    { name: "Tablón", icon: "megaphone-outline" as IconName },
+    {
+      name: "Asistente IA",
+      icon: "robot-outline" as MaterialIconName,
+      library: "MaterialCommunityIcons",
+      route: "chatbot",
+    },
+    { name: "Reservas", icon: "calendar-outline" as IconName },
+    { name: "Votaciones", icon: "checkbox-outline" as IconName },
+    { name: "Incidencias", icon: "warning-outline" as IconName },
+    {
+      name: "Actas",
+      icon: "document-text-outline" as IconName,
+      route: "actas/actas", // ruta real del archivo app/actas/actas.tsx
+      absolute: true,
+    },
+    { name: "Economía", icon: "wallet-outline" as IconName },
+    { name: "Comunidades", icon: "business-outline" as IconName },
+    { name: "Administración", icon: "settings-outline" as IconName },
   ];
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Image 
-          source={require('../assets/logos/VecinusLogotipoTransparente.png')} 
-          style={styles.logo} 
+        <Image
+          source={require("../assets/logos/VecinusLogotipoTransparente.png")}
+          style={styles.logo}
           resizeMode="contain"
         />
         <View style={styles.headerTextContainer}>
@@ -117,13 +128,16 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
 
       <Text style={styles.navLabel}>Navegación</Text>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {menuItems.map((item) => {
           const isActive = activeItem === item.name;
-          
+
           return (
-            <TouchableOpacity 
-              key={item.name} 
+            <TouchableOpacity
+              key={item.name}
               style={[styles.menuItem, isActive && styles.menuItemActive]}
               onPress={() => {
                 setActiveItem(item.name);
@@ -138,20 +152,25 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
                 }
               }}
             >
-              {item.library === 'MaterialCommunityIcons' ? (
-                <MaterialCommunityIcons 
-                  name={item.icon as MaterialIconName} 
-                  size={22} 
-                  color={isActive ? '#FFFFFF' : '#D1D5DB'} 
+              {item.library === "MaterialCommunityIcons" ? (
+                <MaterialCommunityIcons
+                  name={item.icon as MaterialIconName}
+                  size={22}
+                  color={isActive ? "#FFFFFF" : "#D1D5DB"}
                 />
               ) : (
-                <Ionicons 
-                  name={item.icon as IconName} 
-                  size={22} 
-                  color={isActive ? '#FFFFFF' : '#D1D5DB'} 
+                <Ionicons
+                  name={item.icon as IconName}
+                  size={22}
+                  color={isActive ? "#FFFFFF" : "#D1D5DB"}
                 />
               )}
-              <Text style={[styles.menuItemText, isActive && styles.menuItemTextActive]}>
+              <Text
+                style={[
+                  styles.menuItemText,
+                  isActive && styles.menuItemTextActive,
+                ]}
+              >
                 {item.name}
               </Text>
             </TouchableOpacity>
@@ -163,8 +182,13 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B1221', paddingTop: 50, paddingHorizontal: 16 },
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  container: {
+    flex: 1,
+    backgroundColor: "#0B1221",
+    paddingTop: 50,
+    paddingHorizontal: 16,
+  },
+  header: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
   logo: { width: 42, height: 42 },
   headerTextContainer: { marginLeft: 12 },
   title: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
