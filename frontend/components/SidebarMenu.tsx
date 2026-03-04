@@ -1,19 +1,20 @@
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Image,
-  ActivityIndicator,
-} from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { DrawerContentComponentProps } from "@react-navigation/drawer";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useAuthStore } from '../store/useAuthStore';
 import { useCommunityStore } from "../store/useCommunityStore";
-import { useMembersStore } from "../store/useMembersStore"; 
-import { usePropertyStore } from "../store/usePropertyStore"; 
+import { useMembersStore } from "../store/useMembersStore";
+import { usePropertyStore } from "../store/usePropertyStore";
 
 // Tipado para los iconos
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -22,8 +23,9 @@ type MaterialIconName = keyof typeof MaterialCommunityIcons.glyphMap;
 interface MenuItemType {
   name: string;
   icon: IconName | MaterialIconName;
-  library?: "MaterialCommunityIcons";
+  library?: 'MaterialCommunityIcons';
   route?: string;
+  isGlobal?: boolean;
   absolute?: boolean;
   requiresAdmin?: boolean;
 }
@@ -41,6 +43,7 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
     fetchCommunities,
   } = useCommunityStore();
 
+  const { isAuthenticated } = useAuthStore();
   const { fetchMembers } = useMembersStore();
   const { fetchAvailableProperties } = usePropertyStore();
   const [activeItem, setActiveItem] = useState<string>("");
@@ -49,15 +52,17 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
   const isAdmin = activeCommunityRole === 1 || activeCommunityRole === 4;
 
   useEffect(() => {
-    fetchCommunities();
-  }, []);
+    if (isAuthenticated) {
+      fetchCommunities();
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
-    if (activeCommunityId) {
+    if (isAuthenticated && activeCommunityId) {
       fetchMembers(activeCommunityId);
       fetchAvailableProperties(activeCommunityId);
     }
-  }, [activeCommunityId]); 
+  }, [activeCommunityId, isAuthenticated]); 
 
   const menuItems: MenuItemType[] = [
     { name: "Chat", icon: "chatbubble-outline" as IconName },
@@ -88,6 +93,11 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
     { name: "Administración", icon: "settings-outline" as IconName },
   ];
 
+  if (isAuthenticated) {
+    menuItems.push({ name: 'Cerrar Sesión', icon: 'log-out-outline' as IconName, route: '/auth/logout', isGlobal: true });
+  } else {
+    menuItems.push({ name: 'Iniciar Sesión', icon: 'log-in-outline' as IconName, route: '/auth/login', isGlobal: true });
+  }
   const visibleMenuItems = menuItems.filter(
     (item) => !item.requiresAdmin || isAdmin
   );
@@ -106,29 +116,31 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
         </View>
       </View>
 
-      <TouchableOpacity
-        style={[
-          styles.communitySelector,
-          isDropdownOpen && styles.communitySelectorOpen,
-        ]}
-        onPress={() => setIsDropdownOpen(!isDropdownOpen)}
-        disabled={isLoading}
-      >
-        {isLoading ? (
-          <ActivityIndicator color="#E5E7EB" size="small" />
-        ) : (
-          <Text style={styles.communityText}>
-            {activeCommunityName || "Cargando..."}
-          </Text>
-        )}
-        <Ionicons
-          name={isDropdownOpen ? "chevron-up" : "chevron-down"}
-          size={18}
-          color="#9CA3AF"
-        />
-      </TouchableOpacity>
+      {isAuthenticated && (
+        <TouchableOpacity
+          style={[
+            styles.communitySelector,
+            isDropdownOpen && styles.communitySelectorOpen,
+          ]}
+          onPress={() => setIsDropdownOpen(!isDropdownOpen)}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="#E5E7EB" size="small" />
+          ) : (
+            <Text style={styles.communityText}>
+              {activeCommunityName || "Cargando..."}
+            </Text>
+          )}
+          <Ionicons
+            name={isDropdownOpen ? "chevron-up" : "chevron-down"}
+            size={18}
+            color="#9CA3AF"
+          />
+        </TouchableOpacity>
+      )}
 
-      {isDropdownOpen && communities.length > 0 && (
+      {isAuthenticated && isDropdownOpen && communities.length > 0 && (
         <View style={styles.dropdownList}>
           {communities.map((community) => (
             <TouchableOpacity
@@ -179,6 +191,12 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
                 
                 // 4. LÓGICA DE NAVEGACIÓN DINÁMICA
                 if (item.route) {
+                  if (item.isGlobal) {
+                    props.navigation.closeDrawer();
+                    router.push(item.route as Href);
+                    return;
+                  }
+
                   if (!activeCommunityId && !item.absolute) {
                     alert("Por favor, selecciona una comunidad primero.");
                     return;
@@ -190,7 +208,7 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
                     ? `/${item.route}`
                     : `/comunities/${activeCommunityId}/${item.route}`;
 
-                  router.push(targetPath as any);
+                  router.push(targetPath as Href);
                 }
               }}
             >
