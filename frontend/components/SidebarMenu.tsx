@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { DrawerContentComponentProps } from '@react-navigation/drawer';
 import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAuthStore } from '../store/useAuthStore';
 import { useCommunityStore } from '../store/useCommunityStore';
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -12,12 +13,14 @@ interface MenuItemType {
   name: string;
   icon: IconName | MaterialIconName;
   library?: 'MaterialCommunityIcons';
-  route?: string; 
+  route?: string;
+  isGlobal?: boolean;
 }
 
 export default function SidebarMenu(props: DrawerContentComponentProps) {
   const router = useRouter();
   const { activeCommunityId, activeCommunityName } = useCommunityStore();
+  const { isAuthenticated } = useAuthStore();
   
   const [activeItem, setActiveItem] = useState<string>('');
 
@@ -34,6 +37,12 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
     { name: 'Comunidades', icon: 'business-outline' as IconName },
     { name: 'Administración', icon: 'settings-outline' as IconName },
   ];
+
+  if (isAuthenticated) {
+    menuItems.push({ name: 'Cerrar Sesión', icon: 'log-out-outline' as IconName, route: '/auth/logout', isGlobal: true });
+  } else {
+    menuItems.push({ name: 'Iniciar Sesión', icon: 'log-in-outline' as IconName, route: '/auth/login', isGlobal: true });
+  }
 
   return (
     <View style={styles.container}>
@@ -70,7 +79,11 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
                 
                 // 4. LÓGICA DE NAVEGACIÓN DINÁMICA
                 if (item.route) {
-                  router.push(`/comunities/${activeCommunityId}/${item.route}` as any);
+                  if (item.isGlobal) {
+                    router.push(item.route as any);
+                  } else {
+                    router.push(`/comunities/${activeCommunityId}/${item.route}` as any);
+                  }
                   props.navigation.closeDrawer();
                 }
               }}
