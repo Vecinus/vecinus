@@ -59,22 +59,24 @@ def _retrieve_and_rerank(comunidad_id: str, question: str):
     )
 
     matches = res.get("matches", [])
-    
+
     # DEBUG: Imprimir información detallada
     print(f"\n[DEBUG RAG] Búsqueda para comunidad_id: {namespace}")
     print(f"[DEBUG RAG] Pregunta: {question}")
     print(f"[DEBUG RAG] Resultados encontrados: {len(matches)}")
-    
+
     if matches:
         print(f"[DEBUG RAG] Score más alto: {matches[0].get('score', 0.0):.4f}")
         print(f"[DEBUG RAG] Threshold configurado: {CONFIDENCE_THRESHOLD}")
         for i, match in enumerate(matches, 1):
             score = match.get("score", 0.0)
             doc_title = match.get("metadata", {}).get("document_title", "unknown")
-            print(f"[DEBUG RAG]   Match {i}: score={score:.4f} | doc='{doc_title}' | pasa_threshold={score > CONFIDENCE_THRESHOLD}")
+            print(
+                f"[RAG]Match {i}: score={score:.4f} doc='{doc_title}' pasa_threshold={score > CONFIDENCE_THRESHOLD}"
+            )
     else:
         print(f"[DEBUG RAG] ⚠️ No se encontraron vectores en el namespace '{namespace}'")
-    
+
     valid_chunks = [match for match in matches if match.get("score", 0.0) > CONFIDENCE_THRESHOLD]
 
     if not valid_chunks:
@@ -87,7 +89,7 @@ def _retrieve_and_rerank(comunidad_id: str, question: str):
         key=lambda x: x["score"],
         reverse=True,
     )[:2]
-    
+
     print(f"[DEBUG RAG] ✅ Usando {len(valid_chunks)} chunks válidos")
 
     return [
