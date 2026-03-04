@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, StatusBar } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, StatusBar, Modal, TextInput, Button } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
@@ -24,7 +24,7 @@ export default function CommunityAdminScreen() {
   const { comunidad_id } = useLocalSearchParams();
   
   const { activeCommunityName, activeCommunityAddress } = useCommunityStore();
-  const { deleteMember, isLoading, members, fetchMembers } = useMembersStore();
+  const { deleteMember, isLoading, members, fetchMembers, inviteTenant } = useMembersStore();
 
   useEffect(() => {
     if (comunidad_id) {
@@ -82,6 +82,34 @@ export default function CommunityAdminScreen() {
     );
   };
 
+  
+  // Nuevos estados para el Modal
+  const [modalVisible, setModalVisible] = useState(false);
+  const [email, setEmail] = useState('');
+  const [propertyId, setPropertyId] = useState('');
+
+  // Función para manejar la invitación
+  const handleInvite = async () => {
+    if (!email || !propertyId) {
+      Alert.alert("Error", "Por favor completa todos los campos.");
+      return;
+    }
+    
+    // Llamada a la función del store
+    const success = await inviteTenant(email, comunidad_id as string, propertyId);
+    
+    if (success) {
+      Alert.alert("Éxito", "Invitación enviada.");
+      setModalVisible(false);
+      setEmail('');
+      setPropertyId('');
+      // Opcional: recargar miembros
+      fetchMembers(comunidad_id as string);
+    } else {
+      Alert.alert("Error", "No se pudo enviar la invitación.");
+    }
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
@@ -125,11 +153,41 @@ export default function CommunityAdminScreen() {
           </View>
         }
       />
+      <Modal visible={modalVisible} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Invitar Vecino</Text>
+            
+            <TextInput
+              style={styles.input}
+              placeholder="Correo electrónico"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="ID de la Propiedad"
+              value={propertyId}
+              onChangeText={setPropertyId}
+            />
+            
+            <View style={styles.modalButtons}>
+              <Button title="Cancelar" color="#EF4444" onPress={() => setModalVisible(false)} />
+              <Button title="Enviar Invitación" color="#4F46E5" onPress={handleInvite} />
+            </View>
+          </View>
+        </View>
+      </Modal>
 
-      {/* BOTÓN INVITAR */}
+      {/* BOTÓN INVITAR ACTUALIZADO */}
       <View style={styles.footerContainer}>
-        <TouchableOpacity style={styles.inviteButton} disabled={isLoading}>
-          {isLoading ? (
+        <TouchableOpacity 
+          style={styles.inviteButton} 
+          disabled={isLoading}
+          onPress={() => setModalVisible(true)} // Abre el modal
+        >{isLoading ? (
             <ActivityIndicator color="#ffffff" />
           ) : (
             <>
@@ -196,4 +254,9 @@ const styles = StyleSheet.create({
   },
   inviteIcon: { marginRight: 8 },
   inviteButtonText: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
+  modalOverlay: { flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)', padding: 20 },
+  modalContent: { backgroundColor: 'white', padding: 20, borderRadius: 16, shadowColor: '#000', elevation: 5 },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' },
+  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, marginBottom: 15 },
+  modalButtons: { flexDirection: 'row', justifyContent: 'space-between' }
 });
