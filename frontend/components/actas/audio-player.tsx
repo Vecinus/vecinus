@@ -54,8 +54,12 @@ export function AudioPlayer({ uri }: AudioPlayerProps) {
       setLoadingTimeout(false);
       return;
     }
-    const id = setTimeout(() => setLoadingTimeout(true), LOAD_TIMEOUT_MS);
-    return () => clearTimeout(id);
+    const id = setTimeout(() => {
+      setLoadingTimeout(true);
+    }, LOAD_TIMEOUT_MS);
+    return () => {
+      clearTimeout(id);
+    };
   }, [status.duration, retryKey]);
 
   const handleRetry = () => {
@@ -112,7 +116,12 @@ export function AudioPlayer({ uri }: AudioPlayerProps) {
 
       {/* Controles */}
       <View className="flex-row items-center justify-center gap-4">
-        <TouchableOpacity onPress={() => skip(-10)} className="p-2">
+        <TouchableOpacity
+          onPress={() => {
+            skip(-10);
+          }}
+          className="p-2"
+        >
           <SkipBack size={24} color={COLORS.foreground} />
         </TouchableOpacity>
 
@@ -135,7 +144,12 @@ export function AudioPlayer({ uri }: AudioPlayerProps) {
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => skip(10)} className="p-2">
+        <TouchableOpacity
+          onPress={() => {
+            skip(10);
+          }}
+          className="p-2"
+        >
           <SkipForward size={24} color={COLORS.foreground} />
         </TouchableOpacity>
       </View>

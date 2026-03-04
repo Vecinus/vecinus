@@ -162,9 +162,11 @@ export default function ActasScreen() {
           // En web, audioUri es un blob: URL — hay que obtener el Blob primero
           const response = await fetch(audioUri);
           const blob = await response.blob();
-          const mimeType = blob.type || "audio/webm";
+          // Normalizar el MIME type eliminando el sufijo de codec (ej: "audio/webm;codecs=opus" → "audio/webm")
+          const mimeType = (blob.type || "audio/webm").split(";")[0];
           const ext = mimeType.includes("ogg") ? "ogg" : "webm";
-          formData.append("audio", blob, `recording.${ext}`);
+          const normalizedBlob = new Blob([blob], { type: mimeType });
+          formData.append("audio", normalizedBlob, `recording.${ext}`);
         } else {
           // En nativo, audioUri es un file:// de .m4a (RecordingPresets.HIGH_QUALITY)
           formData.append("audio", {
@@ -402,7 +404,9 @@ export default function ActasScreen() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onPress={() => clearFile()}
+                          onPress={() => {
+                            clearFile();
+                          }}
                         >
                           <Text className="text-sm text-destructive">
                             Eliminar
@@ -461,7 +465,9 @@ export default function ActasScreen() {
             acta={selectedActa}
             isPresidente={isPresidente}
             visible={!!selectedActa}
-            onClose={() => setSelectedActa(null)}
+            onClose={() => {
+              setSelectedActa(null);
+            }}
             onEdit={
               isPresidente
                 ? () => {
@@ -499,7 +505,9 @@ export default function ActasScreen() {
               </View>
               <Button
                 className="w-full bg-primary"
-                onPress={() => setSignSuccessOpen(false)}
+                onPress={() => {
+                  setSignSuccessOpen(false);
+                }}
               >
                 <Text className="text-sm font-medium text-primary-foreground">
                   Cerrar
@@ -538,7 +546,9 @@ export default function ActasScreen() {
               <ActaListItem
                 key={acta.id}
                 acta={acta}
-                onPress={() => setSelectedActa(acta)}
+                onPress={() => {
+                  setSelectedActa(acta);
+                }}
               />
             ))}
           </View>
@@ -549,7 +559,9 @@ export default function ActasScreen() {
       {isPresidente && (
         <TouchableOpacity
           style={[styles.fab, { bottom: insets.bottom + 24 }]}
-          onPress={() => setCreateOpen(true)}
+          onPress={() => {
+            setCreateOpen(true);
+          }}
           activeOpacity={0.85}
         >
           <Text style={styles.fabText}>+</Text>

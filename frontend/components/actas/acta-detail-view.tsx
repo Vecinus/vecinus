@@ -316,8 +316,12 @@ export function ActaDetailView({
                 styles.tabBarContent,
                 expandTabs && styles.tabBarContentFill,
               ]}
-              onLayout={(e) => setTabBarWidth(e.nativeEvent.layout.width)}
-              onContentSizeChange={(w) => setTabContentWidth(w)}
+              onLayout={(e) => {
+                setTabBarWidth(e.nativeEvent.layout.width);
+              }}
+              onContentSizeChange={(w) => {
+                setTabContentWidth(w);
+              }}
               keyboardShouldPersistTaps="handled"
             >
               {tabs.map((tab) => {
@@ -325,7 +329,9 @@ export function ActaDetailView({
                 return (
                   <TouchableOpacity
                     key={tab.key}
-                    onPress={() => setActiveTab(tab.key)}
+                    onPress={() => {
+                      setActiveTab(tab.key);
+                    }}
                     style={[
                       styles.tabBtn,
                       isActive && styles.tabBtnActive,

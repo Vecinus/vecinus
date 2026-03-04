@@ -44,7 +44,11 @@ export function ActaEditorModal({
     >
       {/* Header */}
       <div
-        style={{ padding: "16px 20px", borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}
+        style={{
+          padding: "16px 20px",
+          borderBottom: `1px solid ${BORDER}`,
+          flexShrink: 0,
+        }}
       >
         <p
           style={{
@@ -110,7 +114,9 @@ export function ActaEditorModal({
           Cancelar
         </button>
         <button
-          onClick={() => onConfirm(editedContent)}
+          onClick={() => {
+            onConfirm(editedContent);
+          }}
           style={{
             flex: 1,
             padding: "10px 16px",

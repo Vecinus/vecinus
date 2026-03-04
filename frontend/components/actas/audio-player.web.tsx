@@ -53,13 +53,17 @@ export function AudioPlayer({ uri, durationHint }: AudioPlayerProps) {
         setDomDuration(audio.duration);
       }
     };
-    const onTimeUpdate = () => setCurrentTime(audio.currentTime);
+    const onTimeUpdate = () => {
+      setCurrentTime(audio.currentTime);
+    };
     const onEnded = () => {
       setPlaying(false);
       audio.currentTime = 0;
       setCurrentTime(0);
     };
-    const onError = () => setLoaded(false);
+    const onError = () => {
+      setLoaded(false);
+    };
 
     audio.addEventListener("canplay", onCanPlay);
     audio.addEventListener("timeupdate", onTimeUpdate);
@@ -80,8 +84,12 @@ export function AudioPlayer({ uri, durationHint }: AudioPlayerProps) {
   // Timeout de carga
   useEffect(() => {
     if (loaded) return;
-    const id = setTimeout(() => setLoadingTimeout(true), LOAD_TIMEOUT_MS);
-    return () => clearTimeout(id);
+    const id = setTimeout(() => {
+      setLoadingTimeout(true);
+    }, LOAD_TIMEOUT_MS);
+    return () => {
+      clearTimeout(id);
+    };
   }, [loaded, retryKey]);
 
   const togglePlayPause = () => {
@@ -162,7 +170,12 @@ export function AudioPlayer({ uri, durationHint }: AudioPlayerProps) {
       </View>
 
       <View className="flex-row items-center justify-center gap-4">
-        <TouchableOpacity onPress={() => skip(-10)} className="p-2">
+        <TouchableOpacity
+          onPress={() => {
+            skip(-10);
+          }}
+          className="p-2"
+        >
           <SkipBack size={24} color={COLORS.foreground} />
         </TouchableOpacity>
 
@@ -185,7 +198,12 @@ export function AudioPlayer({ uri, durationHint }: AudioPlayerProps) {
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => skip(10)} className="p-2">
+        <TouchableOpacity
+          onPress={() => {
+            skip(10);
+          }}
+          className="p-2"
+        >
           <SkipForward size={24} color={COLORS.foreground} />
         </TouchableOpacity>
       </View>

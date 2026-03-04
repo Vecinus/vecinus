@@ -1,6 +1,8 @@
 import React, { useRef } from "react";
 import { View, Text, Modal, Dimensions, StyleSheet } from "react-native";
-import SignatureCanvas from "react-native-signature-canvas";
+import SignatureCanvas, {
+  SignatureViewRef,
+} from "react-native-signature-canvas";
 import { Button } from "@/components/ui/button";
 
 interface ActaSignatureProps {
@@ -43,7 +45,7 @@ export function ActaSignature({
   onSign,
   onClose,
 }: ActaSignatureProps) {
-  const signatureRef = useRef<any>(null);
+  const signatureRef = useRef<SignatureViewRef>(null);
   const { height } = Dimensions.get("window");
   const canvasHeight = height * 0.4;
 
@@ -70,7 +72,9 @@ export function ActaSignature({
           <View style={[styles.canvasContainer, { height: canvasHeight }]}>
             <SignatureCanvas
               ref={signatureRef}
-              onOK={(signature: string) => onSign(signature)}
+              onOK={(signature: string) => {
+                onSign(signature);
+              }}
               onEmpty={() => {}}
               descriptionText=""
               clearText="Limpiar"

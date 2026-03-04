@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Alert } from 'react-native';
-import { AudioRecorderState, RecordingResult } from './useAudioRecorder';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Alert } from "react-native";
+import { AudioRecorderState, RecordingResult } from "./useAudioRecorder";
 
-const PREFERRED_MIME_TYPES = ['audio/webm;codecs=opus', 'audio/webm'];
+const PREFERRED_MIME_TYPES = ["audio/webm;codecs=opus", "audio/webm"];
 
-export function useAudioRecorder(onRecordingComplete?: (result: RecordingResult) => void): AudioRecorderState {
+export function useAudioRecorder(
+  onRecordingComplete?: (result: RecordingResult) => void,
+): AudioRecorderState {
   const [isRecording, setIsRecording] = useState(false);
   const [hasPermission, setHasPermission] = useState(false);
   const [durationMillis, setDurationMillis] = useState(0);
@@ -23,17 +25,22 @@ export function useAudioRecorder(onRecordingComplete?: (result: RecordingResult)
   const requestPermissions = useCallback(async (): Promise<boolean> => {
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
-        Alert.alert('Error', 'El navegador no soporta la grabación de audio');
+        Alert.alert("Error", "El navegador no soporta la grabación de audio");
         setHasPermission(false);
         return false;
       }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((track) => track.stop());
+      stream.getTracks().forEach((track) => {
+        track.stop();
+      });
       setHasPermission(true);
       return true;
     } catch (error) {
-      console.error('[useAudioRecorder:web] Error al solicitar permisos:', error);
-      Alert.alert('Permiso denegado', 'No se pudo acceder al micrófono');
+      console.error(
+        "[useAudioRecorder:web] Error al solicitar permisos:",
+        error,
+      );
+      Alert.alert("Permiso denegado", "No se pudo acceder al micrófono");
       setHasPermission(false);
       return false;
     }
@@ -47,7 +54,9 @@ export function useAudioRecorder(onRecordingComplete?: (result: RecordingResult)
         timerRef.current = null;
       }
       mediaRecorderRef.current?.stop();
-      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current?.getTracks().forEach((track) => {
+        track.stop();
+      });
       mediaStreamRef.current = null;
     };
   }, [requestPermissions]);
@@ -63,7 +72,9 @@ export function useAudioRecorder(onRecordingComplete?: (result: RecordingResult)
   };
 
   const stopTimer = (): number => {
-    const elapsed = startTimeRef.current ? Date.now() - startTimeRef.current : 0;
+    const elapsed = startTimeRef.current
+      ? Date.now() - startTimeRef.current
+      : 0;
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
@@ -81,11 +92,11 @@ export function useAudioRecorder(onRecordingComplete?: (result: RecordingResult)
       mediaStreamRef.current = stream;
 
       const supportedType = PREFERRED_MIME_TYPES.find((type) =>
-        MediaRecorder.isTypeSupported(type)
+        MediaRecorder.isTypeSupported(type),
       );
       const recorder = new MediaRecorder(
         stream,
-        supportedType ? { mimeType: supportedType } : undefined
+        supportedType ? { mimeType: supportedType } : undefined,
       );
 
       chunksRef.current = [];
@@ -97,24 +108,27 @@ export function useAudioRecorder(onRecordingComplete?: (result: RecordingResult)
       };
 
       recorder.onstop = () => {
-        const mimeType = supportedType ?? 'audio/webm';
+        const mimeType = supportedType ?? "audio/webm";
         const blob = new Blob(chunksRef.current, { type: mimeType });
         chunksRef.current = [];
 
         if (!blob || blob.size === 0) {
-          console.error('[useAudioRecorder:web] Blob vacío al finalizar');
-          Alert.alert('Error', 'No se pudo generar el archivo de audio');
+          console.error("[useAudioRecorder:web] Blob vacío al finalizar");
+          Alert.alert("Error", "No se pudo generar el archivo de audio");
           return;
         }
 
         const uri = URL.createObjectURL(blob);
         // durationMs se captura en stopRecording antes de llamar a recorder.stop(),
         // y se pasa a través de durationMsRef para que onstop pueda acceder a él.
-        onRecordingCompleteRef.current?.({ uri, durationMs: durationMsRef.current });
+        onRecordingCompleteRef.current?.({
+          uri,
+          durationMs: durationMsRef.current,
+        });
       };
 
       recorder.onerror = () => {
-        Alert.alert('Error', 'No se pudo iniciar la grabación');
+        Alert.alert("Error", "No se pudo iniciar la grabación");
         setIsRecording(false);
       };
 
@@ -123,8 +137,11 @@ export function useAudioRecorder(onRecordingComplete?: (result: RecordingResult)
       setIsRecording(true);
       startTimer();
     } catch (error) {
-      console.error('[useAudioRecorder:web] Error al iniciar grabación:', error);
-      Alert.alert('Error', 'No se pudo iniciar la grabación');
+      console.error(
+        "[useAudioRecorder:web] Error al iniciar grabación:",
+        error,
+      );
+      Alert.alert("Error", "No se pudo iniciar la grabación");
     }
   }, [hasPermission, requestPermissions]);
 
@@ -136,7 +153,10 @@ export function useAudioRecorder(onRecordingComplete?: (result: RecordingResult)
       // Capturamos la duración antes de parar el timer
       durationMsRef.current = stopTimer();
 
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      if (
+        mediaRecorderRef.current &&
+        mediaRecorderRef.current.state !== "inactive"
+      ) {
         mediaRecorderRef.current.stop();
       }
 
@@ -144,8 +164,11 @@ export function useAudioRecorder(onRecordingComplete?: (result: RecordingResult)
       mediaStreamRef.current = null;
       setIsRecording(false);
     } catch (error) {
-      console.error('[useAudioRecorder:web] Error al detener grabación:', error);
-      Alert.alert('Error', 'No se pudo detener la grabación correctamente');
+      console.error(
+        "[useAudioRecorder:web] Error al detener grabación:",
+        error,
+      );
+      Alert.alert("Error", "No se pudo detener la grabación correctamente");
       setIsRecording(false);
     }
   }, []);

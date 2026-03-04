@@ -1,11 +1,5 @@
 import * as React from "react";
-import {
-  Modal,
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-} from "react-native";
+import { Modal, View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { X } from "lucide-react-native";
 import { cn } from "@/lib/utils";
 
@@ -37,7 +31,7 @@ function Dialog({ open = false, onOpenChange, children }: DialogProps) {
 
 interface DialogTriggerProps {
   asChild?: boolean;
-  children: React.ReactElement;
+  children: React.ReactElement<{ onPress?: () => void }>;
 }
 
 function DialogTrigger({ asChild, children }: DialogTriggerProps) {
@@ -45,12 +39,18 @@ function DialogTrigger({ asChild, children }: DialogTriggerProps) {
 
   if (asChild && React.isValidElement(children)) {
     return React.cloneElement(children, {
-      onPress: () => onOpenChange(true),
-    } as any);
+      onPress: () => {
+        onOpenChange(true);
+      },
+    });
   }
 
   return (
-    <TouchableOpacity onPress={() => onOpenChange(true)}>
+    <TouchableOpacity
+      onPress={() => {
+        onOpenChange(true);
+      }}
+    >
       {children}
     </TouchableOpacity>
   );
@@ -69,7 +69,9 @@ function DialogContent({ className, children }: DialogContentProps) {
       visible={open}
       transparent
       animationType="fade"
-      onRequestClose={() => onOpenChange(false)}
+      onRequestClose={() => {
+        onOpenChange(false);
+      }}
     >
       {/*
         Contenedor raíz: ocupa toda la pantalla, solo para centrar el card.
@@ -84,7 +86,9 @@ function DialogContent({ className, children }: DialogContentProps) {
         <TouchableOpacity
           style={StyleSheet.absoluteFillObject}
           activeOpacity={1}
-          onPress={() => onOpenChange(false)}
+          onPress={() => {
+            onOpenChange(false);
+          }}
         />
 
         {/*
