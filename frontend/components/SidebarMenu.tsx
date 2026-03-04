@@ -12,6 +12,8 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { DrawerContentComponentProps } from "@react-navigation/drawer";
 import { useRouter } from "expo-router";
 import { useCommunityStore } from "../store/useCommunityStore";
+import { useMembersStore } from "../store/useMembersStore"; 
+import { usePropertyStore } from "../store/usePropertyStore"; 
 
 type IconName = keyof typeof Ionicons.glyphMap;
 type MaterialIconName = keyof typeof MaterialCommunityIcons.glyphMap;
@@ -38,6 +40,8 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
     fetchCommunities,
   } = useCommunityStore();
 
+  const { fetchMembers } = useMembersStore();
+  const { fetchAvailableProperties } = usePropertyStore();
   const [activeItem, setActiveItem] = useState<string>("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
@@ -46,6 +50,14 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
   useEffect(() => {
     fetchCommunities();
   }, []);
+
+  useEffect(() => {
+    if (activeCommunityId) {
+      console.log(`Actualizando datos para la comunidad: ${activeCommunityId}`);
+      fetchMembers(activeCommunityId);
+      fetchAvailableProperties(activeCommunityId);
+    }
+  }, [activeCommunityId]); 
 
   const menuItems: MenuItemType[] = [
     { name: "Chat", icon: "chatbubble-outline" as IconName },
