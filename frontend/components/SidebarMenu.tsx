@@ -52,15 +52,17 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
   const isAdmin = activeCommunityRole === 1 || activeCommunityRole === 4;
 
   useEffect(() => {
-    fetchCommunities();
-  }, []);
+    if (isAuthenticated) {
+      fetchCommunities();
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
-    if (activeCommunityId) {
+    if (isAuthenticated && activeCommunityId) {
       fetchMembers(activeCommunityId);
       fetchAvailableProperties(activeCommunityId);
     }
-  }, [activeCommunityId]); 
+  }, [activeCommunityId, isAuthenticated]); 
 
   const menuItems: MenuItemType[] = [
     { name: "Chat", icon: "chatbubble-outline" as IconName },
@@ -114,29 +116,31 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
         </View>
       </View>
 
-      <TouchableOpacity
-        style={[
-          styles.communitySelector,
-          isDropdownOpen && styles.communitySelectorOpen,
-        ]}
-        onPress={() => setIsDropdownOpen(!isDropdownOpen)}
-        disabled={isLoading}
-      >
-        {isLoading ? (
-          <ActivityIndicator color="#E5E7EB" size="small" />
-        ) : (
-          <Text style={styles.communityText}>
-            {activeCommunityName || "Cargando..."}
-          </Text>
-        )}
-        <Ionicons
-          name={isDropdownOpen ? "chevron-up" : "chevron-down"}
-          size={18}
-          color="#9CA3AF"
-        />
-      </TouchableOpacity>
+      {isAuthenticated && (
+        <TouchableOpacity
+          style={[
+            styles.communitySelector,
+            isDropdownOpen && styles.communitySelectorOpen,
+          ]}
+          onPress={() => setIsDropdownOpen(!isDropdownOpen)}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="#E5E7EB" size="small" />
+          ) : (
+            <Text style={styles.communityText}>
+              {activeCommunityName || "Cargando..."}
+            </Text>
+          )}
+          <Ionicons
+            name={isDropdownOpen ? "chevron-up" : "chevron-down"}
+            size={18}
+            color="#9CA3AF"
+          />
+        </TouchableOpacity>
+      )}
 
-      {isDropdownOpen && communities.length > 0 && (
+      {isAuthenticated && isDropdownOpen && communities.length > 0 && (
         <View style={styles.dropdownList}>
           {communities.map((community) => (
             <TouchableOpacity

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { setGlobalJwtToken, clearGlobalJwtToken } from '../constants/api';
+import { clearGlobalJwtToken, setGlobalJwtToken } from '../constants/api';
 
 interface AuthState {
   isAuthenticated: boolean;
