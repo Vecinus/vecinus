@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { API_URL } from '../constants/api';
+import { API_URL, globalJwtToken } from '../constants/api';
 
 export interface Community {
   id: string; 
@@ -54,14 +54,11 @@ export const useCommunityStore = create<CommunityState>((set,get) => ({
   fetchCommunities: async () => {
     set({ isLoading: true, error: null });
     try {
-      const token = process.env.EXPO_PUBLIC_TEST_JWT;
-      
-      if (!token) throw new Error("No hay JWT configurado");
       
       const response = await fetch(`${API_URL}/users/me/communities`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${globalJwtToken}`,
           'Content-Type': 'application/json'
         }
       });

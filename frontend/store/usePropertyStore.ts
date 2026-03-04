@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { API_URL } from '../constants/api';
+import { API_URL, globalJwtToken } from '../constants/api';
 
 export interface Property {
   id: string;
@@ -17,9 +17,8 @@ export const usePropertyStore = create<PropertyStore>((set) => ({
     if (!communityId) return;
 
     try {
-      const token = process.env.EXPO_PUBLIC_TEST_JWT;
       const response = await fetch(`${API_URL}/${communityId}/properties/available`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${globalJwtToken}` }
       });
 
       if (!response.ok) {
@@ -29,7 +28,7 @@ export const usePropertyStore = create<PropertyStore>((set) => ({
       const data = await response.json();
       
       set({ availableProperties: Array.isArray(data) ? data : [] });
-      
+    
     } catch (error) {
       console.error("Error obteniendo propiedades", error);
       set({ availableProperties: [] }); 

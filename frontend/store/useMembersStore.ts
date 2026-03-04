@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { API_URL } from '../constants/api';
+import { API_URL, globalJwtToken } from '../constants/api';
 
 export interface Member {
   id: string;
@@ -36,7 +36,6 @@ export const useMembersStore = create<MembersState>((set, get) => ({
   fetchMembers: async (communityId) => {
     set({ isLoading: true, error: null });
     try {
-      const token = process.env.EXPO_PUBLIC_TEST_JWT;
       const url = `${API_URL}/${communityId}/users`;
       
       console.log(`[GET] Obteniendo miembros de: ${url}`);
@@ -44,7 +43,7 @@ export const useMembersStore = create<MembersState>((set, get) => ({
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${globalJwtToken}`,
           'Content-Type': 'application/json'
         }
       });
@@ -88,7 +87,6 @@ export const useMembersStore = create<MembersState>((set, get) => ({
 
     set({ isLoading: true, error: null });
     try {
-      const token = process.env.EXPO_PUBLIC_TEST_JWT;
       const url = `${API_URL}/members/${membershipId}`;
       
       console.log(`[DELETE] Intentando borrar miembro en: ${url}`);
@@ -96,7 +94,7 @@ export const useMembersStore = create<MembersState>((set, get) => ({
       const response = await fetch(url, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${globalJwtToken}`,
           'Content-Type': 'application/json'
         }
       });
