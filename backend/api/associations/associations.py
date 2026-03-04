@@ -1,11 +1,12 @@
 from typing import List
 
 from core.config import settings
-from core.deps import get_current_user, get_supabase, get_supabase_anon
+from core.deps import get_current_user, get_supabase, get_supabase_admin, get_supabase_anon
 from fastapi import APIRouter, Depends, HTTPException
 from postgrest.exceptions import APIError
 from schemas.associations import (
     AcceptInvitationRequest,
+    CommunityUser,
     InvitationResponse,
     InviteAdminRequest,
     InviteTenantRequest,
@@ -172,17 +173,106 @@ def delete_member(
     membership_id: str,
     current_user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
+    supabase_admin: Client = Depends(get_supabase_admin),
 ):
-    # RLS filtra SELECT: solo se ven membresías de las propias comunidades
     membership_res = supabase.table("memberships").select("*").eq("id", membership_id).execute()
     if not membership_res.data:
         raise HTTPException(status_code=404, detail="Membership not found")
 
+    membership_to_delete = membership_res.data[0]
+    association_id = membership_to_delete["association_id"]
+
+    admin_check = (
+        supabase.table("memberships")
+        .select("role")
+        .eq("profile_id", current_user["id"])
+        .eq("association_id", association_id)
+        .execute()
+    )
+
+    is_admin = admin_check.data and admin_check.data[0].get("role") == 1
+
+    # Opcional: Permitir que un usuario se borre a sí mismo de la comunidad
+    is_self = membership_to_delete["profile_id"] == current_user["id"]
+
+    if not is_admin and not is_self:
+        raise HTTPException(status_code=403, detail="Admin access required for this action")
+
     try:
-        supabase.table("memberships").delete().eq("id", membership_id).execute()
-    except APIError as e:
-        if e.code == "42501":
-            raise HTTPException(status_code=403, detail="Admin access required for this action")
+        delete_res = supabase_admin.table("memberships").delete().eq("id", membership_id).execute()
+
+        if not delete_res.data:
+            raise HTTPException(status_code=500, detail="No se pudo eliminar el registro de la base de datos")
+
+    except Exception:
         raise HTTPException(status_code=500, detail="Database error")
 
     return {"message": f"Membership {membership_id} deleted successfully"}
+
+
+@router.get("/{association_id}/users", response_model=List[CommunityUser])
+def get_community_users(
+    association_id: str,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+):
+    """
+    Obtiene todos los usuarios miembros de una comunidad específica.
+
+    Args:
+        association_id: ID de la comunidad/asociación
+        current_user: Usuario actual autenticado
+        supabase: Cliente de Supabase con RLS
+
+    Returns:
+        Lista con ID, nombre de usuario y rol de cada miembro
+    """
+    response = (
+        supabase.table("memberships")
+        .select("id,role, profiles(id, username)")
+        .eq("association_id", association_id)
+        .execute()
+    )
+
+    if not response.data:
+        return []
+
+    users_list = []
+    for item in response.data:
+        profile = item.get("profiles") or {}
+        if profile.get("id"):
+            users_list.append(
+                {
+                    "id": profile.get("id"),
+                    "membership_id": item.get("id"),
+                    "username": profile.get("username"),
+                    "role": item.get("role"),
+                }
+            )
+
+    return users_list
+
+
+@router.get("/{association_id}/properties/available")
+def get_available_properties(
+    association_id: str,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+):
+    # Obtener todas las propiedades de la comunidad
+    properties_res = supabase.table("properties").select("id, number").eq("association_id", association_id).execute()
+
+    memberships_res = (
+        supabase.table("memberships")
+        .select("property_id")
+        .eq("association_id", association_id)
+        .not_.is_("property_id", "null")
+        .execute()
+    )
+
+    assigned_property_ids = {m["property_id"] for m in memberships_res.data}
+
+    # Filtrar solo las que están libres
+    available_properties = [p for p in properties_res.data if p["id"] not in assigned_property_ids]
+
+    return available_properties
