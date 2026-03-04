@@ -26,20 +26,25 @@ interface CommunityState {
   activeCommunityName: string | null;
   activeCommunityAddress: string | null;
   activeCommunityRole: number | null;
+  userToken: string | null;            
   currentUserId?: string;
   communities: Community[];
   isLoading: boolean;
   error: string | null;
   
-  setActiveCommunity: (id: string, name: string, address: string, role: number) => void;
+  // CORRECCIÓN: address y role ahora son opcionales con "?" para evitar error TS2554
+  setActiveCommunity: (id: string, name: string, address?: string, role?: number) => void;
+  setCommunities: (communities: Community[]) => void; // CORRECCIÓN: Añadido para error TS2551
+  setUserToken: (token: string | null) => void;      // CORRECCIÓN: Añadido para error TS2339
   fetchCommunities: () => Promise<void>;
 }
 
-export const useCommunityStore = create<CommunityState>((set,get) => ({
+export const useCommunityStore = create<CommunityState>((set, get) => ({
   activeCommunityId: null, 
   activeCommunityName: null,
   activeCommunityAddress: null,
   activeCommunityRole: null,
+  userToken: null,           // Inicialización
   communities: [],
   isLoading: false,
   error: null,
@@ -47,14 +52,17 @@ export const useCommunityStore = create<CommunityState>((set,get) => ({
   setActiveCommunity: (id, name, address, role) => set({ 
     activeCommunityId: id, 
     activeCommunityName: name,
-    activeCommunityAddress: address,
-    activeCommunityRole: role,
+    activeCommunityAddress: address || null,
+    activeCommunityRole: role || null,
   }),
+
+  // Implementación de las nuevas funciones
+  setCommunities: (communities) => set({ communities }),
+  setUserToken: (token) => set({ userToken: token }),
 
   fetchCommunities: async () => {
     set({ isLoading: true, error: null });
     try {
-      
       const response = await fetch(`${API_URL}/users/me/communities`, {
         method: 'GET',
         headers: {
@@ -74,9 +82,9 @@ export const useCommunityStore = create<CommunityState>((set,get) => ({
         address: item.neighborhood_associations.address,
         role: item.role
       }));
+
       const currentActiveId = get().activeCommunityId;
       const stillExists = formattedCommunities.find(c => c.id === currentActiveId);
-      
       const communityToSet = stillExists || (formattedCommunities.length > 0 ? formattedCommunities[0] : null);
       
       set({ 

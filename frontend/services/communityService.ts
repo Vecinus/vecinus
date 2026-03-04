@@ -1,5 +1,5 @@
 import { API_URL } from '../constants/api';
-import { useCommunityStore } from '../store/useCommunityStore';
+import { Community, useCommunityStore } from '../store/useCommunityStore';
 
 // frontend/services/communityService.ts
 
@@ -33,11 +33,14 @@ export const loadUserCommunities = async (token: string) => {
       return;
     }
 
-    const formattedCommunities = data.map((item: any) => {
-      // Ajuste de seguridad por si la estructura cambia
-      const id = item.neighborhood_associations?.id || item.id;
-      const name = item.neighborhood_associations?.name || item.name || "Comunidad sin nombre";
-      return { id, name };
+    const formattedCommunities: Community[] = data.map((item: any) => {
+      // Extraemos todos los campos necesarios para cumplir con la interfaz Community
+      return { 
+        id: item.neighborhood_associations?.id || item.id,
+        name: item.neighborhood_associations?.name || item.name || "Comunidad sin nombre",
+        address: item.neighborhood_associations?.address || item.address || "Sin dirección", // CORRECCIÓN
+        role: item.role ?? 0 // CORRECCIÓN: Usamos ?? por si el rol es 0 (valor válido)
+      };
     });
 
     console.log("!!! COMUNIDADES PROCESADAS:", formattedCommunities);
