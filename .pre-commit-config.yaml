@@ -11,21 +11,27 @@ repos:
     rev: 26.1.0
     hooks:
       - id: black
-        stages: [pre-push]
+        stages: [pre-commit]
         files: ^backend/
 
   - repo: https://github.com/pycqa/isort
     rev: 8.0.0
     hooks:
       - id: isort
-        stages: [pre-push]
+        stages: [pre-commit]
         files: ^backend/
+
+  - repo: https://github.com/PyCQA/autoflake
+    rev: v2.3.3
+    hooks:
+      - id: autoflake
+        args: [--remove-all-unused-imports, --remove-unused-variables, --in-place, --recursive]
 
   - repo: https://github.com/pycqa/flake8
     rev: 7.3.0
     hooks:
       - id: flake8
-        stages: [pre-push]
+        stages: [pre-commit]
         additional_dependencies: [flake8-pyproject]
         files: ^backend/
 
@@ -38,7 +44,7 @@ repos:
         entry: npm --prefix frontend run lint -- --fix
         language: system
         files: ^frontend/.*\.(ts|tsx|js|jsx)$
-        stages: [pre-push]
+        stages: [pre-commit]
         pass_filenames: false
 
       - id: frontend-tsc
@@ -47,5 +53,5 @@ repos:
         entry: npm --prefix frontend exec -- tsc --project frontend/tsconfig.json --noEmit
         language: system
         files: ^frontend/.*\.(ts|tsx)$
-        stages: [pre-push]
+        stages: [pre-commit]
         pass_filenames: false
