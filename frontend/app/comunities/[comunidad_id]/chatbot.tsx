@@ -28,6 +28,7 @@ interface Message {
 
 export default function ChatBotScreen() {
   const { comunidad_id } = useLocalSearchParams();
+  const normalizedComunidadId = Array.isArray(comunidad_id) ? comunidad_id[0] : comunidad_id;
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -66,13 +67,13 @@ export default function ChatBotScreen() {
 
   // 2. Efecto para sincronizar la comunidad activa basándonos en el ID de la URL
   useEffect(() => {
-    if (comunidad_id && communities.length > 0) {
-      const currentComm = communities.find(c => String(c.id) === String(comunidad_id));
+    if (normalizedComunidadId && communities.length > 0) {
+      const currentComm = communities.find(c => String(c.id) === String(normalizedComunidadId));
       if (currentComm) {
         setActiveCommunity(currentComm.id, currentComm.name);
       }
     }
-  }, [comunidad_id, communities, setActiveCommunity]);
+  }, [normalizedComunidadId, communities, setActiveCommunity]);
 
   // 3. Efecto para actualizar el saludo cuando ya tenemos el nombre real
   useEffect(() => {
@@ -87,11 +88,11 @@ export default function ChatBotScreen() {
 
   // --- LÓGICA DE ENVÍO ---
   const handleSend = useCallback(async () => {
-    console.log("ID de la ruta:", comunidad_id);
+    console.log("ID de la ruta:", normalizedComunidadId);
     console.log("ID del Store:", activeCommunityId);
 
     // CORRECCIÓN: !comunidad_id (Si NO hay ID, salimos)
-    if (!input.trim() || !comunidad_id || isTyping) return;
+    if (!input.trim() || !normalizedComunidadId || isTyping) return;
 
     const userText = input.trim();
     const newUserMsg: Message = { id: `u-${Date.now()}`, role: 'user', content: userText };
@@ -101,14 +102,14 @@ export default function ChatBotScreen() {
     setIsTyping(true);
     
     try {
-      const response = await fetch(`${API_URL}/comunities/${comunidad_id}/chatbot`, {
+      const response = await fetch(`${API_URL}/comunities/${normalizedComunidadId}/chatbot`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${userToken}`
         },
         body: JSON.stringify({ 
-          comunidad_id: comunidad_id,
+          comunidad_id: normalizedComunidadId,
           question: userText,
           history: [] 
         }),
@@ -133,7 +134,7 @@ export default function ChatBotScreen() {
     } finally {
       setIsTyping(false);
     }
-  }, [input, comunidad_id, userToken, isTyping, activeCommunityId]);
+  }, [input, normalizedComunidadId, userToken, isTyping, activeCommunityId]);
 
     const handleUploadDocument = async () => {
     // 1. Validación de campos vacíos y de ID de comunidad
@@ -143,7 +144,7 @@ export default function ChatBotScreen() {
       return;
     }
 
-    if (!comunidad_id) {
+    if (!normalizedComunidadId) {
       const msg = "No se pudo identificar la comunidad activa.";
       Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
       return;
@@ -152,7 +153,7 @@ export default function ChatBotScreen() {
     setIsUploading(true);
     
     try {
-      const response = await fetch(`${API_URL}/comunities/${comunidad_id}/documents`, {
+      const response = await fetch(`${API_URL}/comunities/${normalizedComunidadId}/documents`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -223,7 +224,7 @@ export default function ChatBotScreen() {
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>Asistente VecinUs</Text>
           <Text style={styles.headerSubtitle} numberOfLines={1}>
-            {activeCommunityName} • ID: {comunidad_id}
+            {activeCommunityName} • ID: {normalizedComunidadId}
           </Text>
         </View>
         <Bot color="#4F46E5" size={24} />

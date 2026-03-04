@@ -43,11 +43,16 @@ def _get_gemini_embedding(text: str):
     return response.embeddings[0].values
 
 
+def _normalize_namespace(comunidad_id: str) -> str:
+    return str(comunidad_id).strip()
+
+
 def _retrieve_and_rerank(comunidad_id: str, question: str):
+    namespace = _normalize_namespace(comunidad_id)
     query_vector = _get_gemini_embedding(question)
 
     res = _get_index().query(
-        namespace=comunidad_id,
+        namespace=namespace,
         vector=query_vector,
         top_k=5,
         include_metadata=True,
@@ -56,7 +61,7 @@ def _retrieve_and_rerank(comunidad_id: str, question: str):
     matches = res.get("matches", [])
     
     # DEBUG: Imprimir información detallada
-    print(f"\n[DEBUG RAG] Búsqueda para comunidad_id: {comunidad_id}")
+    print(f"\n[DEBUG RAG] Búsqueda para comunidad_id: {namespace}")
     print(f"[DEBUG RAG] Pregunta: {question}")
     print(f"[DEBUG RAG] Resultados encontrados: {len(matches)}")
     
@@ -68,7 +73,7 @@ def _retrieve_and_rerank(comunidad_id: str, question: str):
             doc_title = match.get("metadata", {}).get("document_title", "unknown")
             print(f"[DEBUG RAG]   Match {i}: score={score:.4f} | doc='{doc_title}' | pasa_threshold={score > CONFIDENCE_THRESHOLD}")
     else:
-        print(f"[DEBUG RAG] ⚠️ No se encontraron vectores en el namespace '{comunidad_id}'")
+        print(f"[DEBUG RAG] ⚠️ No se encontraron vectores en el namespace '{namespace}'")
     
     valid_chunks = [match for match in matches if match.get("score", 0.0) > CONFIDENCE_THRESHOLD]
 

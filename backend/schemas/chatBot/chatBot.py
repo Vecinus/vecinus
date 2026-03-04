@@ -9,7 +9,7 @@ class ChatBotMessage(BaseModel):
 
 
 class ChatBotRequest(BaseModel):
-    comunidad_id: str
+    comunidad_id: Optional[str] = None
     question: str
     history: Optional[List[ChatBotMessage]] = None
 
