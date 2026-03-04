@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import os
 import tempfile
 
@@ -8,6 +9,8 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from schemas.transcription.minutes import MinutesResponse
+
+logger = logging.getLogger(__name__)
 
 
 def get_genai_client():
@@ -108,8 +111,8 @@ async def process_audio_to_minutes(audio_bytes: bytes, mime_type: str = "audio/m
             if audio_file:
                 try:
                     await client.aio.files.delete(name=audio_file.name)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(f"Error no crítico: No se pudo eliminar {audio_file.name} de Gemini. Detalle: {e}")
 
     finally:
         # LIMPIEZA LOCAL: Se ejecuta siempre para no llenar el disco del servidor.
