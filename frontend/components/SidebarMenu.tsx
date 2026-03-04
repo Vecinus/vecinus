@@ -15,6 +15,7 @@ import { useCommunityStore } from "../store/useCommunityStore";
 import { useMembersStore } from "../store/useMembersStore"; 
 import { usePropertyStore } from "../store/usePropertyStore"; 
 
+// Tipado para los iconos
 type IconName = keyof typeof Ionicons.glyphMap;
 type MaterialIconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
@@ -175,7 +176,8 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
               style={[styles.menuItem, isActive && styles.menuItemActive]}
               onPress={() => {
                 setActiveItem(item.name);
-
+                
+                // 4. LÓGICA DE NAVEGACIÓN DINÁMICA
                 if (item.route) {
                   if (!activeCommunityId && !item.absolute) {
                     alert("Por favor, selecciona una comunidad primero.");
