@@ -1,20 +1,20 @@
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Image,
-  ActivityIndicator,
-} from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { DrawerContentComponentProps } from "@react-navigation/drawer";
 import { useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useAuthStore } from '../store/useAuthStore';
 import { useCommunityStore } from "../store/useCommunityStore";
-import { useMembersStore } from "../store/useMembersStore"; 
-import { usePropertyStore } from "../store/usePropertyStore"; 
+import { useMembersStore } from "../store/useMembersStore";
+import { usePropertyStore } from "../store/usePropertyStore";
 
 // Tipado para los iconos
 type IconName = keyof typeof Ionicons.glyphMap;
