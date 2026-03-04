@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { DrawerContentComponentProps } from "@react-navigation/drawer";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -193,7 +193,7 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
                 if (item.route) {
                   if (item.isGlobal) {
                     props.navigation.closeDrawer();
-                    router.push(item.route as any);
+                    router.push(item.route as Href);
                     return;
                   }
 
@@ -208,7 +208,7 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
                     ? `/${item.route}`
                     : `/comunities/${activeCommunityId}/${item.route}`;
 
-                  router.push(targetPath as any);
+                  router.push(targetPath as Href);
                 }
               }}
             >

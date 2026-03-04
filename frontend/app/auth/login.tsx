@@ -51,9 +51,10 @@ export default function LoginScreen() {
         throw new Error('No se recibió el token de sesión');
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Login error:', error);
-      Alert.alert('Error', error.message || 'Ocurrió un error al intentar iniciar sesión');
+      const message = error instanceof Error ? error.message : 'Ocurrió un error al intentar iniciar sesión';
+      Alert.alert('Error', message);
     } finally {
       setLoading(false);
     }
