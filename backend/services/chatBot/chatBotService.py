@@ -32,7 +32,7 @@ LLM_MODEL = "gemini-2.5-flash"
 EMBEDDING_MODEL = "gemini-embedding-001"
 
 # Configuración del RAG
-CONFIDENCE_THRESHOLD = 0.75
+CONFIDENCE_THRESHOLD = 0.4
 CONTEXT_LIMIT = 3000
 
 DISCLAIMER = "Respuesta meramente informativa basada en estatutos." " No sustituye asesoramiento legal."
