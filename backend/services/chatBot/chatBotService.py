@@ -71,9 +71,7 @@ def _retrieve_and_rerank(comunidad_id: str, question: str):
         for i, match in enumerate(matches, 1):
             score = match.get("score", 0.0)
             doc_title = match.get("metadata", {}).get("document_title", "unknown")
-            print(
-                f"[RAG]Match {i}: score={score:.4f} doc='{doc_title}' pasa_threshold={score > CONFIDENCE_THRESHOLD}"
-            )
+            print(f"[RAG]Match {i}: score={score:.4f} doc='{doc_title}' pasa_threshold={score > CONFIDENCE_THRESHOLD}")
     else:
         print(f"[DEBUG RAG] ⚠️ No se encontraron vectores en el namespace '{namespace}'")
 
