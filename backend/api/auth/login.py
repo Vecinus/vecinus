@@ -13,3 +13,12 @@ def login(user: UserLogin, supabase: Client = Depends(get_supabase_anon)):
         return session
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error at login: {str(e)}")
+
+
+@router.post("/logout")
+def logout(supabase: Client = Depends(get_supabase_anon)):
+    try:
+        supabase.auth.sign_out()
+        return {"message": "Logged out successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error at logout: {str(e)}")
