@@ -12,6 +12,7 @@ from schemas.associations import (
     InviteTenantRequest,
     MembershipWithCommunity,
 )
+from services.email_service import ROLE_LABELS, send_invitation_email
 from supabase import Client, ClientOptions, create_client
 
 router = APIRouter()
@@ -63,7 +64,11 @@ def invite_admin(
     if not result.data:
         raise HTTPException(status_code=500, detail="Failed to create invitation")
 
-    return result.data[0]
+    invitation = result.data[0]
+    role_label = ROLE_LABELS.get(body.role_to_grant, "Miembro")
+    send_invitation_email(body.target_email, str(invitation["id"]), role_label)
+
+    return invitation
 
 
 @router.post("/invite/tenant", response_model=InvitationResponse)
@@ -98,7 +103,10 @@ def invite_tenant(
     if not result.data:
         raise HTTPException(status_code=500, detail="Failed to create invitation")
 
-    return result.data[0]
+    invitation = result.data[0]
+    send_invitation_email(body.target_email, str(invitation["id"]), ROLE_LABELS[3])
+
+    return invitation
 
 
 @router.post("/auth/accept-invitation")
