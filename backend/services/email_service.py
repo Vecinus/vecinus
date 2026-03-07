@@ -1,4 +1,6 @@
+import base64
 import logging
+from pathlib import Path
 
 import resend
 from core.config import settings
@@ -16,15 +18,24 @@ _CARD_BG = "#ffffff"
 _TEXT = "#11181C"
 _TEXT_MUTED = "#687076"
 
+# Logo embebido como base64 (cargado una sola vez al importar el módulo)
+_LOGO_PATH = Path(__file__).resolve().parents[2] / "frontend" / "assets" / "logos" / "VecinusLogotipo.png"
+
+try:
+    _LOGO_B64 = base64.b64encode(_LOGO_PATH.read_bytes()).decode()
+    _LOGO_SRC = f"data:image/png;base64,{_LOGO_B64}"
+except FileNotFoundError:
+    logger.warning("Logo not found at %s — email will show text only", _LOGO_PATH)
+    _LOGO_SRC = ""
+
+_LOGO_BLOCK = (
+    f'<img src="{_LOGO_SRC}" alt="VecinUs" width="72" height="72"' ' style="display:block; margin:0 auto 12px;" />'
+    if _LOGO_SRC
+    else ""
+)
+
 
 def _build_html(accept_url: str, role_label: str) -> str:
-    logo_block = (
-        f'<img src="{settings.APP_LOGO_URL}" alt="VecinUs" width="72" height="72"'
-        ' style="display:block; margin:0 auto 12px;" />'
-        if settings.APP_LOGO_URL
-        else ""
-    )
-
     return f"""<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -51,7 +62,7 @@ def _build_html(accept_url: str, role_label: str) -> str:
           <tr>
             <td style="background: linear-gradient(135deg, {_PRIMARY} 0%, {_PRIMARY_DARK} 100%);
                        padding:32px 40px 28px; text-align:center;">
-              {logo_block}
+              {_LOGO_BLOCK}
               <span style="font-size:26px; font-weight:700; color:#ffffff;
                            letter-spacing:-0.5px;">VecinUs</span>
             </td>
