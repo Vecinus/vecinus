@@ -1,13 +1,20 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
   KeyboardAvoidingView, Platform, ActivityIndicator,
   Alert, useWindowDimensions, StyleSheet, StatusBar,
+  Animated, // Importamos Animated para el efecto de aparición
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Bot, Send, Sparkles, FileText, UploadCloud, Menu, MessageSquare, Library } from 'lucide-react-native';
-import { useNavigation, useLocalSearchParams } from 'expo-router';
+import { 
+  Bot, Send, Sparkles, FileText, UploadCloud, 
+  Menu, MessageSquare, Library, X, CheckCircle // Añadimos CheckCircle
+} from 'lucide-react-native';
+import { useNavigation, useLocalSearchParams, useRouter } from 'expo-router';
+import * as DocumentPicker from 'expo-document-picker';
 import { DrawerActions } from '@react-navigation/native';
+
+// Store & Services
 import { useCommunityStore } from '@/store/useCommunityStore';
 import { API_URL } from '@/constants/api';
 import { loadUserCommunities } from '@/services/communityService';
@@ -27,13 +34,19 @@ interface Message {
 }
 
 export default function ChatBotScreen() {
-  const { comunidad_id } = useLocalSearchParams();
-  const normalizedComunidadId = Array.isArray(comunidad_id) ? comunidad_id[0] : comunidad_id;
+  const router = useRouter();
   const navigation = useNavigation();
-  const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const { comunidad_id } = useLocalSearchParams();
+  
+  const normalizedComunidadId = useMemo(() => 
+    Array.isArray(comunidad_id) ? comunidad_id[0] : comunidad_id
+  , [comunidad_id]);
 
-  // Sacamos todo lo necesario del Store
+  const isDesktop = width >= 768;
+  const isManager = true; 
+
   const { 
     activeCommunityId, 
     activeCommunityName, 
@@ -42,62 +55,82 @@ export default function ChatBotScreen() {
     communities 
   } = useCommunityStore();
 
-  const isDesktop = width >= 768;
   const [activeTab, setActiveTab] = useState<'chat' | 'docs'>('chat');
-  const isManager = true; 
-
-  // --- ESTADOS ---
-  const [messages, setMessages] = useState<Message[]>([
-    { id: 'welcome', role: 'assistant', content: `👋 ¡Hola! Soy el asistente. ¿En qué puedo ayudarte?` },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  
   const [docTitle, setDocTitle] = useState('');
   const [docContent, setDocContent] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
+
+  // --- ESTADO PARA EL AVISO (TOAST) ---
+  const [toast, setToast] = useState<{ message: string; visible: boolean } | null>(null);
+  const fadeAnim = useRef(new Animated.Value(0)).current; 
   
   const flatListRef = useRef<FlatList>(null);
 
-  // 1. Efecto para cargar comunidades si el store está vacío (necesario si entras directo por URL)
+  // --- LÓGICA DEL TOAST ---
+  const showToast = (message: string) => {
+    setToast({ message, visible: true });
+    // Animación de entrada
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+
+    // Desaparece tras 3 segundos
+    setTimeout(() => {
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => setToast(null));
+    }, 3000);
+  };
+
   useEffect(() => {
     if (communities.length === 0 && userToken) {
       loadUserCommunities(userToken);
     }
   }, [userToken]);
 
-  // 2. Efecto para sincronizar la comunidad activa basándonos en el ID de la URL
   useEffect(() => {
     if (normalizedComunidadId && communities.length > 0) {
       const currentComm = communities.find(c => String(c.id) === String(normalizedComunidadId));
-      if (currentComm) {
+      if (currentComm && currentComm.id !== activeCommunityId) {
         setActiveCommunity(currentComm.id, currentComm.name);
       }
     }
-  }, [normalizedComunidadId, communities, setActiveCommunity]);
+  }, [normalizedComunidadId, communities]);
 
-  // 3. Efecto para actualizar el saludo cuando ya tenemos el nombre real
   useEffect(() => {
-    if (activeCommunityName && activeCommunityName !== 'Seleccione una comunidad') {
-      setMessages(prev => prev.map(m => 
-        m.id === 'welcome' 
-          ? { ...m, content: `👋 ¡Hola! Soy el asistente de ${activeCommunityName}. ¿En qué puedo ayudarte?` }
-          : m
-      ));
+    if (activeCommunityId && normalizedComunidadId && activeCommunityId !== normalizedComunidadId) {
+      router.replace(`/comunities/${activeCommunityId}/chatbot`);
     }
-  }, [activeCommunityName]);
+  }, [activeCommunityId, normalizedComunidadId]);
 
-  // --- LÓGICA DE ENVÍO ---
+  useEffect(() => {
+    if (activeCommunityId) {
+      setMessages([
+        { 
+          id: `welcome-${activeCommunityId}`, 
+          role: 'assistant', 
+          content: `👋 ¡Hola! Soy el asistente de ${activeCommunityName || "tu comunidad"}. ¿En qué puedo ayudarte?` 
+        },
+      ]);
+      setInput('');
+      setIsTyping(false);
+    }
+  }, [activeCommunityId]);
+
   const handleSend = useCallback(async () => {
-    console.log("ID de la ruta:", normalizedComunidadId);
-    console.log("ID del Store:", activeCommunityId);
-
-    // CORRECCIÓN: !comunidad_id (Si NO hay ID, salimos)
     if (!input.trim() || !normalizedComunidadId || isTyping) return;
 
     const userText = input.trim();
-    const newUserMsg: Message = { id: `u-${Date.now()}`, role: 'user', content: userText };
-    
-    setMessages(prev => [...prev, newUserMsg]);
+    setMessages(prev => [...prev, { id: `u-${Date.now()}`, role: 'user', content: userText }]);
     setInput('');
     setIsTyping(true);
     
@@ -108,84 +141,99 @@ export default function ChatBotScreen() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${userToken}`
         },
-        body: JSON.stringify({ 
-          comunidad_id: normalizedComunidadId,
-          question: userText,
-          history: [] 
-        }),
+        body: JSON.stringify({ question: userText, history: [] }),
       });
 
-      if (!response.ok) throw new Error('Error en la respuesta del servidor');
-
+      if (!response.ok) throw new Error('Error en el servidor');
       const data = await response.json();
-
-      const botMsg: Message = { 
+      
+      setMessages(prev => [...prev, { 
         id: `a-${Date.now()}`, 
         role: 'assistant', 
         content: data.answer,
         source: data.source,
         disclaimer: data.disclaimer
-      };
-      
-      setMessages(prev => [...prev, botMsg]);
+      }]);
     } catch (error) {
-      const msg = "No se pudo conectar con el asistente.";
-      Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
+      Alert.alert("Error", "No se pudo conectar con el asistente.");
     } finally {
       setIsTyping(false);
     }
-  }, [input, normalizedComunidadId, userToken, isTyping, activeCommunityId]);
+  }, [input, normalizedComunidadId, userToken, isTyping]);
 
-    const handleUploadDocument = async () => {
-    // 1. Validación de campos vacíos y de ID de comunidad
-    if (!docTitle.trim() || !docContent.trim()) {
-      const msg = "Por favor, rellena todos los campos.";
-      Platform.OS === 'web' ? alert(msg) : Alert.alert("Atención", msg);
-      return;
-    }
-
-    if (!normalizedComunidadId) {
-      const msg = "No se pudo identificar la comunidad activa.";
-      Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
-      return;
-    }
-    
-    setIsUploading(true);
-    
+  const pickDocument = async () => {
     try {
-      const response = await fetch(`${API_URL}/comunities/${normalizedComunidadId}/documents`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${userToken}`
-        },
-        body: JSON.stringify({
-          title: docTitle,
-          content: docContent
-        }),
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'text/plain'],
+        copyToCacheDirectory: true,
       });
 
-      // 2. Mejoramos el manejo de la respuesta para ver el error real
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error("Error del servidor al subir:", errorData);
-        throw new Error(errorData.detail || 'Error al subir documento');
+      if (!result.canceled) {
+        setSelectedFile(result.assets[0]);
+        setDocTitle(result.assets[0].name);
+      }
+    } catch (err) {
+      Alert.alert("Error", "No se pudo abrir el selector de archivos");
+    }
+  };
+
+  const handleUploadDocument = async () => {
+    if (!selectedFile && (!docTitle.trim() || !docContent.trim())) {
+      Alert.alert("Atención", "Escribe el contenido o selecciona un archivo PDF/TXT.");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      let body: any;
+      let headers: any = { 'Authorization': `Bearer ${userToken}` };
+
+      if (selectedFile) {
+        const formData = new FormData();
+        if (Platform.OS === 'web') {
+          const fileToUpload = (selectedFile as any).file;
+          if (!fileToUpload) throw new Error("No se pudo obtener el archivo del selector.");
+          formData.append('file', fileToUpload);
+        } else {
+          formData.append('file', {
+            uri: selectedFile.uri,
+            name: selectedFile.name,
+            type: selectedFile.mimeType || 'application/octet-stream',
+          } as any);
+        }
+        body = formData;
+      } else {
+        headers['Content-Type'] = 'application/json';
+        body = JSON.stringify({ title: docTitle, content: docContent });
       }
 
-      const msg = `✅ ¡Subido!\n"${docTitle}" ya es parte del conocimiento.`;
-      Platform.OS === 'web' ? alert(msg) : Alert.alert("Éxito", msg);
+      const response = await fetch(`${API_URL}/comunities/${normalizedComunidadId}/documents`, {
+        method: 'POST',
+        headers: headers,
+        body: body,
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({ detail: "Error desconocido" }));
+        throw new Error(errData.detail || 'Error al subir');
+      }
+
+      const data = await response.json();
       
-      // Limpiar campos tras éxito
+      // --- CAMBIO: MOSTRAMOS EL AVISO FLOTANTE ---
+      showToast(data.message || `"${docTitle}" indexado correctamente.`);
+
+      setSelectedFile(null);
       setDocTitle('');
       setDocContent('');
+      
     } catch (error: any) {
-      const msg = error.message || "Hubo un problema al subir el documento.";
-      Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
+      Alert.alert("Error", error.message);
     } finally {
       setIsUploading(false);
     }
   };
-
+  
   const renderMessage = ({ item }: { item: Message }) => (
     <View style={[styles.msgRow, { justifyContent: item.role === 'user' ? 'flex-end' : 'flex-start' }]}>
       <View style={[styles.msgBubble, { 
@@ -193,20 +241,14 @@ export default function ChatBotScreen() {
         maxWidth: isDesktop ? '70%' : '85%',
       }]}>
         <Text style={{ fontSize: 15, color: item.role === 'user' ? '#fff' : '#1E293B' }}>{item.content}</Text>
-        
         {item.source && (
           <View style={styles.sourceTag}>
             <Text style={[styles.sourceText, { fontWeight: '700' }]}>Fuente: {item.source.type}</Text>
-            {item.source.reference && (
-              <Text style={styles.sourceText}>• {item.source.reference}</Text>
-            )}
+            {item.source.reference && <Text style={styles.sourceText}>• {item.source.reference}</Text>}
           </View>
         )}
-
         {item.disclaimer && (
-          <Text style={[styles.sourceText, { marginTop: 4, color: '#EF4444' }]}>
-            ⚠️ {item.disclaimer}
-          </Text>
+          <Text style={[styles.sourceText, { marginTop: 4, color: '#EF4444' }]}>⚠️ {item.disclaimer}</Text>
         )}
       </View>
     </View>
@@ -215,8 +257,15 @@ export default function ChatBotScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <StatusBar barStyle="dark-content" />
+      
+      {/* --- COMPONENTE DE AVISO FLOTANTE --- */}
+      {toast && (
+        <Animated.View style={[styles.toastContainer, { opacity: fadeAnim }]}>
+          <CheckCircle color="#fff" size={20} />
+          <Text style={styles.toastText}>{toast.message}</Text>
+        </Animated.View>
+      )}
 
-      {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())} hitSlop={10}>
           <Menu color="#0F172A" size={28} />
@@ -230,7 +279,6 @@ export default function ChatBotScreen() {
         <Bot color="#4F46E5" size={24} />
       </View>
 
-      {/* TABS MÓVIL */}
       {!isDesktop && (
         <View style={styles.tabBar}>
           <TabItem 
@@ -254,8 +302,6 @@ export default function ChatBotScreen() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20} 
       >
         <View style={{ flex: 1, flexDirection: isDesktop ? 'row' : 'column' }}>
-          
-          {/* SECCIÓN CHAT */}
           {(isDesktop || activeTab === 'chat') && (
             <View style={{ flex: 1, backgroundColor: '#ffffff' }}>
               <FlatList
@@ -267,24 +313,21 @@ export default function ChatBotScreen() {
                 onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
                 showsVerticalScrollIndicator={isDesktop}
               />
-              
               {isTyping && (
                 <View style={[styles.typing, { marginLeft: isDesktop ? '10%' : 20 }]}>
                   <Sparkles color="#64748B" size={14} />
                   <Text style={styles.typingText}>Generando respuesta...</Text>
                 </View>
               )}
-
               <View style={[styles.inputContainer, { paddingHorizontal: isDesktop ? '10%' : 16 }]}>
                 <View style={styles.inputWrapper}>
                   <TextInput
                     style={styles.textInput}
-                    placeholder="Haz una pregunta sobre la comunidad..."
+                    placeholder="Haz una pregunta..."
                     value={input}
                     onChangeText={setInput}
                     placeholderTextColor="#94A3B8"
                     multiline
-                    maxLength={500}
                   />
                   <TouchableOpacity 
                     onPress={handleSend}
@@ -298,30 +341,46 @@ export default function ChatBotScreen() {
             </View>
           )}
 
-          {/* SECCIÓN DOCUMENTOS */}
           {isManager && (isDesktop || activeTab === 'docs') && (
             <View style={[styles.docsPanel, { width: isDesktop ? 380 : '100%' }]}>
               <View style={styles.docsHeader}>
                 <FileText color="#4F46E5" size={22} />
-                <Text style={styles.docsTitle}>Base de Conocimiento</Text>
+                <Text style={styles.docsTitle}>Conocimiento</Text>
               </View>
 
-              <Text style={styles.label}>Título</Text>
+              <Text style={styles.label}>Cargar Archivo (PDF o TXT)</Text>
+              <TouchableOpacity onPress={pickDocument} style={styles.filePickerBtn}>
+                <Library color="#4F46E5" size={20} />
+                <Text style={styles.filePickerText} numberOfLines={1}>
+                  {selectedFile ? selectedFile.name : "Seleccionar documento..."}
+                </Text>
+                {selectedFile && (
+                  <TouchableOpacity onPress={() => setSelectedFile(null)}>
+                    <X color="#EF4444" size={18} />
+                  </TouchableOpacity>
+                )}
+              </TouchableOpacity>
+
+              <Text style={styles.label}>Título del documento</Text>
               <TextInput
                 style={styles.docInput}
-                placeholder="Ej: Normas de la Piscina"
+                placeholder="Ej: Normas de Convivencia"
                 value={docTitle}
                 onChangeText={setDocTitle}
               />
 
-              <Text style={styles.label}>Contenido</Text>
-              <TextInput
-                style={[styles.docInput, { flex: 1, textAlignVertical: 'top', minHeight: 120 }]}
-                placeholder="Pega el reglamento o información relevante..."
-                multiline
-                value={docContent}
-                onChangeText={setDocContent}
-              />
+              {!selectedFile && (
+                <>
+                  <Text style={styles.label}>O pega el contenido manual</Text>
+                  <TextInput
+                    style={[styles.docInput, { flex: 1, textAlignVertical: 'top', minHeight: 120 }]}
+                    placeholder="Escribe aquí la información..."
+                    multiline
+                    value={docContent}
+                    onChangeText={setDocContent}
+                  />
+                </>
+              )}
 
               <TouchableOpacity 
                 onPress={handleUploadDocument}
@@ -331,7 +390,7 @@ export default function ChatBotScreen() {
                 {isUploading ? <ActivityIndicator color="#fff" /> : (
                   <>
                     <UploadCloud color="#fff" size={20} style={{ marginRight: 8 }} />
-                    <Text style={styles.uploadBtnText}>Subir Documento</Text>
+                    <Text style={styles.uploadBtnText}>Indexar Información</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -352,6 +411,31 @@ const TabItem = ({ label, icon, active, onPress }: any) => (
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#ffffff' },
+  // --- ESTILOS DEL TOAST ---
+  toastContainer: {
+    position: 'absolute',
+    top: 80, // Debajo del header
+    left: 20,
+    right: 20,
+    backgroundColor: '#10B981', // Verde éxito
+    padding: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 9999,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  toastText: {
+    color: '#fff',
+    fontWeight: '600',
+    marginLeft: 12,
+    fontSize: 14,
+    flex: 1,
+  },
   header: {
     height: 65,
     flexDirection: 'row',
@@ -417,6 +501,23 @@ const styles = StyleSheet.create({
   docsTitle: { fontSize: 18, fontWeight: '700', marginLeft: 10, color: '#0F172A' },
   label: { fontSize: 13, fontWeight: '600', color: '#475569', marginBottom: 8 },
   docInput: { backgroundColor: '#fff', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 16 },
+  filePickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EEF2FF',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#4F46E5',
+    marginBottom: 16,
+  },
+  filePickerText: {
+    marginLeft: 10,
+    color: '#4F46E5',
+    fontWeight: '600',
+    flex: 1,
+  },
   uploadBtn: { height: 50, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 'auto' },
   uploadBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });
