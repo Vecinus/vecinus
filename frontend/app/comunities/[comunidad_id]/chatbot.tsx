@@ -12,7 +12,6 @@ import { useCommunityStore } from '@/store/useCommunityStore';
 import { API_URL } from '@/constants/api';
 import { loadUserCommunities } from '@/services/communityService';
 
-// --- TYPES ---
 interface ChatAnswerSource {
   type: string;
   reference?: string;
@@ -33,22 +32,17 @@ export default function ChatBotScreen() {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
-  // Sacamos todo lo necesario del Store
-  const { 
-    activeCommunityId, 
-    activeCommunityName, 
-    userToken, 
-    setActiveCommunity, 
-    communities 
-  } = useCommunityStore();
+  const { userToken, communities } = useCommunityStore();
+
+  const activeCommunity = communities.find(c => String(c.id) === String(normalizedComunidadId));
+  const derivedCommunityName = activeCommunity?.name || 'Cargando...';
 
   const isDesktop = width >= 768;
   const [activeTab, setActiveTab] = useState<'chat' | 'docs'>('chat');
   const isManager = true; 
 
-  // --- ESTADOS ---
   const [messages, setMessages] = useState<Message[]>([
-    { id: 'welcome', role: 'assistant', content: `👋 ¡Hola! Soy el asistente. ¿En qué puedo ayudarte?` },
+    { id: 'welcome', role: 'assistant', content: `👋 ¡Hola! Soy el asistente de ${derivedCommunityName}. ¿En qué puedo ayudarte?` },
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -58,40 +52,13 @@ export default function ChatBotScreen() {
   
   const flatListRef = useRef<FlatList>(null);
 
-  // 1. Efecto para cargar comunidades si el store está vacío (necesario si entras directo por URL)
   useEffect(() => {
     if (communities.length === 0 && userToken) {
       loadUserCommunities(userToken);
     }
-  }, [userToken]);
+  }, [userToken, communities.length]);
 
-  // 2. Efecto para sincronizar la comunidad activa basándonos en el ID de la URL
-  useEffect(() => {
-    if (normalizedComunidadId && communities.length > 0) {
-      const currentComm = communities.find(c => String(c.id) === String(normalizedComunidadId));
-      if (currentComm) {
-        setActiveCommunity(currentComm.id, currentComm.name);
-      }
-    }
-  }, [normalizedComunidadId, communities, setActiveCommunity]);
-
-  // 3. Efecto para actualizar el saludo cuando ya tenemos el nombre real
-  useEffect(() => {
-    if (activeCommunityName && activeCommunityName !== 'Seleccione una comunidad') {
-      setMessages(prev => prev.map(m => 
-        m.id === 'welcome' 
-          ? { ...m, content: `👋 ¡Hola! Soy el asistente de ${activeCommunityName}. ¿En qué puedo ayudarte?` }
-          : m
-      ));
-    }
-  }, [activeCommunityName]);
-
-  // --- LÓGICA DE ENVÍO ---
   const handleSend = useCallback(async () => {
-    console.log("ID de la ruta:", normalizedComunidadId);
-    console.log("ID del Store:", activeCommunityId);
-
-    // CORRECCIÓN: !comunidad_id (Si NO hay ID, salimos)
     if (!input.trim() || !normalizedComunidadId || isTyping) return;
 
     const userText = input.trim();
@@ -134,10 +101,9 @@ export default function ChatBotScreen() {
     } finally {
       setIsTyping(false);
     }
-  }, [input, normalizedComunidadId, userToken, isTyping, activeCommunityId]);
+  }, [input, normalizedComunidadId, userToken, isTyping]);
 
-    const handleUploadDocument = async () => {
-    // 1. Validación de campos vacíos y de ID de comunidad
+  const handleUploadDocument = async () => {
     if (!docTitle.trim() || !docContent.trim()) {
       const msg = "Por favor, rellena todos los campos.";
       Platform.OS === 'web' ? alert(msg) : Alert.alert("Atención", msg);
@@ -165,17 +131,14 @@ export default function ChatBotScreen() {
         }),
       });
 
-      // 2. Mejoramos el manejo de la respuesta para ver el error real
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error("Error del servidor al subir:", errorData);
         throw new Error(errorData.detail || 'Error al subir documento');
       }
 
       const msg = `✅ ¡Subido!\n"${docTitle}" ya es parte del conocimiento.`;
       Platform.OS === 'web' ? alert(msg) : Alert.alert("Éxito", msg);
       
-      // Limpiar campos tras éxito
       setDocTitle('');
       setDocContent('');
     } catch (error: any) {
@@ -216,7 +179,6 @@ export default function ChatBotScreen() {
     <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <StatusBar barStyle="dark-content" />
 
-      {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())} hitSlop={10}>
           <Menu color="#0F172A" size={28} />
@@ -224,13 +186,12 @@ export default function ChatBotScreen() {
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>Asistente VecinUs</Text>
           <Text style={styles.headerSubtitle} numberOfLines={1}>
-            {activeCommunityName} • ID: {normalizedComunidadId}
+            {derivedCommunityName} • ID: {normalizedComunidadId}
           </Text>
         </View>
         <Bot color="#4F46E5" size={24} />
       </View>
 
-      {/* TABS MÓVIL */}
       {!isDesktop && (
         <View style={styles.tabBar}>
           <TabItem 
@@ -255,7 +216,6 @@ export default function ChatBotScreen() {
       >
         <View style={{ flex: 1, flexDirection: isDesktop ? 'row' : 'column' }}>
           
-          {/* SECCIÓN CHAT */}
           {(isDesktop || activeTab === 'chat') && (
             <View style={{ flex: 1, backgroundColor: '#ffffff' }}>
               <FlatList
@@ -298,7 +258,6 @@ export default function ChatBotScreen() {
             </View>
           )}
 
-          {/* SECCIÓN DOCUMENTOS */}
           {isManager && (isDesktop || activeTab === 'docs') && (
             <View style={[styles.docsPanel, { width: isDesktop ? 380 : '100%' }]}>
               <View style={styles.docsHeader}>

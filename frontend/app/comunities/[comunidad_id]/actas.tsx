@@ -18,7 +18,7 @@ import {
   Menu,
   FileText,
 } from "lucide-react-native";
-import { useNavigation } from "expo-router";
+import { useNavigation, useLocalSearchParams } from "expo-router";
 import { DrawerActions } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/ui/button";
@@ -41,28 +41,30 @@ import { COLORS } from "@/lib/colors";
 import { MOCK_ACTAS } from "@/data/mock-actas";
 import { Acta } from "@/types/acta";
 import { API_URL } from "@/constants/api";
-
-// ─── Pantalla principal ──────────────────────────────────────────────
+import { useCommunityStore } from "@/store/useCommunityStore";
 
 export default function ActasScreen() {
-  // TODO: obtener del contexto de autenticacion
-  const isPresidente = true;
+  const { comunidad_id } = useLocalSearchParams();
+  const normalizedComunidadId = Array.isArray(comunidad_id) ? comunidad_id[0] : comunidad_id;
+  
+  const { communities } = useCommunityStore();
+  
+  const activeCommunity = communities.find(c => String(c.id) === String(normalizedComunidadId));
+  const derivedCommunityName = activeCommunity?.name || 'Comunidad';
+  const isPresidente = activeCommunity?.role === 1 || activeCommunity?.role === 4;
+
   const userName = "Adrián Díaz";
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
 
-  // --- Estado global ---
   const [actas, setActas] = useState<Acta[]>(MOCK_ACTAS);
   const [selectedActa, setSelectedActa] = useState<Acta | null>(null);
   const [signatureOpen, setSignatureOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [signSuccessOpen, setSignSuccessOpen] = useState(false);
-  // Guarda el acta mientras el editor está abierto (el dialog del detalle se cierra)
   const editingActaRef = useRef<Acta | null>(null);
-  // Guarda el acta mientras la firma está abierta (el dialog del detalle se cierra)
   const signingActaRef = useRef<Acta | null>(null);
 
-  // --- Estado del formulario de creacion ---
   const [createOpen, setCreateOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [audioUri, setAudioUri] = useState<string | null>(null);
@@ -71,13 +73,10 @@ export default function ActasScreen() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
 
-  // --- Derivados ---
   const hasRecordedAudio = !!audioUri;
   const hasUploadedAudio = !!fileUri && !!fileName && isAudioFile(fileName);
   const hasUploadedNonAudio = !!fileUri && !!fileName && !isAudioFile(fileName);
   const hasAnyAudio = hasRecordedAudio || hasUploadedAudio;
-
-  // --- Handlers de audio ---
 
   const handleRecordingComplete = ({ uri, durationMs }: RecordingResult) => {
     if (!uri) {
@@ -143,8 +142,6 @@ export default function ActasScreen() {
     }
   };
 
-  // --- Generacion y flujo de firma ---
-
   const resetForm = () => {
     setTitle("");
     clearAudio();
@@ -159,16 +156,13 @@ export default function ActasScreen() {
       const formData = new FormData();
       if (hasRecordedAudio && audioUri) {
         if (Platform.OS === "web") {
-          // En web, audioUri es un blob: URL — hay que obtener el Blob primero
           const response = await fetch(audioUri);
           const blob = await response.blob();
-          // Normalizar el MIME type eliminando el sufijo de codec (ej: "audio/webm;codecs=opus" → "audio/webm")
           const mimeType = (blob.type || "audio/webm").split(";")[0];
           const ext = mimeType.includes("ogg") ? "ogg" : "webm";
           const normalizedBlob = new Blob([blob], { type: mimeType });
           formData.append("audio", normalizedBlob, `recording.${ext}`);
         } else {
-          // En nativo, audioUri es un file:// de .m4a (RecordingPresets.HIGH_QUALITY)
           formData.append("audio", {
             uri: audioUri,
             name: "recording.m4a",
@@ -243,7 +237,7 @@ export default function ActasScreen() {
       setActas((prev) => [newActa, ...prev]);
       setSelectedActa(newActa);
     } catch (err) {
-      console.error("[handleGenerate] Error:", err);
+      console.error(err);
       Alert.alert(
         "Error de conexión",
         "No se pudo conectar con el servidor. Comprueba tu conexión e inténtalo de nuevo.",
@@ -280,13 +274,10 @@ export default function ActasScreen() {
     setSignSuccessOpen(true);
   };
 
-  // ─── Render ────────────────────────────────────────────────────────
-
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" />
 
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())}
@@ -299,9 +290,7 @@ export default function ActasScreen() {
             {isPresidente ? "Gestión de Actas" : "Actas de la Junta"}
           </Text>
           <Text style={styles.headerSubtitle} numberOfLines={1}>
-            {isPresidente
-              ? "Graba, transcribe y publica actas"
-              : "Consulta los resumenes de las reuniones"}
+            {derivedCommunityName}
           </Text>
         </View>
         <FileText color="#4F46E5" size={24} />
@@ -309,7 +298,6 @@ export default function ActasScreen() {
 
       <ScrollView className="flex-1 bg-background">
         <View className="p-4 gap-4">
-          {/* Dialogs de creacion — trigger invisible, se abre desde el FAB */}
           {isPresidente && (
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
               <DialogContent>
@@ -318,7 +306,6 @@ export default function ActasScreen() {
                 </DialogHeader>
 
                 <View className="flex flex-col gap-4 mt-4">
-                  {/* Titulo */}
                   <View className="flex flex-col gap-2">
                     <Text className="text-sm font-medium text-foreground">
                       Titulo de la reunion
@@ -330,7 +317,6 @@ export default function ActasScreen() {
                     />
                   </View>
 
-                  {/* Audio */}
                   <View className="flex flex-col gap-2">
                     <Text className="text-sm font-medium text-foreground">
                       Audio de la sesion
@@ -385,7 +371,6 @@ export default function ActasScreen() {
                     )}
                   </View>
 
-                  {/* Archivo no-audio adjunto */}
                   {hasUploadedNonAudio && (
                     <View className="flex flex-col gap-2">
                       <Text className="text-sm font-medium text-foreground">
@@ -416,7 +401,6 @@ export default function ActasScreen() {
                     </View>
                   )}
 
-                  {/* Boton generar */}
                   <Button
                     className="w-full mt-2"
                     style={{ backgroundColor: COLORS.primaryHex }}
@@ -460,7 +444,6 @@ export default function ActasScreen() {
             </Dialog>
           )}
 
-          {/* Detalle del acta seleccionada */}
           <ActaDetailView
             acta={selectedActa}
             isPresidente={isPresidente}
@@ -488,7 +471,6 @@ export default function ActasScreen() {
             }
           />
 
-          {/* Pantalla de exito tras firmar */}
           <Dialog
             open={signSuccessOpen}
             onOpenChange={(open) => !open && setSignSuccessOpen(false)}
@@ -516,7 +498,6 @@ export default function ActasScreen() {
             </DialogContent>
           </Dialog>
 
-          {/* Editor modal - only mount when open to fully destroy its WebView before signature opens */}
           {editorOpen && (
             <ActaEditorModal
               visible={editorOpen}
@@ -540,7 +521,6 @@ export default function ActasScreen() {
             }}
           />
 
-          {/* Lista de actas */}
           <View className="flex flex-col gap-3" style={{ paddingBottom: 88 }}>
             {actas.map((acta) => (
               <ActaListItem
@@ -555,7 +535,6 @@ export default function ActasScreen() {
         </View>
       </ScrollView>
 
-      {/* FAB — Nueva acta */}
       {isPresidente && (
         <TouchableOpacity
           style={[styles.fab, { bottom: insets.bottom + 24 }]}
