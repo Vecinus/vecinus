@@ -34,6 +34,7 @@ export default function CommunityAdminScreen() {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState({ id: '', name: '' });
   const [email, setEmail] = useState('');
+  const [roleToGrant, setRoleToGrant] = useState('');
   const [propertyId, setPropertyId] = useState('');
 
   const isCurrentUserAdmin = activeCommunityRole === 1 || activeCommunityRole === 4;
@@ -72,7 +73,7 @@ export default function CommunityAdminScreen() {
   const handleInvite = async () => {
     if (!email || !propertyId) return;
     
-    const success = await inviteTenant(email, comunidad_id as string, propertyId);
+    const success = await inviteTenant(email, roleToGrant, comunidad_id as string);
     
     if (success) {
       setModalVisible(false);
@@ -183,6 +184,22 @@ export default function CommunityAdminScreen() {
                   value={email}
                   onChangeText={setEmail}
                   keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Seleccione un rol</Text>
+              <View style={styles.inputContainer}>
+                <Mail color="#94A3B8" size={20} style={styles.inputIcon} />
+                <TextInput
+                  keyboardType='numeric'
+                  style={styles.input}
+                  placeholder="1"
+                  placeholderTextColor="#94A3B8"
+                  value={roleToGrant}
+                  onChangeText={setRoleToGrant}
                   autoCapitalize="none"
                 />
               </View>

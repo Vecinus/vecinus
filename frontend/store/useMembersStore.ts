@@ -16,7 +16,7 @@ interface MembersState {
   
   fetchMembers: (communityId: string) => Promise<void>;
   fetchMemberById: (membershipId: string) => Promise<Member | null>;
-  inviteTenant: (email: string, associationId: string, propertyId: string) => Promise<boolean>;
+  inviteTenant: (email: string, roleToGrant: string, associationId: string) => Promise<boolean>;
   deleteMember: (membershipId: string) => Promise<boolean>;
 }
 
@@ -126,5 +126,37 @@ export const useMembersStore = create<MembersState>((set, get) => ({
   },
 
   fetchMemberById: async (membershipId) => { return null; },
-  inviteTenant: async (email, associationId, propertyId) => { return true; }
+  inviteTenant: async (email,  roleToGrant, associationId) => { 
+    try {
+      const url = `${API_URL}/invite/admin`;
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${globalJwtToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          target_email: email,
+          role_to_grant: roleToGrant,
+          association_id: associationId
+        })
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("[DELETE] Detalle del error del servidor:", errorData);
+        throw new Error(errorData.detail || 'Error al eliminar al miembro. Verifica tus permisos.');
+      }
+      return true
+  }catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error("Error atrapado en deleteMember:", error.message);
+        set({ isLoading: false, error: error.message });
+      } else {
+        set({ isLoading: false, error: 'Ocurrió un error desconocido' });
+      }
+      return false;
+  }
+}
+
 }));
