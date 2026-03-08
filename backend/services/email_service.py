@@ -155,10 +155,6 @@ def send_invitation_email(target_email: str, invitation_id: str, role_label: str
     Envía un email de invitación con un link para aceptarla.
     Si RESEND_API_KEY no está configurada, loguea un warning y no falla.
     """
-    if not settings.RESEND_API_KEY:
-        logger.warning("RESEND_API_KEY not set — skipping invitation email to %s", target_email)
-        return
-
     resend.api_key = settings.RESEND_API_KEY
     accept_url = f"{settings.APP_BASE_URL}/auth/accept-invitation?token={invitation_id}"
 
