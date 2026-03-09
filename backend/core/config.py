@@ -17,7 +17,7 @@ class Settings:
     SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "")
     SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
     SUPABASE_SERVICE_KEY: str = os.getenv("SUPABASE_SERVICE_KEY", "")
-    SUPABASE_SCHEMA: str = os.getenv("SUPABASE_SCHEMA", "dev")
+    SUPABASE_SCHEMA: str = os.getenv("SUPABASE_SCHEMA", "dev_s2")
 
 
 settings = Settings()
