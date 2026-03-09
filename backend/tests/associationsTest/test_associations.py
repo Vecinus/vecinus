@@ -226,15 +226,17 @@ def test_get_my_communities():
 def test_invite_admin_success():
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
     try:
-        response = client.post(
-            "/invite/admin",
-            json={
-                "association_id": mock_association_id,
-                "target_email": "newmember@test.com",
-                "role_to_grant": 4,  # PRESIDENT
-            },
-        )
+        with patch("api.associations.associations.send_invitation_email"):
+            response = client.post(
+                "/invite/admin",
+                json={
+                    "association_id": mock_association_id,
+                    "target_email": "newmember@test.com",
+                    "role_to_grant": 4,  # PRESIDENT
+                },
+            )
         assert response.status_code == 200
         data = response.json()
         assert data["target_email"] == "newmember@test.com"
@@ -289,15 +291,17 @@ def test_invite_admin_non_admin_fails():
 def test_invite_tenant_success():
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_supabase] = lambda: make_owner_supabase()
+    app.dependency_overrides[get_supabase_admin] = lambda: make_owner_supabase()
     try:
-        response = client.post(
-            "/invite/tenant",
-            json={
-                "association_id": mock_association_id,
-                "property_id": mock_property_id,
-                "target_email": "tenant@test.com",
-            },
-        )
+        with patch("api.associations.associations.send_invitation_email"):
+            response = client.post(
+                "/invite/tenant",
+                json={
+                    "association_id": mock_association_id,
+                    "property_id": mock_property_id,
+                    "target_email": "tenant@test.com",
+                },
+            )
         assert response.status_code == 200
         data = response.json()
         assert data["target_email"] == "tenant@test.com"
@@ -474,14 +478,14 @@ def test_remove_member_not_found():
 #
 #     BACKEND_URL = "http://localhost:8000"
 #     ADMIN_EMAIL = "prueba2@prueba.com"
-#     ADMIN_PASSWORD = "prueba2"
+#     ADMIN = "prueba2"
 #     TARGET_EMAIL = "vecinusispp@gmail.com"
 #     ASSOCIATION_ID = "6aa60a59-0135-4747-870d-c65e79326e13"
 #
 #     # 1. Login como admin
 #     login_res = requests.post(
 #         f"{BACKEND_URL}/login",
-#         json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD},
+#         json={"email": ADMIN_EMAIL, "password": ADMIN},
 #     )
 #     assert login_res.status_code == 200, f"Login failed: {login_res.text}"
 #     token = login_res.json()["session"]["access_token"]
