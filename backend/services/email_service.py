@@ -1,6 +1,4 @@
-import base64
 import logging
-from pathlib import Path
 
 import resend
 from core.config import settings
@@ -18,20 +16,11 @@ _CARD_BG = "#ffffff"
 _TEXT = "#11181C"
 _TEXT_MUTED = "#687076"
 
-# Logo embebido como base64 (cargado una sola vez al importar el módulo)
-_LOGO_PATH = Path(__file__).resolve().parents[2] / "frontend" / "assets" / "logos" / "VecinusLogotipo.png"
-
-try:
-    _LOGO_B64 = base64.b64encode(_LOGO_PATH.read_bytes()).decode()
-    _LOGO_SRC = f"data:image/png;base64,{_LOGO_B64}"
-except FileNotFoundError:
-    logger.warning("Logo not found at %s — email will show text only", _LOGO_PATH)
-    _LOGO_SRC = ""
+# Logo alojado en Supabase Storage (URL pública, evita base64 que dispara el límite de Gmail)
+_LOGO_SRC = "https://asgmplswntnjkxtyebvb.supabase.co/storage/v1/object/public/assets/logo.png"
 
 _LOGO_BLOCK = (
     f'<img src="{_LOGO_SRC}" alt="VecinUs" width="72" height="72"' ' style="display:block; margin:0 auto 12px;" />'
-    if _LOGO_SRC
-    else ""
 )
 
 
@@ -170,7 +159,6 @@ def send_invitation_email(target_email: str, invitation_id: str, role_label: str
         logger.info("Invitation email sent to %s", target_email)
     except Exception as e:
         logger.error("Failed to send invitation email to %s: %s", target_email, str(e))
-        raise
 
 
 ROLE_LABELS = {

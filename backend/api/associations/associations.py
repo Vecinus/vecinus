@@ -3,7 +3,6 @@ from typing import List
 from core.config import settings
 from core.deps import get_current_user, get_supabase, get_supabase_admin, get_supabase_anon
 from fastapi import APIRouter, Depends, HTTPException
-from postgrest.exceptions import APIError
 from schemas.associations import (
     AcceptInvitationRequest,
     CommunityUser,
@@ -38,28 +37,36 @@ def invite_admin(
     body: InviteAdminRequest,
     current_user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
+    supabase_admin: Client = Depends(get_supabase_admin),
 ):
     if body.role_to_grant == 1:
         raise HTTPException(status_code=400, detail="Cannot grant ADMIN role via invitation")
 
-    try:
-        result = (
-            supabase.table("invitations")
-            .insert(
-                {
-                    "target_email": body.target_email,
-                    "association_id": str(body.association_id),
-                    "role_to_grant": body.role_to_grant,
-                    "invited_by_profile_id": current_user["id"],
-                    "status": 1,  # PENDING
-                }
-            )
-            .execute()
+    # Comprobar que el usuario es admin (role=1) de la asociación
+    membership = (
+        supabase.table("memberships")
+        .select("role")
+        .eq("profile_id", current_user["id"])
+        .eq("association_id", str(body.association_id))
+        .eq("role", 1)
+        .execute()
+    )
+    if not membership.data:
+        raise HTTPException(status_code=403, detail="Admin access required for this action")
+
+    result = (
+        supabase_admin.table("invitations")
+        .insert(
+            {
+                "target_email": body.target_email,
+                "association_id": str(body.association_id),
+                "role_to_grant": body.role_to_grant,
+                "invited_by_profile_id": current_user["id"],
+                "status": 1,  # PENDING
+            }
         )
-    except APIError as e:
-        if e.code == "42501":
-            raise HTTPException(status_code=403, detail="Admin access required for this action")
-        raise HTTPException(status_code=500, detail="Database error")
+        .execute()
+    )
 
     if not result.data:
         raise HTTPException(status_code=500, detail="Failed to create invitation")
@@ -76,29 +83,35 @@ def invite_tenant(
     body: InviteTenantRequest,
     current_user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
+    supabase_admin: Client = Depends(get_supabase_admin),
 ):
-    try:
-        result = (
-            supabase.table("invitations")
-            .insert(
-                {
-                    "target_email": body.target_email,
-                    "association_id": str(body.association_id),
-                    "property_id": str(body.property_id),
-                    "role_to_grant": 3,  # TENANT
-                    "invited_by_profile_id": current_user["id"],
-                    "status": 1,  # PENDING
-                }
-            )
-            .execute()
+    # Comprobar que el usuario es owner (role=2) de la propiedad en esa asociación
+    membership = (
+        supabase.table("memberships")
+        .select("role")
+        .eq("profile_id", current_user["id"])
+        .eq("association_id", str(body.association_id))
+        .eq("property_id", str(body.property_id))
+        .eq("role", 2)
+        .execute()
+    )
+    if not membership.data:
+        raise HTTPException(status_code=403, detail="Property owner access required for this action")
+
+    result = (
+        supabase_admin.table("invitations")
+        .insert(
+            {
+                "target_email": body.target_email,
+                "association_id": str(body.association_id),
+                "property_id": str(body.property_id),
+                "role_to_grant": 3,  # TENANT
+                "invited_by_profile_id": current_user["id"],
+                "status": 1,  # PENDING
+            }
         )
-    except APIError as e:
-        if e.code == "42501":
-            raise HTTPException(
-                status_code=403,
-                detail="Property owner access required for this action",
-            )
-        raise HTTPException(status_code=500, detail="Database error")
+        .execute()
+    )
 
     if not result.data:
         raise HTTPException(status_code=500, detail="Failed to create invitation")
