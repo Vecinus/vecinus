@@ -1,6 +1,6 @@
+from datetime import datetime, timedelta, timezone
 from typing import List
 
-from core.config import settings
 from core.deps import get_current_user, get_supabase, get_supabase_admin, get_supabase_anon
 from fastapi import APIRouter, Depends, HTTPException
 from schemas.associations import (
@@ -12,7 +12,7 @@ from schemas.associations import (
     MembershipWithCommunity,
 )
 from services.email_service import ROLE_LABELS, send_invitation_email
-from supabase import Client, ClientOptions, create_client
+from supabase import Client
 
 router = APIRouter()
 
@@ -25,7 +25,7 @@ def get_my_communities(
     user_id = current_user["id"]
     response = (
         supabase.table("memberships")
-        .select("id, association_id, role, property_id, joined_at," " neighborhood_associations(id, name, address)")
+        .select("id, association_id, role, property_id, joined_at, neighborhood_associations(id, name, address)")
         .eq("profile_id", user_id)
         .execute()
     )
@@ -125,53 +125,64 @@ def invite_tenant(
 def accept_invitation(
     body: AcceptInvitationRequest,
     supabase_anon: Client = Depends(get_supabase_anon),
+    supabase_admin: Client = Depends(get_supabase_admin),
 ):
-    # 1. Leer invitación PENDING por token (RLS anon policy lo permite)
+    # 1. Leer invitación PENDING por token
     inv_res = (
         supabase_anon.table("invitations").select("*").eq("id", str(body.invitation_token)).eq("status", 1).execute()
     )
     if not inv_res.data:
-        raise HTTPException(status_code=404, detail="Invitation not found or already used")
+        raise HTTPException(status_code=404, detail="La invitación no existe o ya ha sido utilizada")
 
     invitation = inv_res.data[0]
 
-    # 2. Registrar usuario: email de la invitación,
-    # contraseña del usuario
-    auth_response = supabase_anon.auth.sign_up(
-        {
-            "email": invitation["target_email"],
-            "password": body.password,
-        }
-    )
+    # 2. Comprobar caducidad de 24 horas
+    if "created_at" in invitation and invitation["created_at"]:
+        created_at = datetime.fromisoformat(invitation["created_at"].replace("Z", "+00:00"))
+        if datetime.now(timezone.utc) > created_at + timedelta(hours=24):
+            # Marcar como expirada (opcional, status = 3)
+            (supabase_admin.table("invitations").update({"status": 3}).eq("id", str(body.invitation_token)).execute())
+            raise HTTPException(
+                status_code=400,
+                detail="La invitación ha caducado (pasaron más de 24 horas)",
+            )
 
-    if not auth_response.user:
-        raise HTTPException(status_code=500, detail="Failed to create user account")
+    # 3. Flujo Inteligente: Autenticación
+    user_id = None
+    is_new_user = False
 
-    if not auth_response.session:
-        raise HTTPException(
-            status_code=400,
-            detail=("Email confirmation required." " Ask your admin to disable email confirmations."),
+    try:
+        # A. Intentamos Iniciar Sesión (El usuario YA existe y puso su contraseña correcta)
+        auth_response = supabase_anon.auth.sign_in_with_password(
+            {"email": invitation["target_email"], "password": body.password}
         )
+        user_id = str(auth_response.user.id)
+    except Exception:
+        # B. Si falla, intentamos Registrarlo (El usuario es NUEVO)
+        try:
+            auth_response = supabase_anon.auth.sign_up({"email": invitation["target_email"], "password": body.password})
+            if not auth_response.user:
+                raise HTTPException(status_code=500, detail="Error al crear la cuenta")
 
-    # 3. Cliente user-scoped con la sesión recién creada (RLS aplica)
-    user_client = create_client(
-        settings.SUPABASE_URL,
-        settings.SUPABASE_KEY,
-        options=ClientOptions(schema=settings.SUPABASE_SCHEMA),
-    )
-    user_client.postgrest.auth(auth_response.session.access_token)
+            user_id = str(auth_response.user.id)
+            is_new_user = True
+        except Exception:  # <-- AQUÍ ESTABA EL ERROR (borrado el 'as e')
+            # C. Si falla el registro, significa que el usuario YA existe pero se equivocó
+            raise HTTPException(
+                status_code=400,
+                detail="Este correo ya tiene cuenta en VecinUs. La contraseña es incorrecta.",
+            )
 
-    user_id = str(auth_response.user.id)
+    # 4. Crear perfil si es un usuario nuevo
+    if is_new_user:
+        supabase_admin.table("profiles").upsert(
+            {
+                "id": user_id,
+                "username": invitation["target_email"].split("@")[0],
+            }
+        ).execute()
 
-    # 4. Crear perfil (RLS: auth.uid() = id)
-    user_client.table("profiles").insert(
-        {
-            "id": user_id,
-            "username": invitation["target_email"].split("@")[0],
-        }
-    ).execute()
-
-    # 5. Crear membresía (RLS: profile_id = auth.uid() + invitación pendiente)
+    # 5. Crear la membresía en la comunidad
     membership_data = {
         "profile_id": user_id,
         "association_id": str(invitation["association_id"]),
@@ -180,12 +191,26 @@ def accept_invitation(
     if invitation.get("property_id"):
         membership_data["property_id"] = str(invitation["property_id"])
 
-    user_client.table("memberships").insert(membership_data).execute()
+    # Comprobamos si ya es miembro para no generar errores de duplicidad
+    existing_member = (
+        supabase_admin.table("memberships")
+        .select("id")
+        .eq("profile_id", user_id)
+        .eq("association_id", membership_data["association_id"])
+        .execute()
+    )
 
-    # 6. Marcar invitación como ACCEPTED (RLS: target_email = auth.email())
-    user_client.table("invitations").update({"status": 2}).eq("id", str(body.invitation_token)).execute()
+    if not existing_member.data:
+        supabase_admin.table("memberships").insert(membership_data).execute()
 
-    return {"message": "Invitation accepted", "user_id": user_id}
+    # 6. Marcar invitación como ACCEPTED
+    (supabase_admin.table("invitations").update({"status": 2}).eq("id", str(body.invitation_token)).execute())
+
+    return {
+        "message": "Invitación aceptada con éxito",
+        "user_id": user_id,
+        "is_new_user": is_new_user,
+    }
 
 
 @router.delete("/members/{membership_id}")
@@ -238,14 +263,6 @@ def get_community_users(
 ):
     """
     Obtiene todos los usuarios miembros de una comunidad específica.
-
-    Args:
-        association_id: ID de la comunidad/asociación
-        current_user: Usuario actual autenticado
-        supabase: Cliente de Supabase con RLS
-
-    Returns:
-        Lista con ID, nombre de usuario y rol de cada miembro
     """
     response = (
         supabase.table("memberships")
@@ -279,7 +296,6 @@ def get_available_properties(
     current_user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
 ):
-    # Obtener todas las propiedades de la comunidad
     properties_res = supabase.table("properties").select("id, number").eq("association_id", association_id).execute()
 
     memberships_res = (
