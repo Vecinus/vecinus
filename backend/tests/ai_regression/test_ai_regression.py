@@ -166,6 +166,7 @@ async def main():
         icon = "PASS" if score >= PASS_THRESHOLD else "FAIL"
         print(f"  [{icon}] {entry['id']} — Score: {score}/5")
         print(f"        Q: {entry['question']}")
+        print(f"        IA: {actual}")
         print(f"        Juez: {reason}\n")
 
         results.append(
