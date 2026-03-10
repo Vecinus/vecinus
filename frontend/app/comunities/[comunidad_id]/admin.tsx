@@ -27,7 +27,7 @@ export default function CommunityAdminScreen() {
   const { comunidad_id } = useLocalSearchParams();
   
   const { activeCommunityName, activeCommunityAddress, activeCommunityRole, currentUserId } = useCommunityStore() as any;
-  const { deleteMember, isLoading, members, fetchMembers, inviteTenant } = useMembersStore();
+  const { deleteMember, isLoading, members, fetchMembers, inviteByAdmin } = useMembersStore();
   const { availableProperties, fetchAvailableProperties } = usePropertyStore();
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -73,7 +73,7 @@ export default function CommunityAdminScreen() {
   const handleInvite = async () => {
     if (!email || !propertyId) return;
     
-    const success = await inviteTenant(email, roleToGrant, comunidad_id as string);
+    const success = await inviteByAdmin(email, roleToGrant, comunidad_id as string, propertyId);
     
     if (success) {
       setModalVisible(false);

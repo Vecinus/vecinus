@@ -54,19 +54,18 @@ def invite_admin(
     if not membership.data:
         raise HTTPException(status_code=403, detail="Admin access required for this action")
 
-    result = (
-        supabase_admin.table("invitations")
-        .insert(
-            {
-                "target_email": body.target_email,
-                "association_id": str(body.association_id),
-                "role_to_grant": body.role_to_grant,
-                "invited_by_profile_id": current_user["id"],
-                "status": 1,  # PENDING
-            }
-        )
-        .execute()
-    )
+    insert_data = {
+        "target_email": body.target_email,
+        "association_id": str(body.association_id),
+        "role_to_grant": body.role_to_grant,
+        "invited_by_profile_id": current_user["id"],
+        "status": 1,  # PENDING
+    }
+
+    if getattr(body, "property_id", None):
+        insert_data["property_id"] = str(body.property_id)
+
+    result = supabase_admin.table("invitations").insert(insert_data).execute()
 
     if not result.data:
         raise HTTPException(status_code=500, detail="Failed to create invitation")

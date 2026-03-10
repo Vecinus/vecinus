@@ -16,7 +16,7 @@ interface MembersState {
   
   fetchMembers: (communityId: string) => Promise<void>;
   fetchMemberById: (membershipId: string) => Promise<Member | null>;
-  inviteTenant: (email: string, roleToGrant: string, associationId: string) => Promise<boolean>;
+  inviteByAdmin: (email: string, roleToGrant: string, associationId: string, propertyId: string) => Promise<boolean>;
   deleteMember: (membershipId: string) => Promise<boolean>;
 }
 
@@ -126,7 +126,7 @@ export const useMembersStore = create<MembersState>((set, get) => ({
   },
 
   fetchMemberById: async (membershipId) => { return null; },
-  inviteTenant: async (email,  roleToGrant, associationId) => { 
+  inviteByAdmin: async (email,  roleToGrant, associationId, propertyId) => { 
     try {
       const url = `${API_URL}/invite/admin`;
       
@@ -139,7 +139,8 @@ export const useMembersStore = create<MembersState>((set, get) => ({
         body: JSON.stringify({
           target_email: email,
           role_to_grant: roleToGrant,
-          association_id: associationId
+          association_id: associationId,
+          property_id: propertyId
         })
       });
       if (!response.ok) {
