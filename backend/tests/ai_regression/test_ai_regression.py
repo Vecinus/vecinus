@@ -32,6 +32,7 @@ RETRY_BASE_DELAY = 5  # segundos
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
+
 async def _retry_async(coro_factory, description="API call"):
     """Reintenta una corrutina con backoff exponencial ante errores transitorios."""
     for attempt in range(MAX_RETRIES):
@@ -40,15 +41,15 @@ async def _retry_async(coro_factory, description="API call"):
         except Exception as e:
             error_str = str(e).lower()
             is_transient = any(
-                kw in error_str
-                for kw in ("503", "unavailable", "overloaded", "resource_exhausted", "429", "rate")
+                kw in error_str for kw in ("503", "unavailable", "overloaded", "resource_exhausted", "429", "rate")
             )
             if not is_transient or attempt == MAX_RETRIES - 1:
                 raise
-            delay = RETRY_BASE_DELAY * (2 ** attempt)
-            print(f"    [RETRY] {description} — intento {attempt + 1}/{MAX_RETRIES}, "
-                  f"esperando {delay}s...")
+            delay = RETRY_BASE_DELAY * (2**attempt)
+            print(f"    [RETRY] {description} — intento {attempt + 1}/{MAX_RETRIES}, " f"esperando {delay}s...")
             time.sleep(delay)
+
+
 def _load_golden_set():
     with open(GOLDEN_SET_PATH, encoding="utf-8") as f:
         return json.load(f)
@@ -90,11 +91,9 @@ async def _judge_response(client, question, expected, actual):
     )
 
     async def _call():
-        return await client.aio.models.generate_content(
-            model=JUDGE_MODEL, contents=prompt
-        )
+        return await client.aio.models.generate_content(model=JUDGE_MODEL, contents=prompt)
 
-    resp = await _retry_async(_call, description=f"Judge")
+    resp = await _retry_async(_call, description="Judge")
     text = resp.text.strip()
 
     match = re.search(r"\{.*?\}", text, re.DOTALL)
@@ -112,10 +111,9 @@ async def _judge_response(client, question, expected, actual):
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 async def main():
-    from google import genai
-
-    from core.config import settings
     import services.chatBot.chatBotService as svc
+    from core.config import settings
+    from google import genai
 
     api_key = settings.GEMINI_API_KEY
     if not api_key:
@@ -145,16 +143,13 @@ async def main():
         # Mock Pinecone y embeddings; Gemini LLM queda REAL
         with (
             patch.object(svc, "_get_index", return_value=mock_idx),
-            patch.object(
-                svc, "_get_gemini_embedding", return_value=[0.1] * 768
-            ),
+            patch.object(svc, "_get_gemini_embedding", return_value=[0.1] * 768),
         ):
+
             async def _chatbot_call(q=question):
                 return await svc.get_chatbot_response(COMUNIDAD_TEST, q)
 
-            response = await _retry_async(
-                _chatbot_call, description=f"Chatbot {entry['id']}"
-            )
+            response = await _retry_async(_chatbot_call, description=f"Chatbot {entry['id']}")
 
         actual = response["answer"]
 
