@@ -27,7 +27,7 @@ export default function CommunityAdminScreen() {
   const { comunidad_id } = useLocalSearchParams();
   
   const { activeCommunityName, activeCommunityAddress, activeCommunityRole, currentUserId } = useCommunityStore() as any;
-  const { deleteMember, isLoading, members, fetchMembers, inviteByAdmin } = useMembersStore();
+  const { deleteMember, isLoading, members, fetchMembers, inviteByAdmin, roles } = useMembersStore();
   const { availableProperties, fetchAvailableProperties } = usePropertyStore();
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -71,7 +71,7 @@ export default function CommunityAdminScreen() {
   };
 
   const handleInvite = async () => {
-    if (!email || !propertyId) return;
+    if (!email || !roleToGrant || !comunidad_id || (roleToGrant !== "5" && !propertyId)) return;
     
     const success = await inviteByAdmin(email, roleToGrant, comunidad_id as string, propertyId);
     
@@ -190,21 +190,32 @@ export default function CommunityAdminScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Seleccione un rol</Text>
+              <Text style={styles.label}>Rol a asignar</Text>
               <View style={styles.inputContainer}>
                 <Mail color="#94A3B8" size={20} style={styles.inputIcon} />
-                <TextInput
-                  keyboardType='numeric'
-                  style={styles.input}
-                  placeholder="1"
-                  placeholderTextColor="#94A3B8"
-                  value={roleToGrant}
-                  onChangeText={setRoleToGrant}
-                  autoCapitalize="none"
-                />
+                <View style={styles.pickerWrapper}>
+                  <Picker
+                    selectedValue={roleToGrant}
+                    onValueChange={(itemValue) => setRoleToGrant(itemValue)}
+                    style={styles.picker}
+                    mode="dropdown"
+                    dropdownIconColor="#4F46E5"
+                  >
+                    <Picker.Item label="Selecciona un rol..." value="" color="#94A3B8" />
+                    {Array.from(roles().entries()).map(([roleId, roleName]) => (
+                      <Picker.Item 
+                        key={roleId} 
+                        label={roleName} 
+                        value={roleId.toString()} 
+                        color="#1E293B" 
+                      />
+                    ))}
+                  </Picker>
+                </View>
               </View>
             </View>
             
+            {["2","3","4"].includes(roleToGrant) &&
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Propiedad a asignar</Text>
               <View style={styles.inputContainer}>
@@ -228,6 +239,7 @@ export default function CommunityAdminScreen() {
                 )}
               </View>
             </View>
+}
             
             <View style={styles.modalButtons}>
               <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}>

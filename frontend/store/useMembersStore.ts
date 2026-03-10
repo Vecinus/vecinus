@@ -14,6 +14,7 @@ interface MembersState {
   isLoading: boolean;
   error: string | null;
   
+  roles: () => Map<number, string>;
   fetchMembers: (communityId: string) => Promise<void>;
   fetchMemberById: (membershipId: string) => Promise<Member | null>;
   inviteByAdmin: (email: string, roleToGrant: string, associationId: string, propertyId: string) => Promise<boolean>;
@@ -129,19 +130,29 @@ export const useMembersStore = create<MembersState>((set, get) => ({
   inviteByAdmin: async (email,  roleToGrant, associationId, propertyId) => { 
     try {
       const url = `${API_URL}/invite/admin`;
-      
+
+      const bodyToSend:{
+        target_email: string,
+        role_to_grant: number,
+        association_id: string,
+        property_id?: string,
+      } ={
+          target_email: email,
+          role_to_grant: parseInt(roleToGrant,10),
+          association_id: associationId,
+        }
+
+        if (propertyId && propertyId !== ""){
+          bodyToSend.property_id = propertyId;
+      }
+
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${globalJwtToken}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          target_email: email,
-          role_to_grant: roleToGrant,
-          association_id: associationId,
-          property_id: propertyId
-        })
+        body: JSON.stringify(bodyToSend)
       });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -158,6 +169,15 @@ export const useMembersStore = create<MembersState>((set, get) => ({
       }
       return false;
   }
-}
+},
+  roles: () => {
+    return new Map<number, string>([
+      [2, 'Propietario'],
+      [3, 'Inquilino'],
+      [4, 'Presidente'],
+      [5, 'Empleado']
+    ]);
+  }
+
 
 }));
