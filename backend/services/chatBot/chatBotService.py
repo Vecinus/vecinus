@@ -1,4 +1,5 @@
 import asyncio
+import time
 
 from core.config import settings
 
@@ -91,6 +92,11 @@ def _retrieve_and_rerank(comunidad_id: str, question: str):
     ]
 
 
+# Reintentos para errores transitorios de Gemini (503, 429)
+_LLM_MAX_RETRIES = 3
+_LLM_RETRY_BASE_DELAY = 4  # segundos
+
+
 def _format_history(history: list[dict[str, str]] | None) -> str:
     if not history:
         return "Sin historial previo."
@@ -125,6 +131,34 @@ async def _ask_gemini_with_timeout(context: str, question: str, history: list[di
     history_text = _format_history(history)
     user_message = f"HISTORIAL:\n{history_text}\n\nDOCUMENTOS:\n{context}\n\nPREGUNTA: {question}"
 
+    for attempt in range(_LLM_MAX_RETRIES):
+        try:
+            resp = await asyncio.wait_for(
+                _get_client().aio.models.generate_content(
+                    model=LLM_MODEL,
+                    contents=user_message,
+                    config={"system_instruction": system_instruction},
+                ),
+                timeout=30.0,
+            )
+            return resp.text.strip()
+        except asyncio.TimeoutError:
+            if attempt < _LLM_MAX_RETRIES - 1:
+                delay = _LLM_RETRY_BASE_DELAY * (2**attempt)
+                print(f"[RETRY] Gemini timeout, reintentando en {delay}s...")
+                time.sleep(delay)
+                continue
+            return "El servicio está tardando demasiado. Por favor, inténtalo de nuevo en unos segundos."
+        except Exception as e:
+            error_str = str(e).lower()
+            is_transient = any(kw in error_str for kw in ("503", "unavailable", "overloaded", "429", "rate"))
+            if is_transient and attempt < _LLM_MAX_RETRIES - 1:
+                delay = _LLM_RETRY_BASE_DELAY * (2**attempt)
+                print(f"[RETRY] Gemini error transitorio ({e}), reintentando en {delay}s...")
+                time.sleep(delay)
+                continue
+            print(f"[ERROR] Fallo en Gemini: {e}")
+            return "El servicio de IA está temporalmente saturado."
     try:
         resp = await asyncio.wait_for(
             _get_client().aio.models.generate_content(

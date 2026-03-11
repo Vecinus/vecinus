@@ -61,10 +61,15 @@ def _build_chunk_id(namespace: str, document_title: str, chunk_index: int) -> st
 
 
 def _get_list_query_vector():
-    return _get_client().models.embed_content(
-        model=EMBEDDING_MODEL,
-        contents="Listado de documentos de la comunidad",
-    ).embeddings[0].values
+    return (
+        _get_client()
+        .models.embed_content(
+            model=EMBEDDING_MODEL,
+            contents="Listado de documentos de la comunidad",
+        )
+        .embeddings[0]
+        .values
+    )
 
 
 def index_document(
@@ -184,13 +189,17 @@ def delete_document(comunidad_id: str, document_title: str):
     query_vector = _get_list_query_vector()
 
     while True:
-        matches = _get_index().query(
-            namespace=namespace,
-            vector=query_vector,
-            top_k=MAX_LIST_QUERY,
-            include_metadata=False,
-            filter={"document_title": {"$eq": title}},
-        ).get("matches", [])
+        matches = (
+            _get_index()
+            .query(
+                namespace=namespace,
+                vector=query_vector,
+                top_k=MAX_LIST_QUERY,
+                include_metadata=False,
+                filter={"document_title": {"$eq": title}},
+            )
+            .get("matches", [])
+        )
 
         if not matches:
             break
