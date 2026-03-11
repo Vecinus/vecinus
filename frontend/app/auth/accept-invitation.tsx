@@ -123,7 +123,7 @@ export default function AcceptInvitationScreen() {
           <View style={styles.buttonGroup}>
             <TouchableOpacity
               style={[styles.submitButton, loading && styles.buttonDisabled]}
-              onPress={handleAccept}
+              onPress={() => { void handleAccept(); }}
               disabled={loading}
             >
               {loading ? (
