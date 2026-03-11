@@ -1,17 +1,21 @@
 import { API_URL } from '@/constants/api';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Key } from 'lucide-react-native';
+import { useAuthStore } from '@/store/useAuthStore'; // <-- 1. Importar Zustand Auth Store
 
 export default function AcceptInvitationScreen() {
   const { token } = useLocalSearchParams<{ token: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  
+  const login = useAuthStore((state) => state.login); // <-- 2. Obtenemos la función de login
 
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   if (!token) {
     return (
@@ -39,11 +43,13 @@ export default function AcceptInvitationScreen() {
 
   const handleAccept = async () => {
     if (!password || password.length < 6) {
-      Alert.alert("Atención", "Por favor, introduce una contraseña de al menos 6 caracteres.");
+      setErrorMessage("La contraseña debe tener al menos 6 caracteres.");
       return;
     }
 
+    setErrorMessage(''); 
     setLoading(true);
+    
     try {
       const response = await fetch(`${API_URL}/auth/accept-invitation`, {
         method: 'POST',
@@ -57,16 +63,17 @@ export default function AcceptInvitationScreen() {
         throw new Error(data.detail || "Error al aceptar la invitación");
       }
 
-      Alert.alert(
-        "¡Comunidad unida!",
-        data.is_new_user 
-          ? "Tu cuenta ha sido creada y te has unido a la comunidad con éxito." 
-          : "¡Bienvenido de nuevo! Te has unido a esta nueva comunidad exitosamente.",
-        [{ text: "Ir a Iniciar Sesión", onPress: () => router.replace('/auth/login') }]
-      );
+      // <-- 3. Inyectar el token en tu Zustand y redirigir
+      if (data.token) {
+        login(data.token);
+        router.replace('/(tabs)'); // Redirige a tu layout principal autenticado
+      } else {
+        // Fallback por si en algún momento se requiere confirmación por email en el futuro
+        router.replace('/auth/login');
+      }
       
     } catch (error: any) {
-      Alert.alert("Error", error.message);
+      setErrorMessage(error.message);
     } finally {
       setLoading(false);
     }
@@ -93,18 +100,24 @@ export default function AcceptInvitationScreen() {
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Contraseña</Text>
-            <View style={styles.inputContainer}>
-              <Key color="#94A3B8" size={20} style={styles.inputIcon} />
+            <View style={[styles.inputContainer, errorMessage ? styles.inputContainerError : null]}>
+              <Key color={errorMessage ? "#EF4444" : "#94A3B8"} size={20} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Introduce tu contraseña"
                 placeholderTextColor="#94A3B8"
                 secureTextEntry
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (errorMessage) setErrorMessage('');
+                }}
                 autoCapitalize="none"
               />
             </View>
+            {errorMessage ? (
+              <Text style={styles.errorTextInline}>{errorMessage}</Text>
+            ) : null}
           </View>
 
           <View style={styles.buttonGroup}>
@@ -125,6 +138,8 @@ export default function AcceptInvitationScreen() {
     </View>
   );
 }
+
+// ... Mantén tus 'styles' exactamente como los tenías ...
 
 const styles = StyleSheet.create({
   container: {
@@ -178,23 +193,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  infoBox: {
-    backgroundColor: '#F8FAFC',
-    padding: 16,
-    borderRadius: 14,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#334155',
-    marginBottom: 6,
-  },
-  infoTextBold: {
-    fontWeight: '700',
-    color: '#0F172A',
-  },
   inputGroup: {
     marginBottom: 24,
   },
@@ -215,6 +213,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     height: 56,
   },
+  inputContainerError: {
+    borderColor: '#EF4444',
+    backgroundColor: '#FEF2F2',
+  },
   inputIcon: {
     marginRight: 10,
   },
@@ -223,6 +225,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1E293B',
     height: '100%',
+  },
+  errorTextInline: {
+    color: '#EF4444',
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 8,
+    marginLeft: 4,
   },
   buttonGroup: {
     gap: 12,
@@ -243,17 +252,6 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  cancelButton: {
-    backgroundColor: 'transparent',
-    paddingVertical: 16,
-    borderRadius: 14,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    color: '#4F46E5',
     fontWeight: '700',
     fontSize: 16,
   },

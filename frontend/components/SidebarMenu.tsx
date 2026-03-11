@@ -70,6 +70,12 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
     { name: "Chat", icon: "chatbubble-outline" as IconName },
     { name: "Avisos", icon: "notifications-outline" as IconName },
     { name: "Tablón", icon: "megaphone-outline" as IconName },
+    { 
+      name: "Invitaciones", 
+      icon: "mail-unread-outline" as IconName, 
+      route: "invitations", 
+      isGlobal: true 
+    },
     {
       name: "Asistente IA",
       icon: "robot-outline" as MaterialIconName,

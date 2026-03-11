@@ -136,9 +136,17 @@ def accept_invitation(
     supabase_admin: Client = Depends(get_supabase_admin),
 ):
     # 1. Leer invitación PENDING por token
-    inv_res = (
-        supabase_anon.table("invitations").select("*").eq("id", str(body.invitation_token)).eq("status", 1).execute()
-    )
+    try:
+        inv_res = (
+            supabase_anon.table("invitations")
+            .select("*")
+            .eq("id", str(body.invitation_token))
+            .eq("status", 1)
+            .execute()
+        )
+    except Exception:
+        raise HTTPException(status_code=400, detail="El formato del token de invitación es inválido.")
+
     if not inv_res.data:
         raise HTTPException(status_code=404, detail="La invitación no existe o ya ha sido utilizada")
 
@@ -148,7 +156,6 @@ def accept_invitation(
     if "created_at" in invitation and invitation["created_at"]:
         created_at = datetime.fromisoformat(invitation["created_at"].replace("Z", "+00:00"))
         if datetime.now(timezone.utc) > created_at + timedelta(hours=24):
-            # Marcar como expirada (opcional, status = 3)
             (supabase_admin.table("invitations").update({"status": 3}).eq("id", str(body.invitation_token)).execute())
             raise HTTPException(
                 status_code=400,
@@ -158,6 +165,7 @@ def accept_invitation(
     # 3. Flujo Inteligente: Autenticación
     user_id = None
     is_new_user = False
+    access_token = None
 
     try:
         # A. Intentamos Iniciar Sesión (El usuario YA existe y puso su contraseña correcta)
@@ -165,32 +173,138 @@ def accept_invitation(
             {"email": invitation["target_email"], "password": body.password}
         )
         user_id = str(auth_response.user.id)
-    except Exception:
-        # B. Si falla, intentamos Registrarlo (El usuario es NUEVO)
-        try:
-            auth_response = supabase_anon.auth.sign_up({"email": invitation["target_email"], "password": body.password})
-            if not auth_response.user:
-                raise HTTPException(status_code=500, detail="Error al crear la cuenta")
+        if auth_response.session:
+            access_token = auth_response.session.access_token
 
-            user_id = str(auth_response.user.id)
-            is_new_user = True
-        except Exception:  # <-- AQUÍ ESTABA EL ERROR (borrado el 'as e')
-            # C. Si falla el registro, significa que el usuario YA existe pero se equivocó
-            raise HTTPException(
-                status_code=400,
-                detail="Este correo ya tiene cuenta en VecinUs. La contraseña es incorrecta.",
+    except Exception:
+        # B. Si falla, creamos el usuario usando el ADMIN CLIENT para saltarnos el Rate Limit
+        try:
+            # admin.create_user ignora los límites de correo y auto-confirma la cuenta
+            new_user = supabase_admin.auth.admin.create_user(
+                {"email": invitation["target_email"], "password": body.password, "email_confirm": True}
             )
 
-    # 4. Crear perfil si es un usuario nuevo
-    if is_new_user:
-        supabase_admin.table("profiles").upsert(
-            {
-                "id": user_id,
-                "username": invitation["target_email"].split("@")[0],
-            }
-        ).execute()
+            user_id = str(new_user.user.id)
+            is_new_user = True
 
-    # 5. Crear la membresía en la comunidad
+            # Como admin.create_user solo lo crea pero no inicia sesión, iniciamos sesión ahora para obtener el token
+            login_response = supabase_anon.auth.sign_in_with_password(
+                {"email": invitation["target_email"], "password": body.password}
+            )
+            if login_response.session:
+                access_token = login_response.session.access_token
+
+        except Exception as signup_error:
+            # C. Si falla el registro admin, significa que el usuario YA existía pero se equivocó de contraseña
+            raise HTTPException(
+                status_code=400, detail=f"La contraseña es incorrecta o hubo un error: {str(signup_error)}"
+            )
+
+    # 4. Configurar perfiles y membresías (Envuelto en try-catch para capturar el Error 500)
+    try:
+        # Crear perfil si es un usuario nuevo
+        if is_new_user:
+            supabase_admin.table("profiles").upsert(
+                {
+                    "id": user_id,
+                    "username": invitation["target_email"].split("@")[0],
+                }
+            ).execute()
+
+        # Crear la membresía en la comunidad
+        membership_data = {
+            "profile_id": user_id,
+            "association_id": str(invitation["association_id"]),
+            "role": invitation["role_to_grant"],
+        }
+        if invitation.get("property_id"):
+            membership_data["property_id"] = str(invitation["property_id"])
+
+        # Comprobamos si ya es miembro para no generar errores de duplicidad
+        existing_member = (
+            supabase_admin.table("memberships")
+            .select("id")
+            .eq("profile_id", user_id)
+            .eq("association_id", membership_data["association_id"])
+            .execute()
+        )
+
+        if not existing_member.data:
+            supabase_admin.table("memberships").insert(membership_data).execute()
+
+        # Marcar invitación como ACCEPTED
+        (supabase_admin.table("invitations").update({"status": 2}).eq("id", str(body.invitation_token)).execute())
+
+    except Exception as db_error:
+        # Este es el log que te revelará la causa si vuelve a fallar la BD
+        raise HTTPException(status_code=500, detail=f"Error interno configurando la comunidad: {str(db_error)}")
+
+    return {
+        "message": "Invitación aceptada con éxito",
+        "user_id": user_id,
+        "is_new_user": is_new_user,
+        "token": access_token,
+    }
+
+
+@router.get("/users/me/invitations")
+def get_my_pending_invitations(
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+):
+    """Obtiene las invitaciones pendientes del usuario logueado usando su email."""
+    # current_user suele contener el email en supabase auth. Si no, sácalo de la tabla profiles.
+    user_email = current_user.get("email")
+
+    # Buscamos invitaciones PENDING (status=1) para este email
+    response = (
+        supabase.table("invitations")
+        .select("id, role_to_grant, created_at, neighborhood_associations(name)")
+        .eq("target_email", user_email)
+        .eq("status", 1)
+        .execute()
+    )
+
+    # Formatear la respuesta para el frontend
+    invitations = []
+    for inv in response.data:
+        community = inv.get("neighborhood_associations") or {}
+        invitations.append(
+            {
+                "id": inv["id"],
+                "communityName": community.get("name", "Comunidad Desconocida"),
+                "roleId": inv["role_to_grant"],
+                "roleName": ROLE_LABELS.get(inv["role_to_grant"], "Miembro"),
+                "date": inv["created_at"],
+            }
+        )
+
+    return invitations
+
+
+@router.post("/invitations/{invitation_id}/accept")
+def accept_invitation_internal(
+    invitation_id: str,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
+    """Acepta una invitación cuando el usuario YA está dentro de la app."""
+    user_email = current_user.get("email")
+    user_id = current_user.get("id")
+
+    # Verificar que la invitación existe, es para este usuario y está pendiente
+    inv_res = supabase.table("invitations").select("*").eq("id", invitation_id).eq("status", 1).execute()
+
+    if not inv_res.data:
+        raise HTTPException(status_code=404, detail="Invitación no encontrada o ya procesada")
+
+    invitation = inv_res.data[0]
+
+    if invitation["target_email"] != user_email:
+        raise HTTPException(status_code=403, detail="No tienes permiso para aceptar esta invitación")
+
+    # 1. Crear la membresía
     membership_data = {
         "profile_id": user_id,
         "association_id": str(invitation["association_id"]),
@@ -199,26 +313,51 @@ def accept_invitation(
     if invitation.get("property_id"):
         membership_data["property_id"] = str(invitation["property_id"])
 
-    # Comprobamos si ya es miembro para no generar errores de duplicidad
-    existing_member = (
-        supabase_admin.table("memberships")
+    # Evitar duplicidad si ya existe
+    existing = (
+        supabase.table("memberships")
         .select("id")
         .eq("profile_id", user_id)
         .eq("association_id", membership_data["association_id"])
         .execute()
     )
-
-    if not existing_member.data:
+    if not existing.data:
         supabase_admin.table("memberships").insert(membership_data).execute()
 
-    # 6. Marcar invitación como ACCEPTED
-    (supabase_admin.table("invitations").update({"status": 2}).eq("id", str(body.invitation_token)).execute())
+    # 2. Marcar invitación como ACCEPTED (status = 2)
+    supabase_admin.table("invitations").update({"status": 2}).eq("id", invitation_id).execute()
 
-    return {
-        "message": "Invitación aceptada con éxito",
-        "user_id": user_id,
-        "is_new_user": is_new_user,
-    }
+    return {"message": "Has entrado a la comunidad exitosamente"}
+
+
+@router.post("/invitations/{invitation_id}/reject")
+def reject_invitation_internal(
+    invitation_id: str,
+    current_user: dict = Depends(get_current_user),
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
+    """Rechaza la invitación marcándola con status 3"""
+    user_email = current_user.get("email")
+
+    inv_res = supabase_admin.table("invitations").select("target_email, status").eq("id", invitation_id).execute()
+
+    if not inv_res.data:
+        raise HTTPException(status_code=404, detail="La invitación no existe")
+
+    invitation = inv_res.data[0]
+
+    if invitation["target_email"] != user_email:
+        raise HTTPException(status_code=403, detail="Acceso denegado. Esta invitación no es para ti.")
+
+    if invitation["status"] != 1:
+        raise HTTPException(status_code=400, detail="Esta invitación ya fue procesada anteriormente.")
+
+    try:
+        supabase_admin.table("invitations").update({"status": 3}).eq("id", invitation_id).execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al actualizar la base de datos: {str(e)}")
+
+    return {"message": "Invitación rechazada"}
 
 
 @router.delete("/members/{membership_id}")
