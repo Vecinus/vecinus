@@ -31,7 +31,7 @@ def _get_client():
 LLM_MODEL = "gemini-2.5-flash"
 EMBEDDING_MODEL = "gemini-embedding-001"
 
-CONFIDENCE_THRESHOLD = 0.6
+CONFIDENCE_THRESHOLD = 0.45
 CONTEXT_LIMIT = 3000
 
 DISCLAIMER = "Respuesta meramente informativa basada en estatutos. No sustituye asesoramiento legal."
@@ -193,7 +193,7 @@ async def get_chatbot_response(
             "disclaimer": DISCLAIMER,
         }
 
-    raw_context = "\n\n".join([c["text"] for c in chunks])
+    raw_context = "\n\n".join([f"Documento: '{c['document_title']}'\nContenido: {c['text']}" for c in chunks])
     context = raw_context[:CONTEXT_LIMIT]
 
     answer = await _ask_gemini_with_timeout(context, question, history)
