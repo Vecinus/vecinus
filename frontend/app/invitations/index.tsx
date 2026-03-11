@@ -104,7 +104,7 @@ export default function PendingInvitationsScreen() {
         <View style={styles.actionButtons}>
           <TouchableOpacity 
             style={[styles.btn, styles.btnReject, isAnyProcessing && styles.btnDisabled]} 
-            onPress={() => handleRejectPress(item.id)}
+            onPress={() => { handleRejectPress(item.id); }}
             disabled={isAnyProcessing}
           >
             {isRejecting ? (
@@ -119,7 +119,7 @@ export default function PendingInvitationsScreen() {
 
           <TouchableOpacity 
             style={[styles.btn, styles.btnAccept, isAnyProcessing && styles.btnDisabled]} 
-            onPress={() => handleAccept(item.id)}
+            onPress={() => { handleAccept(item.id); }}
             disabled={isAnyProcessing}
           >
             {isAccepting ? (
@@ -141,7 +141,7 @@ export default function PendingInvitationsScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
       
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={10} style={styles.backButton}>
+        <TouchableOpacity onPress={() => { router.back(); }} hitSlop={10} style={styles.backButton}>
           <ArrowLeft color="#0F172A" size={24} />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
@@ -170,7 +170,7 @@ export default function PendingInvitationsScreen() {
         visible={isRejectModalVisible}
         transparent={true}
         animationType="fade"
-        onRequestClose={() => setRejectModalVisible(false)}
+        onRequestClose={() => { setRejectModalVisible(false); }}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -180,7 +180,7 @@ export default function PendingInvitationsScreen() {
             <View style={styles.modalButtons}>
               <TouchableOpacity 
                 style={[styles.modalBtn, styles.modalBtnCancel]} 
-                onPress={() => setRejectModalVisible(false)}
+                onPress={() => { setRejectModalVisible(false); }}
               >
                 <Text style={styles.modalBtnCancelText}>Cancelar</Text>
               </TouchableOpacity>

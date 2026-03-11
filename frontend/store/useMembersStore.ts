@@ -62,7 +62,7 @@ export const useMembersStore = create<MembersState>((set, get) => ({
 
       const data = await response.json();
 
-      const formattedMembers: Member[] = data.map((item: any) => {
+      const formattedMembers: Member[] = data.map((item: { id: string; membership_id: string; username?: string; role: string | number }) => {
         const roleId = typeof item.role === 'number' ? item.role : parseInt(item.role, 10) || 3;
         return {
           id: item.id,
@@ -75,8 +75,8 @@ export const useMembersStore = create<MembersState>((set, get) => ({
 
       formattedMembers.sort((a, b) => a.roleId - b.roleId);
       set({ members: formattedMembers, isLoading: false });
-    } catch (error: any) {
-      set({ isLoading: false, error: error.message || 'Error desconocido' });
+    } catch (error: unknown) {
+      set({ isLoading: false, error: error instanceof Error ? error.message : 'Error desconocido' });
     }
   },
 
@@ -95,7 +95,7 @@ export const useMembersStore = create<MembersState>((set, get) => ({
         const data = await response.json();
         set({ pendingInvitations: data });
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error fetching pending invitations:", error);
     }
   },
@@ -123,8 +123,8 @@ export const useMembersStore = create<MembersState>((set, get) => ({
         isLoading: false
       }));
       return true;
-    } catch (error: any) {
-      set({ isLoading: false, error: error.message });
+    } catch (error: unknown) {
+      set({ isLoading: false, error: error instanceof Error ? error.message : 'Error desconocido' });
       return false;
     }
   },
@@ -134,11 +134,16 @@ export const useMembersStore = create<MembersState>((set, get) => ({
   inviteByAdmin: async (email, roleToGrant, associationId, propertyId) => { 
     try {
       const url = `${API_URL}/invite/admin`;
-      const bodyToSend: any = {
+      const bodyToSend: { 
+        target_email: string;
+        role_to_grant: number; 
+        association_id: string; 
+        property_id?: string } = 
+        {
           target_email: email,
           role_to_grant: parseInt(roleToGrant,10),
           association_id: associationId,
-      };
+        };
 
       if (propertyId && propertyId !== "") bodyToSend.property_id = propertyId;
 
@@ -156,8 +161,8 @@ export const useMembersStore = create<MembersState>((set, get) => ({
         throw new Error(errorData.detail || 'Error al enviar invitación.');
       }
       return true
-    } catch (error: any) {
-        set({ isLoading: false, error: error.message });
+    } catch (error: unknown) {
+        set({ isLoading: false, error: error instanceof Error ? error.message : 'Error desconocido' });
         return false;
     }
   },
