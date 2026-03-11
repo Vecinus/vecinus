@@ -4,12 +4,8 @@ import {
   KeyboardAvoidingView, Platform, ActivityIndicator,
   Alert, useWindowDimensions, StyleSheet, StatusBar,
   Animated, Modal, ScrollView,
-  Animated, Modal, ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  Bot, Send, Sparkles, FileText, UploadCloud,
-  Menu, MessageSquare, Library, X, CheckCircle, Trash2
 import {
   Bot, Send, Sparkles, FileText, UploadCloud,
   Menu, MessageSquare, Library, X, CheckCircle, Trash2
@@ -18,15 +14,11 @@ import { useNavigation, useLocalSearchParams, useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import { DrawerActions } from '@react-navigation/native';
 
-// Store & Services
 import { useCommunityStore } from '@/store/useCommunityStore';
-import { useAuthStore } from '@/store/useAuthStore';
-import { API_URL, globalJwtToken } from '@/constants/api';
 import { useAuthStore } from '@/store/useAuthStore';
 import { API_URL, globalJwtToken } from '@/constants/api';
 import { loadUserCommunities } from '@/services/communityService';
 
-// --- TYPES ---
 interface ChatAnswerSource {
   type: string;
   reference?: string;
@@ -42,6 +34,13 @@ interface Message {
 
 type NativeFile = { uri: string; name: string; type: string };
 
+type TabItemProps = {
+  label: string;
+  icon: React.ReactNode;
+  active: boolean;
+  onPress: () => void;
+};
+
 export default function ChatBotScreen() {
   const router = useRouter();
   const navigation = useNavigation();
@@ -49,11 +48,10 @@ export default function ChatBotScreen() {
   const { width } = useWindowDimensions();
   const { comunidad_id } = useLocalSearchParams();
 
-  const normalizedComunidadId = useMemo(() =>
-
-  const normalizedComunidadId = useMemo(() =>
-    Array.isArray(comunidad_id) ? comunidad_id[0] : comunidad_id
-  , [comunidad_id]);
+  const normalizedComunidadId = useMemo(
+    () => (Array.isArray(comunidad_id) ? comunidad_id[0] : comunidad_id),
+    [comunidad_id]
+  );
 
   const isDesktop = width >= 768;
 
@@ -63,20 +61,8 @@ export default function ChatBotScreen() {
     activeCommunityRole,
     userToken,
     setActiveCommunity,
-    communities
-  const {
-    activeCommunityId,
-    activeCommunityName,
-    activeCommunityRole,
-    userToken,
-    setActiveCommunity,
-    communities
+    communities,
   } = useCommunityStore();
-
-  const { token: authToken } = useAuthStore();
-  const authHeaderToken = authToken || userToken || globalJwtToken;
-
-  const isManager = activeCommunityRole === 1;
 
   const { token: authToken } = useAuthStore();
   const authHeaderToken = authToken || userToken || globalJwtToken;
@@ -87,7 +73,6 @@ export default function ChatBotScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-
 
   const [docTitle, setDocTitle] = useState('');
   const [docContent, setDocContent] = useState('');
@@ -101,17 +86,7 @@ export default function ChatBotScreen() {
   const [docToDelete, setDocToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const [documents, setDocuments] = useState<string[]>([]);
-  const [isDocsLoading, setIsDocsLoading] = useState(false);
-  const [docsError, setDocsError] = useState<string | null>(null);
-  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
-  const [docToDelete, setDocToDelete] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  // --- ESTADO PARA EL AVISO (TOAST) ---
   const [toast, setToast] = useState<{ message: string; visible: boolean } | null>(null);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const flatListRef = useRef<FlatList>(null);
@@ -144,7 +119,6 @@ export default function ChatBotScreen() {
       const currentComm = communities.find(c => String(c.id) === String(normalizedComunidadId));
       if (currentComm && currentComm.id !== activeCommunityId) {
         setActiveCommunity(currentComm.id, currentComm.name, currentComm.address, currentComm.role);
-        setActiveCommunity(currentComm.id, currentComm.name, currentComm.address, currentComm.role);
       }
     }
   }, [normalizedComunidadId, communities, activeCommunityId, setActiveCommunity]);
@@ -170,7 +144,7 @@ export default function ChatBotScreen() {
       {
         id: `welcome-${activeCommunityId}-${authHeaderToken.slice(0, 8)}`,
         role: 'assistant',
-        content: `Hola, soy el asistente de ${activeCommunityName || "tu comunidad"}. ¿En qué puedo ayudarte?`
+        content: `Hola, soy el asistente de ${activeCommunityName || "tu comunidad"}. ¿En qué puedo ayudarte?`,
       },
     ]);
     setInput('');
@@ -186,7 +160,7 @@ export default function ChatBotScreen() {
     try {
       const response = await fetch(`${API_URL}/comunities/${normalizedComunidadId}/documents`, {
         method: 'GET',
-        headers: { 'Authorization': `Bearer ${authHeaderToken}` },
+        headers: { Authorization: `Bearer ${authHeaderToken}` },
       });
       if (!response.ok) {
         const errData = await response.json().catch(() => ({ detail: 'Error al listar' }));
@@ -217,15 +191,12 @@ export default function ChatBotScreen() {
     setInput('');
     setIsTyping(true);
 
-
     try {
       const response = await fetch(`${API_URL}/comunities/${normalizedComunidadId}/chatbot`, {
         method: 'POST',
         headers: {
-        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authHeaderToken}`
-          'Authorization': `Bearer ${authHeaderToken}`
+          Authorization: `Bearer ${authHeaderToken}`,
         },
         body: JSON.stringify({ question: userText, history: [] }),
       });
@@ -233,23 +204,21 @@ export default function ChatBotScreen() {
       if (!response.ok) throw new Error('Error en el servidor');
       const data = await response.json();
 
-      setMessages(prev => [...prev, {
-        id: `a-${Date.now()}`,
-        role: 'assistant',
-
-      setMessages(prev => [...prev, {
-        id: `a-${Date.now()}`,
-        role: 'assistant',
-        content: data.answer,
-        source: data.source,
-        disclaimer: data.disclaimer
-      }]);
+      setMessages(prev => [
+        ...prev,
+        {
+          id: `a-${Date.now()}`,
+          role: 'assistant',
+          content: data.answer,
+          source: data.source,
+          disclaimer: data.disclaimer,
+        },
+      ]);
     } catch (error: unknown) {
-      Alert.alert("Error", "No se pudo conectar con el asistente.");
+      Alert.alert('Error', 'No se pudo conectar con el asistente.');
     } finally {
       setIsTyping(false);
     }
-  }, [input, normalizedComunidadId, authHeaderToken, isTyping]);
   }, [input, normalizedComunidadId, authHeaderToken, isTyping]);
 
   const pickDocument = async () => {
@@ -264,37 +233,32 @@ export default function ChatBotScreen() {
         setDocTitle(result.assets[0].name);
       }
     } catch (err) {
-      Alert.alert("Error", "No se pudo abrir el selector de archivos");
+      Alert.alert('Error', 'No se pudo abrir el selector de archivos');
     }
   };
 
   const handleUploadDocument = async () => {
     if (!selectedFile && (!docTitle.trim() || !docContent.trim())) {
-      Alert.alert("Atención", "Escribe el contenido o selecciona un archivo PDF/TXT.");
+      Alert.alert('Atención', 'Escribe el contenido o selecciona un archivo PDF/TXT.');
       return;
     }
 
     if (!authHeaderToken) {
-      Alert.alert("Error", "No hay sesión activa.");
-      return;
-    }
-
-    if (!authHeaderToken) {
-      Alert.alert("Error", "No hay sesión activa.");
+      Alert.alert('Error', 'No hay sesión activa.');
       return;
     }
 
     setIsUploading(true);
     try {
       let body: FormData | string;
-      const headers: Record<string, string> = { 'Authorization': `Bearer ${authHeaderToken}` };
+      const headers: Record<string, string> = { Authorization: `Bearer ${authHeaderToken}` };
 
       if (selectedFile) {
         const formData = new FormData();
         if (Platform.OS === 'web') {
           const webAsset = selectedFile as DocumentPicker.DocumentPickerAsset & { file?: File };
           const fileToUpload = webAsset.file;
-          if (!fileToUpload) throw new Error("No se pudo obtener el archivo del selector.");
+          if (!fileToUpload) throw new Error('No se pudo obtener el archivo del selector.');
           formData.append('file', fileToUpload);
         } else {
           const filePayload: NativeFile = {
@@ -312,28 +276,25 @@ export default function ChatBotScreen() {
 
       const response = await fetch(`${API_URL}/comunities/${normalizedComunidadId}/documents`, {
         method: 'POST',
-        headers: headers,
-        body: body,
+        headers,
+        body,
       });
 
       if (!response.ok) {
-        const errData = await response.json().catch(() => ({ detail: "Error desconocido" }));
+        const errData = await response.json().catch(() => ({ detail: 'Error desconocido' }));
         throw new Error(errData.detail || 'Error al subir');
       }
 
       const data = await response.json();
-
-
       showToast(data.message || `"${docTitle}" indexado correctamente.`);
 
       setSelectedFile(null);
       setDocTitle('');
       setDocContent('');
       void fetchDocuments();
-
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Error al subir';
-      Alert.alert("Error", message);
+      Alert.alert('Error', message);
     } finally {
       setIsUploading(false);
     }
@@ -352,7 +313,7 @@ export default function ChatBotScreen() {
         `${API_URL}/comunities/${normalizedComunidadId}/documents?document_title=${encodeURIComponent(docToDelete)}`,
         {
           method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${authHeaderToken}` },
+          headers: { Authorization: `Bearer ${authHeaderToken}` },
         }
       );
       if (!response.ok) {
@@ -365,15 +326,14 @@ export default function ChatBotScreen() {
       setDocToDelete(null);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Error al borrar documento';
-      Alert.alert("Error", message);
+      Alert.alert('Error', message);
     } finally {
       setIsDeleting(false);
     }
   };
 
   const renderMessage = ({ item }: { item: Message }) => (
-    <View style={[styles.msgRow, { justifyContent: item.role === 'user' ? 'flex-end' : 'flex-start' }]}>
-      <View style={[styles.msgBubble, {
+    <View style={[styles.msgRow, { justifyContent: item.role === 'user' ? 'flex-end' : 'flex-start' }]}> 
       <View style={[styles.msgBubble, {
         backgroundColor: item.role === 'user' ? '#4F46E5' : '#F1F5F9',
         maxWidth: isDesktop ? '70%' : '85%',
@@ -387,19 +347,17 @@ export default function ChatBotScreen() {
         )}
         {item.disclaimer && (
           <Text style={[styles.sourceText, { marginTop: 4, color: '#EF4444' }]}>Aviso: {item.disclaimer}</Text>
-          <Text style={[styles.sourceText, { marginTop: 4, color: '#EF4444' }]}>Aviso: {item.disclaimer}</Text>
         )}
       </View>
     </View>
   );
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}> 
       <StatusBar barStyle="dark-content" />
 
-
       {toast && (
-        <Animated.View style={[styles.toastContainer, { opacity: fadeAnim }]}>
+        <Animated.View style={[styles.toastContainer, { opacity: fadeAnim }]}> 
           <CheckCircle color="#fff" size={20} />
           <Text style={styles.toastText}>{toast.message}</Text>
         </Animated.View>
@@ -425,20 +383,7 @@ export default function ChatBotScreen() {
             icon={<MessageSquare color={activeTab === 'chat' ? '#4F46E5' : '#64748B'} size={20} />}
             active={activeTab === 'chat'}
             onPress={() => setActiveTab('chat')}
-          <TabItem
-            label="Chat"
-            icon={<MessageSquare color={activeTab === 'chat' ? '#4F46E5' : '#64748B'} size={20} />}
-            active={activeTab === 'chat'}
-            onPress={() => setActiveTab('chat')}
           />
-          {isManager && (
-            <TabItem
-              label="Documentos"
-              icon={<Library color={activeTab === 'docs' ? '#4F46E5' : '#64748B'} size={20} />}
-              active={activeTab === 'docs'}
-              onPress={() => setActiveTab('docs')}
-            />
-          )}
           {isManager && (
             <TabItem
               label="Documentos"
@@ -451,10 +396,8 @@ export default function ChatBotScreen() {
       )}
 
       <KeyboardAvoidingView
-      <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <View style={{ flex: 1, flexDirection: isDesktop ? 'row' : 'column' }}>
@@ -470,12 +413,12 @@ export default function ChatBotScreen() {
                 showsVerticalScrollIndicator={isDesktop}
               />
               {isTyping && (
-                <View style={[styles.typing, { marginLeft: isDesktop ? '10%' : 20 }]}>
+                <View style={[styles.typing, { marginLeft: isDesktop ? '10%' : 20 }]}> 
                   <Sparkles color="#64748B" size={14} />
                   <Text style={styles.typingText}>Generando respuesta...</Text>
                 </View>
               )}
-              <View style={[styles.inputContainer, { paddingHorizontal: isDesktop ? '10%' : 16 }]}>
+              <View style={[styles.inputContainer, { paddingHorizontal: isDesktop ? '10%' : 16 }]}> 
                 <View style={styles.inputWrapper}>
                   <TextInput
                     style={styles.textInput}
@@ -498,12 +441,7 @@ export default function ChatBotScreen() {
           )}
 
           {isManager && (isDesktop || activeTab === 'docs') && (
-            <View style={[styles.docsPanel, { width: isDesktop ? 380 : '100%' }]}>
-              <ScrollView contentContainerStyle={styles.docsScroll} showsVerticalScrollIndicator={false}>
-                <View style={styles.docsHeader}>
-                  <FileText color="#4F46E5" size={22} />
-                  <Text style={styles.docsTitle}>Conocimiento</Text>
-                </View>
+            <View style={[styles.docsPanel, { width: isDesktop ? 380 : '100%' }]}> 
               <ScrollView contentContainerStyle={styles.docsScroll} showsVerticalScrollIndicator={false}>
                 <View style={styles.docsHeader}>
                   <FileText color="#4F46E5" size={22} />
@@ -530,26 +468,7 @@ export default function ChatBotScreen() {
                   value={docTitle}
                   onChangeText={setDocTitle}
                 />
-                <Text style={styles.label}>Título del documento</Text>
-                <TextInput
-                  style={styles.docInput}
-                  placeholder="Ej: Normas de Convivencia"
-                  value={docTitle}
-                  onChangeText={setDocTitle}
-                />
 
-                {!selectedFile && (
-                  <>
-                    <Text style={styles.label}>O pega el contenido manual</Text>
-                    <TextInput
-                      style={[styles.docInput, { flex: 1, textAlignVertical: 'top', minHeight: 120 }]}
-                      placeholder="Escribe aquí la información..."
-                      multiline
-                      value={docContent}
-                      onChangeText={setDocContent}
-                    />
-                  </>
-                )}
                 {!selectedFile && (
                   <>
                     <Text style={styles.label}>O pega el contenido manual</Text>
@@ -637,13 +556,6 @@ export default function ChatBotScreen() {
   );
 }
 
-type TabItemProps = {
-  label: string;
-  icon: React.ReactNode;
-  active: boolean;
-  onPress: () => void;
-};
-
 const TabItem = ({ label, icon, active, onPress }: TabItemProps) => (
   <TouchableOpacity onPress={onPress} style={[styles.tabItem, active && styles.activeTab]}>
     {icon}
@@ -656,10 +568,8 @@ const styles = StyleSheet.create({
   toastContainer: {
     position: 'absolute',
     top: 80,
-    top: 80,
     left: 20,
     right: 20,
-    backgroundColor: '#10B981',
     backgroundColor: '#10B981',
     padding: 16,
     borderRadius: 12,
@@ -720,13 +630,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 5,
     elevation: 2,
-    elevation: 2,
   },
   textInput: {
     flex: 1,
     fontSize: 16,
     color: '#1E293B',
-    maxHeight: 120,
     maxHeight: 120,
     paddingTop: 8,
     paddingBottom: 8,
@@ -739,12 +647,9 @@ const styles = StyleSheet.create({
     borderTopColor: '#F1F5F9',
     backgroundColor: '#fff',
     marginBottom: Platform.OS === 'android' ? 10 : 0,
-    backgroundColor: '#fff',
-    marginBottom: Platform.OS === 'android' ? 10 : 0,
   },
   sendBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
   docsPanel: { backgroundColor: '#F8FAFC', padding: 24, borderLeftWidth: 1, borderLeftColor: '#E2E8F0' },
-  docsScroll: { paddingBottom: 20 },
   docsScroll: { paddingBottom: 20 },
   docsHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   docsTitle: { fontSize: 18, fontWeight: '700', marginLeft: 10, color: '#0F172A' },
@@ -768,50 +673,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   uploadBtn: { height: 50, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  uploadBtn: { height: 50, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   uploadBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  docsDivider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 20 },
-  docsListTitle: { fontSize: 14, fontWeight: '700', color: '#0F172A', marginBottom: 8 },
-  docsLoadingRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  docsLoadingText: { marginLeft: 8, color: '#64748B', fontSize: 12 },
-  docsErrorText: { color: '#EF4444', fontSize: 12, marginBottom: 8 },
-  docsEmptyText: { color: '#94A3B8', fontSize: 12, marginBottom: 8 },
-  docRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#EEF2F7' },
-  docName: { flex: 1, color: '#1E293B', fontSize: 13, fontWeight: '600' },
-  docDeleteBtn: { padding: 6, backgroundColor: '#FEF2F2', borderRadius: 8, marginLeft: 8 },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    padding: 24,
-    borderRadius: 20,
-  },
-  modalTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A', marginBottom: 8 },
-  modalSubtitle: { fontSize: 13, color: '#64748B', marginBottom: 16 },
-  modalButtons: { flexDirection: 'row', justifyContent: 'space-between' },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: '#F1F5F9',
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginRight: 8,
-    alignItems: 'center',
-  },
-  cancelButtonText: { color: '#64748B', fontWeight: '700' },
-  submitButton: {
-    flex: 1,
-    backgroundColor: '#4F46E5',
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginLeft: 8,
-    alignItems: 'center',
-  },
-  dangerButton: { backgroundColor: '#EF4444' },
-  submitButtonText: { color: '#FFFFFF', fontWeight: '700' },
   docsDivider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 20 },
   docsListTitle: { fontSize: 14, fontWeight: '700', color: '#0F172A', marginBottom: 8 },
   docsLoadingRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
