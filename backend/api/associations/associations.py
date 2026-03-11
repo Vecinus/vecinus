@@ -72,7 +72,10 @@ def invite_admin(
 
     invitation = result.data[0]
     role_label = ROLE_LABELS.get(body.role_to_grant, "Miembro")
-    send_invitation_email(body.target_email, str(invitation["id"]), role_label)
+    auth_users = supabase_admin.auth.admin.list_users()
+    registered_emails = [user.email for user in auth_users]
+    if body.target_email not in registered_emails:
+        send_invitation_email(body.target_email, str(invitation["id"]), role_label)
 
     return invitation
 
@@ -116,7 +119,12 @@ def invite_tenant(
         raise HTTPException(status_code=500, detail="Failed to create invitation")
 
     invitation = result.data[0]
-    send_invitation_email(body.target_email, str(invitation["id"]), ROLE_LABELS[3])
+
+    auth_users = supabase_admin.auth.admin.list_users()
+    registered_emails = [user.email for user in auth_users]
+
+    if body.target_email not in registered_emails:
+        send_invitation_email(body.target_email, str(invitation["id"]), ROLE_LABELS[3])
 
     return invitation
 
