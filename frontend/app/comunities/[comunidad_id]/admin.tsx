@@ -28,11 +28,15 @@ export default function CommunityAdminScreen() {
   
   const { activeCommunityName, activeCommunityAddress, activeCommunityRole, currentUserId } = useCommunityStore() as any;
   const { deleteMember, isLoading, members, pendingInvitations, fetchMembers, fetchPendingInvitations, inviteByAdmin, roles } = useMembersStore();
-  const { availableProperties, fetchAvailableProperties } = usePropertyStore();
+  const { availableProperties, fetchAvailableProperties, addProperty } = usePropertyStore();
 
   const [modalVisible, setModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState({ id: '', name: '' });
+  const [propertyModalVisible, setPropertyModalVisible] = useState(false);
+  const [newPropertyNumber, setNewPropertyNumber] = useState('');
+  const [propertyError, setPropertyError] = useState<string | null>(null);
+  const [isAddingProperty, setIsAddingProperty] = useState(false);
   
   // Estados del formulario de invitación
   const [email, setEmail] = useState('');
@@ -108,6 +112,38 @@ export default function CommunityAdminScreen() {
       setInviteError(errorMsg || "Error al enviar la invitación. Inténtalo de nuevo.");
     }
   };
+
+  const openPropertyModal = () => {
+  setPropertyError(null);
+  setNewPropertyNumber('');
+  setPropertyModalVisible(true);
+};
+
+const closePropertyModal = () => {
+  setPropertyModalVisible(false);
+  setNewPropertyNumber('');
+  setPropertyError(null);
+};
+
+const handleCreateProperty = async () => {
+  setPropertyError(null);
+  if (!newPropertyNumber.trim()) {
+    setPropertyError("Por favor, introduce el número o identificador de la propiedad.");
+    return;
+  }
+
+  setIsAddingProperty(true);
+  const success = await addProperty(comunidad_id as string, newPropertyNumber);
+  setIsAddingProperty(false);
+
+  if (success) {
+    closePropertyModal();
+    // Refrescamos la lista de propiedades disponibles por si luego abrimos el modal de invitar
+    fetchAvailableProperties(comunidad_id as string);
+  } else {
+    setPropertyError("Error al añadir la propiedad. Revisa que no exista ya.");
+  }
+};
 
   const togglePendingSection = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -379,10 +415,70 @@ export default function CommunityAdminScreen() {
         </View>
       </Modal>
 
+      {/* NUEVO MODAL PARA AÑADIR PROPIEDAD */}
+      <Modal visible={propertyModalVisible} animationType="fade" transparent={true} onRequestClose={closePropertyModal}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            
+            <View style={styles.modalHeader}>
+              <View style={[styles.modalIconWrapper, { backgroundColor: '#D1FAE5' }]}>
+                <Home color="#059669" size={28} />
+              </View>
+              <Text style={styles.modalTitle}>Añadir Propiedad</Text>
+              <Text style={styles.modalSubtitle}>Crea una nueva propiedad para poder asignarla a un vecino.</Text>
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Número / Identificador</Text>
+              <View style={[styles.inputContainer, propertyError ? styles.inputContainerError : null]}>
+                <Home color={propertyError ? "#EF4444" : "#94A3B8"} size={20} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Ej. Puerta 4B, Local 1..."
+                  placeholderTextColor="#94A3B8"
+                  value={newPropertyNumber}
+                  onChangeText={(text) => {
+                    setNewPropertyNumber(text);
+                    if (propertyError) setPropertyError(null);
+                  }}
+                  autoCapitalize="sentences"
+                />
+              </View>
+            </View>
+
+            {propertyError && (
+              <View style={styles.errorContainer}>
+                <AlertTriangle color="#EF4444" size={16} />
+                <Text style={styles.errorText}>{propertyError}</Text>
+              </View>
+            )}
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.cancelButton} onPress={closePropertyModal}>
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.submitButton, { backgroundColor: '#059669', shadowColor: '#059669' }, isAddingProperty && { opacity: 0.7 }]} 
+                onPress={handleCreateProperty}
+                disabled={isAddingProperty}
+              >
+                {isAddingProperty ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <Text style={styles.submitButtonText}>Crear</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+            
+          </View>
+        </View>
+      </Modal>
+
+      {/* PIE DE PÁGINA ACTUALIZADO CON DOS BOTONES */}
       {isCurrentUserAdmin && (
         <View style={styles.footerContainer}>
           <TouchableOpacity 
-            style={styles.inviteButton} 
+            style={[styles.actionButton, styles.inviteButtonColor]} 
             disabled={isLoading}
             onPress={openInviteModal} 
           >
@@ -390,8 +486,23 @@ export default function CommunityAdminScreen() {
               <ActivityIndicator color="#ffffff" />
             ) : (
               <>
-                <UserPlus color="#ffffff" size={20} style={styles.inviteIcon} />
-                <Text style={styles.inviteButtonText}>Invitar Nuevo Vecino</Text>
+                <UserPlus color="#ffffff" size={18} style={styles.actionIcon} />
+                <Text style={styles.actionButtonText}>Invitar Vecino</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.propertyButtonColor]} 
+            disabled={isAddingProperty}
+            onPress={openPropertyModal} 
+          >
+            {isAddingProperty ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <>
+                <Home color="#ffffff" size={18} style={styles.actionIcon} />
+                <Text style={styles.actionButtonText}>Nueva Propiedad</Text>
               </>
             )}
           </TouchableOpacity>
@@ -515,11 +626,6 @@ const styles = StyleSheet.create({
   roleBadge: { flexDirection: 'row', alignItems: 'center' },
   memberRole: { fontSize: 13 },
   deleteButton: { padding: 10, backgroundColor: '#FEF2F2', borderRadius: 10 },
-  
-  footerContainer: {
-    position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 20,
-    paddingVertical: 16, backgroundColor: '#ffffff', borderTopWidth: 1, borderTopColor: '#E2E8F0',
-  },
   inviteButton: {
     backgroundColor: '#4F46E5', flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     paddingVertical: 16, borderRadius: 14, shadowColor: '#4F46E5', shadowOffset: { width: 0, height: 4 },
@@ -680,5 +786,24 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 16
-  }
+  },
+  footerContainer: {
+    position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 16,
+    paddingVertical: 16, backgroundColor: '#ffffff', borderTopWidth: 1, borderTopColor: '#E2E8F0',
+    flexDirection: 'row', justifyContent: 'space-between', gap: 12
+  },
+  actionButton: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 14, borderRadius: 12, elevation: 4,
+  },
+  inviteButtonColor: {
+    backgroundColor: '#4F46E5', shadowColor: '#4F46E5', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25, shadowRadius: 8,
+  },
+  propertyButtonColor: {
+    backgroundColor: '#059669', shadowColor: '#059669', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25, shadowRadius: 8,
+  },
+  actionIcon: { marginRight: 6 },
+  actionButtonText: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
 });

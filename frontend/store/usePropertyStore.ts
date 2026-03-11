@@ -9,6 +9,7 @@ export interface Property {
 interface PropertyStore {
   availableProperties: Property[];
   fetchAvailableProperties: (communityId: string) => Promise<void>;
+  addProperty: (communityId: string, number: string) => Promise<boolean>; // <-- Nueva función
 }
 
 export const usePropertyStore = create<PropertyStore>((set) => ({
@@ -32,6 +33,29 @@ export const usePropertyStore = create<PropertyStore>((set) => ({
     } catch (error) {
       console.error("Error obteniendo propiedades", error);
       set({ availableProperties: [] }); 
+    }
+  },
+  
+  // <-- NUEVA FUNCIÓN PARA AÑADIR PROPIEDAD
+  addProperty: async (communityId: string, number: string) => {
+    try {
+      const response = await fetch(`${API_URL}/${communityId}/properties`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${globalJwtToken}`
+        },
+        body: JSON.stringify({ number })
+      });
+
+      if (!response.ok) {
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Error añadiendo propiedad", error);
+      return false;
     }
   }
 }));

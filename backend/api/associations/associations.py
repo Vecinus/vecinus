@@ -3,6 +3,7 @@ from typing import List
 
 from core.deps import get_current_user, get_supabase, get_supabase_admin, get_supabase_anon
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel  # <-- NUEVO IMPORT
 from schemas.associations import (
     AcceptInvitationRequest,
     CommunityUser,
@@ -15,6 +16,14 @@ from services.email_service import ROLE_LABELS, send_invitation_email
 from supabase import Client
 
 router = APIRouter()
+
+
+# --- NUEVO MODELO PARA CREAR PROPIEDADES ---
+class CreatePropertyRequest(BaseModel):
+    number: str
+
+
+# -------------------------------------------
 
 
 @router.get("/users/me/communities", response_model=List[MembershipWithCommunity])
@@ -475,6 +484,57 @@ def get_available_properties(
     available_properties = [p for p in properties_res.data if p["id"] not in assigned_property_ids]
 
     return available_properties
+
+
+# --- NUEVO ENDPOINT PARA AÑADIR PROPIEDAD ---
+@router.post("/{association_id}/properties")
+def create_property(
+    association_id: str,
+    body: CreatePropertyRequest,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
+    """
+    Crea una nueva propiedad en la comunidad.
+    Solo accesible para Administradores o Presidentes (Roles 1 y 4).
+    """
+    admin_check = (
+        supabase.table("memberships")
+        .select("role")
+        .eq("profile_id", current_user["id"])
+        .eq("association_id", association_id)
+        .execute()
+    )
+
+    is_admin = admin_check.data and admin_check.data[0].get("role") in [1, 4]
+
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Acceso denegado. Se requiere ser Administrador o Presidente.")
+
+    # Verificar si la propiedad ya existe (opcional pero recomendado)
+    existing_prop = (
+        supabase.table("properties")
+        .select("id")
+        .eq("association_id", association_id)
+        .eq("number", body.number)
+        .execute()
+    )
+    if existing_prop.data:
+        raise HTTPException(status_code=400, detail="Esta propiedad ya existe en la comunidad.")
+
+    # Insertar la propiedad
+    insert_data = {"association_id": association_id, "number": body.number}
+
+    result = supabase_admin.table("properties").insert(insert_data).execute()
+
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Error al crear la propiedad.")
+
+    return result.data[0]
+
+
+# ---------------------------------------------
 
 
 @router.get("/{association_id}/invitations/pending")
