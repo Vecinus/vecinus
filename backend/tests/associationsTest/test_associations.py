@@ -226,15 +226,17 @@ def test_get_my_communities():
 def test_invite_admin_success():
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
     try:
-        response = client.post(
-            "/invite/admin",
-            json={
-                "association_id": mock_association_id,
-                "target_email": "newmember@test.com",
-                "role_to_grant": 4,  # PRESIDENT
-            },
-        )
+        with patch("api.associations.associations.send_invitation_email"):
+            response = client.post(
+                "/invite/admin",
+                json={
+                    "association_id": mock_association_id,
+                    "target_email": "newmember@test.com",
+                    "role_to_grant": 4,  # PRESIDENT
+                },
+            )
         assert response.status_code == 200
         data = response.json()
         assert data["target_email"] == "newmember@test.com"
@@ -289,15 +291,17 @@ def test_invite_admin_non_admin_fails():
 def test_invite_tenant_success():
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_supabase] = lambda: make_owner_supabase()
+    app.dependency_overrides[get_supabase_admin] = lambda: make_owner_supabase()
     try:
-        response = client.post(
-            "/invite/tenant",
-            json={
-                "association_id": mock_association_id,
-                "property_id": mock_property_id,
-                "target_email": "tenant@test.com",
-            },
-        )
+        with patch("api.associations.associations.send_invitation_email"):
+            response = client.post(
+                "/invite/tenant",
+                json={
+                    "association_id": mock_association_id,
+                    "property_id": mock_property_id,
+                    "target_email": "tenant@test.com",
+                },
+            )
         assert response.status_code == 200
         data = response.json()
         assert data["target_email"] == "tenant@test.com"
@@ -459,3 +463,63 @@ def test_remove_member_not_found():
         assert response.json()["detail"] == "Membership not found"
     finally:
         app.dependency_overrides.clear()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# [INTEGRACIÓN] Test manual — solo para uso interno, no se ejecuta en CI.
+# Requiere backend corriendo en localhost:8000 y .env configurado.
+# Para lanzar: descomenta la función y ejecuta:
+#   pytest tests/associationsTest/test_associations.py::test_invite_admin_real_email_and_cleanup -v
+# ──────────────────────────────────────────────────────────────────────────────
+
+# def test_invite_admin_real_email_and_cleanup():
+#     import requests
+#     from supabase import create_client, ClientOptions
+#
+#     BACKEND_URL = "http://localhost:8000"
+#     ADMIN_EMAIL = "prueba2@prueba.com"
+#     ADMIN = "prueba2"
+#     TARGET_EMAIL = "vecinusispp@gmail.com"
+#     ASSOCIATION_ID = "6aa60a59-0135-4747-870d-c65e79326e13"
+#
+#     # 1. Login como admin
+#     login_res = requests.post(
+#         f"{BACKEND_URL}/login",
+#         json={"email": ADMIN_EMAIL, "password": ADMIN},
+#     )
+#     assert login_res.status_code == 200, f"Login failed: {login_res.text}"
+#     token = login_res.json()["session"]["access_token"]
+#
+#     # 2. Enviar invitación como Presidente (role=4)
+#     invite_res = requests.post(
+#         f"{BACKEND_URL}/invite/admin",
+#         headers={"Authorization": f"Bearer {token}"},
+#         json={
+#             "target_email": TARGET_EMAIL,
+#             "association_id": ASSOCIATION_ID,
+#             "role_to_grant": 4,
+#         },
+#     )
+#     assert invite_res.status_code == 200, f"Invite failed: {invite_res.text}"
+#     invitation = invite_res.json()
+#     assert invitation["target_email"] == TARGET_EMAIL
+#     assert invitation["role_to_grant"] == 4
+#     assert invitation["status"] == 1
+#     invitation_id = invitation["id"]
+#
+#     # 3. Cleanup: borrar invitación de la BD con cliente admin
+#     # Leemos el .env real porque este fichero sobreescribe las vars con dummies al importar
+#     from pathlib import Path
+#     from dotenv import dotenv_values
+#     env = dotenv_values(Path(__file__).resolve().parents[2] / ".env")
+#     admin_client = create_client(
+#         env["SUPABASE_URL"],
+#         env["SUPABASE_SERVICE_KEY"],
+#         options=ClientOptions(schema=env.get("SUPABASE_SCHEMA", "dev")),
+#     )
+#     delete_res = admin_client.table("invitations").delete().eq("id", invitation_id).execute()
+#     assert delete_res.data is not None
+#
+#     # 4. Verificar que ya no existe
+#     check_res = admin_client.table("invitations").select("id").eq("id", invitation_id).execute()
+#     assert check_res.data == [], "La invitación no se borró correctamente"

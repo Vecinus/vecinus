@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { DrawerContentComponentProps } from "@react-navigation/drawer";
-import { useRouter, type Href } from "expo-router";
+import { useRouter, type Href, usePathname } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -32,6 +32,8 @@ interface MenuItemType {
 
 export default function SidebarMenu(props: DrawerContentComponentProps) {
   const router = useRouter();
+  const pathname = usePathname();
+
 
   const {
     activeCommunityId,
@@ -68,6 +70,12 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
     { name: "Chat", icon: "chatbubble-outline" as IconName },
     { name: "Avisos", icon: "notifications-outline" as IconName },
     { name: "Tablón", icon: "megaphone-outline" as IconName },
+    { 
+      name: "Invitaciones", 
+      icon: "mail-unread-outline" as IconName, 
+      route: "invitations", 
+      isGlobal: true 
+    },
     {
       name: "Asistente IA",
       icon: "robot-outline" as MaterialIconName,
@@ -80,8 +88,7 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
     {
       name: "Actas",
       icon: "document-text-outline" as IconName,
-      route: "actas/actas",
-      absolute: true,
+      route: "actas",
     },
     { name: "Economía", icon: "wallet-outline" as IconName },
     {
@@ -154,6 +161,19 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
                   community.role
                 );
                 setIsDropdownOpen(false);
+                if (pathname.startsWith('/comunities/')) {
+                  const pathParts = pathname.split('/');
+                  if (pathParts.length > 2) {
+                    pathParts[2] = community.id.toString(); 
+                    const newPath = pathParts.join('/');
+                    
+                    props.navigation.closeDrawer();
+                    router.replace(newPath as Href); 
+                  }
+                } else {
+                  props.navigation.closeDrawer();
+                  router.replace(`/comunities/${community.id}/admin` as Href);
+                }
               }}
             >
               <Text

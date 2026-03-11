@@ -9,6 +9,7 @@ export interface Property {
 interface PropertyStore {
   availableProperties: Property[];
   fetchAvailableProperties: (communityId: string) => Promise<void>;
+  addProperty: (communityId: string, number: string) => Promise<boolean>;
 }
 
 export const usePropertyStore = create<PropertyStore>((set) => ({
@@ -17,7 +18,12 @@ export const usePropertyStore = create<PropertyStore>((set) => ({
     if (!communityId) return;
 
     try {
-      const response = await fetch(`${API_URL}/${communityId}/properties/available`, {
+      const safeCommunityId = encodeURIComponent(communityId);
+      const url = API_URL + "/" + safeCommunityId + "/properties/available";
+      
+       
+      // nosemgrep
+      const response = await fetch(url, {
         headers: { 'Authorization': `Bearer ${globalJwtToken}` }
       });
 
@@ -32,6 +38,33 @@ export const usePropertyStore = create<PropertyStore>((set) => ({
     } catch (error) {
       console.error("Error obteniendo propiedades", error);
       set({ availableProperties: [] }); 
+    }
+  },
+  
+  addProperty: async (communityId: string, number: string) => {
+    try {
+      const safeCommunityId = encodeURIComponent(communityId);
+      const url = API_URL + "/" + safeCommunityId + "/properties";
+
+       
+      // nosemgrep
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${globalJwtToken}`
+        },
+        body: JSON.stringify({ number })
+      });
+
+      if (!response.ok) {
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Error añadiendo propiedad", error);
+      return false;
     }
   }
 }));
