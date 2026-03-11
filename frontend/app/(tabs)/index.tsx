@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { StyleSheet, TouchableOpacity, View, Platform, useWindowDimensions, useColorScheme } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, ParamListBase } from "@react-navigation/native";
 import { DrawerNavigationProp } from "@react-navigation/drawer";
 import { 
   Menu, 
@@ -8,7 +8,8 @@ import {
   MessageSquare, 
   CalendarDays, 
   BellRing,
-  ChevronRight
+  ChevronRight,
+  LucideIcon
 } from "lucide-react-native";
 
 import { HelloWave } from "@/components/hello-wave";
@@ -16,7 +17,7 @@ import ParallaxScrollView from "@/components/parallax-scroll-view";
 import { ThemedText } from "@/components/themed-text";
 
 export default function HomeScreen() {
-  const navigation = useNavigation<DrawerNavigationProp<any>>();
+  const navigation = useNavigation<DrawerNavigationProp<ParamListBase>>();
   const { width } = useWindowDimensions();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -39,7 +40,7 @@ export default function HomeScreen() {
   };
 
   // Componente de Tarjeta
-  const FeatureCard = ({ icon: Icon, title, description }: { icon: any, title: string, description: string }) => (
+  const FeatureCard = ({ icon: Icon, title, description }: { icon: LucideIcon, title: string, description: string }) => (
     <View style={[
       styles.cardContainer, 
       { backgroundColor: colors.cardBg, borderColor: colors.border }
