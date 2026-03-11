@@ -11,7 +11,6 @@ os.environ["SUPABASE_KEY"] = "dummy"
 os.environ["SUPABASE_SERVICE_KEY"] = "dummy"
 os.environ["SUPABASE_SCHEMA"] = "public"
 
-from api.chatBot import chatBot as chatbot_router_module  # noqa: E402
 from core.deps import get_current_user, get_supabase  # noqa: E402
 from main import app  # noqa: E402
 from services.chatBot.chatBotService import DISCLAIMER  # noqa: E402
@@ -103,8 +102,8 @@ def test_chatbot_pregunta_vacia_devuelve_400():
     payload = {"comunidad_id": COMMUNITY_ID, "question": "   "}
     response = client.post(f"/comunities/{COMMUNITY_ID}/chatbot", json=payload)
 
-    assert response.status_code == 400
-    assert response.json()["detail"] == "La pregunta no puede estar vacia."
+    assert response.status_code == 400  # nosec B101
+    assert response.json()["detail"] == "La pregunta no puede estar vacia."  # nosec B101
 
 
 def test_chatbot_pregunta_irrelevante_devuelve_fallback():
@@ -123,11 +122,11 @@ def test_chatbot_pregunta_irrelevante_devuelve_fallback():
         return_value=_make_mock_gemini_client(),
     ):
         response = client.post(f"/comunities/{COMMUNITY_ID}/chatbot", json=payload)
-        assert response.status_code == 200
+        assert response.status_code == 200  # nosec B101
         data = response.json()
-        assert "no he encontrado" in data["answer"].lower()
-        assert data["source"]["reference"] is None
-        assert data["disclaimer"] == DISCLAIMER
+        assert "no he encontrado" in data["answer"].lower()  # nosec B101
+        assert data["source"]["reference"] is None  # nosec B101
+        assert data["disclaimer"] == DISCLAIMER  # nosec B101
 
 
 def test_chatbot_documento_ya_existente():
@@ -154,11 +153,11 @@ def test_chatbot_documento_ya_existente():
         return_value=_make_mock_gemini_client(llm_answer="La piscina cierra a las 22:00 en verano."),
     ):
         response = client.post(f"/comunities/{COMMUNITY_ID}/chatbot", json=payload)
-        assert response.status_code == 200
+        assert response.status_code == 200  # nosec B101
         data = response.json()
-        assert "22" in data["answer"]
-        assert data["source"]["reference"] == "Estatutos.pdf"
-        assert data["disclaimer"] == DISCLAIMER
+        assert "22" in data["answer"]  # nosec B101
+        assert data["source"]["reference"] == "Estatutos.pdf"  # nosec B101
+        assert data["disclaimer"] == DISCLAIMER  # nosec B101
 
 
 def test_chatbot_flujo_completo_con_subida_documento_admin():
@@ -190,31 +189,31 @@ def test_chatbot_flujo_completo_con_subida_documento_admin():
         return_value=mock_gemini,
     ):
         upload_response = client.post(f"/comunities/{COMMUNITY_ID}/documents", files=archivos)
-        assert upload_response.status_code == 200
+        assert upload_response.status_code == 200  # nosec B101
         upload_data = upload_response.json()
-        assert "indexado con" in upload_data["message"].lower()
-        assert upload_data["chunks"] > 0
-        assert upload_data["uploaded_by"] == USER_ADMIN_ID
+        assert "indexado con" in upload_data["message"].lower()  # nosec B101
+        assert upload_data["chunks"] > 0  # nosec B101
+        assert upload_data["uploaded_by"] == USER_ADMIN_ID  # nosec B101
 
         upsert_payload = mock_pinecone.upsert.call_args.kwargs["vectors"][0]["metadata"]
-        assert upsert_payload["uploaded_by"] == USER_ADMIN_ID
-        assert upsert_payload["uploaded_by_email"] == "admin@test.com"
-        assert upsert_payload["source_filename"] == "Acta_Secreta.txt"
-        assert upsert_payload["uploaded_at"]
+        assert upsert_payload["uploaded_by"] == USER_ADMIN_ID  # nosec B101
+        assert upsert_payload["uploaded_by_email"] == "admin@test.com"  # nosec B101
+        assert upsert_payload["source_filename"] == "Acta_Secreta.txt"  # nosec B101
+        assert upsert_payload["uploaded_at"]  # nosec B101
 
         chat_payload = {
             "comunidad_id": COMMUNITY_ID,
             "question": "Quien es el nuevo presidente y cual es la clave?",
         }
         chat_response = client.post(f"/comunities/{COMMUNITY_ID}/chatbot", json=chat_payload)
-        assert chat_response.status_code == 200
+        assert chat_response.status_code == 200  # nosec B101
         data = chat_response.json()
         respuesta = data["answer"].lower()
 
-        assert "no he encontrado" not in respuesta
-        assert "gato" in respuesta
-        assert "7788" in respuesta
-        assert "Acta_Secreta.txt" in data["source"]["reference"]
+        assert "no he encontrado" not in respuesta  # nosec B101
+        assert "gato" in respuesta  # nosec B101
+        assert "7788" in respuesta  # nosec B101
+        assert "Acta_Secreta.txt" in data["source"]["reference"]  # nosec B101
 
 
 def test_upload_documento_no_admin_devuelve_403():
@@ -233,8 +232,8 @@ def test_upload_documento_no_admin_devuelve_403():
     }
 
     response = client.post(f"/comunities/{COMMUNITY_ID}/documents", files=archivos)
-    assert response.status_code == 403
-    assert response.json()["detail"] == "Admin access required for this action"
+    assert response.status_code == 403  # nosec B101
+    assert response.json()["detail"] == "Admin access required for this action"  # nosec B101
 
 
 def test_chatbot_no_envia_historial_al_backend():
@@ -251,15 +250,15 @@ def test_chatbot_no_envia_historial_al_backend():
         ),
     ) as mocked_response:
         response = client.post(f"/comunities/{COMMUNITY_ID}/chatbot", json=payload)
-        assert response.status_code == 200
+        assert response.status_code == 200  # nosec B101
 
         args = mocked_response.await_args.args
         kwargs = mocked_response.await_args.kwargs
 
         if len(args) >= 3:
-            assert args[2] is None
+            assert args[2] is None  # nosec B101
         else:
-            assert kwargs.get("history") is None
+            assert kwargs.get("history") is None  # nosec B101
 
 
 def test_listar_documentos_comunidad():
@@ -282,9 +281,9 @@ def test_listar_documentos_comunidad():
 
     with patch("api.chatBot.documents.list_documents", return_value=mocked_response) as mocked_list:
         response = client.get(f"/comunities/{COMMUNITY_ID}/documents")
-        assert response.status_code == 200
+        assert response.status_code == 200  # nosec B101
         data = response.json()
-        assert data["documents"][0] == "prueba.txt"
+        assert data["documents"][0] == "prueba.txt"  # nosec B101
         mocked_list.assert_called_once_with(COMMUNITY_ID, uploaded_by=None, limit=100)
 
 
@@ -297,10 +296,10 @@ def test_borrar_documento_admin():
 
     with patch("api.chatBot.documents.delete_document", return_value=mocked_delete_response) as mocked_delete:
         response = client.delete(f"/comunities/{COMMUNITY_ID}/documents?document_title=prueba.txt")
-        assert response.status_code == 200
+        assert response.status_code == 200  # nosec B101
         data = response.json()
-        assert data["deleted_chunks"] == 2
-        assert "eliminado" in data["message"].lower()
+        assert data["deleted_chunks"] == 2  # nosec B101
+        assert "eliminado" in data["message"].lower()  # nosec B101
         mocked_delete.assert_called_once_with(COMMUNITY_ID, "prueba.txt")
 
 
@@ -312,8 +311,8 @@ def test_borrar_documento_no_admin_devuelve_403():
     }
 
     response = client.delete(f"/comunities/{COMMUNITY_ID}/documents?document_title=prueba.txt")
-    assert response.status_code == 403
-    assert response.json()["detail"] == "Admin access required for this action"
+    assert response.status_code == 403  # nosec B101
+    assert response.json()["detail"] == "Admin access required for this action"  # nosec B101
 
 
 def test_listar_documentos_no_admin_devuelve_403():
@@ -324,5 +323,5 @@ def test_listar_documentos_no_admin_devuelve_403():
     }
 
     response = client.get(f"/comunities/{COMMUNITY_ID}/documents")
-    assert response.status_code == 403
-    assert response.json()["detail"] == "Admin access required for this action"
+    assert response.status_code == 403  # nosec B101
+    assert response.json()["detail"] == "Admin access required for this action"  # nosec B101
