@@ -2,7 +2,7 @@ import io
 from typing import Optional
 
 import pypdf
-from api.chat.chat_helpers import verify_association_admin, verify_association_membership
+from api.chat.chat_helpers import verify_association_admin
 from core.deps import get_current_user, get_supabase
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from services.chatBot.documents_ChatBotService import delete_document, index_document, list_documents

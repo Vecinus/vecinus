@@ -3,12 +3,12 @@ import {
   View, Text, TextInput, TouchableOpacity, FlatList,
   KeyboardAvoidingView, Platform, ActivityIndicator,
   Alert, useWindowDimensions, StyleSheet, StatusBar,
-  Animated, // Importamos Animated para el efecto de aparición
+  Animated, Modal, ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { 
-  Bot, Send, Sparkles, FileText, UploadCloud, 
-  Menu, MessageSquare, Library, X, CheckCircle // Añadimos CheckCircle
+import {
+  Bot, Send, Sparkles, FileText, UploadCloud,
+  Menu, MessageSquare, Library, X, CheckCircle, Trash2
 } from 'lucide-react-native';
 import { useNavigation, useLocalSearchParams, useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
@@ -16,7 +16,8 @@ import { DrawerActions } from '@react-navigation/native';
 
 // Store & Services
 import { useCommunityStore } from '@/store/useCommunityStore';
-import { API_URL } from '@/constants/api';
+import { useAuthStore } from '@/store/useAuthStore';
+import { API_URL, globalJwtToken } from '@/constants/api';
 import { loadUserCommunities } from '@/services/communityService';
 
 // --- TYPES ---
@@ -39,49 +40,59 @@ export default function ChatBotScreen() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { comunidad_id } = useLocalSearchParams();
-  
-  const normalizedComunidadId = useMemo(() => 
+
+  const normalizedComunidadId = useMemo(() =>
     Array.isArray(comunidad_id) ? comunidad_id[0] : comunidad_id
   , [comunidad_id]);
 
   const isDesktop = width >= 768;
-  const isManager = true; 
 
-  const { 
-    activeCommunityId, 
-    activeCommunityName, 
-    userToken, 
-    setActiveCommunity, 
-    communities 
+  const {
+    activeCommunityId,
+    activeCommunityName,
+    activeCommunityRole,
+    userToken,
+    setActiveCommunity,
+    communities
   } = useCommunityStore();
+
+  const { token: authToken } = useAuthStore();
+  const authHeaderToken = authToken || userToken || globalJwtToken;
+
+  const isManager = activeCommunityRole === 1;
 
   const [activeTab, setActiveTab] = useState<'chat' | 'docs'>('chat');
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  
+
   const [docTitle, setDocTitle] = useState('');
   const [docContent, setDocContent] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
 
+  const [documents, setDocuments] = useState<string[]>([]);
+  const [isDocsLoading, setIsDocsLoading] = useState(false);
+  const [docsError, setDocsError] = useState<string | null>(null);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [docToDelete, setDocToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // --- ESTADO PARA EL AVISO (TOAST) ---
   const [toast, setToast] = useState<{ message: string; visible: boolean } | null>(null);
-  const fadeAnim = useRef(new Animated.Value(0)).current; 
-  
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
   const flatListRef = useRef<FlatList>(null);
 
-  // --- LÓGICA DEL TOAST ---
+  // --- LOGICA DEL TOAST ---
   const showToast = (message: string) => {
     setToast({ message, visible: true });
-    // Animación de entrada
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 300,
       useNativeDriver: true,
     }).start();
 
-    // Desaparece tras 3 segundos
     setTimeout(() => {
       Animated.timing(fadeAnim, {
         toValue: 0,
@@ -92,16 +103,16 @@ export default function ChatBotScreen() {
   };
 
   useEffect(() => {
-    if (communities.length === 0 && userToken) {
-      loadUserCommunities(userToken);
+    if (communities.length === 0 && authHeaderToken) {
+      loadUserCommunities(authHeaderToken);
     }
-  }, [userToken]);
+  }, [authHeaderToken]);
 
   useEffect(() => {
     if (normalizedComunidadId && communities.length > 0) {
       const currentComm = communities.find(c => String(c.id) === String(normalizedComunidadId));
       if (currentComm && currentComm.id !== activeCommunityId) {
-        setActiveCommunity(currentComm.id, currentComm.name);
+        setActiveCommunity(currentComm.id, currentComm.name, currentComm.address, currentComm.role);
       }
     }
   }, [normalizedComunidadId, communities]);
@@ -115,16 +126,68 @@ export default function ChatBotScreen() {
   useEffect(() => {
     if (activeCommunityId) {
       setMessages([
-        { 
-          id: `welcome-${activeCommunityId}`, 
-          role: 'assistant', 
-          content: `👋 ¡Hola! Soy el asistente de ${activeCommunityName || "tu comunidad"}. ¿En qué puedo ayudarte?` 
+        {
+          id: `welcome-${activeCommunityId}`,
+          role: 'assistant',
+          content: `Hola, soy el asistente de ${activeCommunityName || "tu comunidad"}. ¿En qué puedo ayudarte?`
         },
       ]);
       setInput('');
       setIsTyping(false);
     }
   }, [activeCommunityId]);
+
+  useEffect(() => {
+    if (!activeCommunityId) return;
+    if (!authHeaderToken) {
+      setMessages([]);
+      setInput('');
+      setIsTyping(false);
+      setDocuments([]);
+      return;
+    }
+
+    setMessages([
+      {
+        id: `welcome-${activeCommunityId}-${authHeaderToken.slice(0, 8)}`,
+        role: 'assistant',
+        content: `Hola, soy el asistente de ${activeCommunityName || "tu comunidad"}. ¿En qué puedo ayudarte?`
+      },
+    ]);
+    setInput('');
+    setIsTyping(false);
+    setDocuments([]);
+    setDocsError(null);
+  }, [authHeaderToken, activeCommunityId, activeCommunityName]);
+
+  const fetchDocuments = useCallback(async () => {
+    if (!normalizedComunidadId || !authHeaderToken) return;
+    setIsDocsLoading(true);
+    setDocsError(null);
+    try {
+      const response = await fetch(`${API_URL}/comunities/${normalizedComunidadId}/documents`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${authHeaderToken}` },
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({ detail: 'Error al listar' }));
+        throw new Error(errData.detail || 'Error al listar documentos');
+      }
+      const data = await response.json();
+      setDocuments(Array.isArray(data.documents) ? data.documents : []);
+    } catch (error: any) {
+      setDocsError(error.message || 'Error al listar documentos');
+    } finally {
+      setIsDocsLoading(false);
+    }
+  }, [normalizedComunidadId, authHeaderToken]);
+
+  useEffect(() => {
+    if (!isManager) return;
+    if (isDesktop || activeTab === 'docs') {
+      fetchDocuments();
+    }
+  }, [isDesktop, activeTab, isManager, fetchDocuments]);
 
   const handleSend = useCallback(async () => {
     if (!input.trim() || !normalizedComunidadId || isTyping) return;
@@ -133,23 +196,23 @@ export default function ChatBotScreen() {
     setMessages(prev => [...prev, { id: `u-${Date.now()}`, role: 'user', content: userText }]);
     setInput('');
     setIsTyping(true);
-    
+
     try {
       const response = await fetch(`${API_URL}/comunities/${normalizedComunidadId}/chatbot`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${userToken}`
+          'Authorization': `Bearer ${authHeaderToken}`
         },
         body: JSON.stringify({ question: userText, history: [] }),
       });
 
       if (!response.ok) throw new Error('Error en el servidor');
       const data = await response.json();
-      
-      setMessages(prev => [...prev, { 
-        id: `a-${Date.now()}`, 
-        role: 'assistant', 
+
+      setMessages(prev => [...prev, {
+        id: `a-${Date.now()}`,
+        role: 'assistant',
         content: data.answer,
         source: data.source,
         disclaimer: data.disclaimer
@@ -159,7 +222,7 @@ export default function ChatBotScreen() {
     } finally {
       setIsTyping(false);
     }
-  }, [input, normalizedComunidadId, userToken, isTyping]);
+  }, [input, normalizedComunidadId, authHeaderToken, isTyping]);
 
   const pickDocument = async () => {
     try {
@@ -183,10 +246,15 @@ export default function ChatBotScreen() {
       return;
     }
 
+    if (!authHeaderToken) {
+      Alert.alert("Error", "No hay sesión activa.");
+      return;
+    }
+
     setIsUploading(true);
     try {
       let body: any;
-      let headers: any = { 'Authorization': `Bearer ${userToken}` };
+      let headers: any = { 'Authorization': `Bearer ${authHeaderToken}` };
 
       if (selectedFile) {
         const formData = new FormData();
@@ -219,24 +287,55 @@ export default function ChatBotScreen() {
       }
 
       const data = await response.json();
-      
-      // --- CAMBIO: MOSTRAMOS EL AVISO FLOTANTE ---
+
       showToast(data.message || `"${docTitle}" indexado correctamente.`);
 
       setSelectedFile(null);
       setDocTitle('');
       setDocContent('');
-      
+      fetchDocuments();
+
     } catch (error: any) {
       Alert.alert("Error", error.message);
     } finally {
       setIsUploading(false);
     }
   };
-  
+
+  const openDeleteModal = (title: string) => {
+    setDocToDelete(title);
+    setDeleteModalVisible(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!docToDelete || !normalizedComunidadId || !authHeaderToken) return;
+    setIsDeleting(true);
+    try {
+      const response = await fetch(
+        `${API_URL}/comunities/${normalizedComunidadId}/documents?document_title=${encodeURIComponent(docToDelete)}`,
+        {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${authHeaderToken}` },
+        }
+      );
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({ detail: 'Error al borrar' }));
+        throw new Error(errData.detail || 'Error al borrar documento');
+      }
+      setDocuments(prev => prev.filter(name => name !== docToDelete));
+      showToast(`Documento '${docToDelete}' eliminado.`);
+      setDeleteModalVisible(false);
+      setDocToDelete(null);
+    } catch (error: any) {
+      Alert.alert("Error", error.message);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const renderMessage = ({ item }: { item: Message }) => (
     <View style={[styles.msgRow, { justifyContent: item.role === 'user' ? 'flex-end' : 'flex-start' }]}>
-      <View style={[styles.msgBubble, { 
+      <View style={[styles.msgBubble, {
         backgroundColor: item.role === 'user' ? '#4F46E5' : '#F1F5F9',
         maxWidth: isDesktop ? '70%' : '85%',
       }]}>
@@ -248,7 +347,7 @@ export default function ChatBotScreen() {
           </View>
         )}
         {item.disclaimer && (
-          <Text style={[styles.sourceText, { marginTop: 4, color: '#EF4444' }]}>⚠️ {item.disclaimer}</Text>
+          <Text style={[styles.sourceText, { marginTop: 4, color: '#EF4444' }]}>Aviso: {item.disclaimer}</Text>
         )}
       </View>
     </View>
@@ -257,8 +356,7 @@ export default function ChatBotScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <StatusBar barStyle="dark-content" />
-      
-      {/* --- COMPONENTE DE AVISO FLOTANTE --- */}
+
       {toast && (
         <Animated.View style={[styles.toastContainer, { opacity: fadeAnim }]}>
           <CheckCircle color="#fff" size={20} />
@@ -281,25 +379,27 @@ export default function ChatBotScreen() {
 
       {!isDesktop && (
         <View style={styles.tabBar}>
-          <TabItem 
-            label="Chat" 
-            icon={<MessageSquare color={activeTab === 'chat' ? '#4F46E5' : '#64748B'} size={20} />} 
-            active={activeTab === 'chat'} 
-            onPress={() => setActiveTab('chat')} 
+          <TabItem
+            label="Chat"
+            icon={<MessageSquare color={activeTab === 'chat' ? '#4F46E5' : '#64748B'} size={20} />}
+            active={activeTab === 'chat'}
+            onPress={() => setActiveTab('chat')}
           />
-          <TabItem 
-            label="Documentos" 
-            icon={<Library color={activeTab === 'docs' ? '#4F46E5' : '#64748B'} size={20} />} 
-            active={activeTab === 'docs'} 
-            onPress={() => setActiveTab('docs')} 
-          />
+          {isManager && (
+            <TabItem
+              label="Documentos"
+              icon={<Library color={activeTab === 'docs' ? '#4F46E5' : '#64748B'} size={20} />}
+              active={activeTab === 'docs'}
+              onPress={() => setActiveTab('docs')}
+            />
+          )}
         </View>
       )}
 
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20} 
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <View style={{ flex: 1, flexDirection: isDesktop ? 'row' : 'column' }}>
           {(isDesktop || activeTab === 'chat') && (
@@ -329,7 +429,7 @@ export default function ChatBotScreen() {
                     placeholderTextColor="#94A3B8"
                     multiline
                   />
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     onPress={handleSend}
                     disabled={isTyping}
                     style={[styles.sendBtn, { backgroundColor: isTyping ? '#94A3B8' : '#4F46E5' }]}
@@ -343,61 +443,116 @@ export default function ChatBotScreen() {
 
           {isManager && (isDesktop || activeTab === 'docs') && (
             <View style={[styles.docsPanel, { width: isDesktop ? 380 : '100%' }]}>
-              <View style={styles.docsHeader}>
-                <FileText color="#4F46E5" size={22} />
-                <Text style={styles.docsTitle}>Conocimiento</Text>
-              </View>
+              <ScrollView contentContainerStyle={styles.docsScroll} showsVerticalScrollIndicator={false}>
+                <View style={styles.docsHeader}>
+                  <FileText color="#4F46E5" size={22} />
+                  <Text style={styles.docsTitle}>Conocimiento</Text>
+                </View>
 
-              <Text style={styles.label}>Cargar Archivo (PDF o TXT)</Text>
-              <TouchableOpacity onPress={pickDocument} style={styles.filePickerBtn}>
-                <Library color="#4F46E5" size={20} />
-                <Text style={styles.filePickerText} numberOfLines={1}>
-                  {selectedFile ? selectedFile.name : "Seleccionar documento..."}
-                </Text>
-                {selectedFile && (
-                  <TouchableOpacity onPress={() => setSelectedFile(null)}>
-                    <X color="#EF4444" size={18} />
-                  </TouchableOpacity>
-                )}
-              </TouchableOpacity>
+                <Text style={styles.label}>Cargar Archivo (PDF o TXT)</Text>
+                <TouchableOpacity onPress={pickDocument} style={styles.filePickerBtn}>
+                  <Library color="#4F46E5" size={20} />
+                  <Text style={styles.filePickerText} numberOfLines={1}>
+                    {selectedFile ? selectedFile.name : "Seleccionar documento..."}
+                  </Text>
+                  {selectedFile && (
+                    <TouchableOpacity onPress={() => setSelectedFile(null)}>
+                      <X color="#EF4444" size={18} />
+                    </TouchableOpacity>
+                  )}
+                </TouchableOpacity>
 
-              <Text style={styles.label}>Título del documento</Text>
-              <TextInput
-                style={styles.docInput}
-                placeholder="Ej: Normas de Convivencia"
-                value={docTitle}
-                onChangeText={setDocTitle}
-              />
+                <Text style={styles.label}>Título del documento</Text>
+                <TextInput
+                  style={styles.docInput}
+                  placeholder="Ej: Normas de Convivencia"
+                  value={docTitle}
+                  onChangeText={setDocTitle}
+                />
 
-              {!selectedFile && (
-                <>
-                  <Text style={styles.label}>O pega el contenido manual</Text>
-                  <TextInput
-                    style={[styles.docInput, { flex: 1, textAlignVertical: 'top', minHeight: 120 }]}
-                    placeholder="Escribe aquí la información..."
-                    multiline
-                    value={docContent}
-                    onChangeText={setDocContent}
-                  />
-                </>
-              )}
-
-              <TouchableOpacity 
-                onPress={handleUploadDocument}
-                disabled={isUploading}
-                style={[styles.uploadBtn, { backgroundColor: isUploading ? '#CBD5E1' : '#4F46E5' }]}
-              >
-                {isUploading ? <ActivityIndicator color="#fff" /> : (
+                {!selectedFile && (
                   <>
-                    <UploadCloud color="#fff" size={20} style={{ marginRight: 8 }} />
-                    <Text style={styles.uploadBtnText}>Indexar Información</Text>
+                    <Text style={styles.label}>O pega el contenido manual</Text>
+                    <TextInput
+                      style={[styles.docInput, { flex: 1, textAlignVertical: 'top', minHeight: 120 }]}
+                      placeholder="Escribe aquí la información..."
+                      multiline
+                      value={docContent}
+                      onChangeText={setDocContent}
+                    />
                   </>
                 )}
-              </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handleUploadDocument}
+                  disabled={isUploading}
+                  style={[styles.uploadBtn, { backgroundColor: isUploading ? '#CBD5E1' : '#4F46E5' }]}
+                >
+                  {isUploading ? <ActivityIndicator color="#fff" /> : (
+                    <>
+                      <UploadCloud color="#fff" size={20} style={{ marginRight: 8 }} />
+                      <Text style={styles.uploadBtnText}>Indexar Información</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                <View style={styles.docsDivider} />
+
+                <Text style={styles.docsListTitle}>Documentos subidos</Text>
+                {isDocsLoading && (
+                  <View style={styles.docsLoadingRow}>
+                    <ActivityIndicator color="#4F46E5" />
+                    <Text style={styles.docsLoadingText}>Cargando documentos...</Text>
+                  </View>
+                )}
+                {docsError && <Text style={styles.docsErrorText}>{docsError}</Text>}
+                {!isDocsLoading && !docsError && documents.length === 0 && (
+                  <Text style={styles.docsEmptyText}>No hay documentos todavía.</Text>
+                )}
+                {documents.map((name) => (
+                  <View key={name} style={styles.docRow}>
+                    <Text style={styles.docName} numberOfLines={1}>{name}</Text>
+                    <TouchableOpacity onPress={() => openDeleteModal(name)} style={styles.docDeleteBtn}>
+                      <Trash2 color="#EF4444" size={18} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
             </View>
           )}
         </View>
       </KeyboardAvoidingView>
+
+      <Modal visible={deleteModalVisible} animationType="fade" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Eliminar documento</Text>
+            <Text style={styles.modalSubtitle}>
+              ¿Seguro que quieres borrar permanentemente este documento?
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setDeleteModalVisible(false)}
+                disabled={isDeleting}
+              >
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.submitButton, styles.dangerButton]}
+                onPress={confirmDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.submitButtonText}>Eliminar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -411,13 +566,12 @@ const TabItem = ({ label, icon, active, onPress }: any) => (
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#ffffff' },
-  // --- ESTILOS DEL TOAST ---
   toastContainer: {
     position: 'absolute',
-    top: 80, // Debajo del header
+    top: 80,
     left: 20,
     right: 20,
-    backgroundColor: '#10B981', // Verde éxito
+    backgroundColor: '#10B981',
     padding: 16,
     borderRadius: 12,
     flexDirection: 'row',
@@ -476,13 +630,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 5,
-    elevation: 2, 
+    elevation: 2,
   },
   textInput: {
     flex: 1,
     fontSize: 16,
     color: '#1E293B',
-    maxHeight: 120, 
+    maxHeight: 120,
     paddingTop: 8,
     paddingBottom: 8,
     marginRight: 10,
@@ -492,11 +646,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
-    backgroundColor: '#fff', 
-    marginBottom: Platform.OS === 'android' ? 10 : 0, 
+    backgroundColor: '#fff',
+    marginBottom: Platform.OS === 'android' ? 10 : 0,
   },
   sendBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
   docsPanel: { backgroundColor: '#F8FAFC', padding: 24, borderLeftWidth: 1, borderLeftColor: '#E2E8F0' },
+  docsScroll: { paddingBottom: 20 },
   docsHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   docsTitle: { fontSize: 18, fontWeight: '700', marginLeft: 10, color: '#0F172A' },
   label: { fontSize: 13, fontWeight: '600', color: '#475569', marginBottom: 8 },
@@ -518,6 +673,48 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
   },
-  uploadBtn: { height: 50, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 'auto' },
+  uploadBtn: { height: 50, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   uploadBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  docsDivider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 20 },
+  docsListTitle: { fontSize: 14, fontWeight: '700', color: '#0F172A', marginBottom: 8 },
+  docsLoadingRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  docsLoadingText: { marginLeft: 8, color: '#64748B', fontSize: 12 },
+  docsErrorText: { color: '#EF4444', fontSize: 12, marginBottom: 8 },
+  docsEmptyText: { color: '#94A3B8', fontSize: 12, marginBottom: 8 },
+  docRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#EEF2F7' },
+  docName: { flex: 1, color: '#1E293B', fontSize: 13, fontWeight: '600' },
+  docDeleteBtn: { padding: 6, backgroundColor: '#FEF2F2', borderRadius: 8, marginLeft: 8 },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    padding: 24,
+    borderRadius: 20,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A', marginBottom: 8 },
+  modalSubtitle: { fontSize: 13, color: '#64748B', marginBottom: 16 },
+  modalButtons: { flexDirection: 'row', justifyContent: 'space-between' },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginRight: 8,
+    alignItems: 'center',
+  },
+  cancelButtonText: { color: '#64748B', fontWeight: '700' },
+  submitButton: {
+    flex: 1,
+    backgroundColor: '#4F46E5',
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginLeft: 8,
+    alignItems: 'center',
+  },
+  dangerButton: { backgroundColor: '#EF4444' },
+  submitButtonText: { color: '#FFFFFF', fontWeight: '700' },
 });
