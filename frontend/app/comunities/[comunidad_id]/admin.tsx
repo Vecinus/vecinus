@@ -373,7 +373,7 @@ const handleCreateProperty = async () => {
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.submitButton, isLoading && { opacity: 0.7 }]} 
-                onPress={() => { handleInvite(); }}
+                onPress={() => { void handleInvite(); }}
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -406,7 +406,7 @@ const handleCreateProperty = async () => {
               <TouchableOpacity style={styles.cancelButton} onPress={() => setDeleteModalVisible(false)}>
                 <Text style={styles.cancelButtonText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.submitButton, styles.dangerButton]} onPress={() => { executeDelete(); }}>
+              <TouchableOpacity style={[styles.submitButton, styles.dangerButton]} onPress={() => { void executeDelete(); }}>
                 <Text style={styles.submitButtonText}>Eliminar</Text>
               </TouchableOpacity>
             </View>
@@ -459,7 +459,7 @@ const handleCreateProperty = async () => {
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.submitButton, { backgroundColor: '#059669', shadowColor: '#059669' }, isAddingProperty && { opacity: 0.7 }]} 
-                onPress={() => { handleCreateProperty(); }}
+                onPress={() => { void handleCreateProperty(); }}
                 disabled={isAddingProperty}
               >
                 {isAddingProperty ? (

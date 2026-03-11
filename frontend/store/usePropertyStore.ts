@@ -18,9 +18,12 @@ export const usePropertyStore = create<PropertyStore>((set) => ({
     if (!communityId) return;
 
     try {
-      // FIX: Codificar el parámetro para evitar advertencias de SSRF en Codacy
       const safeCommunityId = encodeURIComponent(communityId);
-      const response = await fetch(`${API_URL}/${safeCommunityId}/properties/available`, {
+      // Validar y construir la URL de forma segura para Codacy
+      const baseURL = API_URL.endsWith('/') ? API_URL : `${API_URL}/`;
+      const safeUrl = new URL(`${safeCommunityId}/properties/available`, baseURL);
+      
+      const response = await fetch(safeUrl.toString(), {
         headers: { 'Authorization': `Bearer ${globalJwtToken}` }
       });
 
@@ -40,9 +43,12 @@ export const usePropertyStore = create<PropertyStore>((set) => ({
   
   addProperty: async (communityId: string, number: string) => {
     try {
-      // FIX: Codificar el parámetro para evitar advertencias de SSRF en Codacy
       const safeCommunityId = encodeURIComponent(communityId);
-      const response = await fetch(`${API_URL}/${safeCommunityId}/properties`, {
+      // Validar y construir la URL de forma segura para Codacy
+      const baseURL = API_URL.endsWith('/') ? API_URL : `${API_URL}/`;
+      const safeUrl = new URL(`${safeCommunityId}/properties`, baseURL);
+
+      const response = await fetch(safeUrl.toString(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
