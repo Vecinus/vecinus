@@ -43,8 +43,8 @@ export const useInvitationsStore = create<InvitationsState>((set) => ({
 
       const data = await response.json();
       set({ invitations: data, isLoading: false });
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (error: unknown) {
+      set({ error: error instanceof Error ? error.message : 'Error desconocido', isLoading: false });
     }
   },
 
@@ -70,8 +70,8 @@ export const useInvitationsStore = create<InvitationsState>((set) => ({
       await useCommunityStore.getState().fetchCommunities();
 
       return true;
-    } catch (error: any) {
-      set({ error: error.message });
+    } catch (error: unknown) {
+      set({ error: error instanceof Error ? error.message : 'Error desconocido' });
       return false;
     }
   },
@@ -102,9 +102,10 @@ export const useInvitationsStore = create<InvitationsState>((set) => ({
       }));
 
       return true;
-    } catch (error: any) {
-      console.error("Error en la petición reject:", error.message);
-      set({ error: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      console.error("Error en la petición reject:", errorMessage);
+      set({ error: errorMessage });
       return false;
     }
   },

@@ -72,8 +72,8 @@ export default function AcceptInvitationScreen() {
         router.replace('/auth/login');
       }
       
-    } catch (error: any) {
-      setErrorMessage(error.message);
+    } catch (error: unknown) {
+      setErrorMessage(error instanceof Error ? error.message : 'Error desconocido');
     } finally {
       setLoading(false);
     }
