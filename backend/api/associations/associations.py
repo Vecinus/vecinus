@@ -54,6 +54,22 @@ def invite_admin(
     if not membership.data:
         raise HTTPException(status_code=403, detail="Admin access required for this action")
 
+    # --- NUEVA VALIDACIÓN: Evitar invitaciones duplicadas ---
+    existing_invitation = (
+        supabase_admin.table("invitations")
+        .select("id")
+        .eq("target_email", body.target_email)
+        .eq("association_id", str(body.association_id))
+        .eq("status", 1)  # 1 = PENDING
+        .execute()
+    )
+
+    if existing_invitation.data:
+        raise HTTPException(
+            status_code=400, detail="Este correo ya tiene una invitación pendiente para esta comunidad."
+        )
+    # --------------------------------------------------------
+
     insert_data = {
         "target_email": body.target_email,
         "association_id": str(body.association_id),
@@ -459,3 +475,40 @@ def get_available_properties(
     available_properties = [p for p in properties_res.data if p["id"] not in assigned_property_ids]
 
     return available_properties
+
+
+@router.get("/{association_id}/invitations/pending")
+def get_pending_community_invitations(
+    association_id: str,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+    supabase_admin: Client = Depends(get_supabase_admin),  # <-- 1. Añadimos el admin client aquí
+):
+    """
+    Obtiene todas las invitaciones pendientes (status=1) para una comunidad específica.
+    Solo accesible para Administradores o Presidentes.
+    """
+    admin_check = (
+        supabase.table("memberships")
+        .select("role")
+        .eq("profile_id", current_user["id"])
+        .eq("association_id", association_id)
+        .execute()
+    )
+
+    is_admin = admin_check.data and admin_check.data[0].get("role") in [1, 4]
+
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required for this action")
+
+    # 2. Usamos supabase_admin para leer la tabla sin que el RLS nos bloquee
+    response = (
+        supabase_admin.table("invitations")
+        .select("id, target_email, role_to_grant, created_at, property_id")
+        .eq("association_id", association_id)
+        .eq("status", 1)  # 1 = PENDING
+        .order("created_at", desc=True)
+        .execute()
+    )
+
+    return response.data
