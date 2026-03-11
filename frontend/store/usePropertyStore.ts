@@ -9,7 +9,7 @@ export interface Property {
 interface PropertyStore {
   availableProperties: Property[];
   fetchAvailableProperties: (communityId: string) => Promise<void>;
-  addProperty: (communityId: string, number: string) => Promise<boolean>; // <-- Nueva función
+  addProperty: (communityId: string, number: string) => Promise<boolean>;
 }
 
 export const usePropertyStore = create<PropertyStore>((set) => ({
@@ -18,7 +18,9 @@ export const usePropertyStore = create<PropertyStore>((set) => ({
     if (!communityId) return;
 
     try {
-      const response = await fetch(`${API_URL}/${communityId}/properties/available`, {
+      // FIX: Codificar el parámetro para evitar advertencias de SSRF en Codacy
+      const safeCommunityId = encodeURIComponent(communityId);
+      const response = await fetch(`${API_URL}/${safeCommunityId}/properties/available`, {
         headers: { 'Authorization': `Bearer ${globalJwtToken}` }
       });
 
@@ -36,10 +38,11 @@ export const usePropertyStore = create<PropertyStore>((set) => ({
     }
   },
   
-  // <-- NUEVA FUNCIÓN PARA AÑADIR PROPIEDAD
   addProperty: async (communityId: string, number: string) => {
     try {
-      const response = await fetch(`${API_URL}/${communityId}/properties`, {
+      // FIX: Codificar el parámetro para evitar advertencias de SSRF en Codacy
+      const safeCommunityId = encodeURIComponent(communityId);
+      const response = await fetch(`${API_URL}/${safeCommunityId}/properties`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
