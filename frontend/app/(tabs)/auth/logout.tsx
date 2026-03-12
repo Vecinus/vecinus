@@ -40,8 +40,10 @@ export default function LogoutScreen() {
       // Fallamos silenciosamente en el backend para no bloquear al usuario
     } finally {
       setLoading(false);
+      localStorage.clear();
       // Siempre cerramos la sesión localmente
       logout();
+       // Limpiamos cualquier dato almacenado localmente
       Alert.alert('Sesión Cerrada', 'Has cerrado sesión correctamente');
       router.replace('/'); 
     }

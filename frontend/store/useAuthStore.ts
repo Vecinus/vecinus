@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { clearGlobalJwtToken, setGlobalJwtToken } from '../constants/api';
+import { useCommunityStore } from './useCommunityStore';
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -17,6 +18,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
   logout: () => {
     clearGlobalJwtToken();
+    useCommunityStore.getState().reset();
+    
     set({ isAuthenticated: false, token: null });
   },
 }));
