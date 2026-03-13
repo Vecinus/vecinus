@@ -1,4 +1,5 @@
-﻿import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+ 
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
   KeyboardAvoidingView, Platform, ActivityIndicator,
@@ -214,7 +215,7 @@ export default function ChatBotScreen() {
           disclaimer: data.disclaimer,
         },
       ]);
-    } catch (error: unknown) {
+    } catch {
       Alert.alert('Error', 'No se pudo conectar con el asistente.');
     } finally {
       setIsTyping(false);
@@ -232,7 +233,7 @@ export default function ChatBotScreen() {
         setSelectedFile(result.assets[0]);
         setDocTitle(result.assets[0].name);
       }
-    } catch (err) {
+    } catch {
       Alert.alert('Error', 'No se pudo abrir el selector de archivos');
     }
   };

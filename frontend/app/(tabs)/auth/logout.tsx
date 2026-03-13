@@ -1,15 +1,23 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { API_URL } from '@/constants/api';
+import { useThemeColor } from '@/hooks/use-theme-color';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { DrawerActions } from '@react-navigation/native';
+import { Menu } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function LogoutScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { logout, token } = useAuthStore();
   const [loading, setLoading] = useState(false);
+  const textColor = useThemeColor({}, 'text');
+  const backgroundColor = useThemeColor({}, 'background');
+  const insets = useSafeAreaInsets();
 
   const handleLogout = async () => {
     setLoading(true);
@@ -32,8 +40,10 @@ export default function LogoutScreen() {
       // Fallamos silenciosamente en el backend para no bloquear al usuario
     } finally {
       setLoading(false);
+      localStorage.clear();
       // Siempre cerramos la sesión localmente
       logout();
+       // Limpiamos cualquier dato almacenado localmente
       Alert.alert('Sesión Cerrada', 'Has cerrado sesión correctamente');
       router.replace('/'); 
     }
@@ -44,30 +54,39 @@ export default function LogoutScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="title" style={styles.title}>Cerrar Sesión</ThemedText>
-      <ThemedText style={styles.message}>¿Estás seguro de que deseas cerrar sesión?</ThemedText>
-      
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity 
-          style={[styles.button, styles.confirmButton, loading && styles.buttonDisabled]} 
-          onPress={handleLogout}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <ThemedText style={styles.buttonText}>Sí, cerrar sesión</ThemedText>
-          )}
+    <ThemedView style={[styles.container, { paddingTop: insets.top, backgroundColor }]}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())} hitSlop={10}>
+          <Menu color={textColor} size={26} />
         </TouchableOpacity>
+        <ThemedText style={styles.headerTitle}>Cerrar Sesión</ThemedText>
+        <View style={styles.headerSpacer} />
+      </View>
 
-        <TouchableOpacity 
-          style={[styles.button, styles.cancelButton]} 
-          onPress={handleCancel}
-          disabled={loading}
-        >
-          <ThemedText style={[styles.buttonText, styles.cancelButtonText]}>Cancelar</ThemedText>
-        </TouchableOpacity>
+      <View style={styles.content}>
+        <ThemedText style={styles.message}>¿Estás seguro de que deseas cerrar sesión?</ThemedText>
+        
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity 
+            style={[styles.button, styles.confirmButton, loading && styles.buttonDisabled]} 
+            onPress={handleLogout}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <ThemedText style={styles.buttonText}>Sí, cerrar sesión</ThemedText>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.button, styles.cancelButton]} 
+            onPress={handleCancel}
+            disabled={loading}
+          >
+            <ThemedText style={[styles.buttonText, styles.cancelButtonText]}>Cancelar</ThemedText>
+          </TouchableOpacity>
+        </View>
       </View>
     </ThemedView>
   );
@@ -77,11 +96,26 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
+  },
+  header: {
+    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  headerTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  headerSpacer: {
+    width: 26,
+  },
+  content: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  title: {
-    marginBottom: 20,
   },
   message: {
     fontSize: 18,

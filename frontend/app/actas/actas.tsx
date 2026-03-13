@@ -1,10 +1,11 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ScrollView,
   View,
   Text,
   Alert,
   TouchableOpacity,
+  Modal,
   StyleSheet,
   StatusBar,
   Platform,
@@ -18,8 +19,8 @@ import {
   Menu,
   FileText,
 } from "lucide-react-native";
-import { useNavigation } from "expo-router";
-import { DrawerActions } from "@react-navigation/native";
+import { useNavigation, useRouter } from "expo-router";
+import { DrawerActions, useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +42,7 @@ import { COLORS } from "@/lib/colors";
 import { MOCK_ACTAS } from "@/data/mock-actas";
 import { Acta } from "@/types/acta";
 import { API_URL } from "@/constants/api";
+import { useAuthStore } from "@/store/useAuthStore";
 
 // ─── Pantalla principal ──────────────────────────────────────────────
 
@@ -49,7 +51,9 @@ export default function ActasScreen() {
   const isPresidente = true;
   const userName = "Adrián Díaz";
   const navigation = useNavigation();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { token, isAuthenticated } = useAuthStore();
 
   // --- Estado global ---
   const [actas, setActas] = useState<Acta[]>(MOCK_ACTAS);
@@ -57,6 +61,7 @@ export default function ActasScreen() {
   const [signatureOpen, setSignatureOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [signSuccessOpen, setSignSuccessOpen] = useState(false);
+  const [authRequiredOpen, setAuthRequiredOpen] = useState(false);
   // Guarda el acta mientras el editor está abierto (el dialog del detalle se cierra)
   const editingActaRef = useRef<Acta | null>(null);
   // Guarda el acta mientras la firma está abierta (el dialog del detalle se cierra)
@@ -76,6 +81,49 @@ export default function ActasScreen() {
   const hasUploadedAudio = !!fileUri && !!fileName && isAudioFile(fileName);
   const hasUploadedNonAudio = !!fileUri && !!fileName && !isAudioFile(fileName);
   const hasAnyAudio = hasRecordedAudio || hasUploadedAudio;
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!token || !isAuthenticated) {
+        setAuthRequiredOpen(true);
+      } else {
+        setAuthRequiredOpen(false);
+      }
+    }, [token, isAuthenticated])
+  );
+
+  if (!token || !isAuthenticated) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <StatusBar barStyle="dark-content" />
+
+        <Modal
+          visible={authRequiredOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setAuthRequiredOpen(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Inicia sesión</Text>
+              <Text style={styles.modalMessage}>
+                Para acceder a las actas necesitas iniciar sesión.
+              </Text>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => {
+                  setAuthRequiredOpen(false);
+                  router.replace("/auth/login");
+                }}
+              >
+                <Text style={styles.modalButtonText}>Ir a iniciar sesión</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      </View>
+    );
+  }
 
   // --- Handlers de audio ---
 
@@ -609,5 +657,38 @@ const styles = StyleSheet.create({
     fontWeight: "300",
     lineHeight: 32,
     marginTop: -2,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.6)",
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0F172A",
+    marginBottom: 8,
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: "#475569",
+    marginBottom: 16,
+  },
+  modalButton: {
+    backgroundColor: "#3B6FD4",
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  modalButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 14,
   },
 });

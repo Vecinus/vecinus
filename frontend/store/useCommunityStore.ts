@@ -37,6 +37,7 @@ interface CommunityState {
   setCommunities: (communities: Community[]) => void; // CORRECCIÓN: Añadido para error TS2551
   setUserToken: (token: string | null) => void;      // CORRECCIÓN: Añadido para error TS2339
   fetchCommunities: () => Promise<void>;
+  reset: () => void;
 }
 
 export const useCommunityStore = create<CommunityState>((set, get) => ({
@@ -59,6 +60,17 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
   // Implementación de las nuevas funciones
   setCommunities: (communities) => set({ communities }),
   setUserToken: (token) => set({ userToken: token }),
+  reset: () => set({
+    activeCommunityId: null,
+    activeCommunityName: null,
+    activeCommunityAddress: null,
+    activeCommunityRole: null,
+    userToken: null,
+    currentUserId: undefined,
+    communities: [],
+    isLoading: false,
+    error: null,
+  }),
 
   fetchCommunities: async () => {
     set({ isLoading: true, error: null });

@@ -56,7 +56,7 @@ export default function CommunityAdminScreen() {
     if (comunidad_id) {
       fetchMembers(comunidad_id as string);
     }
-  }, [comunidad_id]);
+  }, [comunidad_id, fetchMembers]);
 
   const handleRemoveMemberClick = (membershipId: string, name: string) => {
     if (!membershipId) return;
