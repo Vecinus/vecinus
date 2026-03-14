@@ -78,7 +78,7 @@ export default function CommunityAdminScreen() {
         fetchPendingInvitations(comunidad_id as string);
       }
     }
-  }, [comunidad_id, isCurrentUserAdmin]);
+  }, [comunidad_id, isCurrentUserAdmin, fetchMembers]);
 
   const handleRemoveMemberClick = (membershipId: string, name: string) => {
     if (!membershipId) return;

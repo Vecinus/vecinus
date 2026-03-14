@@ -57,14 +57,14 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
     if (isAuthenticated) {
       fetchCommunities();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, fetchCommunities]);
 
   useEffect(() => {
     if (isAuthenticated && activeCommunityId) {
       fetchMembers(activeCommunityId);
       fetchAvailableProperties(activeCommunityId);
     }
-  }, [activeCommunityId, isAuthenticated]); 
+  }, [activeCommunityId, isAuthenticated, fetchMembers, fetchAvailableProperties]); 
 
   const menuItems: MenuItemType[] = [
     { name: "Chat", icon: "chatbubble-outline" as IconName },
