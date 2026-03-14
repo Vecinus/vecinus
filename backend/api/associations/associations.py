@@ -11,6 +11,7 @@ from schemas.associations import (
     InviteAdminRequest,
     InviteTenantRequest,
     MembershipWithCommunity,
+    UserMeResponse,
 )
 from supabase import Client, ClientOptions, create_client
 
@@ -30,6 +31,31 @@ def get_my_communities(
         .execute()
     )
     return response.data
+
+
+@router.get("/users/me", response_model=UserMeResponse)
+def get_current_user_profile(
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+):
+    profile_res = (
+        supabase.table("profiles")
+        .select("username, avatar_url, created_at")
+        .eq("id", current_user["id"])
+        .limit(1)
+        .execute()
+    )
+
+    profile_data = profile_res.data[0] if profile_res.data else {}
+
+    return {
+        "id": current_user["id"],
+        "email": current_user["email"],
+        "role": current_user["role"],
+        "username": profile_data.get("username"),
+        "avatar_url": profile_data.get("avatar_url"),
+        "created_at": profile_data.get("created_at"),
+    }
 
 
 @router.post("/invite/admin", response_model=InvitationResponse)

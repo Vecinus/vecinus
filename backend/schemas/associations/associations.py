@@ -50,3 +50,12 @@ class CommunityUser(BaseModel):
     membership_id: UUID
     username: Optional[str] = None
     role: int
+
+
+class UserMeResponse(BaseModel):
+    id: UUID
+    email: EmailStr
+    role: str
+    username: Optional[str] = None
+    avatar_url: Optional[str] = None
+    created_at: Optional[datetime] = None
