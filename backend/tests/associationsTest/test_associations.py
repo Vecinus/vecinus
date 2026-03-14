@@ -466,6 +466,100 @@ def test_remove_member_not_found():
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Test: POST /{association_id}/properties
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_create_property_success():
+    """Admin (role=1) crea una nueva propiedad exitosamente."""
+    mock_supabase = make_mock_supabase(extra={"properties": []})
+    mock_admin = make_mock_supabase(extra={"properties": []})
+
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_supabase] = lambda: mock_supabase
+    app.dependency_overrides[get_supabase_admin] = lambda: mock_admin
+    try:
+        response = client.post(
+            f"/{mock_association_id}/properties",
+            json={"number": "101"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["number"] == "101"
+        assert data["association_id"] == mock_association_id
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_create_property_president_success():
+    """Presidente (role=4) puede crear una propiedad."""
+    president_mock = MockSupabaseClient(
+        {
+            "memberships": [
+                {
+                    "id": mock_membership_id,
+                    "association_id": mock_association_id,
+                    "profile_id": mock_user_id,
+                    "role": 4,  # PRESIDENT
+                    "property_id": None,
+                }
+            ],
+            "properties": [],
+        }
+    )
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_supabase] = lambda: president_mock
+    app.dependency_overrides[get_supabase_admin] = lambda: president_mock
+    try:
+        response = client.post(
+            f"/{mock_association_id}/properties",
+            json={"number": "202"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["number"] == "202"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_create_property_non_admin_fails():
+    """Usuario sin rol admin/presidente (role=3, TENANT) recibe 403."""
+    app.dependency_overrides[get_current_user] = lambda: mock_non_owner
+    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+    try:
+        response = client.post(
+            f"/{mock_association_id}/properties",
+            json={"number": "303"},
+        )
+        assert response.status_code == 403
+        assert response.json()["detail"] == "Acceso denegado. Se requiere ser Administrador o Presidente."
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_create_property_already_exists():
+    """Devuelve 400 si ya existe una propiedad con ese número en la comunidad."""
+    existing_property = {
+        "id": str(uuid4()),
+        "association_id": mock_association_id,
+        "number": "101",
+    }
+    mock_supabase = make_mock_supabase(extra={"properties": [existing_property]})
+
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_supabase] = lambda: mock_supabase
+    try:
+        response = client.post(
+            f"/{mock_association_id}/properties",
+            json={"number": "101"},
+        )
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Esta propiedad ya existe en la comunidad."
+    finally:
+        app.dependency_overrides.clear()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # [INTEGRACIÓN] Test manual — solo para uso interno, no se ejecuta en CI.
 # Requiere backend corriendo en localhost:8000 y .env configurado.
 # Para lanzar: descomenta la función y ejecuta:
