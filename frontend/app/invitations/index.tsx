@@ -26,7 +26,7 @@ export default function PendingInvitationsScreen() {
   const [invitationToReject, setInvitationToReject] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchInvitations();
+    void fetchInvitations();
   }, []);
 
   const handleAccept = async (id: string) => {
@@ -119,7 +119,7 @@ export default function PendingInvitationsScreen() {
 
           <TouchableOpacity 
             style={[styles.btn, styles.btnAccept, isAnyProcessing && styles.btnDisabled]} 
-            onPress={() => { handleAccept(item.id); }}
+            onPress={() => { void handleAccept(item.id); }}
             disabled={isAnyProcessing}
           >
             {isAccepting ? (
@@ -187,7 +187,7 @@ export default function PendingInvitationsScreen() {
               
               <TouchableOpacity 
                 style={[styles.modalBtn, styles.modalBtnReject]} 
-                onPress={confirmReject}
+                onPress={() => {void confirmReject()}}
               >
                 <Text style={styles.modalBtnRejectText}>Rechazar</Text>
               </TouchableOpacity>

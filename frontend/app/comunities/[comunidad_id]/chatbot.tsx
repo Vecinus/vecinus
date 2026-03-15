@@ -383,14 +383,14 @@ export default function ChatBotScreen() {
             label="Chat"
             icon={<MessageSquare color={activeTab === 'chat' ? '#4F46E5' : '#64748B'} size={20} />}
             active={activeTab === 'chat'}
-            onPress={() => setActiveTab('chat')}
+            onPress={() => {setActiveTab('chat')}}
           />
           {isManager && (
             <TabItem
               label="Documentos"
               icon={<Library color={activeTab === 'docs' ? '#4F46E5' : '#64748B'} size={20} />}
               active={activeTab === 'docs'}
-              onPress={() => setActiveTab('docs')}
+              onPress={() =>{setActiveTab('docs')}}
             />
           )}
         </View>
@@ -410,7 +410,7 @@ export default function ChatBotScreen() {
                 keyExtractor={item => item.id}
                 renderItem={renderMessage}
                 contentContainerStyle={[styles.chatScroll, { paddingHorizontal: isDesktop ? '10%' : 16 }]}
-                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                onContentSizeChange={() => {flatListRef.current?.scrollToEnd({ animated: true })}}
                 showsVerticalScrollIndicator={isDesktop}
               />
               {isTyping && (
@@ -456,7 +456,7 @@ export default function ChatBotScreen() {
                     {selectedFile ? selectedFile.name : "Seleccionar documento..."}
                   </Text>
                   {selectedFile && (
-                    <TouchableOpacity onPress={() => setSelectedFile(null)}>
+                    <TouchableOpacity onPress={() => { setSelectedFile(null); }}>
                       <X color="#EF4444" size={18} />
                     </TouchableOpacity>
                   )}
@@ -512,7 +512,7 @@ export default function ChatBotScreen() {
                 {documents.map((name, idx) => (
                   <View key={`${name}-${idx}`} style={styles.docRow}>
                     <Text style={styles.docName} numberOfLines={1}>{name}</Text>
-                    <TouchableOpacity onPress={() => openDeleteModal(name)} style={styles.docDeleteBtn}>
+                    <TouchableOpacity onPress={() => { openDeleteModal(name); }} style={styles.docDeleteBtn}>
                       <Trash2 color="#EF4444" size={18} />
                     </TouchableOpacity>
                   </View>
@@ -533,7 +533,7 @@ export default function ChatBotScreen() {
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={styles.cancelButton}
-                onPress={() => setDeleteModalVisible(false)}
+                onPress={() => { setDeleteModalVisible(false); }}
                 disabled={isDeleting}
               >
                 <Text style={styles.cancelButtonText}>Cancelar</Text>
