@@ -3,9 +3,9 @@ import { ThemedView } from '@/components/themed-view';
 import { API_URL } from '@/constants/api';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useNavigation, useRouter } from 'expo-router';
+import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { DrawerActions } from '@react-navigation/native';
 import { Menu } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,9 +15,18 @@ export default function LogoutScreen() {
   const navigation = useNavigation();
   const { logout, token } = useAuthStore();
   const [loading, setLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
   const textColor = useThemeColor({}, 'text');
   const backgroundColor = useThemeColor({}, 'background');
+  const cardBackground = useThemeColor({ light: '#FFFFFF', dark: '#0F172A' }, 'background');
   const insets = useSafeAreaInsets();
+
+  useFocusEffect(
+    React.useCallback(() => {
+      setIsOpen(true);
+      return () => {};
+    }, [])
+  );
 
   const handleLogout = async () => {
     setLoading(true);
@@ -45,92 +54,122 @@ export default function LogoutScreen() {
       logout();
        // Limpiamos cualquier dato almacenado localmente
       Alert.alert('Sesión Cerrada', 'Has cerrado sesión correctamente');
+      setIsOpen(false);
       router.replace('/'); 
     }
   };
 
   const handleCancel = () => {
+    setIsOpen(false);
     router.back();
   };
 
   return (
-    <ThemedView style={[styles.container, { paddingTop: insets.top, backgroundColor }]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())} hitSlop={10}>
-          <Menu color={textColor} size={26} />
-        </TouchableOpacity>
-        <ThemedText style={styles.headerTitle}>Cerrar Sesión</ThemedText>
-        <View style={styles.headerSpacer} />
-      </View>
+    <ThemedView style={[styles.screen, { backgroundColor }]}>
+      <Modal
+        animationType="fade"
+        transparent
+        visible={isOpen}
+        onRequestClose={handleCancel}
+      >
+        <Pressable style={styles.backdrop} onPress={handleCancel}>
+          <Pressable style={[styles.card, { backgroundColor: cardBackground, paddingTop: insets.top + 12 }]}> 
+            <View style={styles.cardHeader}>
+              <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())} hitSlop={10}>
+                <Menu color={textColor} size={22} />
+              </TouchableOpacity>
+              <ThemedText style={styles.headerTitle}>Cerrar Sesión</ThemedText>
+              <TouchableOpacity onPress={handleCancel} hitSlop={10}>
+                <ThemedText style={styles.closeText}>X</ThemedText>
+              </TouchableOpacity>
+            </View>
 
-      <View style={styles.content}>
-        <ThemedText style={styles.message}>¿Estás seguro de que deseas cerrar sesión?</ThemedText>
-        
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity 
-            style={[styles.button, styles.confirmButton, loading && styles.buttonDisabled]} 
-            onPress={handleLogout}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <ThemedText style={styles.buttonText}>Sí, cerrar sesión</ThemedText>
-            )}
-          </TouchableOpacity>
+            <View style={styles.content}>
+              <Image
+                source={require('../../../assets/logos/VecinusLogotipoTransparente.png')}
+                style={styles.logo}
+                resizeMode="contain"
+              />
 
-          <TouchableOpacity 
-            style={[styles.button, styles.cancelButton]} 
-            onPress={handleCancel}
-            disabled={loading}
-          >
-            <ThemedText style={[styles.buttonText, styles.cancelButtonText]}>Cancelar</ThemedText>
-          </TouchableOpacity>
-        </View>
-      </View>
+              <ThemedText style={styles.message}>¿Estás seguro de que deseas cerrar sesión?</ThemedText>
+
+              <TouchableOpacity 
+                style={[styles.button, styles.confirmButton, loading && styles.buttonDisabled]} 
+                onPress={handleLogout}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <ThemedText style={styles.buttonText}>Sí, cerrar sesión</ThemedText>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.button, styles.cancelButton]} 
+                onPress={handleCancel}
+                disabled={loading}
+              >
+                <ThemedText style={[styles.buttonText, styles.cancelButtonText]}>Cancelar</ThemedText>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
-    padding: 20,
   },
-  header: {
-    height: 56,
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  card: {
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+    maxWidth: 420,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  cardHeader: {
+    height: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
   headerTitle: {
-    flex: 1,
     textAlign: 'center',
     fontSize: 18,
     fontWeight: '700',
   },
-  headerSpacer: {
-    width: 26,
-  },
   content: {
-    flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
+  },
+  logo: {
+    width: 140,
+    height: 54,
+    alignSelf: 'center',
+    marginBottom: 16,
   },
   message: {
-    fontSize: 18,
-    marginBottom: 40,
+    fontSize: 15,
+    marginBottom: 18,
     textAlign: 'center',
   },
-  buttonContainer: {
-    width: '100%',
-    gap: 16,
-  },
   button: {
-    padding: 16,
-    borderRadius: 8,
+    paddingVertical: 12,
+    borderRadius: 10,
     alignItems: 'center',
     width: '100%',
+    marginTop: 8,
   },
   buttonDisabled: {
     opacity: 0.7,
@@ -145,10 +184,14 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
   },
   cancelButtonText: {
     color: '#0a7ea4',
+  },
+  closeText: {
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
