@@ -147,7 +147,7 @@ export default function ActasScreen() {
     setFileName(null);
   };
 
-  const handleDeleteAudio = () =>
+  const handleDeleteAudio = () => {
     confirmAction(
       "Eliminar audio",
       "Seguro que quieres eliminar el audio?",
@@ -159,8 +159,9 @@ export default function ActasScreen() {
         );
       },
     );
+  };
 
-  const handleDeleteFile = () =>
+  const handleDeleteFile = () =>{
     confirmAction(
       "Eliminar archivo",
       "Seguro que quieres eliminar el archivo?",
@@ -172,6 +173,7 @@ export default function ActasScreen() {
         );
       },
     );
+  }
 
   const handleFileUpload = async () => {
     try {

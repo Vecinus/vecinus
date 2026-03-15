@@ -17,6 +17,8 @@ class Settings:
     SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "")
     SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
     SUPABASE_SERVICE_KEY: str = os.getenv("SUPABASE_SERVICE_KEY", "")
+    RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
+    APP_BASE_URL: str = os.getenv("APP_BASE_URL", "http://localhost:8081")
     SUPABASE_SCHEMA: str = os.getenv("SUPABASE_SCHEMA", "dev_s2")
 
 
