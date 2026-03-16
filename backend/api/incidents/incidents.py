@@ -114,11 +114,21 @@ def create_incident(
     current_user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
 ):
-    user_id = current_user["id"]
-    verify_association_membership(association_id, user_id, supabase)
-
     if body.type not in ALLOWED_TYPES:
         raise HTTPException(status_code=400, detail=f"Invalid incident type. Allowed values: {ALLOWED_TYPES}")
+
+    user_id = current_user["id"]
+    membership_res = (
+        supabase.table("memberships")
+        .select("id, role")
+        .eq("association_id", association_id)
+        .eq("profile_id", user_id)
+        .execute()
+    )
+    if not membership_res.data:
+        raise HTTPException(status_code=403, detail="User has no access to this association")
+    elif membership_res.data[0].get("role") == 1:
+        raise HTTPException(status_code=403, detail="Admins cannot create incidents")
 
     # TODO: subir la imagen a la base de datos de imágenes y obtener url
     image_url = body.image if body.image else "https://pbs.twimg.com/media/FqeeREUWwAUY0yt.jpg"
