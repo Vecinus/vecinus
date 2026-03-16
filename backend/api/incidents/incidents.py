@@ -6,7 +6,7 @@ from supabase import Client
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
 
-ALLOWED_STATUSES = {"OPEN", "IN_PROGRESS", "RESOLVED", "DISCARDED"}
+ALLOWED_STATUSES = {"OPEN", "PENDINGROGRESS", "RESOLVED", "DISCARDED"}
 ALLOWED_TYPES = {"LIGHTING", "ELECTRICITY", "ELEVATOR", "PLUMBING", "SAFETY", "WORKERS", "POOL", "OTHER"}
 
 
@@ -101,3 +101,40 @@ def get_incident(
     incident = incident_res.data[0]
 
     return incident
+
+
+@router.post("/{association_id}")
+def create_incident(
+    association_id: str,
+    body: Incident,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+):
+    user_id = current_user["id"]
+    verify_association_membership(association_id, user_id, supabase)
+
+    if body.type not in ALLOWED_TYPES:
+        raise HTTPException(status_code=400, detail=f"Invalid incident type. Allowed values: {ALLOWED_TYPES}")
+
+    # TODO: subir la imagen a la base de datos de imágenes y obtener url
+    image_url = body.image if body.image else "https://pbs.twimg.com/media/FqeeREUWwAUY0yt.jpg"
+
+    new_incident = (
+        supabase.table("incidents")
+        .insert(
+            {
+                "type": body.type,
+                "description": body.description,
+                "image": image_url,
+                "membership_id": body.membership_id,
+            }
+        )
+        .select("id")
+        .single()
+        .execute()
+    )
+    incident_id = new_incident.data.get("id")
+
+    supabase.table("incident_states").insert({"incident_id": incident_id, "status": "OPEN"}).execute()
+
+    return {"message": "Incident created successfully", "incident_id": incident_id}
