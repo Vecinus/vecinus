@@ -74,3 +74,30 @@ def get_incidents(
         incidents = [incident for incident in incidents if incident.get("membership_id") == membership_id]
 
     return incidents
+
+
+@router.get("/{association_id}/{incident_id}", response_model=Incident)
+def get_incident(
+    association_id: str,
+    incident_id: str,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+):
+    user_id = current_user["id"]
+    verify_association_membership(association_id, user_id, supabase)
+
+    incident_res = supabase.table("incidents").select("""
+                id,
+                type,
+                description,
+                created_at,
+                image,
+                membership_id,
+                incident_states(status, created_at)
+                """).eq("id", incident_id).execute()
+    if not incident_res.data:
+        raise HTTPException(status_code=404, detail="Incident not found")
+
+    incident = incident_res.data[0]
+
+    return incident
