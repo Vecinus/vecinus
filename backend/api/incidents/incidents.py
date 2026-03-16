@@ -15,6 +15,11 @@ def check_status(status: str):
         raise HTTPException(status_code=400, detail=f"Invalid status. Allowed values: {ALLOWED_STATUSES}")
 
 
+def check_type(type: str):
+    if type not in ALLOWED_TYPES:
+        raise HTTPException(status_code=400, detail=f"Invalid incident type. Allowed values: {ALLOWED_TYPES}")
+
+
 def get_latest_state(supabase: Client, incident_id: str) -> dict[str, dict]:
     if not incident_id:
         return {}
@@ -114,8 +119,8 @@ def create_incident(
     current_user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
 ):
-    if body.type not in ALLOWED_TYPES:
-        raise HTTPException(status_code=400, detail=f"Invalid incident type. Allowed values: {ALLOWED_TYPES}")
+    check_status(body.status)
+    check_type(body.type)
 
     user_id = current_user["id"]
     membership_res = (
