@@ -1,4 +1,4 @@
-from api.chat.chat_helpers import verify_association_membership
+from api.chat.chat_helpers import verify_association_admin, verify_association_membership
 from core.deps import get_current_user, get_supabase
 from fastapi import APIRouter, Depends, HTTPException
 from schemas.incidents.incidents import Incident
@@ -41,6 +41,8 @@ def get_incidents(
 ):
     user_id = current_user["id"]
     verify_association_membership(association_id, user_id, supabase)
+    if status == "DISCARDED":
+        verify_association_admin(association_id, user_id, supabase)
 
     incidents_res = supabase.table("incidents").select("""
                 id,
@@ -49,11 +51,13 @@ def get_incidents(
                 created_at,
                 image,
                 membership_id,
-                memberships(association_id)
+                memberships(association_id, role)
                 """).eq("memberships.association_id", association_id).execute()
     incidents = incidents_res.data or []
     for incident in incidents:
         latest_state = get_latest_state(supabase, incident["id"])
+        if latest_state.get("status") == "DISCARDED" and (incident.get("memberships", {}).get("role") != 1 or not mine):
+            incidents.remove(incident)
         incident["status"] = (latest_state.get("status"), latest_state.get("created_at"))
 
     if status:
