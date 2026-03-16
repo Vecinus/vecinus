@@ -6,7 +6,7 @@ from supabase import Client
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
 
-ALLOWED_STATUSES = {"OPEN", "PENDINGROGRESS", "RESOLVED", "DISCARDED"}
+ALLOWED_STATUSES = {"PENDING", "IN_PROGRESS", "RESOLVED", "DISCARDED"}
 ALLOWED_TYPES = {"LIGHTING", "ELECTRICITY", "ELEVATOR", "PLUMBING", "SAFETY", "WORKERS", "POOL", "OTHER"}
 
 
