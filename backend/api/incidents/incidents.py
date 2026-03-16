@@ -157,3 +157,29 @@ def create_incident(
     supabase.table("incident_states").insert({"incident_id": incident_id, "status": "OPEN"}).execute()
 
     return {"message": "Incident created successfully", "incident_id": incident_id}
+
+
+@router.post("/{association_id}/{incident_id}/status")
+def update_incident_status(
+    association_id: str,
+    incident_id: str,
+    status: str,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+):
+    check_status(status)
+    user_id = current_user["id"]
+    verify_association_admin(association_id, user_id, supabase)
+    latest_state = get_latest_state(supabase, incident_id)
+    if latest_state.get("status") not in {"PENDING", "IN_PROGRESS"}:
+        raise HTTPException(status_code=400, detail="Cannot update status of a resolved or discarded incident")
+    elif latest_state.get("status") == status:
+        raise HTTPException(status_code=400, detail=f"Incident is already in {status} status")
+
+    supabase.table("incident_states").insert({"incident_id": incident_id, "status": status}).execute()
+    return {
+        "message": "Incident status updated successfully",
+        "incident_id": incident_id,
+        "old_status": latest_state.get("status"),
+        "new_status": status,
+    }
