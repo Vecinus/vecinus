@@ -29,6 +29,10 @@ export default function RootLayout() {
         >
           <Drawer.Screen name="(tabs)" options={{ drawerLabel: 'Inicio' }} />
           <Drawer.Screen name="modal" options={{ drawerItemStyle: { display: 'none' } }} />
+          <Drawer.Screen
+            name="comunities/[comunidad_id]/incidencias"
+            options={{ headerShown: false }}
+          />
           
           <Drawer.Screen 
             name="comunities/[comunidad_id]/chatbot" 

@@ -1,21 +1,23 @@
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel
 
 
 class Incident(BaseModel):
-    id: UUID
+    id: Optional[UUID] = None
     type: str
     description: Optional[str] = None
-    created_at: datetime
-    image: Optional[HttpUrl] = None
+    created_at: Optional[datetime] = None
+    image_url: Optional[str] = None
     membership_id: Optional[UUID] = None
+    status: Optional[str] = None
+    incident_states: Optional[list["IncidentState"]] = None
 
 
 class IncidentState(BaseModel):
-    id: UUID
+    id: Optional[int] = None
     status: str
-    created_at: datetime
+    created_at: Optional[datetime] = None
     incident_id: Optional[UUID] = None
