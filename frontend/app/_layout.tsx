@@ -34,6 +34,11 @@ export default function RootLayout() {
             name="comunities/[comunidad_id]/chatbot" 
             options={{ headerShown: false }} 
           />
+
+          <Drawer.Screen 
+            name="comunities/[comunidad_id]/reservas" 
+            options={{ headerShown: false }} 
+          />
           
           {isAdmin ? (
             <Drawer.Screen 

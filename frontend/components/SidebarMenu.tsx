@@ -82,7 +82,7 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
       library: "MaterialCommunityIcons",
       route: "chatbot",
     },
-    { name: "Reservas", icon: "calendar-outline" as IconName },
+    { name: "Reservas", icon: "calendar-outline" as IconName, route: "reservas"},
     { name: "Votaciones", icon: "checkbox-outline" as IconName },
     { name: "Incidencias", icon: "warning-outline" as IconName },
     {
