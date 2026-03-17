@@ -1,10 +1,13 @@
+import cloudinary
 from api.chat.chat_helpers import verify_association_admin, verify_association_membership
+from core.config import settings
 from core.deps import get_current_user, get_supabase
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from schemas.incidents.incidents import Incident
 from supabase import Client
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
+cloudinary.config(cloudinary_url=settings.CLOUDINARY_URL, secure=True)
 
 ALLOWED_STATUSES = {"PENDING", "IN_PROGRESS", "RESOLVED", "DISCARDED"}
 ALLOWED_TYPES = {"LIGHTING", "ELECTRICITY", "ELEVATOR", "PLUMBING", "SAFETY", "WORKERS", "POOL", "OTHER"}
@@ -116,6 +119,7 @@ def get_incident(
 def create_incident(
     association_id: str,
     body: Incident,
+    file: UploadFile = None,
     current_user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
 ):
@@ -135,8 +139,10 @@ def create_incident(
     elif membership_res.data[0].get("role") == 1:
         raise HTTPException(status_code=403, detail="Admins cannot create incidents")
 
-    # TODO: subir la imagen a la base de datos de imágenes y obtener url
-    image_url = body.image if body.image else "https://pbs.twimg.com/media/FqeeREUWwAUY0yt.jpg"
+    image_url = None
+    if file:
+        upload = cloudinary.uploader.upload(file.file, folder=f"incidents/{association_id}")
+        image_url = upload.get("secure_url")
 
     new_incident = (
         supabase.table("incidents")
