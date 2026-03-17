@@ -2,7 +2,8 @@ import io
 
 from docx import Document
 from schemas.transcription.minutes import MinutesResponse, Task
-from services.document_service import generate_docx
+
+from backend.services.transcription.document_service import DocumentService
 
 
 def test_docx_generation_integrity():
@@ -15,7 +16,7 @@ def test_docx_generation_integrity():
         tasks=[Task(responsible="Yo", description="Test", deadline="Pronto")],
     )
 
-    buffer = generate_docx(mock_data)
+    buffer = DocumentService.generate_docx(mock_data)
 
     # Validaciones físicas del archivo
     if not isinstance(buffer, io.BytesIO):
