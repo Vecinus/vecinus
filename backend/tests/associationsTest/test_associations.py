@@ -209,14 +209,14 @@ def test_get_my_communities():
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
     try:
         response = client.get("/users/me/communities")
-        assert response.status_code == 200
+        assert response.status_code == 200  # nosec B101
         data = response.json()
-        assert isinstance(data, list)
+        assert isinstance(data, list)  # nosec B101
         # The mock filters by profile_id = mock_user_id, so only 1 matches
-        assert len(data) == 1
-        assert data[0]["association_id"] == mock_association_id
-        assert data[0]["role"] == 1
-        assert data[0]["neighborhood_associations"]["name"] == "Comunidad Test"
+        assert len(data) == 1  # nosec B101
+        assert data[0]["association_id"] == mock_association_id  # nosec B101
+        assert data[0]["role"] == 1  # nosec B101
+        assert data[0]["neighborhood_associations"]["name"] == "Comunidad Test"  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -274,20 +274,22 @@ def test_get_current_user_profile_without_profile_data():
 def test_invite_admin_success():
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
     try:
-        response = client.post(
-            "/invite/admin",
-            json={
-                "association_id": mock_association_id,
-                "target_email": "newmember@test.com",
-                "role_to_grant": 4,  # PRESIDENT
-            },
-        )
-        assert response.status_code == 200
+        with patch("api.associations.associations.send_invitation_email"):
+            response = client.post(
+                "/invite/admin",
+                json={
+                    "association_id": mock_association_id,
+                    "target_email": "newmember@test.com",
+                    "role_to_grant": 4,  # PRESIDENT
+                },
+            )
+        assert response.status_code == 200  # nosec B101
         data = response.json()
-        assert data["target_email"] == "newmember@test.com"
-        assert data["role_to_grant"] == 4
-        assert data["status"] == 1
+        assert data["target_email"] == "newmember@test.com"  # nosec B101
+        assert data["role_to_grant"] == 4  # nosec B101
+        assert data["status"] == 1  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -304,8 +306,8 @@ def test_invite_admin_cannot_grant_admin_role():
                 "role_to_grant": 1,  # ADMIN — forbidden
             },
         )
-        assert response.status_code == 400
-        assert response.json()["detail"] == "Cannot grant ADMIN role via invitation"
+        assert response.status_code == 400  # nosec B101
+        assert response.json()["detail"] == "Cannot grant ADMIN role via invitation"  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -324,7 +326,7 @@ def test_invite_admin_non_admin_fails():
                 "role_to_grant": 2,
             },
         )
-        assert response.status_code == 403
+        assert response.status_code == 403  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -337,20 +339,22 @@ def test_invite_admin_non_admin_fails():
 def test_invite_tenant_success():
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_supabase] = lambda: make_owner_supabase()
+    app.dependency_overrides[get_supabase_admin] = lambda: make_owner_supabase()
     try:
-        response = client.post(
-            "/invite/tenant",
-            json={
-                "association_id": mock_association_id,
-                "property_id": mock_property_id,
-                "target_email": "tenant@test.com",
-            },
-        )
-        assert response.status_code == 200
+        with patch("api.associations.associations.send_invitation_email"):
+            response = client.post(
+                "/invite/tenant",
+                json={
+                    "association_id": mock_association_id,
+                    "property_id": mock_property_id,
+                    "target_email": "tenant@test.com",
+                },
+            )
+        assert response.status_code == 200  # nosec B101
         data = response.json()
-        assert data["target_email"] == "tenant@test.com"
-        assert data["role_to_grant"] == 3  # TENANT
-        assert data["status"] == 1
+        assert data["target_email"] == "tenant@test.com"  # nosec B101
+        assert data["role_to_grant"] == 3  # TENANT  # nosec B101
+        assert data["status"] == 1  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -372,7 +376,7 @@ def test_invite_tenant_not_owner_fails():
                 "target_email": "tenant@test.com",
             },
         )
-        assert response.status_code == 403
+        assert response.status_code == 403  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -416,10 +420,10 @@ def test_accept_invitation_success():
                     "password": "SecurePass123!",
                 },
             )
-            assert response.status_code == 200
+            assert response.status_code == 200  # nosec B101
             data = response.json()
-            assert data["message"] == "Invitation accepted"
-            assert data["user_id"] == new_user_id
+            assert data["message"] == "Invitation accepted"  # nosec B101
+            assert data["user_id"] == new_user_id  # nosec B101
             anon_mock.auth.sign_up.assert_called_once_with({"email": "invited@test.com", "password": "SecurePass123!"})
         finally:
             app.dependency_overrides.clear()
@@ -444,8 +448,8 @@ def test_accept_invitation_not_found():
                 "password": "SomePass123!",
             },
         )
-        assert response.status_code == 404
-        assert response.json()["detail"] == "Invitation not found or already used"
+        assert response.status_code == 404  # nosec B101
+        assert response.json()["detail"] == "Invitation not found or already used"  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -462,9 +466,9 @@ def test_remove_member_success():
 
     try:
         response = client.delete(f"/members/{mock_membership_id}")
-        assert response.status_code == 200
+        assert response.status_code == 200  # nosec B101
         data = response.json()
-        assert data["message"] == f"Membership {mock_membership_id} deleted successfully"
+        assert data["message"] == f"Membership {mock_membership_id} deleted successfully"  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -476,8 +480,8 @@ def test_remove_member_not_admin_fails():
     app.dependency_overrides[get_supabase] = lambda: blocked_mock
     try:
         response = client.delete(f"/members/{mock_membership_id}")
-        assert response.status_code == 403
-        assert response.json()["detail"] == "Admin access required for this action"
+        assert response.status_code == 403  # nosec B101
+        assert response.json()["detail"] == "Admin access required for this action"  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -491,8 +495,8 @@ def test_remove_member_different_association_fails():
     app.dependency_overrides[get_supabase] = lambda: hidden_mock
     try:
         response = client.delete(f"/members/{mock_membership2_id}")
-        assert response.status_code == 404
-        assert response.json()["detail"] == "Membership not found"
+        assert response.status_code == 404  # nosec B101
+        assert response.json()["detail"] == "Membership not found"  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -503,7 +507,161 @@ def test_remove_member_not_found():
     wrong_membership_id = "33"
     try:
         response = client.delete(f"/members/{wrong_membership_id}")
-        assert response.status_code == 404
-        assert response.json()["detail"] == "Membership not found"
+        assert response.status_code == 404  # nosec B101
+        assert response.json()["detail"] == "Membership not found"  # nosec B101
     finally:
         app.dependency_overrides.clear()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Test: POST /{association_id}/properties
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_create_property_success():
+    """Admin (role=1) crea una nueva propiedad exitosamente."""
+    mock_supabase = make_mock_supabase(extra={"properties": []})
+    mock_admin = make_mock_supabase(extra={"properties": []})
+
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_supabase] = lambda: mock_supabase
+    app.dependency_overrides[get_supabase_admin] = lambda: mock_admin
+    try:
+        response = client.post(
+            f"/{mock_association_id}/properties",
+            json={"number": "101"},
+        )
+        assert response.status_code == 200  # nosec B101
+        data = response.json()
+        assert data["number"] == "101"  # nosec B101
+        assert data["association_id"] == mock_association_id  # nosec B101
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_create_property_president_success():
+    """Presidente (role=4) puede crear una propiedad."""
+    president_mock = MockSupabaseClient(
+        {
+            "memberships": [
+                {
+                    "id": mock_membership_id,
+                    "association_id": mock_association_id,
+                    "profile_id": mock_user_id,
+                    "role": 4,  # PRESIDENT
+                    "property_id": None,
+                }
+            ],
+            "properties": [],
+        }
+    )
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_supabase] = lambda: president_mock
+    app.dependency_overrides[get_supabase_admin] = lambda: president_mock
+    try:
+        response = client.post(
+            f"/{mock_association_id}/properties",
+            json={"number": "202"},
+        )
+        assert response.status_code == 200  # nosec B101
+        data = response.json()
+        assert data["number"] == "202"  # nosec B101
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_create_property_non_admin_fails():
+    """Usuario sin rol admin/presidente (role=3, TENANT) recibe 403."""
+    app.dependency_overrides[get_current_user] = lambda: mock_non_owner
+    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+    try:
+        response = client.post(
+            f"/{mock_association_id}/properties",
+            json={"number": "303"},
+        )
+        assert response.status_code == 403  # nosec B101
+        assert response.json()["detail"] == "Acceso denegado. Se requiere ser Administrador o Presidente."  # nosec B101
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_create_property_already_exists():
+    """Devuelve 400 si ya existe una propiedad con ese número en la comunidad."""
+    existing_property = {
+        "id": str(uuid4()),
+        "association_id": mock_association_id,
+        "number": "101",
+    }
+    mock_supabase = make_mock_supabase(extra={"properties": [existing_property]})
+
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_supabase] = lambda: mock_supabase
+    try:
+        response = client.post(
+            f"/{mock_association_id}/properties",
+            json={"number": "101"},
+        )
+        assert response.status_code == 400  # nosec B101
+        assert response.json()["detail"] == "Esta propiedad ya existe en la comunidad."  # nosec B101
+    finally:
+        app.dependency_overrides.clear()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# [INTEGRACIÓN] Test manual — solo para uso interno, no se ejecuta en CI.
+# Requiere backend corriendo en localhost:8000 y .env configurado.
+# Para lanzar: descomenta la función y ejecuta:
+#   pytest tests/associationsTest/test_associations.py::test_invite_admin_real_email_and_cleanup -v
+# ──────────────────────────────────────────────────────────────────────────────
+
+# def test_invite_admin_real_email_and_cleanup():
+#     import requests
+#     from supabase import create_client, ClientOptions
+#
+#     BACKEND_URL = "http://localhost:8000"
+#     ADMIN_EMAIL = "prueba2@prueba.com"
+#     ADMIN = "prueba2"
+#     TARGET_EMAIL = "vecinusispp@gmail.com"
+#     ASSOCIATION_ID = "6aa60a59-0135-4747-870d-c65e79326e13"
+#
+#     # 1. Login como admin
+#     login_res = requests.post(
+#         f"{BACKEND_URL}/login",
+#         json={"email": ADMIN_EMAIL, "password": ADMIN},
+#     )
+#     assert login_res.status_code == 200, f"Login failed: {login_res.text}"  # nosec B101
+#     token = login_res.json()["session"]["access_token"]
+#
+#     # 2. Enviar invitación como Presidente (role=4)
+#     invite_res = requests.post(
+#         f"{BACKEND_URL}/invite/admin",
+#         headers={"Authorization": f"Bearer {token}"},
+#         json={
+#             "target_email": TARGET_EMAIL,
+#             "association_id": ASSOCIATION_ID,
+#             "role_to_grant": 4,
+#         },
+#     )
+#     assert invite_res.status_code == 200, f"Invite failed: {invite_res.text}"  # nosec B101
+#     invitation = invite_res.json()
+#     assert invitation["target_email"] == TARGET_EMAIL  # nosec B101
+#     assert invitation["role_to_grant"] == 4  # nosec B101
+#     assert invitation["status"] == 1  # nosec B101
+#     invitation_id = invitation["id"]
+#
+#     # 3. Cleanup: borrar invitación de la BD con cliente admin
+#     # Leemos el .env real porque este fichero sobreescribe las vars con dummies al importar
+#     from pathlib import Path
+#     from dotenv import dotenv_values
+#     env = dotenv_values(Path(__file__).resolve().parents[2] / ".env")
+#     admin_client = create_client(
+#         env["SUPABASE_URL"],
+#         env["SUPABASE_SERVICE_KEY"],
+#         options=ClientOptions(schema=env.get("SUPABASE_SCHEMA", "dev")),
+#     )
+#     delete_res = admin_client.table("invitations").delete().eq("id", invitation_id).execute()
+#     assert delete_res.data is not None  # nosec B101
+#
+#     # 4. Verificar que ya no existe
+#     check_res = admin_client.table("invitations").select("id").eq("id", invitation_id).execute()
+#     assert check_res.data == [], "La invitación no se borró correctamente"  # nosec B101

@@ -602,7 +602,11 @@ export default function ChatBotScreen() {
                       : "Seleccionar documento..."}
                   </Text>
                   {selectedFile && (
-                    <TouchableOpacity onPress={() => setSelectedFile(null)}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSelectedFile(null);
+                      }}
+                    >
                       <X color="#EF4444" size={18} />
                     </TouchableOpacity>
                   )}
@@ -710,7 +714,9 @@ export default function ChatBotScreen() {
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={styles.cancelButton}
-                onPress={() => setDeleteModalVisible(false)}
+                onPress={() => {
+                  setDeleteModalVisible(false);
+                }}
                 disabled={isDeleting}
               >
                 <Text style={styles.cancelButtonText}>Cancelar</Text>

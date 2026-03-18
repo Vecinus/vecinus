@@ -69,7 +69,7 @@ export default function LogoutScreen() {
         <View style={styles.buttonContainer}>
           <TouchableOpacity 
             style={[styles.button, styles.confirmButton, loading && styles.buttonDisabled]} 
-            onPress={handleLogout}
+            onPress={() => { void handleLogout(); }}
             disabled={loading}
           >
             {loading ? (

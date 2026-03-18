@@ -9,14 +9,25 @@ export interface Member {
   roleName: string; 
 }
 
+export interface PendingInvitation {
+  id: string;
+  target_email: string;
+  role_to_grant: number;
+  created_at: string;
+  property_id?: string;
+}
+
 interface MembersState {
   members: Member[];
+  pendingInvitations: PendingInvitation[];
   isLoading: boolean;
   error: string | null;
   
+  roles: () => Map<number, string>;
   fetchMembers: (communityId: string) => Promise<void>;
+  fetchPendingInvitations: (communityId: string) => Promise<void>;
   fetchMemberById: (membershipId: string) => Promise<Member | null>;
-  inviteTenant: (email: string, associationId: string, propertyId: string) => Promise<boolean>;
+  inviteByAdmin: (email: string, roleToGrant: string, associationId: string, propertyId: string) => Promise<boolean>;
   deleteMember: (membershipId: string) => Promise<boolean>;
   reset: () => void;
 }
@@ -31,6 +42,7 @@ const ROLE_NAMES: Record<number, string> = {
 
 export const useMembersStore = create<MembersState>((set, get) => ({
   members: [],
+  pendingInvitations: [],
   isLoading: false,
   error: null,
 
@@ -41,8 +53,6 @@ export const useMembersStore = create<MembersState>((set, get) => ({
     try {
       const url = `${API_URL}/${communityId}/users`;
       
-      console.log(`[GET] Obteniendo miembros de: ${url}`);
-      
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -51,15 +61,12 @@ export const useMembersStore = create<MembersState>((set, get) => ({
         }
       });
 
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
 
       const data = await response.json();
 
-      const formattedMembers: Member[] = data.map((item: any) => {
+      const formattedMembers: Member[] = data.map((item: { id: string; membership_id: string; username?: string; role: string | number }) => {
         const roleId = typeof item.role === 'number' ? item.role : parseInt(item.role, 10) || 3;
-        
         return {
           id: item.id,
           membershipId: item.membership_id,
@@ -70,30 +77,37 @@ export const useMembersStore = create<MembersState>((set, get) => ({
       });
 
       formattedMembers.sort((a, b) => a.roleId - b.roleId);
-
       set({ members: formattedMembers, isLoading: false });
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error("Error en fetchMembers:", error.message);
-        set({ isLoading: false, error: error.message });
-      } else {
-        set({ isLoading: false, error: 'Ocurrió un error desconocido' });
+      set({ isLoading: false, error: error instanceof Error ? error.message : 'Error desconocido' });
+    }
+  },
+
+  fetchPendingInvitations: async (communityId) => {
+    try {
+      const url = `${API_URL}/${communityId}/invitations/pending`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${globalJwtToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        set({ pendingInvitations: data });
       }
+    } catch (error: unknown) {
+      console.error("Error fetching pending invitations:", error);
     }
   },
 
   deleteMember: async (membershipId) => {
-    if (!membershipId) {
-      console.error("Error crítico: membershipId es undefined o nulo.");
-      return false;
-    }
-
+    if (!membershipId) return false;
     set({ isLoading: true, error: null });
     try {
       const url = `${API_URL}/members/${membershipId}`;
-      
-      console.log(`[DELETE] Intentando borrar miembro en: ${url}`);
-      
       const response = await fetch(url, {
         method: 'DELETE',
         headers: {
@@ -102,32 +116,66 @@ export const useMembersStore = create<MembersState>((set, get) => ({
         }
       });
 
-      console.log(`[DELETE] Código de respuesta: ${response.status}`);
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error("[DELETE] Detalle del error del servidor:", errorData);
-        throw new Error(errorData.detail || 'Error al eliminar al miembro. Verifica tus permisos.');
+        throw new Error(errorData.detail || 'Error al eliminar al miembro.');
       }
 
-      console.log("[DELETE] Borrado exitoso en BD. Actualizando interfaz...");
       set((state) => ({
         members: state.members.filter((m) => m.membershipId !== membershipId),
         isLoading: false
       }));
-
       return true;
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error("Error atrapado en deleteMember:", error.message);
-        set({ isLoading: false, error: error.message });
-      } else {
-        set({ isLoading: false, error: 'Ocurrió un error desconocido' });
-      }
+      set({ isLoading: false, error: error instanceof Error ? error.message : 'Error desconocido' });
       return false;
     }
   },
 
   fetchMemberById: async (membershipId) => { return null; },
-  inviteTenant: async (email, associationId, propertyId) => { return true; }
+  
+  inviteByAdmin: async (email, roleToGrant, associationId, propertyId) => { 
+    try {
+      const url = `${API_URL}/invite/admin`;
+      const bodyToSend: { 
+        target_email: string;
+        role_to_grant: number; 
+        association_id: string; 
+        property_id?: string } = 
+        {
+          target_email: email,
+          role_to_grant: parseInt(roleToGrant,10),
+          association_id: associationId,
+        };
+
+      if (propertyId && propertyId !== "") bodyToSend.property_id = propertyId;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${globalJwtToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(bodyToSend)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Error al enviar invitación.');
+      }
+      return true
+    } catch (error: unknown) {
+        set({ isLoading: false, error: error instanceof Error ? error.message : 'Error desconocido' });
+        return false;
+    }
+  },
+  
+  roles: () => {
+    return new Map<number, string>([
+      [2, 'Propietario'],
+      [3, 'Inquilino'],
+      [4, 'Presidente'],
+      [5, 'Empleado']
+    ]);
+  }
 }));
