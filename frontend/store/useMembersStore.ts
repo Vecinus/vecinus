@@ -18,6 +18,7 @@ interface MembersState {
   fetchMemberById: (membershipId: string) => Promise<Member | null>;
   inviteTenant: (email: string, associationId: string, propertyId: string) => Promise<boolean>;
   deleteMember: (membershipId: string) => Promise<boolean>;
+  reset: () => void;
 }
 
 const ROLE_NAMES: Record<number, string> = {
@@ -32,6 +33,8 @@ export const useMembersStore = create<MembersState>((set, get) => ({
   members: [],
   isLoading: false,
   error: null,
+
+  reset: () => set({ members: [], isLoading: false, error: null }),
 
   fetchMembers: async (communityId) => {
     set({ isLoading: true, error: null });

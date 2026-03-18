@@ -9,10 +9,12 @@ export interface Property {
 interface PropertyStore {
   availableProperties: Property[];
   fetchAvailableProperties: (communityId: string) => Promise<void>;
+  reset: () => void;
 }
 
 export const usePropertyStore = create<PropertyStore>((set) => ({
   availableProperties: [],
+  reset: () => set({ availableProperties: [] }),
   fetchAvailableProperties: async (communityId: string) => {
     if (!communityId) return;
 
