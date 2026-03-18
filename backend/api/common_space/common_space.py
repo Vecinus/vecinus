@@ -38,7 +38,7 @@ def verify_association_admin_or_president(association_id: UUID, user_id: str, su
 
 
 @router.post("/{association_id}", response_model=CommonSpace, status_code=status.HTTP_201_CREATED)
-def create_common_space_endpoint(
+def create_common_space(
     association_id: UUID,
     payload: CommonSpaceCreate,
     current_user: dict = Depends(get_current_user),
@@ -49,7 +49,7 @@ def create_common_space_endpoint(
 
 
 @router.get("/{association_id}", response_model=List[CommonSpace])
-def list_common_spaces_endpoint(
+def list_common_spaces(
     association_id: UUID,
     current_user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
@@ -59,7 +59,7 @@ def list_common_spaces_endpoint(
 
 
 @router.get("/{association_id}/{common_space_id}", response_model=CommonSpace)
-def get_common_space_endpoint(
+def get_common_space(
     association_id: UUID,
     common_space_id: int,
     current_user: dict = Depends(get_current_user),
@@ -70,7 +70,7 @@ def get_common_space_endpoint(
 
 
 @router.put("/{association_id}/{common_space_id}", response_model=CommonSpace)
-def update_common_space_endpoint(
+def update_common_space(
     association_id: UUID,
     common_space_id: int,
     payload: CommonSpaceUpdate,
@@ -82,7 +82,7 @@ def update_common_space_endpoint(
 
 
 @router.delete("/{association_id}/{common_space_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_common_space_endpoint(
+def delete_common_space(
     association_id: UUID,
     common_space_id: int,
     current_user: dict = Depends(get_current_user),
