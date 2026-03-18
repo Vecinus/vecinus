@@ -44,9 +44,18 @@ jobs:
         run: |
           pip-compile --resolver=backtracking --output-file backend/requirements.txt backend/requirements.in
           if ! git diff --exit-code -- backend/requirements.txt; then
-            echo "::error::backend/requirements.txt is out of date with backend/requirements.in"
-            echo "Run: pip-compile --resolver=backtracking --output-file backend/requirements.txt backend/requirements.in"
-            exit 1
+            # pip-compile annotations can vary across OSes (Windows/Linux) while
+            # package pins remain identical. We only fail on substantive changes.
+            if git diff -U0 -- backend/requirements.txt \
+              | grep -E '^[+-]' \
+              | grep -vE '^(\+\+\+|---)' \
+              | grep -vE '^[+-][[:space:]]*(#.*)?$'; then
+              echo "::error::backend/requirements.txt is out of date with backend/requirements.in"
+              echo "Run: pip-compile --resolver=backtracking --output-file backend/requirements.txt backend/requirements.in"
+              exit 1
+            fi
+
+            echo "Only annotation/comment differences detected in requirements.txt; continuing."
           fi
 
   backend-resolution-check:

@@ -32,6 +32,21 @@ Si CI falla en `backend-lock-consistency`:
 pip-compile --resolver=backtracking --output-file backend/requirements.txt backend/requirements.in
 ```
 
+Para reproducir exactamente el check del CI (Linux, bash):
+
+```bash
+pip-compile --resolver=backtracking --output-file backend/requirements.txt backend/requirements.in
+if ! git diff --exit-code -- backend/requirements.txt; then
+	if git diff -U0 -- backend/requirements.txt \
+		| grep -E '^[+-]' \
+		| grep -vE '^(\+\+\+|---)' \
+		| grep -vE '^[+-][[:space:]]*(#.*)?$'; then
+		echo "backend/requirements.txt is out of date with backend/requirements.in"
+		exit 1
+	fi
+fi
+```
+
 ## Frontend rapido
 
 Archivos:

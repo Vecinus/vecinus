@@ -45,6 +45,42 @@ Si falla `backend-lock-consistency`:
 1. Causa: `requirements.txt` no coincide con `requirements.in`.
 2. Solucion: recompilar lock y hacer commit.
 
+Comando exacto del CI (runner Linux, bash):
+
+```bash
+pip-compile --resolver=backtracking --output-file backend/requirements.txt backend/requirements.in
+if ! git diff --exit-code -- backend/requirements.txt; then
+   if git diff -U0 -- backend/requirements.txt \
+      | grep -E '^[+-]' \
+      | grep -vE '^(\+\+\+|---)' \
+      | grep -vE '^[+-][[:space:]]*(#.*)?$'; then
+      echo "backend/requirements.txt is out of date with backend/requirements.in"
+      exit 1
+   fi
+   echo "Only annotation/comment differences detected in requirements.txt; continuing."
+fi
+```
+
+Variante local en Windows (PowerShell):
+
+```powershell
+pip-compile --resolver=backtracking --output-file backend/requirements.txt backend/requirements.in
+$diff = git diff -U0 -- backend/requirements.txt
+if ($LASTEXITCODE -ne 0) {
+   $substantive = $diff |
+      Select-String '^[+-]' |
+      Where-Object { $_ -notmatch '^(\+\+\+|---)' } |
+      Where-Object { $_ -notmatch '^[+-]\s*(#.*)?$' }
+
+   if ($substantive) {
+      Write-Error "backend/requirements.txt is out of date with backend/requirements.in"
+      exit 1
+   }
+
+   Write-Host "Only annotation/comment differences detected in requirements.txt; continuing."
+}
+```
+
 Si falla `backend-resolution-check`:
 1. Causa: conflicto de dependencias o import roto.
 2. Solucion:
