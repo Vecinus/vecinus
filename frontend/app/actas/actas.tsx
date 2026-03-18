@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   ScrollView,
   View,
@@ -89,7 +89,7 @@ export default function ActasScreen() {
       } else {
         setAuthRequiredOpen(false);
       }
-    }, [token, isAuthenticated])
+    }, [token, isAuthenticated]),
   );
 
   if (!token || !isAuthenticated) {
