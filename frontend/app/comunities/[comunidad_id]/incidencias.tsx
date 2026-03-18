@@ -482,6 +482,16 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
       return;
     }
 
+    if (description.length < 10) {
+      Alert.alert('Descripción muy corta', 'La descripción debe tener al menos 10 caracteres.');
+      return;
+    }
+
+    if (description.length > 500) {
+      Alert.alert('Descripción muy larga', 'La descripción no puede exceder 500 caracteres.');
+      return;
+    }
+
     if (!token || !normalizedComunidadId) {
       Alert.alert('Error', 'No se encontro sesion activa para crear la incidencia.');
       return;
@@ -846,93 +856,104 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
               </View>
             ) : null}
 
-            <Text style={styles.sectionLabel}>Estado actual</Text>
-            <View style={styles.dropdownFieldWrap}>
-              <TouchableOpacity
-                style={styles.statusDropdown}
-                onPress={() => canManageStatus && setStatusMenuOpen((prev) => !prev)}
-                activeOpacity={canManageStatus ? 0.85 : 1}
-              >
-                <Text style={styles.statusDropdownText}>{INCIDENT_STATUS_LABEL[draftStatus]}</Text>
-                <Animated.View
-                  style={{
-                    transform: [
-                      {
-                        rotate: statusMenuAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: ['0deg', '180deg'],
-                        }),
-                      },
-                    ],
-                  }}
-                >
-                  <ChevronDown color="#64748B" size={20} />
-                </Animated.View>
-              </TouchableOpacity>
-
-              {renderStatusMenu && canManageStatus ? (
-                <Animated.View
-                  style={[
-                    styles.statusPickerCard,
-                    styles.dropdownMenuOverlay,
-                    {
-                      opacity: statusMenuAnim,
-                      transform: [
-                        {
-                          translateY: statusMenuAnim.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [-8, 0],
-                          }),
-                        },
-                        {
-                          scaleY: statusMenuAnim.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0.92, 1],
-                          }),
-                        },
-                      ],
-                    },
-                  ]}
-                >
-                  <ScrollView
-                    style={styles.dropdownScroll}
-                    contentContainerStyle={styles.dropdownScrollContent}
-                    showsVerticalScrollIndicator
-                    persistentScrollbar
-                    nestedScrollEnabled
-                    indicatorStyle="black"
+            {canManageStatus ? (
+              <>
+                <Text style={styles.sectionLabel}>Estado actual</Text>
+                <View style={styles.dropdownFieldWrap}>
+                  <TouchableOpacity
+                    style={[
+                      styles.statusDropdown,
+                      !canManageStatus && styles.statusDropdownDisabled,
+                    ]}
+                    onPress={() => canManageStatus && setStatusMenuOpen((prev) => !prev)}
+                    activeOpacity={canManageStatus ? 0.85 : 1}
+                    disabled={!canManageStatus}
                   >
-                    {STATUS_ORDER.filter((status) => canManageStatus || status !== 'rechazada').map((status) => {
-                      const selected = draftStatus === status;
-                      return (
-                        <TouchableOpacity
-                          key={`detail-${status}`}
-                          style={[
-                            styles.statusPickerItem,
-                            selected && {
-                              backgroundColor: '#2CC9BB',
+                    <Text style={[
+                      styles.statusDropdownText,
+                      !canManageStatus && styles.statusDropdownTextDisabled,
+                    ]}>{INCIDENT_STATUS_LABEL[draftStatus]}</Text>
+                    <Animated.View
+                      style={{
+                        transform: [
+                          {
+                            rotate: statusMenuAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: ['0deg', '180deg'],
+                            }),
+                          },
+                        ],
+                      }}
+                    >
+                      <ChevronDown color={canManageStatus ? "#64748B" : "#94A3B8"} size={20} />
+                    </Animated.View>
+                  </TouchableOpacity>
+
+                  {renderStatusMenu && canManageStatus ? (
+                    <Animated.View
+                      style={[
+                        styles.statusPickerCard,
+                        styles.dropdownMenuOverlay,
+                        {
+                          opacity: statusMenuAnim,
+                          transform: [
+                            {
+                              translateY: statusMenuAnim.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [-8, 0],
+                              }),
                             },
-                          ]}
-                          onPress={() => {
-                            setDraftStatus(status);
-                            setStatusMenuOpen(false);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.statusPickerText,
-                              selected && { color: '#083344', fontWeight: '700' },
-                            ]}
-                          >
-                            {INCIDENT_STATUS_LABEL[status]}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                </Animated.View>
-              ) : null}
-            </View>
+                            {
+                              scaleY: statusMenuAnim.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [0.92, 1],
+                              }),
+                            },
+                          ],
+                        },
+                      ]}
+                    >
+                      <ScrollView
+                        style={styles.dropdownScroll}
+                        contentContainerStyle={styles.dropdownScrollContent}
+                        showsVerticalScrollIndicator
+                        persistentScrollbar
+                        nestedScrollEnabled
+                        indicatorStyle="black"
+                      >
+                        {STATUS_ORDER.filter((status) => canManageStatus || status !== 'rechazada').map((status) => {
+                          const selected = draftStatus === status;
+                          return (
+                            <TouchableOpacity
+                              key={`detail-${status}`}
+                              style={[
+                                styles.statusPickerItem,
+                                selected && {
+                                  backgroundColor: '#2CC9BB',
+                                },
+                              ]}
+                              onPress={() => {
+                                setDraftStatus(status);
+                                setStatusMenuOpen(false);
+                              }}
+                            >
+                              <Text
+                                style={[
+                                  styles.statusPickerText,
+                                  selected && { color: '#083344', fontWeight: '700' },
+                                ]}
+                              >
+                                {INCIDENT_STATUS_LABEL[status]}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </ScrollView>
+                    </Animated.View>
+                  ) : null}
+                </View>
+              </>
+            ) : null}
 
             <Text style={styles.sectionLabel}>Historial de estados</Text>
             <View style={styles.historyList}>
@@ -1520,10 +1541,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 10,
   },
+  statusDropdownDisabled: {
+    opacity: 0.5,
+    borderColor: '#CBD5E1',
+  },
   statusDropdownText: {
     color: '#0F172A',
     fontSize: 16,
     fontWeight: '500',
+  },
+  statusDropdownTextDisabled: {
+    color: '#94A3B8',
   },
   historyList: {
     gap: 12,

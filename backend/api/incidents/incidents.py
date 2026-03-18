@@ -127,7 +127,7 @@ def get_incident(
                 type,
                 description,
                 created_at,
-                image,
+                image_url,
                 membership_id,
                 incident_states(status, created_at)
                 """).eq("id", incident_id).execute()

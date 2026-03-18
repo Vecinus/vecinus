@@ -120,6 +120,7 @@ const mapIncident = (
     reporterName: memberData?.userName || 'Vecino',
     createdAt: item.created_at || new Date().toISOString(),
     status, // Ya es un valor como 'PENDING'
+    image_url: item.image_url || undefined,
   };
 };
 
