@@ -161,7 +161,7 @@ export default function ActasScreen() {
     );
   };
 
-  const handleDeleteFile = () =>{
+  const handleDeleteFile = () => {
     confirmAction(
       "Eliminar archivo",
       "Seguro que quieres eliminar el archivo?",
@@ -173,7 +173,7 @@ export default function ActasScreen() {
         );
       },
     );
-  }
+  };
 
   const handleFileUpload = async () => {
     try {
@@ -202,7 +202,28 @@ export default function ActasScreen() {
   };
 
   const handleGenerate = async () => {
-    if (!title || !hasAnyAudio) return;
+    const trimmedTitle = (title || "").trim();
+    const missingTitle = !trimmedTitle;
+    const missingAudio = !hasAnyAudio;
+
+    if (missingTitle || missingAudio) {
+      let message =
+        "Debes introducir un nombre para el acta y subir o grabar un audio.";
+
+      if (missingTitle && !missingAudio) {
+        message = "Debes introducir un nombre para el acta.";
+      } else if (!missingTitle && missingAudio) {
+        message = "Debes subir o grabar un audio.";
+      }
+
+      if (Platform.OS === "web") {
+        window.alert(message);
+      } else {
+        Alert.alert("Datos incompletos", message);
+      }
+      return;
+    }
+
     setGenerating(true);
 
     try {
@@ -470,7 +491,7 @@ export default function ActasScreen() {
                   <Button
                     className="w-full mt-2"
                     style={{ backgroundColor: COLORS.primaryHex }}
-                    disabled={!title || !hasAnyAudio || generating}
+                    disabled={generating}
                     onPress={() => {
                       handleGenerate();
                     }}
