@@ -274,7 +274,12 @@ def test_get_current_user_profile_without_profile_data():
 def test_invite_admin_success():
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
-    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
+
+    admin_mock = make_mock_supabase()
+    admin_mock.auth = MagicMock()
+    admin_mock.auth.admin.list_users = MagicMock(return_value=[])
+    app.dependency_overrides[get_supabase_admin] = lambda: admin_mock
+
     try:
         with patch("api.associations.associations.send_invitation_email"):
             response = client.post(
@@ -339,7 +344,12 @@ def test_invite_admin_non_admin_fails():
 def test_invite_tenant_success():
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_supabase] = lambda: make_owner_supabase()
-    app.dependency_overrides[get_supabase_admin] = lambda: make_owner_supabase()
+
+    admin_mock = make_owner_supabase()
+    admin_mock.auth = MagicMock()
+    admin_mock.auth.admin.list_users = MagicMock(return_value=[])
+    app.dependency_overrides[get_supabase_admin] = lambda: admin_mock
+
     try:
         with patch("api.associations.associations.send_invitation_email"):
             response = client.post(
@@ -392,41 +402,39 @@ def test_accept_invitation_success():
     mock_session = MagicMock()
     mock_session.access_token = "fake-jwt-token"
 
-    mock_new_user = MagicMock()
-    mock_new_user.id = new_user_id
+    mock_auth_user = MagicMock()
+    mock_auth_user.id = new_user_id
 
     mock_auth_response = MagicMock()
-    mock_auth_response.user = mock_new_user
+    mock_auth_response.user = mock_auth_user
     mock_auth_response.session = mock_session
 
     anon_mock = make_mock_supabase()
     anon_mock.auth = MagicMock()
-    anon_mock.auth.sign_up = MagicMock(return_value=mock_auth_response)
+    anon_mock.auth.sign_in_with_password = MagicMock(return_value=mock_auth_response)
 
-    # Mock the user-scoped client created inside the endpoint after sign_up
-    user_client_mock = make_mock_supabase()
-    user_client_mock.postgrest = MagicMock()
+    admin_mock = make_mock_supabase()
+    admin_mock.auth = MagicMock()
 
     app.dependency_overrides[get_supabase_anon] = lambda: anon_mock
-    with patch(
-        "api.associations.associations.create_client",
-        return_value=user_client_mock,
-    ):
-        try:
-            response = client.post(
-                "/auth/accept-invitation",
-                json={
-                    "invitation_token": mock_invitation_id,
-                    "password": "SecurePass123!",
-                },
-            )
-            assert response.status_code == 200  # nosec B101
-            data = response.json()
-            assert data["message"] == "Invitation accepted"  # nosec B101
-            assert data["user_id"] == new_user_id  # nosec B101
-            anon_mock.auth.sign_up.assert_called_once_with({"email": "invited@test.com", "password": "SecurePass123!"})
-        finally:
-            app.dependency_overrides.clear()
+    app.dependency_overrides[get_supabase_admin] = lambda: admin_mock
+    try:
+        response = client.post(
+            "/auth/accept-invitation",
+            json={
+                "invitation_token": mock_invitation_id,
+                "password": "SecurePass123!",
+            },
+        )
+        assert response.status_code == 200  # nosec B101
+        data = response.json()
+        assert data["message"] == "Invitación aceptada con éxito"  # nosec B101
+        assert data["user_id"] == new_user_id  # nosec B101
+        anon_mock.auth.sign_in_with_password.assert_called_once_with(
+            {"email": "invited@test.com", "password": "SecurePass123!"}
+        )
+    finally:
+        app.dependency_overrides.clear()
 
 
 def test_accept_invitation_not_found():
@@ -449,7 +457,7 @@ def test_accept_invitation_not_found():
             },
         )
         assert response.status_code == 404  # nosec B101
-        assert response.json()["detail"] == "Invitation not found or already used"  # nosec B101
+        assert response.json()["detail"] == "La invitación no existe o ya ha sido utilizada"  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
