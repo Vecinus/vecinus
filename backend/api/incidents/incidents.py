@@ -60,24 +60,17 @@ def get_incidents(
                 created_at,
                 image_url,
                 membership_id,
-                memberships(association_id, role)
+                memberships(association_id, role),
+                incident_states(status, created_at)
                 """).eq("memberships.association_id", association_id).execute()
     
     incidents = incidents_res.data or []
-    filtered_incidents = []
     for incident in incidents:
         latest_state = get_latest_state(supabase, incident["id"])
-        normalized_latest_status = check_status(latest_state.get("status") or "PENDING")
-        membership_data = incident.get("memberships") or {}
-        membership_role = membership_data.get("role") if isinstance(membership_data, dict) else None
-
-        if normalized_latest_status == "DISCARDED" and (membership_role != 1 or not mine):
-            continue
-
-        incident["status"] = normalized_latest_status
-        filtered_incidents.append(incident)
-
-    incidents = filtered_incidents
+        incident_status = latest_state.get("status") or "PENDING"
+        if incident_status == "DISCARDED" and (incident.get("memberships", {}).get("role") != 1 or not mine):
+            incidents.remove(incident)
+        incident["status"] = incident_status
 
     if status:
         check_status(status)

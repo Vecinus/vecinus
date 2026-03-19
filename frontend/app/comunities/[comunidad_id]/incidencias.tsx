@@ -14,6 +14,7 @@ import {
   TextInput,
   Alert,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useNavigation, useRouter, type Href } from 'expo-router';
@@ -140,6 +141,8 @@ export default function IncidenciasScreen() {
   const [myIncidencias, setMyIncidencias] = useState<Incident[]>([]);
   const [incidentContext, setIncidentContext] = useState<IncidentContext | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterStatus>('todas');
+  const [isLoadingIncidents, setIsLoadingIncidents] = useState(false);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -204,16 +207,47 @@ export default function IncidenciasScreen() {
 
     const loadIncidencias = async () => {
       try {
+        setIsLoadingIncidents(true);
+        // Cargar todas las incidencias (sin DISCARDED)
         const result = await listIncidents(String(normalizedComunidadId), token);
+        
         if (!cancelled) {
-          setIncidencias(result.incidents);
+          // Cargar también incidencias DISCARDED del usuario
+          const myResult = await listMyIncidents(String(normalizedComunidadId), token);
+          const discardedOnly = myResult.incidents.filter((i) => i.status === 'DISCARDED');
+          
+          // Combinar: todas las incidencias + incidencias DISCARDED del usuario
+          const allIncidencias = [...result.incidents, ...discardedOnly];
+          
+          setIncidencias(allIncidencias);
           setIncidentContext(result.context);
         }
       } catch (error) {
         if (!cancelled) {
           setIncidencias([]);
-          const message = error instanceof Error ? error.message : 'No se pudieron cargar las incidencias.';
-          Alert.alert('Error', message);
+          let errorTitle = 'Error';
+          let errorMessage = 'No se pudieron cargar las incidencias.';
+          
+          if (error instanceof Error) {
+            // Si el error viene del backend con formato específico
+            if (error.message.includes('404')) {
+              errorTitle = 'No encontrado';
+              errorMessage = 'La comunidad o sus incidencias no fueron encontradas.';
+            } else if (error.message.includes('403')) {
+              errorTitle = 'Acceso denegado';
+              errorMessage = 'No tienes permisos para ver las incidencias de esta comunidad.';
+            } else if (error.message.includes('500')) {
+              errorTitle = 'Error del servidor';
+              errorMessage = 'El servidor está experimentando problemas. Intenta más tarde.';
+            } else {
+              errorMessage = error.message;
+            }
+          }
+          Alert.alert(errorTitle, errorMessage);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingIncidents(false);
         }
       }
     };
@@ -241,8 +275,24 @@ export default function IncidenciasScreen() {
         }
       } catch (error) {
         if (!cancelled) {
-          const message = error instanceof Error ? error.message : 'No se pudieron cargar tus incidencias.';
-          Alert.alert('Error', message);
+          let errorTitle = 'Error';
+          let errorMessage = 'No se pudieron cargar tus incidencias.';
+          
+          if (error instanceof Error) {
+            if (error.message.includes('404')) {
+              errorTitle = 'No encontrado';
+              errorMessage = 'No tienes incidencias registradas aún.';
+            } else if (error.message.includes('403')) {
+              errorTitle = 'Acceso denegado';
+              errorMessage = 'No tienes permisos para ver tus incidencias.';
+            } else if (error.message.includes('500')) {
+              errorTitle = 'Error del servidor';
+              errorMessage = 'El servidor está experimentando problemas. Intenta más tarde.';
+            } else {
+              errorMessage = error.message;
+            }
+          }
+          Alert.alert(errorTitle, errorMessage);
         }
       }
     };
@@ -393,6 +443,7 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
     setIncidentHistory(buildFallbackIncidentHistory(incident));
     setStatusMenuOpen(false);
     setDetailModalOpen(true);
+    setIsLoadingDetail(true);
 
     if (!normalizedComunidadId || !token) return;
 
@@ -406,8 +457,26 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
       setDraftStatus(normalizeStatus(detailIncident.status));
       setIncidentHistory(history);
     } catch (error) {
-      console.error('Error loading incident detail:', error);
       // Keep initial data if detail endpoint fails
+      // Silently fail - but log for debugging
+      let errorTitle = 'Error al cargar detalles';
+      let errorContext = 'No se pudieron cargar los detalles de la incidencia';
+      if (error instanceof Error) {
+        if (error.message.includes('404')) {
+          errorTitle = 'No encontrado';
+          errorContext = 'La incidencia no fue encontrada.';
+        } else if (error.message.includes('403')) {
+          errorTitle = 'Acceso denegado';
+          errorContext = 'No tienes permisos para acceder a esta incidencia.';
+        } else if (error.message.includes('500')) {
+          errorTitle = 'Error del servidor';
+          errorContext = 'El servidor está experimentando problemas. Intenta más tarde.';
+        }
+        console.error('Error loading incident detail:', error.message);
+      }
+      Alert.alert(errorTitle, errorContext);
+    } finally {
+      setIsLoadingDetail(false);
     }
   };
 
@@ -464,9 +533,39 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
       ]);
 
       setDetailModalOpen(false);
+      Alert.alert(
+        '✅ Estado actualizado',
+        `La incidencia ha sido marcada como: ${INCIDENT_STATUS_LABEL[draftStatus]}\n\nSe han guardado los cambios correctamente.`,
+        [{ text: 'Ok', style: 'default' }]
+      );
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'No se pudo actualizar el estado.';
-      Alert.alert('Error', message);
+      let errorTitle = 'Error al actualizar estado';
+      let errorMessage = 'No se pudo actualizar el estado. Intenta de nuevo.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('403')) {
+          errorTitle = 'Acceso denegado';
+          errorMessage = 'Solo los administradores pueden cambiar el estado de las incidencias.';
+        } else if (error.message.includes('400')) {
+          errorTitle = 'Cambio no permitido';
+          if (error.message.includes('already')) {
+            errorMessage = 'La incidencia ya está en ese estado.';
+          } else if (error.message.includes('resolved') || error.message.includes('discarded')) {
+            errorMessage = 'No puedes cambiar el estado de una incidencia resuelta o rechazada.';
+          } else {
+            errorMessage = error.message;
+          }
+        } else if (error.message.includes('500')) {
+          errorTitle = 'Error del servidor';
+          errorMessage = 'El servidor está experimentando problemas. Intenta más tarde.';
+        } else if (error.message.includes('Network')) {
+          errorTitle = 'Error de conexión';
+          errorMessage = 'No se pudo conectar al servidor. Verifica tu conexión a internet.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      Alert.alert(errorTitle, errorMessage);
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -481,18 +580,19 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
 
       if (!result.canceled && result.assets?.[0]) {
         const asset = result.assets[0];
-        console.log('📁 Archivo seleccionado:', {
-          name: asset.name,
-          uri: asset.uri,
-          mimeType: asset.mimeType,
-          file: (asset as any).file ? 'Tiene file property' : 'Sin file property',
-        });
         setNewImageAsset(asset);
         setNewImageName(asset.name);
       }
     } catch (error) {
       console.error('Error en pickImage:', error);
-      Alert.alert('Error', 'No se pudo seleccionar la imagen');
+      let errorMessage = 'No se pudo seleccionar la imagen';
+      if (error instanceof Error) {
+        if (error.message.includes('cancelled')) {
+          return; // Usuario canceló la selección
+        }
+        errorMessage = error.message;
+      }
+      Alert.alert('Error al seleccionar imagen', errorMessage);
     }
   };
 
@@ -500,22 +600,22 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
     const description = newDescription.trim();
 
     if (!newType || !description) {
-      Alert.alert('Campos incompletos', 'Selecciona un tipo y completa la descripcion.');
+      Alert.alert('Campos incompletos', 'Por favor selecciona un tipo de incidencia y completa la descripción.');
       return;
     }
 
     if (description.length < 10) {
-      Alert.alert('Descripción muy corta', 'La descripción debe tener al menos 10 caracteres.');
+      Alert.alert('Descripción muy corta', 'La descripción debe tener al menos 10 caracteres para ser suficientemente descriptiva.');
       return;
     }
 
     if (description.length > 500) {
-      Alert.alert('Descripción muy larga', 'La descripción no puede exceder 500 caracteres.');
+      Alert.alert('Descripción muy larga', 'La descripción no puede exceder 500 caracteres. Por favor sé más conciso.');
       return;
     }
 
     if (!token || !normalizedComunidadId) {
-      Alert.alert('Error', 'No se encontro sesion activa para crear la incidencia.');
+      Alert.alert('Sesión expirada', 'No se encontró una sesión activa. Por favor, inicia sesión nuevamente.');
       return;
     }
 
@@ -551,9 +651,34 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
       setNewDescription('');
       setNewImageName(null);
       setNewImageAsset(null);
+      
+      Alert.alert(
+        '✅ Incidencia creada',
+        'Tu reporte ha sido registrado correctamente.\n\nEl equipo de administración lo revisará pronto y te notificará cualquier actualización.',
+        [{ text: 'Ok', style: 'default' }]
+      );
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'No se pudo crear la incidencia.';
-      Alert.alert('Error', message);
+      let errorTitle = 'Error al crear incidencia';
+      let errorMessage = 'No se pudo crear la incidencia. Intenta de nuevo.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('403')) {
+          errorTitle = 'Acceso denegado';
+          errorMessage = 'No tienes permiso para crear incidencias en esta comunidad.';
+        } else if (error.message.includes('400')) {
+          errorTitle = 'Datos inválidos';
+          errorMessage = error.message;
+        } else if (error.message.includes('500')) {
+          errorTitle = 'Error del servidor';
+          errorMessage = 'El servidor está experimentando problemas. Intenta más tarde.';
+        } else if (error.message.includes('Network')) {
+          errorTitle = 'Error de conexión';
+          errorMessage = 'No se pudo conectar al servidor. Verifica tu conexión a internet.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      Alert.alert(errorTitle, errorMessage);
     } finally {
       setIsSubmittingIncident(false);
     }
@@ -676,17 +801,19 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <View style={styles.emptyStateIcon}>
-                <AlertTriangle color="#64748B" size={22} />
+            isLoadingIncidents ? (
+              <View style={styles.emptyState}>
+                <ActivityIndicator size="large" color="#2563EB" />
+                <Text style={[styles.emptyTitle, { marginTop: 16 }]}>Cargando incidencias...</Text>
               </View>
-                <Text style={styles.emptyTitle}>No hay incidencias en {filterTabs.find((tab) => tab.key === activeFilter)?.label.toLowerCase()}</Text>
-              <Text style={styles.emptySubtitle}>Puedes cambiar el filtro o crear una incidencia nueva para mantener el seguimiento.</Text>
-              <TouchableOpacity style={styles.emptyStateButton} onPress={() => setCreateModalOpen(true)}>
-                <Plus color="#FFFFFF" size={16} />
-                <Text style={styles.emptyStateButtonText}>Nueva incidencia</Text>
-              </TouchableOpacity>
-            </View>
+            ) : (
+              <View style={styles.emptyState}>
+                <TouchableOpacity style={styles.emptyStateButton} onPress={() => setCreateModalOpen(true)}>
+                  <Plus color="#FFFFFF" size={16} />
+                  <Text style={styles.emptyStateButtonText}>Nueva incidencia</Text>
+                </TouchableOpacity>
+              </View>
+            )
           }
         />
       </View>
@@ -836,10 +963,19 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
         onRequestClose={() => setDetailModalOpen(false)}
       >
         <View style={styles.modalOverlay}>
+          {isLoadingDetail && (
+            <View style={styles.loaderOverlay}>
+              <ActivityIndicator size="large" color="#2563EB" />
+              <Text style={styles.loaderText}>Cargando detalles...</Text>
+            </View>
+          )}
+          
           <ScrollView
             style={styles.detailModalContent}
             contentContainerStyle={styles.detailModalContentInner}
             showsVerticalScrollIndicator
+            pointerEvents={isLoadingDetail ? 'none' : 'auto'}
+            opacity={isLoadingDetail ? 0.5 : 1}
           >
             <View style={styles.createModalHeader}>
               <View style={styles.detailTitleRow}>
@@ -1024,6 +1160,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F1F5F9',
     paddingHorizontal: 16,
+  },
+  loaderOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+    borderRadius: 22,
+  },
+  loaderText: {
+    marginTop: 12,
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   headerCard: {
     marginTop: 8,
