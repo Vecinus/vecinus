@@ -70,15 +70,19 @@ const uploadHeaders = (token: string) => ({
 
 /**
  * Convierte el estado del backend al tipo IncidentStatus del frontend.
- * Como ahora son los mismos, solo normalizamos a mayúsculas y manejamos variaciones.
+ * Backend usa STATUS_ALIASES para convertir valores.
+ * Convierte IN_PROGRESS → IN PROGRESS, RESOLVED → SOLVED
  */
 const parseStatus = (status: BackendIncident['status']): IncidentStatus => {
   const raw = Array.isArray(status) ? status[0] : status;
-  const normalized = String(raw || '').toUpperCase().replace('_', ' ');
+  const normalized = String(raw || '').toUpperCase();
 
   // Aseguramos que el valor sea uno de los permitidos por el tipo IncidentStatus
+  // Backend puede enviar: PENDING, IN PROGRESS, SOLVED, DISCARDED
+  // O también: IN_PROGRESS, RESOLVED (que convertimos)
   switch (normalized) {
     case 'IN PROGRESS':
+    case 'IN_PROGRESS':
       return 'IN PROGRESS';
     case 'SOLVED':
     case 'RESOLVED':
@@ -108,7 +112,16 @@ const mapIncident = (
     ? context.usersByMembershipId[item.membership_id]
     : undefined;
 
-  const status = parseStatus(item.status);
+  // Calcular el status: si item.status es null, usar el último estado de incident_states
+  let calculatedStatus = parseStatus(item.status);
+  const states = Array.isArray(item.incident_states) ? item.incident_states : [];
+  
+  if (!item.status && states.length > 0) {
+    // Obtener el último estado
+    const lastState = states[states.length - 1];
+    calculatedStatus = parseStatus(lastState.status);
+  }
+
   const typeKey = String(item.type || '').toUpperCase();
 
   return {
@@ -119,8 +132,8 @@ const mapIncident = (
     description: item.description || '',
     reporterName: memberData?.userName || 'Vecino',
     createdAt: item.created_at || new Date().toISOString(),
-    status, // Ya es un valor como 'PENDING'
-    image_url: item.image_url || undefined,
+    status: calculatedStatus,
+    image: item.image_url || undefined,
   };
 };
 
@@ -226,17 +239,37 @@ export const createIncident = async (params: {
   console.log('✅ Incidencia creada:', data.incident_id);
   return data.incident_id || '';
 };
+/**
+ * Convierte IncidentStatus del frontend a formato backend.
+ * Backend espera exactamente: 'PENDING', 'IN PROGRESS', 'SOLVED', 'DISCARDED'
+ */
+const statusToBackendFormat = (status: IncidentStatus): string => {
+  switch (status) {
+    case 'IN PROGRESS':
+      return 'IN PROGRESS'; // Con espacio, tal como espera el backend
+    case 'SOLVED':
+      return 'SOLVED';
+    case 'DISCARDED':
+      return 'DISCARDED';
+    case 'PENDING':
+    default:
+      return 'PENDING';
+  }
+};
+
 export const updateIncidentStatus = async (params: {
   associationId: string;
   incidentId: string;
   status: IncidentStatus; // Se espera 'IN PROGRESS', 'SOLVED', etc.
   token: string;
 }): Promise<void> => {
+  const backendStatus = statusToBackendFormat(params.status);
+  
   const response = await fetch(
-    `${INCIDENTS_BASE_URL}/${params.associationId}/${params.incidentId}/status?status=${encodeURIComponent(params.status)}`,
+    `${INCIDENTS_BASE_URL}/${params.associationId}/${params.incidentId}/status?status=${encodeURIComponent(backendStatus)}`,
     {
       method: 'POST',
-      headers: authHeaders(params.token),
+      headers: uploadHeaders(params.token),
     }
   );
 
@@ -296,6 +329,16 @@ export const getIncidentDetail = async (params: {
 
   const data = (await response.json()) as BackendIncident;
   
+  // Calcular el status: si data.status es null, usar el último estado de incident_states
+  let calculatedStatus = parseStatus(data.status);
+  const states = Array.isArray(data.incident_states) ? data.incident_states : [];
+  
+  if (!data.status && states.length > 0) {
+    // Obtener el último estado (ordenados por created_at descendente)
+    const lastState = states[states.length - 1];
+    calculatedStatus = parseStatus(lastState.status);
+  }
+  
   // Construir el objeto Incident
   const incident: Incident = {
     id: String(data.id),
@@ -305,14 +348,13 @@ export const getIncidentDetail = async (params: {
     description: data.description || '',
     reporterName: 'Vecino',
     createdAt: data.created_at || new Date().toISOString(),
-    status: parseStatus(data.status),
-    image_url: data.image_url || undefined,
+    status: calculatedStatus,
+    image: data.image_url || undefined,
   };
 
   // Construir el historial
-  const states = Array.isArray(data.incident_states) ? data.incident_states : [];
   const history: IncidentHistoryEntry[] = states.length === 0
-    ? [{ status: parseStatus(data.status), date: data.created_at || new Date().toISOString() }]
+    ? [{ status: calculatedStatus, date: data.created_at || new Date().toISOString() }]
     : states
         .map((state) => ({
           status: parseStatus(state.status || null),

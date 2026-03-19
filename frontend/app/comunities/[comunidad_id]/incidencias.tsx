@@ -82,14 +82,35 @@ const statusIcons = {
   'DISCARDED': X,
 };
 
-// Normalizar status a formato válido
-const normalizeStatus = (status: any): IncidentStatus => {
-  const raw = String(status || '').toUpperCase().replace('_', ' ').trim();
+// Normalizar status para asegurar que sea uno de los valores válidos
+const normalizeStatus = (status: string | IncidentStatus): IncidentStatus => {
+  if (!status) return 'PENDING';
   
-  if (raw === 'IN PROGRESS') return 'IN PROGRESS';
-  if (raw === 'SOLVED' || raw === 'RESOLVED') return 'SOLVED';
-  if (raw === 'DISCARDED') return 'DISCARDED';
+  const statusStr = String(status).toUpperCase().trim();
+  
+  // Mapear variaciones comunes a STATUS_ORDER
+  if (statusStr === 'PENDING' || statusStr === 'PENDIENTE') return 'PENDING';
+  if (statusStr === 'IN PROGRESS' || statusStr === 'INPROGRESS' || statusStr === 'EN PROCESO') return 'IN PROGRESS';
+  if (statusStr === 'SOLVED' || statusStr === 'COMPLETE' || statusStr === 'COMPLETED' || statusStr === 'RESUELTO') return 'SOLVED';
+  if (statusStr === 'DISCARDED' || statusStr === 'REJECTED' || statusStr === 'RECHAZADO') return 'DISCARDED';
+  
+  // Por defecto, retornar PENDING
   return 'PENDING';
+};
+
+// Determinar qué estados de transición están permitidos según el estado actual
+const getAllowedStatusTransitions = (currentStatus: IncidentStatus): IncidentStatus[] => {
+  switch (currentStatus) {
+    case 'PENDING':
+      return ['IN PROGRESS', 'DISCARDED'];
+    case 'IN PROGRESS':
+      return ['SOLVED', 'DISCARDED'];
+    case 'SOLVED':
+    case 'DISCARDED':
+      return []; // No se pueden cambiar estados finales
+    default:
+      return [];
+  }
 };
 export default function IncidenciasScreen() {
   const navigation = useNavigation();
@@ -124,7 +145,7 @@ export default function IncidenciasScreen() {
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [incidentHistory, setIncidentHistory] = useState<IncidentHistoryEntry[]>([]);
-  const [draftStatus, setDraftStatus] = useState<any>('PENDING');
+  const [draftStatus, setDraftStatus] = useState<IncidentStatus>('PENDING');
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
   const [renderStatusMenu, setRenderStatusMenu] = useState(false);
@@ -285,10 +306,10 @@ export default function IncidenciasScreen() {
 
   const counts = useMemo(
     () => ({
-      pendiente: incidencias.filter((item) => item.status === 'pendiente').length,
-      en_proceso: incidencias.filter((item) => item.status === 'en_proceso').length,
-      resuelta: incidencias.filter((item) => item.status === 'resuelta').length,
-      rechazada: incidencias.filter((item) => item.status === 'rechazada').length,
+      pendiente: incidencias.filter((item) => item.status === 'PENDING').length,
+      en_proceso: incidencias.filter((item) => item.status === 'IN PROGRESS').length,
+      resuelta: incidencias.filter((item) => item.status === 'SOLVED').length,
+      rechazada: incidencias.filter((item) => item.status === 'DISCARDED').length,
     }),
     [incidencias]
   );
@@ -382,6 +403,7 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
         token,
       });
       setSelectedIncident(detailIncident);
+      setDraftStatus(normalizeStatus(detailIncident.status));
       setIncidentHistory(history);
     } catch (error) {
       console.error('Error loading incident detail:', error);
@@ -830,9 +852,9 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
             </View>
 
             <View style={styles.detailImagePlaceholder}>
-              {selectedIncident?.image_url ? (
+              {selectedIncident?.image ? (
                 <Image 
-                  source={{ uri: selectedIncident.image_url }} 
+                  source={{ uri: selectedIncident.image }} 
                   style={styles.detailImage}
                 />
               ) : (
@@ -856,22 +878,19 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
               </View>
             ) : null}
 
-            {canManageStatus ? (
+            {canManageStatus && selectedIncident && getAllowedStatusTransitions(normalizeStatus(selectedIncident.status)).length > 0 ? (
               <>
                 <Text style={styles.sectionLabel}>Estado actual</Text>
                 <View style={styles.dropdownFieldWrap}>
                   <TouchableOpacity
                     style={[
                       styles.statusDropdown,
-                      !canManageStatus && styles.statusDropdownDisabled,
                     ]}
-                    onPress={() => canManageStatus && setStatusMenuOpen((prev) => !prev)}
-                    activeOpacity={canManageStatus ? 0.85 : 1}
-                    disabled={!canManageStatus}
+                    onPress={() => setStatusMenuOpen((prev) => !prev)}
+                    activeOpacity={0.85}
                   >
                     <Text style={[
                       styles.statusDropdownText,
-                      !canManageStatus && styles.statusDropdownTextDisabled,
                     ]}>{INCIDENT_STATUS_LABEL[draftStatus]}</Text>
                     <Animated.View
                       style={{
@@ -885,11 +904,11 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
                         ],
                       }}
                     >
-                      <ChevronDown color={canManageStatus ? "#64748B" : "#94A3B8"} size={20} />
+                      <ChevronDown color="#64748B" size={20} />
                     </Animated.View>
                   </TouchableOpacity>
 
-                  {renderStatusMenu && canManageStatus ? (
+                  {renderStatusMenu ? (
                     <Animated.View
                       style={[
                         styles.statusPickerCard,
@@ -921,7 +940,7 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
                         nestedScrollEnabled
                         indicatorStyle="black"
                       >
-                        {STATUS_ORDER.filter((status) => canManageStatus || status !== 'rechazada').map((status) => {
+                        {getAllowedStatusTransitions(normalizeStatus(selectedIncident.status)).map((status) => {
                           const selected = draftStatus === status;
                           return (
                             <TouchableOpacity
@@ -980,7 +999,7 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
               <Text style={styles.readOnlyNote}>Solo presidente y administrador pueden editar el estado.</Text>
             ) : null}
 
-            {canManageStatus ? (
+            {canManageStatus && selectedIncident && getAllowedStatusTransitions(selectedIncident.status ? normalizeStatus(selectedIncident.status) : 'PENDING').length > 0 ? (
               <View style={styles.modalActions}>
                 <TouchableOpacity
                   style={[styles.modalButton, styles.modalButtonPrimary]}
@@ -1606,5 +1625,18 @@ const styles = StyleSheet.create({
   modalButtonPrimaryText: {
     color: '#FFFFFF',
     fontWeight: '700',
+  },
+  lockedStatusNote: {
+    color: '#991B1B',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 8,
+    marginBottom: 16,
+    backgroundColor: '#FEE2E2',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: '#DC2626',
   },
 });

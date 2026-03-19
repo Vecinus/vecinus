@@ -13,23 +13,17 @@ cloudinary.config(cloudinary_url=settings.CLOUDINARY_URL, secure=True)
 ALLOWED_STATUSES = {"PENDING", "IN PROGRESS", "SOLVED", "DISCARDED"}
 ALLOWED_TYPES = {"LIGHTING", "ELECTRICITY", "ELEVATOR", "PLUMBING", "SAFETY", "WORKERS", "POOL", "OTHER"}
 
-STATUS_ALIASES = {
-    "OPEN": "PENDING",
-    "IN_PROGRESS": "IN PROGRESS",
-    "RESOLVED": "SOLVED",
-}
 
 def check_status(status: str):
-    normalized_status = STATUS_ALIASES.get((status or "").strip().upper(), (status or "").strip().upper())
-    if normalized_status not in ALLOWED_STATUSES:
+    if status not in ALLOWED_STATUSES:
         raise HTTPException(status_code=400, detail=f"Invalid status. Allowed values: {ALLOWED_STATUSES}")
-    return normalized_status
+
+
 
 def check_type(type: str):
-    normalized_type = (type or "").strip().upper()
-    if normalized_type not in ALLOWED_TYPES:
+    if type not in ALLOWED_TYPES:
         raise HTTPException(status_code=400, detail=f"Invalid incident type. Allowed values: {ALLOWED_TYPES}")
-    return normalized_type
+
 
 def get_latest_state(supabase: Client, incident_id: str) -> dict[str, dict]:
     if not incident_id:
@@ -49,17 +43,11 @@ def get_latest_state(supabase: Client, incident_id: str) -> dict[str, dict]:
 @router.get("/{association_id}", response_model=list[Incident])
 def get_incidents(
     association_id: str,
-    request: Request, ### CAMBIO: Inyectar Request
     status: str = None,
     mine: bool = False,
     current_user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
 ):
-    # ### CAMBIO: Autenticar el cliente de Supabase con el token del usuario
-    auth_header = request.headers.get("Authorization")
-    if auth_header:
-        supabase.postgrest.auth(auth_header.split(" ")[1])
-
     user_id = current_user["id"]
     verify_association_membership(association_id, user_id, supabase)
     if status == "DISCARDED":
@@ -75,7 +63,6 @@ def get_incidents(
                 memberships(association_id, role)
                 """).eq("memberships.association_id", association_id).execute()
     
-    # ... resto de la lógica de filtrado se mantiene igual ...
     incidents = incidents_res.data or []
     filtered_incidents = []
     for incident in incidents:
@@ -93,8 +80,8 @@ def get_incidents(
     incidents = filtered_incidents
 
     if status:
-        normalized_status = check_status(status)
-        incidents = [incident for incident in incidents if incident.get("status") == normalized_status]
+        check_status(status)
+        incidents = [incident for incident in incidents if incident.get("status") == status]
 
     if mine:
         membership_res = (
@@ -135,6 +122,9 @@ def get_incident(
         raise HTTPException(status_code=404, detail="Incident not found")
 
     incident = incident_res.data[0]
+    latest_state = get_latest_state(supabase, incident_id)
+    incident["status"] = check_status(latest_state.get("status") or "PENDING")
+    
 
     return incident
 
@@ -142,20 +132,13 @@ def get_incident(
 @router.post("/{association_id}")
 def create_incident(
     association_id: str,
-    request: Request, 
     incident_type: str = Form(..., alias="type"),
     description: str | None = Form(None),
     file: UploadFile | None = File(None),
     current_user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
 ):
-    # ### CAMBIO CRUCIAL: Pasar el token al cliente de Supabase
-    auth_header = request.headers.get("Authorization")
-    if auth_header:
-        token = auth_header.split(" ")[1]
-        supabase.postgrest.auth(token)
-
-    normalized_type = check_type(incident_type)
+    check_type(incident_type)
     user_id = current_user["id"]
     
     membership_res = (
@@ -184,13 +167,11 @@ def create_incident(
                 print(f"✅ Imagen subida a Cloudinary: {image_url}")
         except Exception as e:
             print(f"❌ Error subiendo imagen a Cloudinary: {e}")
-            # Continúa sin imagen si falla
 
-    # Al ejecutar esto, Postgres usará el token para validar las políticas RLS
     new_incident = (
         supabase.table("incidents")
         .insert({
-            "type": normalized_type,
+            "type": incident_type,
             "description": description,
             "image_url": image_url,
             "membership_id": membership_id,
@@ -203,7 +184,6 @@ def create_incident(
 
     incident_id = new_incident.data[0].get("id")
 
-    # También necesitamos RLS para incident_states
     supabase.table("incident_states").insert({
         "incident_id": incident_id, 
         "status": "PENDING"
@@ -211,36 +191,30 @@ def create_incident(
 
     return {"message": "Incident created successfully", "incident_id": incident_id}
 
+
 @router.post("/{association_id}/{incident_id}/status")
 def update_incident_status(
     association_id: str,
     incident_id: str,
     status: str,
-    request: Request, ### CAMBIO: Inyectar Request
     current_user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
 ):
-    # ### CAMBIO: Autenticar cliente
-    auth_header = request.headers.get("Authorization")
-    if auth_header:
-        supabase.postgrest.auth(auth_header.split(" ")[1])
-
-    normalized_status = check_status(status)
+    check_status(status)
     user_id = current_user["id"]
     verify_association_admin(association_id, user_id, supabase)
     
     latest_state = get_latest_state(supabase, incident_id)
-    latest_status = check_status(latest_state.get("status") or "PENDING")
     
-    if latest_status not in {"PENDING", "IN PROGRESS"}:
+    if latest_state.get("status") not in {"PENDING", "IN PROGRESS"}:
         raise HTTPException(status_code=400, detail="Cannot update status of a resolved or discarded incident")
-    elif latest_status == normalized_status:
-        raise HTTPException(status_code=400, detail=f"Incident is already in {normalized_status} status")
+    elif latest_state.get("status") == status:
+        raise HTTPException(status_code=400, detail=f"Incident is already in {status} status")
 
-    supabase.table("incident_states").insert({"incident_id": incident_id, "status": normalized_status}).execute()
+    supabase.table("incident_states").insert({"incident_id": incident_id, "status": status}).execute()
     return {
         "message": "Incident status updated successfully",
         "incident_id": incident_id,
-        "old_status": latest_status,
-        "new_status": normalized_status,
+        "old_status": latest_state.get("status"),
+        "new_status": status,
     }

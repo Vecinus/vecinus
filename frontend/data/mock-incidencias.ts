@@ -1,4 +1,26 @@
-export type IncidentStatus = 'PENDING' | 'IN PROGRESS' | 'SOLVED' | 'DISCARDED';
+// Enums hardcoded from backend (WORKING VERSION)
+export const INCIDENT_TYPES = {
+  LIGHTING: 'LIGHTING',
+  ELECTRICITY: 'ELECTRICITY',
+  ELEVATOR: 'ELEVATOR',
+  PLUMBING: 'PLUMBING',
+  SAFETY: 'SAFETY',
+  WORKERS: 'WORKERS',
+  POOL: 'POOL',
+  OTHER: 'OTHER',
+} as const;
+
+export type IncidentType = typeof INCIDENT_TYPES[keyof typeof INCIDENT_TYPES];
+
+// Status enum with SPACES (as backend accepts)
+export const INCIDENT_STATUSES = {
+  PENDING: 'PENDING',
+  IN_PROGRESS: 'IN PROGRESS',
+  SOLVED: 'SOLVED',
+  DISCARDED: 'DISCARDED',
+} as const;
+
+export type IncidentStatus = typeof INCIDENT_STATUSES[keyof typeof INCIDENT_STATUSES];
 
 export interface Incident {
   id: string;
@@ -9,8 +31,19 @@ export interface Incident {
   reporterName: string;
   createdAt: string;
   status: IncidentStatus;
-  image_url?: string;
+  image?: string;
 }
+
+export const INCIDENT_TYPE_LABEL: Record<IncidentType, string> = {
+  LIGHTING: 'Iluminación',
+  ELECTRICITY: 'Electricidad',
+  ELEVATOR: 'Ascensor',
+  PLUMBING: 'Fontanería',
+  SAFETY: 'Seguridad',
+  WORKERS: 'Trabajadores',
+  POOL: 'Piscina',
+  OTHER: 'Otros',
+};
 
 export const INCIDENT_STATUS_LABEL: Record<IncidentStatus, string> = {
   PENDING: 'Pendiente',
