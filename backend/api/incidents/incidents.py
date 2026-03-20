@@ -3,7 +3,7 @@ import cloudinary.uploader
 from api.chat.chat_helpers import verify_association_admin, verify_association_membership
 from core.config import settings
 from core.deps import get_current_user, get_supabase
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from schemas.incidents.incidents import Incident
 from supabase import Client
 
@@ -17,7 +17,6 @@ ALLOWED_TYPES = {"LIGHTING", "ELECTRICITY", "ELEVATOR", "PLUMBING", "SAFETY", "W
 def check_status(status: str):
     if status not in ALLOWED_STATUSES:
         raise HTTPException(status_code=400, detail=f"Invalid status. Allowed values: {ALLOWED_STATUSES}")
-
 
 
 def check_type(type: str):
@@ -39,6 +38,7 @@ def get_latest_state(supabase: Client, incident_id: str) -> dict[str, dict]:
     )
 
     return states_res.data[0] if states_res.data else {}
+
 
 @router.get("/{association_id}", response_model=list[Incident])
 def get_incidents(
@@ -63,7 +63,7 @@ def get_incidents(
                 memberships(association_id, role),
                 incident_states(status, created_at)
                 """).eq("memberships.association_id", association_id).execute()
-    
+
     incidents = incidents_res.data or []
     for incident in incidents:
         latest_state = get_latest_state(supabase, incident["id"])
@@ -109,17 +109,12 @@ def get_incident(
                 created_at,
                 image_url,
                 membership_id,
-                incident_states(status, created_at)
+                incident_states(status, created_at: desc)
                 """).eq("id", incident_id).execute()
     if not incident_res.data:
         raise HTTPException(status_code=404, detail="Incident not found")
 
-    incident = incident_res.data[0]
-    latest_state = get_latest_state(supabase, incident_id)
-    incident["status"] = check_status(latest_state.get("status") or "PENDING")
-    
-
-    return incident
+    return incident_res.data[0]
 
 
 @router.post("/{association_id}")
@@ -133,7 +128,7 @@ def create_incident(
 ):
     check_type(incident_type)
     user_id = current_user["id"]
-    
+
     membership_res = (
         supabase.table("memberships")
         .select("id, role")
@@ -141,7 +136,7 @@ def create_incident(
         .eq("profile_id", user_id)
         .execute()
     )
-    
+
     if not membership_res.data:
         raise HTTPException(status_code=403, detail="User has no access to this association")
     elif membership_res.data[0].get("role") == 1:
@@ -163,24 +158,23 @@ def create_incident(
 
     new_incident = (
         supabase.table("incidents")
-        .insert({
-            "type": incident_type,
-            "description": description,
-            "image_url": image_url,
-            "membership_id": membership_id,
-        })
+        .insert(
+            {
+                "type": incident_type,
+                "description": description,
+                "image_url": image_url,
+                "membership_id": membership_id,
+            }
+        )
         .execute()
     )
-    
+
     if not new_incident.data:
         raise HTTPException(status_code=500, detail="Failed to create incident in database")
 
     incident_id = new_incident.data[0].get("id")
 
-    supabase.table("incident_states").insert({
-        "incident_id": incident_id, 
-        "status": "PENDING"
-    }).execute()
+    supabase.table("incident_states").insert({"incident_id": incident_id, "status": "PENDING"}).execute()
 
     return {"message": "Incident created successfully", "incident_id": incident_id}
 
@@ -196,9 +190,9 @@ def update_incident_status(
     check_status(status)
     user_id = current_user["id"]
     verify_association_admin(association_id, user_id, supabase)
-    
+
     latest_state = get_latest_state(supabase, incident_id)
-    
+
     if latest_state.get("status") not in {"PENDING", "IN PROGRESS"}:
         raise HTTPException(status_code=400, detail="Cannot update status of a resolved or discarded incident")
     elif latest_state.get("status") == status:
