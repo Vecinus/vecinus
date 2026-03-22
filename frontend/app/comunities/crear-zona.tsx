@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Switch, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useZonasStore } from '../../store/useZonesStore';
 import CustomModal from '../../components/ui/CustomModal';
 
@@ -8,6 +8,8 @@ const COLORS = { primaryBlue: '#0088CC', white: '#FFFFFF', grayText: '#666666', 
 
 export default function CrearZonaComun() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const comunidad_id = params.comunidad_id as string || params.id as string;
   const { crearZona, isLoading } = useZonasStore();
 
   const [nombre, setNombre] = useState('');
@@ -19,7 +21,7 @@ export default function CrearZonaComun() {
   const [modalVisible, setModalVisible] = useState(false);
 
   const handleCrearZona = async () => {
-    await crearZona({ nombre, aforo: parseInt(aforo) || 1, requiereQR, horaInicio, horaFin });
+    await crearZona(comunidad_id, { nombre, aforo: parseInt(aforo) || 1, requiereQR, horaInicio, horaFin });
     setModalVisible(false);
     router.back();
   };
