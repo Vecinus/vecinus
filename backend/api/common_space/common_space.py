@@ -3,13 +3,14 @@ from uuid import UUID
 
 from api.chat.chat_helpers import verify_association_membership
 from core.deps import get_current_user, get_supabase, get_supabase_admin
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
 from schemas.common_space import CommonSpace, CommonSpaceCreate, CommonSpaceUpdate
 from services.common_space.common_space_service import (
     create_common_space as create_common_space_service,
     delete_common_space as delete_common_space_service,
     get_common_space_by_id as get_common_space_by_id_service,
     list_common_spaces as list_common_spaces_service,
+    upload_common_space_photo as upload_common_space_photo_service,
     update_common_space as update_common_space_service,
 )
 from supabase import Client
@@ -37,6 +38,38 @@ def verify_association_admin_or_president(association_id: UUID, user_id: str, su
     return membership_res.data[0]
 
 
+@router.post("/upload-photo")
+async def upload_common_space_photo_endpoint(
+    file: UploadFile,
+    current_user: dict = Depends(get_current_user),
+):
+    del current_user
+
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Only image uploads are supported")
+
+    file_bytes = await file.read()
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+    return upload_common_space_photo_service(file_bytes, file.filename or "common-space", file.content_type)
+
+
+@router.post("", response_model=CommonSpace, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=CommonSpace, status_code=status.HTTP_201_CREATED)
+def create_common_space_from_body_endpoint(
+    payload: CommonSpaceCreate,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
+    if not payload.association_id:
+        raise HTTPException(status_code=400, detail="association_id is required")
+
+    verify_association_admin_or_president(payload.association_id, current_user["id"], supabase_admin)
+    return create_common_space_service(supabase, payload)
+
+
 @router.post("/{association_id}", response_model=CommonSpace, status_code=status.HTTP_201_CREATED)
 def create_common_space_endpoint(
     association_id: UUID,
@@ -46,7 +79,7 @@ def create_common_space_endpoint(
     supabase_admin: Client = Depends(get_supabase_admin),
 ):
     verify_association_admin_or_president(association_id, current_user["id"], supabase_admin)
-    return create_common_space_service(supabase, association_id, payload)
+    return create_common_space_service(supabase, payload, association_id)
 
 
 @router.get("/{association_id}", response_model=List[CommonSpace])
