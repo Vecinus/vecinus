@@ -73,6 +73,9 @@ class MockSupabaseTable:
         self._data = [item for item in self._data if str(item.get(column)) == str(value)]
         return self
 
+    def limit(self, *args, **kwargs):
+        return self
+
     def update(self, data, *args, **kwargs):
         self._operation = "update"
         self._updated = []
@@ -214,6 +217,51 @@ def test_get_my_communities():
         assert data[0]["association_id"] == mock_association_id  # nosec B101
         assert data[0]["role"] == 1  # nosec B101
         assert data[0]["neighborhood_associations"]["name"] == "Comunidad Test"  # nosec B101
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_get_current_user_profile_with_profile_data():
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase(
+        extra={
+            "profiles": [
+                {
+                    "id": mock_user_id,
+                    "username": "admin_test",
+                    "avatar_url": "https://example.com/avatar.png",
+                    "created_at": "2026-02-22T00:00:00Z",
+                }
+            ]
+        }
+    )
+    try:
+        response = client.get("/users/me")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == mock_user_id
+        assert data["email"] == mock_user_email
+        assert data["role"] == "authenticated"
+        assert data["username"] == "admin_test"
+        assert data["avatar_url"] == "https://example.com/avatar.png"
+        assert data["created_at"] == "2026-02-22T00:00:00Z"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_get_current_user_profile_without_profile_data():
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase(extra={"profiles": []})
+    try:
+        response = client.get("/users/me")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == mock_user_id
+        assert data["email"] == mock_user_email
+        assert data["role"] == "authenticated"
+        assert data["username"] is None
+        assert data["avatar_url"] is None
+        assert data["created_at"] is None
     finally:
         app.dependency_overrides.clear()
 
