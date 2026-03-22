@@ -5,7 +5,7 @@ from supabase import Client
 
 
 def verify_channel_access(channel_id: UUID | str, user_id: str, admin_supabase: Client):
-    """Verifica que un usuario pertenece a un canal. Lanza 403 si no es así."""
+    """Verifica que un usuario pertenece a un canal. Lanza 403 si no es asi."""
     access_res = (
         admin_supabase.table("channel_participants")
         .select("*")
@@ -60,9 +60,24 @@ def verify_association_admin(association_id: UUID | str, user_id: str, supabase:
 
     user_role = membership_res.data[0].get("role")
 
-    # 1 indica rol de administrador
     if str(user_role) != "1":
         raise HTTPException(status_code=403, detail="Admin access required for this action")
+
+    return membership_res.data[0]
+
+
+def verify_association_membership(association_id: UUID | str, user_id: str, supabase: Client):
+    """Verifica que un usuario pertenece a la comunidad dada. Lanza 403 si no."""
+    membership_res = (
+        supabase.table("memberships")
+        .select("profile_id")
+        .eq("association_id", str(association_id))
+        .eq("profile_id", str(user_id))
+        .execute()
+    )
+
+    if not membership_res.data:
+        raise HTTPException(status_code=403, detail="Access denied to this community")
 
     return membership_res.data[0]
 
@@ -82,7 +97,6 @@ def verify_association_president(association_id: UUID | str, user_id: str, supab
 
     user_role = membership_res.data[0].get("role")
 
-    # 4 indica rol de presidente
     if str(user_role) != "4":
         raise HTTPException(
             status_code=403,
@@ -107,7 +121,6 @@ def verify_property_owner(property_id: UUID | str, user_id: str, supabase: Clien
 
     user_role = ownership_res.data[0].get("role")
 
-    # 2 indica rol de propietario
     if str(user_role) != "2":
         raise HTTPException(
             status_code=403,

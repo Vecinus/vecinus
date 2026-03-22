@@ -1,0 +1,128 @@
+{
+  "average_score": 4.0,
+  "threshold": 4.0,
+  "passed": true,
+  "total_questions": 15,
+  "results": [
+    {
+      "id": "q01",
+      "question": "¿Puede un propietario pintar la puerta de su piso de un color diferente al del resto del edificio?",
+      "expected": "No. Según el Artículo 8 de los Estatutos, el propietario no puede alterar la configuración de puertas y ventanas ni pintarlas de un color distinto al existente o al que la comunidad acuerde.",
+      "actual": "No, el propietario no podrá pintar la puerta de su piso de un color distinto al existente o al que la comunidad acuerde, según el Artículo 8º, punto 1.",
+      "score": 4,
+      "reason": "La respuesta generada es correcta y coherente. Responde directamente a la pregunta citando el artículo relevante. Omite la mención a 'alterar la configuración de puertas y ventanas', que aunque es un detalle menor para la pregunta específica, sí está presente en la respuesta esperada."
+    },
+    {
+      "id": "q02",
+      "question": "¿Está permitido cubrir una terraza con un cerramiento de cristal?",
+      "expected": "No. El Artículo 8 prohíbe cubrir patios comunes y terrazas ni total ni parcialmente, sean o no privativas.",
+      "actual": "No, el Artículo 8º, punto 2 establece que no se podrá \"Cubrir patios comunes y terrazas ni total ni parcialmente, sean o no privativas\".",
+      "score": 5,
+      "reason": "La respuesta generada es correcta, completa y coherente con la esperada. Incluso añade el detalle del 'punto 2' del Artículo 8, que aporta mayor precisión."
+    },
+    {
+      "id": "q03",
+      "question": "¿Puedo instalar un toldo en mi balcón sin avisar a nadie?",
+      "expected": "No. Según el Artículo 8, la instalación de toldos o cortinas exteriores requiere el previo acuerdo de la Junta de Propietarios en cuanto a su forma y color.",
+      "actual": "No, el Artículo 8º establece que no se podrán instalar toldos o cortinas exteriores sin el previo acuerdo de la Junta en cuanto a su forma y color.",
+      "score": 5,
+      "reason": "La respuesta generada es correcta, completa y coherente con la respuesta esperada, utilizando una redacción ligeramente diferente pero manteniendo el mismo significado legal y los puntos clave (Artículo 8, previo acuerdo de la Junta, forma y color)."
+    },
+    {
+      "id": "q04",
+      "question": "¿Cuántas veces al año debe reunirse como mínimo la Junta de Propietarios?",
+      "expected": "La Junta de Propietarios debe reunirse al menos una vez al año, según el Artículo 17, para aprobar los presupuestos, las cuentas y la renovación o ratificación de cargos directivos y administrativos.",
+      "actual": "La Junta de Propietarios debe reunirse por lo menos una vez al año.",
+      "score": 3,
+      "reason": "La respuesta es correcta en la frecuencia mínima, pero omite información importante como la referencia legal (Artículo 17) y los propósitos clave de dicha reunión anual (presupuestos, cuentas, renovación de cargos)."
+    },
+    {
+      "id": "q05",
+      "question": "¿Quién puede convocar una Junta Extraordinaria y qué requisitos hay?",
+      "expected": "Puede convocar una Junta Extraordinaria el Presidente de la comunidad, o bien una cuarta parte de los propietarios que representen al menos el 25% de las cuotas de participación. Las convocatorias deben llegar con un mínimo de 48 horas de antelación.",
+      "actual": "Una Junta Extraordinaria puede ser convocada por:\n*   El Presidente.\n*   La cuarta parte de los propietarios.\n*   Un número de propietarios que representen al menos el veinticinco por ciento de las cuotas de participación.\n\nLas convocatorias para esta Junta deben llegar a los propietarios con un mínimo de 48 horas de antelación.",
+      "score": 4,
+      "reason": "La respuesta es correcta y coherente. Todos los elementos requeridos están presentes. La única diferencia menor es que la respuesta esperada combina la condición de 'cuarta parte de propietarios' con 'que representen al menos el 25% de las cuotas de participación' en una sola cláusula, mientras que la respuesta generada las lista como dos puntos separados, lo cual es una distinción sutil en la redacción, pero no una omisión de información."
+    },
+    {
+      "id": "q06",
+      "question": "¿Tienen derecho los propietarios de plazas de garaje a usar la piscina comunitaria?",
+      "expected": "No. Según el Artículo 12, los propietarios de plazas de aparcamiento y de locales comerciales no tienen derecho a usar ni disfrutar de la piscina ni de las demás zonas de recreo y esparcimiento, ni deben contribuir a los gastos de conservación de estos elementos.",
+      "actual": "No, los propietarios de plazas de aparcamiento no tendrán derecho a usar y disfrutar de la piscina y demás zonas de recreo y esparcimiento.",
+      "score": 3,
+      "reason": "La respuesta es correcta en su afirmación principal, pero omite la base legal (Artículo 12), no menciona a los locales comerciales y no incluye la importante puntualización sobre la no contribución a los gastos de conservación."
+    },
+    {
+      "id": "q07",
+      "question": "¿Cuántos días tengo para pagar los recibos de la comunidad? ¿Qué pasa si no pago a tiempo?",
+      "expected": "Los recibos deben pagarse dentro de los 10 días siguientes a su emisión. Si no se paga en ese plazo, el propietario se considerará moroso a los efectos del derecho de voto establecido en el artículo 15.2 de la LPH.",
+      "actual": "Los propietarios deberán satisfacer los recibos de la comunidad dentro de los 10 días siguientes a su emisión.\n\nSi un propietario no realiza el pago en este periodo, se le considerará moroso a los efectos del derecho de voto que se establece en el artículo 15.2 de la LPH.",
+      "score": 5,
+      "reason": "La respuesta generada es idéntica en contenido y exactitud a la respuesta esperada, respondiendo de forma completa y correcta a ambas partes de la pregunta."
+    },
+    {
+      "id": "q08",
+      "question": "¿Cómo se elige al Presidente de la comunidad?",
+      "expected": "El Presidente se elige entre los propietarios por mayoría simple, siguiendo el sistema de orden que la Junta establezca. Su aceptación es obligatoria, según el Artículo 16.",
+      "actual": "El Presidente de la comunidad se elige de entre los propietarios. El nombramiento se hará por mayoría simple y siguiendo el sistema de orden que la Junta establezca.",
+      "score": 3,
+      "reason": "La respuesta es correcta en los puntos que aborda, pero omite dos detalles importantes de la respuesta esperada: la obligatoriedad de aceptación del cargo y la referencia al Artículo 16 de la ley, información clave para la completitud."
+    },
+    {
+      "id": "q09",
+      "question": "¿Puede ser Administrador de la comunidad alguien que no sea propietario?",
+      "expected": "Sí. Según el Artículo 16, el nombramiento de Secretario y Administrador puede recaer en persona ajena a la comunidad, pero en ese caso debe ser un administrador colegiado que reúna los requisitos del artículo 13.6 de la LPH.",
+      "actual": "Sí, el nombramiento de Administrador podrá recaer en persona ajena a la Comunidad de Propietarios. En este caso, deberá recaer en administrador colegiado al reunir los requisitos del artículo 13.6 de la LPH.",
+      "score": 4,
+      "reason": "La respuesta es correcta y coherente. Omite la referencia explícita al 'Artículo 16' y la mención al 'Secretario', que son detalles menores en relación con la pregunta principal sobre el Administrador."
+    },
+    {
+      "id": "q10",
+      "question": "¿Se puede poner un cartel publicitario en la fachada del edificio?",
+      "expected": "En general no, está expresamente prohibido instalar anuncios en las fachadas. La única excepción son los dueños de locales comerciales en planta baja, que pueden colocar anuncios luminosos dentro del ámbito de la fachada que corresponde a su local.",
+      "actual": "Se prohíbe expresamente instalar anuncios en las fachadas.\n\nSin embargo, los dueños de los locales comerciales en planta baja quedan exceptuados de la prohibición de instalación de anuncios luminosos, siempre que estos se coloquen dentro del ámbito de la fachada que corresponde a cada local.",
+      "score": 5,
+      "reason": "La respuesta generada es correcta, completa y coherente con la respuesta esperada. Cubre la prohibición general y la excepción para locales comerciales con sus condiciones."
+    },
+    {
+      "id": "q11",
+      "question": "¿Está obligada la comunidad a contratar un seguro? ¿De qué tipo?",
+      "expected": "Sí. Según el Artículo 18, la comunidad debe contratar una póliza de seguro multiriesgo del edificio que cubra incendios, responsabilidad civil, etc. La Junta fija la entidad aseguradora y el capital asegurado por mayoría. Todos los propietarios deben participar según su cuota, aunque tengan seguro individual.",
+      "actual": "Sí, la Comunidad deberá concertar una Póliza del edificio Multiriesgo, que incluirá Incendios, Responsabilidad Civil, entre otros.",
+      "score": 3,
+      "reason": "La respuesta es correcta en lo que afirma, pero omite información importante como la base legal (Artículo 18), el proceso de toma de decisiones por la Junta y la obligación de participación de los propietarios a pesar de seguros individuales."
+    },
+    {
+      "id": "q12",
+      "question": "Si alquilo mi piso a un inquilino y este causa daños en zonas comunes, ¿quién responde?",
+      "expected": "El propietario responde directamente o de forma solidaria por los daños causados por el inquilino u ocupante. Además, el propietario debe informar al ocupante del contenido de los Estatutos y del Reglamento de Régimen Interior.",
+      "actual": "Si alquilas tu piso a un inquilino y este causa daños, el propietario responderá directamente o de forma solidaria por los daños cometidos por el ocupante y personas que con él convivan.",
+      "score": 3,
+      "reason": "La respuesta es correcta en cuanto a la responsabilidad directa o solidaria del propietario, pero omite la importante obligación del propietario de informar al ocupante sobre los Estatutos y el Reglamento de Régimen Interior."
+    },
+    {
+      "id": "q13",
+      "question": "¿Pueden los locales de la planta baja dividirse o unirse sin permiso de la Junta?",
+      "expected": "Sí, los locales pueden dividirse, agregarse o segregarse sin permiso de la Junta, siempre que la cuota de participación total siga siendo la misma. Sin embargo, si las obras afectan a elementos comunes o servicios generales, sí se necesita autorización de la comunidad.",
+      "actual": "Sí, los locales podrán ser objeto de división, agregación o segregación sin el permiso de la Junta de Propietarios, siempre que la cuota de participación siga siendo la misma sumando las divisiones efectuadas o, en caso de agregación, que la nueva sea igual a los anteriores locales ahora unidos.\n\nSin embargo, esta facultad no exime de obtener autorización de la Comunidad si se van a llevar a cabo obras en elementos comunes o que menoscaben los servicios generales del inmueble.",
+      "score": 5,
+      "reason": "La respuesta generada es correcta, completa y coherente. Incluso amplía ligeramente la explicación sobre la cuota de participación, lo que la hace más precisa sin desviarse de lo esperado."
+    },
+    {
+      "id": "q14",
+      "question": "¿Los propietarios de locales en planta baja deben pagar los gastos del ascensor?",
+      "expected": "No. Según el Artículo 13, los propietarios de locales en planta baja que no tengan entrada por el portal no contribuirán a los gastos de conservación de servicios que no utilicen, como ascensor, portal, escaleras o portero automático.",
+      "actual": "Según el Artículo 13º, apartado d), los propietarios de los locales situados en la planta baja del edificio, que no tengan entrada por el portal, no contribuirán a los gastos de conservación y mantenimiento que se produzcan en servicios o elementos comunes que no utilicen, como el ascensor.",
+      "score": 4,
+      "reason": "La respuesta es correcta y coherente. Aborda la pregunta directamente y de forma precisa. La única diferencia menor con la respuesta esperada es que omite otros ejemplos de servicios (portal, escaleras, portero automático), mencionando solo el ascensor, que era el objeto principal de la pregunta."
+    },
+    {
+      "id": "q15",
+      "question": "¿Qué diferencia de tiempo debe haber entre la primera y la segunda convocatoria de una Junta?",
+      "expected": "Debe haber una diferencia mínima de 30 minutos entre la primera y la segunda convocatoria de la Junta, según el Artículo 17.",
+      "actual": "La diferencia mínima de tiempo que debe haber entre la primera y la segunda convocatoria de una Junta es de 30 minutos.",
+      "score": 4,
+      "reason": "La respuesta es correcta y coherente, pero omite la referencia al artículo 17, que estaba presente en la respuesta esperada y es un detalle relevante para un evaluador experto en estatutos."
+    }
+  ]
+}

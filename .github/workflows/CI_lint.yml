@@ -8,6 +8,7 @@
 name: CI Lint
 
 on:
+  workflow_call:
   # Trigger on every push to develop
   push:
     branches: [develop]

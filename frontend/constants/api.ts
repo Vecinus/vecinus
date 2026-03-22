@@ -6,3 +6,13 @@ const getBackendUrl = () => {
 };
 
 export const API_URL = getBackendUrl();
+
+export let globalJwtToken: string | null = null;
+
+export const setGlobalJwtToken = (token: string) => {
+  globalJwtToken = token;
+};
+
+export const clearGlobalJwtToken = () => {
+  globalJwtToken = null;
+};

@@ -4,7 +4,8 @@
 #
 # Workflow:
 #   1. Resolves the sprint identifier from the branch name (e.g. "sprint1").
-#   2. Calls the reusable CI_pytest workflow to run the backend test suite.
+#   2. Calls the reusable CI_lint and CI_pytest workflows to check code quality
+#      and run the backend test suite.
 #   3. Deploys Backend + Frontend to Render via Deploy Hook URLs stored as
 #      secrets inside the corresponding GitHub Environment.
 #
@@ -32,6 +33,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       env_name: ${{ steps.extract.outputs.env_name }}
+
     steps:
       - name: Extract sprint from branch
         id: extract
@@ -41,13 +43,21 @@ jobs:
           BRANCH="${GITHUB_REF#refs/heads/release/}"
           echo "Detected environment: $BRANCH"
           echo "env_name=$BRANCH" >> "$GITHUB_OUTPUT"
+           
 
-  # ---- 1. Backend Tests (reutiliza CI_pytest.yml) ----
+  # ---- 1a. Linting (reutiliza CI_lint.yml) ----
+  linting:
+    name: Run Linting
+    uses: ./.github/workflows/CI_lint.yml
+
+
+  # ---- 1b. Backend Tests (reutiliza CI_pytest.yml) ----
   testing:
     name: Run Backend Tests
     uses: ./.github/workflows/CI_pytest.yml
     secrets:
       SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+
 
   # ---- 2. Deploy to Render ----
   deploy:
