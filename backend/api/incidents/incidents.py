@@ -25,7 +25,7 @@ def check_type(type: str):
 
 
 def get_latest_state(supabase: Client, incident_id: str) -> dict[str, dict]:
-    if not incident_id:
+    if not incident_id or incident_id == "":
         return {}
 
     states_res = (
@@ -60,17 +60,17 @@ def get_incidents(
                 created_at,
                 image_url,
                 membership_id,
-                memberships(association_id, role),
-                incident_states(status, created_at)
+                memberships(association_id, role)
                 """).eq("memberships.association_id", association_id).execute()
 
     incidents = incidents_res.data or []
     for incident in incidents:
-        latest_state = get_latest_state(supabase, incident["id"])
-        incident_status = latest_state.get("status") or "PENDING"
-        if incident_status == "DISCARDED" and (incident.get("memberships", {}).get("role") != 1 or not mine):
-            incidents.remove(incident)
-        incident["status"] = incident_status
+        if incident:
+            latest_state = get_latest_state(supabase, incident["id"])
+            incident_status = latest_state.get("status")
+            if incident_status == "DISCARDED" and (incident.get("memberships", {}).get("role") != 1 or not mine):
+                incidents.remove(incident)
+            incident["status"] = incident_status
 
     if status:
         check_status(status)
@@ -110,7 +110,7 @@ def get_incident(
                 image_url,
                 membership_id,
                 incident_states(status, created_at)
-                """).eq("id", incident_id).execute()
+                """).eq("id", incident_id).order("created_at", desc=True, foreign_table="incident_states").execute()
     if not incident_res.data:
         raise HTTPException(status_code=404, detail="Incident not found")
 
@@ -148,13 +148,12 @@ def create_incident(
     if file:
         try:
             if not settings.CLOUDINARY_URL:
-                print("⚠️ CLOUDINARY_URL no configurado, guardando incidencia sin imagen")
+                raise HTTPException(status_code=500, detail="Cloudinary configuration is missing")
             else:
                 upload = cloudinary.uploader.upload(file.file, folder=f"incidents/{association_id}")
                 image_url = upload.get("secure_url")
-                print(f"✅ Imagen subida a Cloudinary: {image_url}")
         except Exception as e:
-            print(f"❌ Error subiendo imagen a Cloudinary: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to upload image: {str(e)}")
 
     new_incident = (
         supabase.table("incidents")
