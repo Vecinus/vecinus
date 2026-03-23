@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useZonasStore } from '../../../store/useZonesStore';
+import { useZonasStore } from '../../../../store/useZonesStore';
 
 export default function DetalleReservaQR() {
   const { reserva_id, comunidad_id } = useLocalSearchParams();

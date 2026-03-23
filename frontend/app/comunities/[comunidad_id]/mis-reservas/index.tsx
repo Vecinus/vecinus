@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-// NOTA: Hemos añadido un ../ extra porque ahora estamos más profundo en las carpetas
 import { useZonasStore } from '../../../../store/useZonesStore';
 
 const COLORS = {
@@ -15,7 +14,6 @@ const COLORS = {
 
 export default function MisReservasListado() {
   const router = useRouter();
-  // Recogemos el ID de la comunidad de la URL
   const { comunidad_id } = useLocalSearchParams();
   const { misReservas } = useZonasStore();
 
@@ -42,7 +40,6 @@ export default function MisReservasListado() {
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.reservaCard}
-              // AHORA SÍ CONSTRUYE LA RUTA PERFECTA CON EL ID DE LA COMUNIDAD Y LA RESERVA
               onPress={() => router.push(`/comunities/${comunidad_id}/mis-reservas/${item.id}` as any)}
             >
               <View style={styles.cardHeader}>

@@ -28,6 +28,7 @@ interface ZonasState {
   crearZona: (comunidadId: string, zona: Partial<ZonaComun>) => Promise<void>;
   crearReserva: (reserva: Omit<Reserva, 'id'>) => Promise<string>;
   obtenerReservaPorId: (id: string) => Reserva | undefined;
+  validarAccesoQR: (qrData: string) => Promise<boolean>;
 }
 
 export const useZonasStore = create<ZonasState>((set, get) => ({
@@ -110,5 +111,25 @@ export const useZonasStore = create<ZonasState>((set, get) => ({
 
   obtenerReservaPorId: (id) => {
     return get().misReservas.find(r => r.id === id);
+  },
+
+  validarAccesoQR: async (qrData: string) => {
+    try {
+      const token = useAuthStore.getState().token;
+      const payload = JSON.parse(qrData);
+      
+      const response = await fetch(`${API_URL}/common-spaces/validate-qr`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      return response.ok;
+    } catch (error) {
+      return false;
+    }
   }
 }));
