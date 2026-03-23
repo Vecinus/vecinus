@@ -1,8 +1,10 @@
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel
+
+UsageMode = Literal["exclusive_reservation", "guest_pass"]
 
 
 class CommonSpaceBase(BaseModel):
@@ -11,6 +13,7 @@ class CommonSpaceBase(BaseModel):
     max_capacity: Optional[int] = None
     max_guests_per_reservation: Optional[int] = None
     photo_url: Optional[str] = None
+    usage_mode: UsageMode = "exclusive_reservation"
 
 
 class CommonSpaceCreate(CommonSpaceBase):
@@ -23,6 +26,7 @@ class CommonSpaceUpdate(BaseModel):
     max_capacity: Optional[int] = None
     max_guests_per_reservation: Optional[int] = None
     photo_url: Optional[str] = None
+    usage_mode: Optional[UsageMode] = None
 
 
 class CommonSpace(CommonSpaceBase):
