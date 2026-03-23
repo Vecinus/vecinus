@@ -50,8 +50,15 @@ def get_incidents(
 ):
     user_id = current_user["id"]
     verify_association_membership(association_id, user_id, supabase)
-    if status == "DISCARDED":
-        verify_association_admin(association_id, user_id, supabase)
+    is_admin = (
+        supabase.table("memberships")
+        .select("role")
+        .eq("association_id", str(association_id))
+        .eq("profile_id", str(user_id))
+        .execute()
+    ).data[0].get("role") == "1"
+    if status == "DISCARDED" and not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required for this action")
 
     incidents_res = supabase.table("incidents").select("""
                 id,
