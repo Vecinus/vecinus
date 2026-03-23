@@ -98,9 +98,12 @@ const parseStatus = (status: BackendIncident['status']): IncidentStatus => {
 const parseErrorDetail = async (response: Response): Promise<string> => {
   try {
     const data = await response.json();
-    if (typeof data?.detail === 'string') return data.detail;
+    if (typeof data?.detail === 'string') {
+      // Incluir el código de estado y el mensaje
+      return `${response.status}:${data.detail}`;
+    }
   } catch { /* ignore */ }
-  return `Error HTTP ${response.status}`;
+  return `${response.status}`;
 };
 
 const mapIncident = (
@@ -122,7 +125,7 @@ const mapIncident = (
     calculatedStatus = parseStatus(lastState.status);
   }
 
-  const typeKey = String(item.type || '').toUpperCase();
+  const typeKey = String(item.type || 'OTHER').toUpperCase() as any;
 
   return {
     id: String(item.id),
@@ -133,6 +136,7 @@ const mapIncident = (
     reporterName: memberData?.userName || 'Vecino',
     createdAt: item.created_at || new Date().toISOString(),
     status: calculatedStatus,
+    type: typeKey,
     image: item.image_url || undefined,
   };
 };
@@ -184,29 +188,18 @@ export const createIncident = async (params: {
   formData.append('description', params.description);
 
   if (params.image) {
-    console.log('📸 Procesando imagen:', params.image.name);
-    
     try {
       // Prioridad 1: Si DocumentPicker retornó un File object (Expo Web)
       if (params.image.file instanceof File) {
-        console.log('✅ Usando File object directo');
         formData.append('file', params.image.file);
       } else if (params.image.uri) {
         // Prioridad 2: Para blob:// URLs en Expo Web, usar FileReader vía Blob
-        // Crear un img temporal para cargar el blob y extraer datos
         if (params.image.uri.startsWith('blob:')) {
-          console.log('🔄 Convirtiendo blob:// URL a Blob');
-          const response = await fetch(params.image.uri).catch(err => {
-            console.warn('⚠️ CORS issue con blob, enviando como fallback', err);
-            return null;
-          });
+          const response = await fetch(params.image.uri).catch(() => null);
           
           if (response) {
             const blob = await response.blob();
             formData.append('file', blob, params.image.name);
-            console.log('✅ Blob convertido exitosamente');
-          } else {
-            console.warn('⚠️ No se pudo acceder al blob, ignorando imagen');
           }
         } else {
           // URI local (mobile)
@@ -218,8 +211,7 @@ export const createIncident = async (params: {
         }
       }
     } catch (error) {
-      console.error('❌ Error procesando imagen:', error);
-      // Continúa sin imagen si falla
+      throw new Error(`404:Imagen no válida - ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
   }
 
@@ -231,12 +223,20 @@ export const createIncident = async (params: {
 
   if (!response.ok) {
     const errorDetail = await parseErrorDetail(response);
-    console.error('❌ Error en createIncident:', errorDetail);
+    
+    // Mejorar mensajes de error específicos
+    if (response.status === 404) {
+      throw new Error('404:Comunidad no encontrada o no tienes acceso');
+    } else if (response.status === 500) {
+      throw new Error('500:Error del servidor al procesar la incidencia');
+    } else if (response.status === 403) {
+      throw new Error(errorDetail);
+    }
+    
     throw new Error(errorDetail);
   }
 
   const data = (await response.json()) as { incident_id?: string };
-  console.log('✅ Incidencia creada:', data.incident_id);
   return data.incident_id || '';
 };
 /**
@@ -318,49 +318,58 @@ export const getIncidentDetail = async (params: {
   incident: Incident;
   history: IncidentHistoryEntry[];
 }> => {
-  const response = await fetch(`${INCIDENTS_BASE_URL}/${params.associationId}/${params.incidentId}`, {
-    method: 'GET',
-    headers: authHeaders(params.token),
-  });
+  const url = `${INCIDENTS_BASE_URL}/${params.associationId}/${params.incidentId}`;
+  
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: authHeaders(params.token),
+    });
 
-  if (!response.ok) {
-    throw new Error(await parseErrorDetail(response));
+    if (!response.ok) {
+      const errorDetail = await parseErrorDetail(response);
+      throw new Error(errorDetail);
+    }
+
+    const data = (await response.json()) as BackendIncident;
+    
+    // Calcular el status: si data.status es null, usar el último estado de incident_states
+    let calculatedStatus = parseStatus(data.status);
+    const states = Array.isArray(data.incident_states) ? data.incident_states : [];
+    
+    if (!data.status && states.length > 0) {
+      // Obtener el último estado
+      const lastState = states[states.length - 1];
+      calculatedStatus = parseStatus(lastState.status);
+    }
+    
+    // Construir el objeto Incident
+    const typeKey = String(data.type || 'OTHER').toUpperCase() as any;
+    const incident: Incident = {
+      id: String(data.id),
+      communityId: params.associationId,
+      reporterId: data.membership_id || 'unknown-user',
+      title: BACK_TYPE_LABEL[typeKey] || 'Incidencia',
+      description: data.description || '',
+      reporterName: 'Vecino',
+      createdAt: data.created_at || new Date().toISOString(),
+      status: calculatedStatus,
+      type: typeKey,
+      image: data.image_url || undefined,
+    };
+
+    // Construir el historial
+    const history: IncidentHistoryEntry[] = states.length === 0
+      ? [{ status: calculatedStatus, date: data.created_at || new Date().toISOString() }]
+      : states
+          .map((state) => ({
+            status: parseStatus(state.status || null),
+            date: state.created_at || new Date().toISOString(),
+          }))
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    return { incident, history };
+  } catch (error) {
+    throw error;
   }
-
-  const data = (await response.json()) as BackendIncident;
-  
-  // Calcular el status: si data.status es null, usar el último estado de incident_states
-  let calculatedStatus = parseStatus(data.status);
-  const states = Array.isArray(data.incident_states) ? data.incident_states : [];
-  
-  if (!data.status && states.length > 0) {
-    // Obtener el último estado (ordenados por created_at descendente)
-    const lastState = states[states.length - 1];
-    calculatedStatus = parseStatus(lastState.status);
-  }
-  
-  // Construir el objeto Incident
-  const incident: Incident = {
-    id: String(data.id),
-    communityId: params.associationId,
-    reporterId: data.membership_id || 'unknown-user',
-    title: BACK_TYPE_LABEL[String(data.type || '').toUpperCase()] || 'Incidencia',
-    description: data.description || '',
-    reporterName: 'Vecino',
-    createdAt: data.created_at || new Date().toISOString(),
-    status: calculatedStatus,
-    image: data.image_url || undefined,
-  };
-
-  // Construir el historial
-  const history: IncidentHistoryEntry[] = states.length === 0
-    ? [{ status: calculatedStatus, date: data.created_at || new Date().toISOString() }]
-    : states
-        .map((state) => ({
-          status: parseStatus(state.status || null),
-          date: state.created_at || new Date().toISOString(),
-        }))
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-  return { incident, history };
 };
