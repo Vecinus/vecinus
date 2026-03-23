@@ -60,7 +60,7 @@ def get_incidents(
                 created_at,
                 image_url,
                 membership_id,
-                memberships(association_id, role),
+                memberships(association_id, role)
                 """).eq("memberships.association_id", association_id).execute()
 
     incidents = incidents_res.data or []
