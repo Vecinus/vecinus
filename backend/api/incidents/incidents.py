@@ -148,7 +148,7 @@ def create_incident(
 
     if not membership_res.data:
         raise HTTPException(status_code=403, detail="User has no access to this association")
-    elif membership_res.data[0].get("role") == 1:
+    elif membership_res.data[0].get("role") == "1":
         raise HTTPException(status_code=403, detail="Admins cannot create incidents")
 
     membership_id = membership_res.data[0].get("id")
