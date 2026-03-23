@@ -133,6 +133,7 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
           icon: "business-outline" as IconName,
           route: "admin",
           enabled: true,
+          requiresAdmin: true,
         },
         {
           name: "Administración",
