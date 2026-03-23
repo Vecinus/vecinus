@@ -2,7 +2,7 @@ import io
 import os
 import sys
 import types
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from importlib import metadata
 from typing import Any, Dict, List
 from uuid import uuid4
@@ -57,12 +57,14 @@ metadata.version = patched_version
 pydantic.networks.version = patched_version
 
 from api.common_space.common_space import router as common_space_router  # noqa: E402
+from api.common_space.guest_passes import router as guest_passes_router  # noqa: E402
 from api.common_space.reservations import router as reservations_router  # noqa: E402
-from core.deps import get_current_user, get_supabase, get_supabase_admin  # noqa: E402
 import api.common_space.common_space as common_space_api  # noqa: E402
+from core.deps import get_current_user, get_supabase, get_supabase_admin  # noqa: E402
 
 app = FastAPI()
 app.include_router(common_space_router)
+app.include_router(guest_passes_router)
 app.include_router(reservations_router)
 client = TestClient(app)
 
@@ -124,7 +126,10 @@ class MockSupabaseTable:
             try:
                 return datetime.fromisoformat(value.replace("Z", "+00:00"))
             except ValueError:
-                return value
+                try:
+                    return date.fromisoformat(value)
+                except ValueError:
+                    return value
         return value
 
     def _matches(self, row: Dict[str, Any]) -> bool:
@@ -157,6 +162,13 @@ class MockSupabaseTable:
             if self._table_name == "reservation":
                 new_row["status_id"] = 1
                 new_row["qr_token"] = str(uuid4())
+            if self._table_name == "guest_pass":
+                new_row["status_id"] = 1
+                new_row["qr_token"] = str(uuid4())
+                new_row["checked_in_at"] = None
+                new_row["created_at"] = datetime.now(timezone.utc).isoformat()
+            if self._table_name == "common_space":
+                new_row["created_at"] = datetime.now(timezone.utc).isoformat()
             current.append(new_row)
             return MockResponse([new_row])
 
@@ -174,6 +186,7 @@ class MockSupabaseTable:
 class MockSupabaseReservationClient:
     def __init__(self):
         now = datetime.now(timezone.utc)
+        today = now.date().isoformat()
         self.storage = {
             "common_space": [
                 {
@@ -182,29 +195,63 @@ class MockSupabaseReservationClient:
                     "name": "Piscina",
                     "requires_qr": True,
                     "max_capacity": None,
-                    "max_guests_per_reservation": 3,
+                    "max_guests_per_reservation": 2,
                     "photo_url": None,
+                    "usage_mode": "guest_pass",
                 },
                 {
                     "id": 2,
+                    "association_id": ASSOCIATION_ID,
+                    "name": "Pista de padel",
+                    "requires_qr": True,
+                    "max_capacity": 1,
+                    "max_guests_per_reservation": 3,
+                    "photo_url": None,
+                    "usage_mode": "exclusive_reservation",
+                },
+                {
+                    "id": 3,
                     "association_id": ASSOCIATION_ID,
                     "name": "Sala multiusos",
                     "requires_qr": True,
                     "max_capacity": 10,
                     "max_guests_per_reservation": 6,
                     "photo_url": None,
+                    "usage_mode": "exclusive_reservation",
                 },
             ],
             "reservation": [
                 {
                     "id": 1,
                     "user_id": USER_ID,
-                    "space_id": 1,
-                    "start_at": (now + timedelta(hours=1)).isoformat(),
-                    "end_at": (now + timedelta(hours=2)).isoformat(),
+                    "space_id": 2,
+                    "start_at": (now + timedelta(hours=4)).isoformat(),
+                    "end_at": (now + timedelta(hours=5)).isoformat(),
                     "qr_token": str(uuid4()),
                     "status_id": 1,
-                    "guests_count": 2,
+                    "guests_count": 0,
+                },
+                {
+                    "id": 2,
+                    "user_id": USER_ID,
+                    "space_id": 2,
+                    "start_at": (now + timedelta(hours=6)).isoformat(),
+                    "end_at": (now + timedelta(hours=7)).isoformat(),
+                    "qr_token": str(uuid4()),
+                    "status_id": 2,
+                    "guests_count": 0,
+                },
+            ],
+            "guest_pass": [
+                {
+                    "id": 1,
+                    "user_id": USER_ID,
+                    "space_id": 1,
+                    "valid_for_date": today,
+                    "qr_token": str(uuid4()),
+                    "status_id": 1,
+                    "checked_in_at": None,
+                    "created_at": now.isoformat(),
                 }
             ],
             "memberships": [
@@ -217,12 +264,12 @@ class MockSupabaseReservationClient:
                     "association_id": ASSOCIATION_ID,
                     "profile_id": EMPLOYEE_ID,
                     "role": 5,
-                }
+                },
             ],
         }
 
     def table(self, name: str):
-        if name not in {"common_space", "reservation", "memberships"}:
+        if name not in {"common_space", "reservation", "guest_pass", "memberships"}:
             raise AssertionError(f"Unexpected table requested: {name}")
         return MockSupabaseTable(name, self.storage)
 
@@ -278,12 +325,14 @@ def test_create_common_space_with_body_association_id(setup_overrides):
             "max_capacity": 20,
             "max_guests_per_reservation": 4,
             "photo_url": "https://cdn.test/azotea.png",
+            "usage_mode": "exclusive_reservation",
         },
     )
 
     assert response.status_code == 201
     assert response.json()["association_id"] == ASSOCIATION_ID
     assert response.json()["name"] == "Azotea"
+    assert response.json()["usage_mode"] == "exclusive_reservation"
 
 
 def test_create_reservation_returns_qr_token(setup_overrides):
@@ -291,7 +340,7 @@ def test_create_reservation_returns_qr_token(setup_overrides):
     response = client.post(
         "/reservations/",
         json={
-            "space_id": 2,
+            "space_id": 3,
             "start_at": (now + timedelta(hours=3)).isoformat(),
             "end_at": (now + timedelta(hours=4)).isoformat(),
             "guests_count": 4,
@@ -300,25 +349,100 @@ def test_create_reservation_returns_qr_token(setup_overrides):
 
     assert response.status_code == 201
     data = response.json()
-    assert data["space_id"] == 2
+    assert data["space_id"] == 3
     assert data["status_id"] == 1
     assert data["qr_token"]
 
 
-def test_create_reservation_rejects_overlap_when_capacity_is_low(setup_overrides):
+def test_create_reservation_rejects_guest_pass_spaces(setup_overrides):
     now = datetime.now(timezone.utc)
     response = client.post(
         "/reservations/",
         json={
             "space_id": 1,
-            "start_at": (now + timedelta(hours=1, minutes=30)).isoformat(),
-            "end_at": (now + timedelta(hours=2, minutes=30)).isoformat(),
+            "start_at": (now + timedelta(hours=1)).isoformat(),
+            "end_at": (now + timedelta(hours=2)).isoformat(),
             "guests_count": 1,
         },
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "The selected time slot is no longer available"
+    assert response.json()["detail"] == "Esta zona común no admite reservas por franja horaria"
+
+
+def test_create_reservation_rejects_overlap_when_capacity_is_one(setup_overrides):
+    now = datetime.now(timezone.utc)
+    response = client.post(
+        "/reservations/",
+        json={
+            "space_id": 2,
+            "start_at": (now + timedelta(hours=4, minutes=30)).isoformat(),
+            "end_at": (now + timedelta(hours=5, minutes=30)).isoformat(),
+            "guests_count": 1,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "La franja horaria seleccionada ya no está disponible"
+
+
+def test_create_reservation_rejects_when_daily_limit_is_reached(setup_overrides):
+    now = datetime.now(timezone.utc)
+    client_state = setup_overrides["client"]
+    client_state.storage["reservation"].append(
+        {
+            "id": 4,
+            "user_id": USER_ID,
+            "space_id": 2,
+            "start_at": (now + timedelta(hours=8)).isoformat(),
+            "end_at": (now + timedelta(hours=9)).isoformat(),
+            "qr_token": str(uuid4()),
+            "status_id": 1,
+            "guests_count": 0,
+        }
+    )
+
+    response = client.post(
+        "/reservations/",
+        json={
+            "space_id": 2,
+            "start_at": (now + timedelta(hours=10)).isoformat(),
+            "end_at": (now + timedelta(hours=11)).isoformat(),
+            "guests_count": 0,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Has alcanzado el límite diario de reservas para esta zona común"
+
+
+def test_create_guest_pass_returns_qr_token(setup_overrides):
+    response = client.post(
+        "/guest-passes/",
+        json={
+            "space_id": 1,
+            "valid_for_date": date.today().isoformat(),
+        },
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["space_id"] == 1
+    assert data["status_id"] == 1
+    assert data["qr_token"]
+
+
+def test_create_guest_pass_rejects_exclusive_spaces(setup_overrides):
+    response = client.post(
+        "/guest-passes/",
+        json={
+            "space_id": 2,
+            "valid_for_date": date.today().isoformat(),
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Esta zona común no admite pases de invitado"
 
 
 def test_validate_qr_checks_in_pending_reservation_for_today(setup_overrides):
@@ -331,8 +455,22 @@ def test_validate_qr_checks_in_pending_reservation_for_today(setup_overrides):
     )
 
     assert response.status_code == 200
-    assert response.json() == {"guests_count": 2, "status": "checked_in"}
+    assert response.json() == {"guests_count": 0, "status": "checked_in"}
     assert reservation["status_id"] == 2
+
+
+def test_validate_qr_checks_in_pending_guest_pass_for_today(setup_overrides):
+    guest_pass = setup_overrides["client"].storage["guest_pass"][0]
+    app.dependency_overrides[get_current_user] = lambda: setup_overrides["admin_user"]
+
+    response = client.post(
+        "/reservations/validate-qr",
+        json={"qr_token": guest_pass["qr_token"]},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"guests_count": 1, "status": "checked_in"}
+    assert guest_pass["status_id"] == 2
 
 
 def test_validate_qr_rejects_used_code(setup_overrides):
@@ -346,4 +484,4 @@ def test_validate_qr_rejects_used_code(setup_overrides):
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "This QR has already been used or is no longer valid"
+    assert response.json()["detail"] == "Este código QR ya ha sido utilizado o ya no es válido"
