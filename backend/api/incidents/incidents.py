@@ -108,8 +108,8 @@ def get_incident(
                 created_at,
                 image_url,
                 membership_id,
-                incident_states(status, created_at: desc)
-                """).eq("id", incident_id).execute()
+                incident_states(status, created_at)
+                """).eq("id", incident_id).order("created_at", desc=True, foreign_table="incident_states").execute()
     if not incident_res.data:
         raise HTTPException(status_code=404, detail="Incident not found")
 
