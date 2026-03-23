@@ -126,7 +126,7 @@ def get_incident(
     return incident_res.data[0]
 
 
-@router.post("/{association_id}")
+@router.post("/{association_id}", status_code=201)
 def create_incident(
     association_id: str,
     incident_type: str = Form(..., alias="type"),
@@ -187,7 +187,7 @@ def create_incident(
     return {"message": "Incident created successfully", "incident_id": incident_id}
 
 
-@router.post("/{association_id}/{incident_id}/status")
+@router.post("/{association_id}/{incident_id}/status", status_code=201)
 def update_incident_status(
     association_id: str,
     incident_id: str,
