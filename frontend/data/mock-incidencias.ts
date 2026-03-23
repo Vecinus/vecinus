@@ -31,6 +31,7 @@ export interface Incident {
   reporterName: string;
   createdAt: string;
   status: IncidentStatus;
+  type: IncidentType;
   image?: string;
 }
 
@@ -63,6 +64,7 @@ export const MOCK_INCIDENCIAS: Incident[] = [
     reporterName: 'Miguel Sanchez',
     createdAt: '2026-03-14T11:30:00.000Z',
     status: 'IN PROGRESS',
+    type: 'ELEVATOR',
   },
   {
     id: 'inc-002',
@@ -74,6 +76,7 @@ export const MOCK_INCIDENCIAS: Incident[] = [
     reporterName: 'Lucia Ramos',
     createdAt: '2026-03-12T08:15:00.000Z',
     status: 'PENDING',
+    type: 'PLUMBING',
   },
   {
     id: 'inc-003',
@@ -85,6 +88,7 @@ export const MOCK_INCIDENCIAS: Incident[] = [
     reporterName: 'Carlos Gomez',
     createdAt: '2026-03-10T19:40:00.000Z',
     status: 'SOLVED',
+    type: 'LIGHTING',
   },
   {
     id: 'inc-004',
@@ -96,6 +100,7 @@ export const MOCK_INCIDENCIAS: Incident[] = [
     reporterName: 'Sofia Martin',
     createdAt: '2026-03-11T09:00:00.000Z',
     status: 'PENDING',
+    type: 'SAFETY',
   },
   {
     id: 'inc-005',
@@ -107,5 +112,6 @@ export const MOCK_INCIDENCIAS: Incident[] = [
     reporterName: 'Miguel Sanchez',
     createdAt: '2026-03-09T16:20:00.000Z',
     status: 'DISCARDED',
+    type: 'OTHER',
   },
 ];
