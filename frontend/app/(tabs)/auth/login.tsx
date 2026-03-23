@@ -104,7 +104,11 @@ export default function LoginScreen() {
           placeholderTextColor="#888"
           secureTextEntry
           returnKeyType="go"
-          onSubmitEditing={() => { void handleLogin(); }}
+          onSubmitEditing={() => {
+            if (!loading) {
+              void handleLogin();
+            }
+          }}
         />
 
         <TouchableOpacity 
