@@ -187,6 +187,7 @@ class MockSupabaseReservationClient:
     def __init__(self):
         now = datetime.now(timezone.utc)
         today = now.date().isoformat()
+        day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         self.storage = {
             "common_space": [
                 {
@@ -225,8 +226,8 @@ class MockSupabaseReservationClient:
                     "id": 1,
                     "user_id": USER_ID,
                     "space_id": 2,
-                    "start_at": (now + timedelta(hours=4)).isoformat(),
-                    "end_at": (now + timedelta(hours=5)).isoformat(),
+                    "start_at": (day_start + timedelta(hours=10)).isoformat(),
+                    "end_at": (day_start + timedelta(hours=11)).isoformat(),
                     "qr_token": str(uuid4()),
                     "status_id": 1,
                     "guests_count": 0,
@@ -235,8 +236,8 @@ class MockSupabaseReservationClient:
                     "id": 2,
                     "user_id": USER_ID,
                     "space_id": 2,
-                    "start_at": (now + timedelta(hours=6)).isoformat(),
-                    "end_at": (now + timedelta(hours=7)).isoformat(),
+                    "start_at": (day_start + timedelta(hours=12)).isoformat(),
+                    "end_at": (day_start + timedelta(hours=13)).isoformat(),
                     "qr_token": str(uuid4()),
                     "status_id": 2,
                     "guests_count": 0,
@@ -372,12 +373,13 @@ def test_create_reservation_rejects_guest_pass_spaces(setup_overrides):
 
 def test_create_reservation_rejects_overlap_when_capacity_is_one(setup_overrides):
     now = datetime.now(timezone.utc)
+    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     response = client.post(
         "/reservations/",
         json={
             "space_id": 2,
-            "start_at": (now + timedelta(hours=4, minutes=30)).isoformat(),
-            "end_at": (now + timedelta(hours=5, minutes=30)).isoformat(),
+            "start_at": (day_start + timedelta(hours=10, minutes=30)).isoformat(),
+            "end_at": (day_start + timedelta(hours=11, minutes=30)).isoformat(),
             "guests_count": 1,
         },
     )
@@ -388,14 +390,15 @@ def test_create_reservation_rejects_overlap_when_capacity_is_one(setup_overrides
 
 def test_create_reservation_rejects_when_daily_limit_is_reached(setup_overrides):
     now = datetime.now(timezone.utc)
+    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     client_state = setup_overrides["client"]
     client_state.storage["reservation"].append(
         {
             "id": 4,
             "user_id": USER_ID,
             "space_id": 2,
-            "start_at": (now + timedelta(hours=8)).isoformat(),
-            "end_at": (now + timedelta(hours=9)).isoformat(),
+            "start_at": (day_start + timedelta(hours=14)).isoformat(),
+            "end_at": (day_start + timedelta(hours=15)).isoformat(),
             "qr_token": str(uuid4()),
             "status_id": 1,
             "guests_count": 0,
@@ -406,8 +409,8 @@ def test_create_reservation_rejects_when_daily_limit_is_reached(setup_overrides)
         "/reservations/",
         json={
             "space_id": 2,
-            "start_at": (now + timedelta(hours=10)).isoformat(),
-            "end_at": (now + timedelta(hours=11)).isoformat(),
+            "start_at": (day_start + timedelta(hours=16)).isoformat(),
+            "end_at": (day_start + timedelta(hours=17)).isoformat(),
             "guests_count": 0,
         },
     )
