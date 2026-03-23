@@ -1,5 +1,6 @@
+import React, { useState } from "react";
 import { Image } from "expo-image";
-import { StyleSheet, TouchableOpacity, View, Platform, useWindowDimensions, useColorScheme } from "react-native";
+import { StyleSheet, TouchableOpacity, View, Platform, useWindowDimensions, useColorScheme,Alert } from "react-native";
 import { useNavigation, ParamListBase } from "@react-navigation/native";
 import { DrawerNavigationProp } from "@react-navigation/drawer";
 import { 
@@ -15,6 +16,10 @@ import {
 import { HelloWave } from "@/components/hello-wave";
 import ParallaxScrollView from "@/components/parallax-scroll-view";
 import { ThemedText } from "@/components/themed-text";
+
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {API_URL, globalJwtToken} from "@/constants/api";
 
 export default function HomeScreen() {
   const navigation = useNavigation<DrawerNavigationProp<ParamListBase>>();
@@ -39,6 +44,53 @@ export default function HomeScreen() {
     menuBg: isDark ? 'rgba(30, 30, 30, 0.95)' : 'rgba(255, 255, 255, 0.95)',
   };
 
+  const showAlert = (title: string, message: string) => {
+    if(Platform.OS === 'web') {
+      window.alert(`${title}\n\n${message}`);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
+
+
+  const [feedback, setFeedback] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleFeedbackSubmit = async () => {
+    if (!feedback.trim()) {
+      showAlert("Aviso", "Por favor, escribe un comentario antes de enviar.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      if (globalJwtToken) {
+        headers["Authorization"] = `Bearer ${globalJwtToken}`;
+      }
+      const response = await fetch(`${API_URL}/feedback`, {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify({ feedback: feedback }),
+      });
+
+      if (response.ok) {
+        showAlert("¡Gracias!", "Tu feedback ha sido enviado a la base de datos.");
+        setFeedback("");
+      } else {
+        showAlert("Error", "Hubo un problema al enviar el feedback.");
+      }
+    } catch (error) {
+      console.error(error);
+      showAlert("Error", "No se pudo conectar con el servidor.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // Componente de Tarjeta
   const FeatureCard = ({ icon: Icon, title, description }: { icon: LucideIcon, title: string, description: string }) => (
     <View style={[
@@ -60,6 +112,7 @@ export default function HomeScreen() {
   );
 
   return (
+    
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Botón Flotante Menú */}
       <TouchableOpacity
@@ -123,7 +176,45 @@ export default function HomeScreen() {
               Gestiona tu comunidad de vecinos de forma fácil, transparente y eficiente desde un solo lugar. Todo lo que necesitas, a un clic de distancia.
             </ThemedText>
           </View>
-
+          <View style={[
+            styles.sectionContainer, 
+            { 
+              backgroundColor: colors.cardBg, 
+              padding: 20, 
+              borderRadius: 20, 
+              borderWidth: 1, 
+              borderColor: colors.border,
+              marginTop: 20,
+              marginBottom: 40 // <--- Le damos un buen margen por debajo para separar secciones
+            }
+          ]}>
+            <ThemedText type="subtitle" style={[{ color: colors.textMain, marginBottom: 10 }]}>
+              Feedback Vecinus
+            </ThemedText>
+            <ThemedText style={[{ color: colors.textSub, marginBottom: 15 }]}>
+              Ayúdanos a mejorar Vecinus dejando tus comentarios.
+            </ThemedText>
+            
+            <Input
+              placeholder="Escribe aquí tu opinión o reporte de error..."
+              value={feedback}
+              onChangeText={setFeedback}
+              multiline
+              numberOfLines={6}
+              maxLength={2000}
+              className="h-[120px]" // <--- LA MAGIA: Esto anula la altura por defecto y arregla el solapamiento
+              style={{ marginBottom: 15, textAlignVertical: 'top' }}
+            />
+            
+            <Button 
+              onPress={handleFeedbackSubmit} 
+              disabled={isSubmitting}
+            >
+              <ThemedText style={{ color: "white", fontWeight: "bold" }}>
+                {isSubmitting ? "Enviando..." : "Enviar Feedback"}
+              </ThemedText>
+            </Button>
+          </View>
           {/* Sección de Funcionalidades */}
           <View style={styles.sectionContainer}>
             <ThemedText type="subtitle" style={[

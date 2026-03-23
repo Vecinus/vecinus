@@ -1,55 +1,56 @@
 import { create } from 'zustand';
-import { clearGlobalJwtToken, setGlobalJwtToken } from '../constants/api';
+import { API_URL, clearGlobalJwtToken, setGlobalJwtToken, globalJwtToken } from '../constants/api';
 import { useCommunityStore } from './useCommunityStore';
-
-const STORAGE_KEY = 'vecinus.auth.token';
-
-const getStoredToken = (): string | null => {
-  try {
-    if (typeof window === 'undefined' || !window.localStorage) return null;
-    return window.localStorage.getItem(STORAGE_KEY);
-  } catch {
-    return null;
-  }
-};
-
-const setStoredToken = (token: string | null) => {
-  try {
-    if (typeof window === 'undefined' || !window.localStorage) return;
-    if (token) {
-      window.localStorage.setItem(STORAGE_KEY, token);
-    } else {
-      window.localStorage.removeItem(STORAGE_KEY);
-    }
-  } catch {
-    // Ignore storage errors (private mode, disabled storage, etc.)
-  }
-};
-
-const initialToken = getStoredToken();
-if (initialToken) {
-  setGlobalJwtToken(initialToken);
-}
+import { useUserStore } from './useUserStore';
+import { useMembersStore } from './useMembersStore';
+import { usePropertyStore } from './usePropertyStore';
 
 interface AuthState {
   isAuthenticated: boolean;
   token: string | null;
-  login: (token: string) => void;
+  login: (token: string) => Promise<void>;
   logout: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  isAuthenticated: !!initialToken,
-  token: initialToken,
-  login: (token) => {
-    setGlobalJwtToken(token);
-    setStoredToken(token);
+  // Inicialización síncrona instantánea
+  isAuthenticated: !!globalJwtToken,
+  token: globalJwtToken,
+
+  login: async (token) => {
+    setGlobalJwtToken(token); // Esto ya guarda en disco (MMKV/Local) síncronamente
+    
+    try {
+      const response = await fetch(`${API_URL}/users/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        useUserStore.getState().setUser({
+          id: userData.id,
+          name: userData.username || userData.email.split('@')[0],
+          email: userData.email,
+          avatar: userData.avatar_url,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching user profile during login:', error);
+    }
+
     set({ isAuthenticated: true, token });
   },
+
   logout: () => {
-    clearGlobalJwtToken();
-    setStoredToken(null);
+    clearGlobalJwtToken(); // Esto ya borra de disco (MMKV/Local) síncronamente
+    
+    // Reset all stores
+    useUserStore.getState().reset();
     useCommunityStore.getState().reset();
+    useMembersStore.getState().reset();
+    usePropertyStore.getState().reset();
     
     set({ isAuthenticated: false, token: null });
   },
