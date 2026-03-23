@@ -17,7 +17,6 @@ import {
   CheckCircle2,
   Clock,
   Menu,
-  FileText,
 } from "lucide-react-native";
 import { useNavigation, useRouter } from "expo-router";
 import { DrawerActions, useFocusEffect } from "@react-navigation/native";
@@ -375,7 +374,6 @@ export default function ActasScreen() {
               : "Consulta los resumenes de las reuniones"}
           </Text>
         </View>
-        <FileText color="#4F46E5" size={24} />
       </View>
 
       <ScrollView className="flex-1 bg-background">

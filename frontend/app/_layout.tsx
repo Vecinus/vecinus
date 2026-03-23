@@ -44,20 +44,18 @@ export default function RootLayout() {
             options={{ headerShown: false }}
           />
 
-          {isAdmin ? (
-            <Drawer.Screen
-              name="comunities/[comunidad_id]/admin"
-              options={{ headerShown: false }}
-            />
-          ) : (
-            <Drawer.Screen
-              name="comunities/[comunidad_id]/admin"
-              options={{
-                headerShown: false,
-                drawerItemStyle: { display: "none" },
-              }}
-            />
-          )}
+          <Drawer.Screen
+            name="comunities/[comunidad_id]/actas"
+            options={{ headerShown: false }}
+          />
+
+          <Drawer.Screen
+            name="comunities/[comunidad_id]/admin"
+            options={{
+              headerShown: false,
+              drawerItemStyle: isAdmin ? undefined : { display: "none" },
+            }}
+          />
         </Drawer>
         <StatusBar style="auto" />
       </ThemeProvider>
