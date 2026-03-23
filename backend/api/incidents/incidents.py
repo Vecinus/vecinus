@@ -61,7 +61,6 @@ def get_incidents(
                 image_url,
                 membership_id,
                 memberships(association_id, role),
-                incident_states(status, created_at)
                 """).eq("memberships.association_id", association_id).execute()
 
     incidents = incidents_res.data or []
