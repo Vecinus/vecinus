@@ -210,7 +210,9 @@ def update_incident_status(
 
     latest_state = get_latest_state(supabase, incident_id)
 
-    if latest_state.get("status") not in {"PENDING", "IN PROGRESS"}:
+    if not latest_state:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    elif latest_state.get("status") not in {"PENDING", "IN PROGRESS"}:
         raise HTTPException(status_code=400, detail="Cannot update status of a resolved or discarded incident")
     elif latest_state.get("status") == status:
         raise HTTPException(status_code=400, detail=f"Incident is already in {status} status")
