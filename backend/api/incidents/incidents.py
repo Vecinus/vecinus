@@ -25,7 +25,7 @@ def check_type(type: str):
 
 
 def get_latest_state(supabase: Client, incident_id: str) -> dict[str, dict]:
-    if not incident_id:
+    if not incident_id or incident_id == "":
         return {}
 
     states_res = (
@@ -65,11 +65,12 @@ def get_incidents(
 
     incidents = incidents_res.data or []
     for incident in incidents:
-        latest_state = get_latest_state(supabase, incident["id"])
-        incident_status = latest_state.get("status") or "PENDING"
-        if incident_status == "DISCARDED" and (incident.get("memberships", {}).get("role") != 1 or not mine):
-            incidents.remove(incident)
-        incident["status"] = incident_status
+        if incident:
+            latest_state = get_latest_state(supabase, incident["id"])
+            incident_status = latest_state.get("status")
+            if incident_status == "DISCARDED" and (incident.get("memberships", {}).get("role") != 1 or not mine):
+                incidents.remove(incident)
+            incident["status"] = incident_status
 
     if status:
         check_status(status)
