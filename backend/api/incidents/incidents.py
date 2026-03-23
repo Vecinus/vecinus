@@ -182,9 +182,18 @@ def create_incident(
 
     incident_id = new_incident.data[0].get("id")
 
-    supabase.table("incident_states").insert({"incident_id": incident_id, "status": "PENDING"}).execute()
+    incident_state = (
+        supabase.table("incident_states").insert({"incident_id": incident_id, "status": "PENDING"}).execute()
+    )
 
-    return {"message": "Incident created successfully", "incident_id": incident_id}
+    incident_state_id = incident_state.data[0].get("id")
+
+    return {
+        "message": "Incident created successfully",
+        "incident_id": incident_id,
+        "incident_state_id": incident_state_id,
+        "image_url": image_url,
+    }
 
 
 @router.post("/{association_id}/{incident_id}/status", status_code=201)
