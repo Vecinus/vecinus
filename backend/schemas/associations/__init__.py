@@ -6,6 +6,7 @@ from schemas.associations.associations import (
     InviteAdminRequest,
     InviteTenantRequest,
     MembershipWithCommunity,
+    UserMeResponse,
 )
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "InviteAdminRequest",
     "InviteTenantRequest",
     "MembershipWithCommunity",
+    "UserMeResponse",
 ]
