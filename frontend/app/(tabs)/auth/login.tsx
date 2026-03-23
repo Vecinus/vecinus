@@ -3,18 +3,23 @@ import { ThemedView } from '@/components/themed-view';
 import { API_URL } from '@/constants/api';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { DrawerActions } from '@react-navigation/native';
+import { Menu } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const navigation = useNavigation();
   const { login } = useAuthStore();
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
+  const insets = useSafeAreaInsets();
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -61,45 +66,53 @@ export default function LoginScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="title" style={styles.title}>Iniciar Sesión</ThemedText>
-      
-      <ThemedText style={styles.label}>Correo Electrónico</ThemedText>
-      <TextInput
-        style={[styles.input, { color: textColor, borderColor: textColor }]}
-        value={email}
-        onChangeText={setEmail}
-        placeholder="ejemplo@correo.com"
-        placeholderTextColor="#888"
-        autoCapitalize="none"
-        keyboardType="email-address"
-      />
+    <ThemedView style={[styles.container, { paddingTop: insets.top, backgroundColor }]}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())} hitSlop={10}>
+          <Menu color={textColor} size={26} />
+        </TouchableOpacity>
+        <ThemedText style={styles.headerTitle}>Iniciar Sesión</ThemedText>
+        <View style={styles.headerSpacer} />
+      </View>
 
-      <ThemedText style={styles.label}>Contraseña</ThemedText>
-      <TextInput
-        style={[styles.input, { color: textColor, borderColor: textColor }]}
-        value={password}
-        onChangeText={setPassword}
-        placeholder="Introduce tu contraseña"
-        placeholderTextColor="#888"
-        secureTextEntry
-      />
+      <View style={styles.content}>
+        <ThemedText style={styles.label}>Correo Electrónico</ThemedText>
+        <TextInput
+          style={[styles.input, { color: textColor, borderColor: textColor }]}
+          value={email}
+          onChangeText={setEmail}
+          placeholder="ejemplo@correo.com"
+          placeholderTextColor="#888"
+          autoCapitalize="none"
+          keyboardType="email-address"
+        />
 
-      <TouchableOpacity 
-        style={[styles.button, loading && styles.buttonDisabled]} 
-        onPress={handleLogin}
-        disabled={loading}
-      >
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <ThemedText style={styles.buttonText}>Entrar</ThemedText>
-        )}
-      </TouchableOpacity>
-      
-      <TouchableOpacity style={styles.linkButton} onPress={() => router.back()} disabled={loading}>
-        <ThemedText style={styles.linkText}>Cancelar</ThemedText>
-      </TouchableOpacity>
+        <ThemedText style={styles.label}>Contraseña</ThemedText>
+        <TextInput
+          style={[styles.input, { color: textColor, borderColor: textColor }]}
+          value={password}
+          onChangeText={setPassword}
+          placeholder="Introduce tu contraseña"
+          placeholderTextColor="#888"
+          secureTextEntry
+        />
+
+        <TouchableOpacity 
+          style={[styles.button, loading && styles.buttonDisabled]} 
+          onPress={() => { void handleLogin(); }}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <ThemedText style={styles.buttonText}>Entrar</ThemedText>
+          )}
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.linkButton} onPress={() => router.back()} disabled={loading}>
+          <ThemedText style={styles.linkText}>Cancelar</ThemedText>
+        </TouchableOpacity>
+      </View>
     </ThemedView>
   );
 }
@@ -109,11 +122,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    justifyContent: 'center',
   },
-  title: {
-    marginBottom: 40,
+  header: {
+    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  headerTitle: {
+    flex: 1,
     textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  headerSpacer: {
+    width: 26,
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
   },
   label: {
     marginBottom: 8,
