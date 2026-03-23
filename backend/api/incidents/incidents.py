@@ -148,13 +148,12 @@ def create_incident(
     if file:
         try:
             if not settings.CLOUDINARY_URL:
-                print("⚠️ CLOUDINARY_URL no configurado, guardando incidencia sin imagen")
+                raise HTTPException(status_code=500, detail="Cloudinary configuration is missing")
             else:
                 upload = cloudinary.uploader.upload(file.file, folder=f"incidents/{association_id}")
                 image_url = upload.get("secure_url")
-                print(f"✅ Imagen subida a Cloudinary: {image_url}")
         except Exception as e:
-            print(f"❌ Error subiendo imagen a Cloudinary: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to upload image: {str(e)}")
 
     new_incident = (
         supabase.table("incidents")
