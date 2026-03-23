@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   ScrollView,
   View,
@@ -89,7 +89,7 @@ export default function ActasScreen() {
       } else {
         setAuthRequiredOpen(false);
       }
-    }, [token, isAuthenticated])
+    }, [token, isAuthenticated]),
   );
 
   if (!token || !isAuthenticated) {
@@ -147,7 +147,7 @@ export default function ActasScreen() {
     setFileName(null);
   };
 
-  const handleDeleteAudio = () =>
+  const handleDeleteAudio = () => {
     confirmAction(
       "Eliminar audio",
       "Seguro que quieres eliminar el audio?",
@@ -159,8 +159,9 @@ export default function ActasScreen() {
         );
       },
     );
+  };
 
-  const handleDeleteFile = () =>
+  const handleDeleteFile = () => {
     confirmAction(
       "Eliminar archivo",
       "Seguro que quieres eliminar el archivo?",
@@ -172,6 +173,7 @@ export default function ActasScreen() {
         );
       },
     );
+  };
 
   const handleFileUpload = async () => {
     try {
@@ -200,7 +202,28 @@ export default function ActasScreen() {
   };
 
   const handleGenerate = async () => {
-    if (!title || !hasAnyAudio) return;
+    const trimmedTitle = (title || "").trim();
+    const missingTitle = !trimmedTitle;
+    const missingAudio = !hasAnyAudio;
+
+    if (missingTitle || missingAudio) {
+      let message =
+        "Debes introducir un nombre para el acta y subir o grabar un audio.";
+
+      if (missingTitle && !missingAudio) {
+        message = "Debes introducir un nombre para el acta.";
+      } else if (!missingTitle && missingAudio) {
+        message = "Debes subir o grabar un audio.";
+      }
+
+      if (Platform.OS === "web") {
+        window.alert(message);
+      } else {
+        Alert.alert("Datos incompletos", message);
+      }
+      return;
+    }
+
     setGenerating(true);
 
     try {
@@ -468,7 +491,7 @@ export default function ActasScreen() {
                   <Button
                     className="w-full mt-2"
                     style={{ backgroundColor: COLORS.primaryHex }}
-                    disabled={!title || !hasAnyAudio || generating}
+                    disabled={generating}
                     onPress={() => {
                       handleGenerate();
                     }}
@@ -589,7 +612,7 @@ export default function ActasScreen() {
           />
 
           {/* Lista de actas */}
-          <View className="flex flex-col gap-3" style={{ paddingBottom: 88 }}>
+          <View className="flex flex-col gap-3" style={{ paddingBottom: 120 }}>
             {actas.map((acta) => (
               <ActaListItem
                 key={acta.id}
@@ -603,17 +626,20 @@ export default function ActasScreen() {
         </View>
       </ScrollView>
 
-      {/* FAB — Nueva acta */}
+      {/* Accion inferior fija — Crear acta */}
       {isPresidente && (
-        <TouchableOpacity
-          style={[styles.fab, { bottom: insets.bottom + 24 }]}
-          onPress={() => {
-            setCreateOpen(true);
-          }}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.fabText}>+</Text>
-        </TouchableOpacity>
+        <View style={[styles.footerContainer, { paddingBottom: insets.bottom + 12 }]}>
+          <TouchableOpacity
+            style={styles.createActaButton}
+            onPress={() => {
+              setCreateOpen(true);
+            }}
+            activeOpacity={0.85}
+          >
+            <Sparkles color="#ffffff" size={18} style={styles.createActaIcon} />
+            <Text style={styles.createActaText}>Crear acta</Text>
+          </TouchableOpacity>
+        </View>
       )}
     </View>
   );
@@ -636,27 +662,38 @@ const styles = StyleSheet.create({
   headerTitleContainer: { marginLeft: 16, flex: 1 },
   headerTitle: { fontSize: 18, fontWeight: "700", color: "#0F172A" },
   headerSubtitle: { fontSize: 12, color: "#64748B" },
-  fab: {
+  footerContainer: {
     position: "absolute",
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 14,
-    backgroundColor: "#3B6FD4",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    backgroundColor: "#ffffff",
+    borderTopWidth: 1,
+    borderTopColor: "#E2E8F0",
+  },
+  createActaButton: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
+    width: "100%",
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: "#4F46E5",
+    shadowColor: "#4F46E5",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
-    elevation: 8,
+    elevation: 4,
   },
-  fabText: {
-    color: "#F8FAFC",
-    fontSize: 28,
-    fontWeight: "300",
-    lineHeight: 32,
-    marginTop: -2,
+  createActaIcon: {
+    marginRight: 6,
+  },
+  createActaText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "700",
   },
   modalOverlay: {
     flex: 1,

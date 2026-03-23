@@ -24,6 +24,7 @@ class InviteAdminRequest(BaseModel):
     association_id: UUID
     target_email: EmailStr
     role_to_grant: int  # 2-5, no puede ser 1 (ADMIN)
+    property_id: Optional[UUID] = None
 
 
 class InviteTenantRequest(BaseModel):
@@ -50,3 +51,12 @@ class CommunityUser(BaseModel):
     membership_id: UUID
     username: Optional[str] = None
     role: int
+
+
+class UserMeResponse(BaseModel):
+    id: UUID
+    email: EmailStr
+    role: str
+    username: Optional[str] = None
+    avatar_url: Optional[str] = None
+    created_at: Optional[datetime] = None
