@@ -66,3 +66,12 @@ class MinutesResponse(AIGeneratedContent):
     meeting_type: MeetingType
     version: int = 1
     document_hash: Optional[str] = None
+
+
+class MinutesReadResponse(MinutesResponse):
+    id: str
+    association_id: str
+    status: MinuteStatus
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    locked_at: Optional[datetime] = None

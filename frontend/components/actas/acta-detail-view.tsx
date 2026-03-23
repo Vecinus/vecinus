@@ -41,10 +41,13 @@ interface ActaDetailViewProps {
 type TabKey = "summary" | "agreements" | "topics" | "tasks" | "transcript";
 
 function formatDate(dateString: string): string {
+  if (!dateString) return "Fecha no disponible";
   return new Date(dateString).toLocaleDateString("es-ES", {
     day: "numeric",
     month: "long",
     year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
@@ -79,9 +82,6 @@ export function ActaDetailView({
   const tabs: { key: TabKey; label: string }[] = [
     { key: "summary", label: "Resumen" },
     { key: "agreements", label: "Acuerdos" },
-    ...(acta.topics && acta.topics.length > 0
-      ? [{ key: "topics" as TabKey, label: "Temas" }]
-      : []),
     ...(acta.tasks && acta.tasks.length > 0
       ? [{ key: "tasks" as TabKey, label: "Tareas" }]
       : []),
@@ -96,14 +96,20 @@ export function ActaDetailView({
     setDownloading(true);
     try {
       const payload = {
-        transcription: acta.transcript,
-        summary: acta.executiveSummary,
+        title: acta.title,
+        scheduled_at: acta.scheduled_at,
+        location: acta.location,
+        meeting_type: acta.type,
+        version: acta.version,
+        transcription: acta.transcription,
+        summary: acta.summary,
         agreements: acta.agreements,
         topics: acta.topics ?? [],
         tasks: acta.tasks ?? [],
+        attendees: acta.attendees ?? [],
       };
 
-      const response = await fetch(`${API_URL}/api/minutes/generate-document`, {
+      const response = await fetch(`${API_URL}/api/minutes/generate-document-preview`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -187,31 +193,30 @@ export function ActaDetailView({
               <Sparkles size={16} color={COLORS.primary} />
               <Text style={styles.tabSectionTitle}>Resumen Ejecutivo</Text>
             </View>
-            <Text style={styles.bodyText}>{acta.executiveSummary}</Text>
+            <Text style={styles.bodyText}>{acta.summary}</Text>
           </View>
         );
 
       case "agreements":
         return (
           <View style={styles.gap8}>
-            {acta.agreements.map((agreement, index) => (
-              <View key={index} style={styles.listItem}>
-                <CheckCircle2 size={16} color={COLORS.primary} />
-                <Text style={[styles.bodyText, styles.flex1]}>{agreement}</Text>
-              </View>
-            ))}
-          </View>
-        );
-
-      case "topics":
-        return (
-          <View style={styles.gap8}>
-            {acta.topics?.map((topic, index) => (
-              <View key={index} style={styles.listItem}>
-                <Tag size={14} color={COLORS.mutedForeground} />
-                <Text style={[styles.bodyText, styles.flex1]}>{topic}</Text>
-              </View>
-            ))}
+            {acta.agreements.map((agreement, index) => {
+              const desc = typeof agreement === "string" ? agreement : agreement.description;
+              const result = typeof agreement === "string" ? null : agreement.result;
+              return (
+                <View key={index} style={styles.listItem}>
+                  <CheckCircle2 size={16} color={result === "DENIED" ? "#EF4444" : COLORS.primary} />
+                  <View style={styles.flex1}>
+                    <Text style={styles.bodyText}>{desc}</Text>
+                    {result && (
+                      <Text style={[styles.taskLabel, { marginTop: 4, color: result === "DENIED" ? "#EF4444" : COLORS.primary }]}>
+                        {result === "APPROVED" ? "APROBADO" : "DENEGADO"}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              );
+            })}
           </View>
         );
 
@@ -242,7 +247,7 @@ export function ActaDetailView({
       case "transcript":
         return (
           <View style={styles.tabSection}>
-            <Text style={styles.bodyText}>{acta.transcript}</Text>
+            <Text style={styles.bodyText}>{acta.transcription}</Text>
           </View>
         );
 
@@ -292,9 +297,9 @@ export function ActaDetailView({
               </Text>
               <View style={styles.meta}>
                 <Calendar size={14} color={COLORS.mutedForeground} />
-                <Text style={styles.metaText}>{formatDate(acta.date)}</Text>
+                <Text style={styles.metaText}>{formatDate(acta.scheduled_at)}</Text>
                 <Text style={styles.metaDot}>·</Text>
-                <Text style={styles.metaText}>{acta.createdBy}</Text>
+                <Text style={styles.metaText}>{acta.location}</Text>
               </View>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>

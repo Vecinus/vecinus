@@ -1,9 +1,10 @@
 from datetime import datetime
+from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
-from schemas.transcription.minutes import MeetingType, MinutesResponse
+from schemas.transcription.minutes import MeetingType, MinutesReadResponse, MinutesResponse
 from services.transcription.document_service import DocumentService
 from services.transcription.minute_service import MinuteService
 from services.transcription.transcription_service import TranscriptionService
@@ -29,16 +30,52 @@ def get_service(db=Depends(MinuteService.get_supabase_client)):
     return MinuteService(db)
 
 
-@router.post("/transcribe", response_model=MinutesResponse)
+@router.get("/{association_id}", response_model=List[MinutesReadResponse])
+async def get_minutes(
+    association_id: UUID,
+    service: MinuteService = Depends(get_service),
+):
+    try:
+        db_results = await service.get_minutes_by_association(association_id)
+        results = []
+        for row in db_results:
+            results.append(
+                MinutesReadResponse(
+                    id=row["id"],
+                    association_id=row["association_id"],
+                    status=row["status"],
+                    title=row["title"],
+                    location=row["location"] or "",
+                    meeting_type=row["type"],
+                    scheduled_at=row["scheduled_at"],
+                    version=row["version"],
+                    document_hash=row.get("document_hash"),
+                    created_at=row.get("created_at"),
+                    updated_at=row.get("updated_at"),
+                    locked_at=row.get("locked_at"),
+                    **row["content_json"],
+                )
+            )
+        return results
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error fetching minutes: {str(e)}",
+        )
+
+
+@router.post("/transcribe", response_model=MinutesReadResponse)
 async def transcribe_meeting(
     association_id: UUID,
-    title: str,  # Añadimos estos campos para completar el modelo
-    location: str,
-    meeting_type: MeetingType,
-    scheduled_at: datetime,
+    title: str,
+    location: str = "Residencial Vecinus",
+    meeting_type: MeetingType = MeetingType.ORDINARY,
+    scheduled_at: datetime = None,
     audio: UploadFile = File(...),
     service: MinuteService = Depends(get_service),
 ):
+    if not scheduled_at:
+        scheduled_at = datetime.now()
     if audio.content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(
             status_code=415,
@@ -70,13 +107,19 @@ async def transcribe_meeting(
 
         db_result = await service.create_initial_draft(association_id, full_minute_response)
 
-        result = MinutesResponse(
+        result = MinutesReadResponse(
+            id=db_result["id"],
+            association_id=db_result["association_id"],
+            status=db_result["status"],
             title=db_result["title"],
             location=db_result["location"],
             meeting_type=db_result["type"],  # Mapeamos 'type' (DB) a 'meeting_type' (Modelo)
             scheduled_at=db_result["scheduled_at"],
             version=db_result["version"],
             document_hash=db_result.get("document_hash"),
+            created_at=db_result.get("created_at"),
+            updated_at=db_result.get("updated_at"),
+            locked_at=db_result.get("locked_at"),
             # Sacamos todo lo que está dentro de content_json a la raíz
             **db_result["content_json"],
         )
