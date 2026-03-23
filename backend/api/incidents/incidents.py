@@ -70,14 +70,16 @@ def get_incidents(
                 memberships(association_id, role)
                 """).eq("memberships.association_id", association_id).execute()
 
-    incidents = incidents_res.data or []
-    for incident in incidents:
+    raw_incidents = incidents_res.data or []
+    incidents = []
+    for incident in raw_incidents:
         if incident:
             latest_state = get_latest_state(supabase, incident["id"])
             incident_status = latest_state.get("status")
-            if incident_status == "DISCARDED" and (incident.get("memberships", {}).get("role") != 1 or not mine):
-                incidents.remove(incident)
+            if incident_status == "DISCARDED" and not is_admin and not mine:
+                continue
             incident["status"] = incident_status
+            incidents.append(incident)
 
     if status:
         check_status(status)
