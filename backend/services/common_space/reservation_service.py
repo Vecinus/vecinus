@@ -311,6 +311,8 @@ def validate_reservation_qr_and_check_in(
     return {
         "guests_count": reservation["guests_count"],
         "status": "checked_in",
+        "space_name": common_space.get("name", "N/A"),
+        "type": "reservation",
     }
 
 
