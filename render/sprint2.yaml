@@ -12,10 +12,7 @@ projects:
             branch: feature/blueprints-s2
             envVars:
               - key: EXPO_PUBLIC_BACKEND_URL
-                fromService:
-                  type: web
-                  name: Vecinus-Backend-S2
-                  property: host
+                sync: false
             buildCommand: npm install && npx expo export --platform web
             staticPublishPath: dist
             autoDeployTrigger: "off"
@@ -49,10 +46,7 @@ projects:
               - key: RESEND_API_KEY
                 sync: false
               - key: APP_BASE_URL
-                fromService:
-                  type: static
-                  name: Vecinus-S2
-                  property: host
+                sync: false
             region: frankfurt
             healthCheckPath: /health
             dockerContext: .
