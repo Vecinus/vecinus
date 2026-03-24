@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
@@ -19,6 +19,7 @@ class ReservationCreate(BaseModel):
 
 class QRValidateRequest(BaseModel):
     qr_token: UUID
+    association_id: UUID
 
 
 class Reservation(BaseModel):
@@ -30,6 +31,30 @@ class Reservation(BaseModel):
     qr_token: UUID
     status_id: int
     guests_count: int
+
+
+class OccupiedSlot(BaseModel):
+    start_at: datetime
+    end_at: datetime
+
+
+class ReservationSummary(BaseModel):
+    id: int
+    user_id: UUID
+    space_id: int
+    space_name: str
+    association_id: UUID
+    requires_qr: bool
+    start_at: datetime
+    end_at: datetime
+    qr_token: UUID
+    status_id: int
+    guests_count: int
+
+
+class ReservationCancelResponse(BaseModel):
+    id: int
+    deleted: bool
 
 
 class QRValidationResponse(BaseModel):

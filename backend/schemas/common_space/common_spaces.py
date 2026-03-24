@@ -17,7 +17,7 @@ class CommonSpaceBase(BaseModel):
 
 
 class CommonSpaceCreate(CommonSpaceBase):
-    association_id: Optional[UUID] = None
+    pass
 
 
 class CommonSpaceUpdate(BaseModel):

@@ -88,7 +88,8 @@ class MockSupabaseTable:
         self._limit = None
 
     def select(self, *args, **kwargs):
-        self._operation = "select"
+        if self._operation not in {"insert", "update"}:
+            self._operation = "select"
         return self
 
     def eq(self, column, value, **kwargs):
@@ -114,6 +115,10 @@ class MockSupabaseTable:
     def insert(self, payload, *args, **kwargs):
         self._operation = "insert"
         self._payload = payload
+        return self
+
+    def delete(self, *args, **kwargs):
+        self._operation = "delete"
         return self
 
     def update(self, payload, *args, **kwargs):
@@ -180,6 +185,17 @@ class MockSupabaseTable:
                     updated.append(dict(row))
             return MockResponse(updated)
 
+        if self._operation == "delete":
+            remaining = []
+            deleted = []
+            for row in self._storage[self._table_name]:
+                if self._matches(row):
+                    deleted.append(dict(row))
+                else:
+                    remaining.append(row)
+            self._storage[self._table_name] = remaining
+            return MockResponse(deleted)
+
         return MockResponse([dict(row) for row in self._filtered_rows()])
 
 
@@ -214,7 +230,7 @@ class MockSupabaseReservationClient:
                     "id": 3,
                     "association_id": ASSOCIATION_ID,
                     "name": "Sala multiusos",
-                    "requires_qr": True,
+                    "requires_qr": False,
                     "max_capacity": 10,
                     "max_guests_per_reservation": 6,
                     "photo_url": None,
@@ -316,11 +332,10 @@ def test_upload_common_space_photo(setup_overrides):
     assert response.json()["secure_url"] == "https://cdn.test/photo.png"
 
 
-def test_create_common_space_with_body_association_id(setup_overrides):
+def test_create_common_space_with_association_in_path(setup_overrides):
     response = client.post(
-        "/common-spaces/",
+        f"/common-spaces/{ASSOCIATION_ID}",
         json={
-            "association_id": ASSOCIATION_ID,
             "name": "Azotea",
             "requires_qr": False,
             "max_capacity": 20,
@@ -355,6 +370,36 @@ def test_create_reservation_returns_qr_token(setup_overrides):
     assert data["qr_token"]
 
 
+def test_create_reservation_rejects_overlap_for_multiuse_room_too(setup_overrides):
+    now = datetime.now(timezone.utc)
+    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    setup_overrides["client"].storage["reservation"].append(
+        {
+            "id": 5,
+            "user_id": USER_ID,
+            "space_id": 3,
+            "start_at": (day_start + timedelta(hours=17)).isoformat(),
+            "end_at": (day_start + timedelta(hours=18)).isoformat(),
+            "qr_token": str(uuid4()),
+            "status_id": 1,
+            "guests_count": 2,
+        }
+    )
+
+    response = client.post(
+        "/reservations/",
+        json={
+            "space_id": 3,
+            "start_at": (day_start + timedelta(hours=17)).isoformat(),
+            "end_at": (day_start + timedelta(hours=18)).isoformat(),
+            "guests_count": 1,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "La franja horaria seleccionada ya no esta disponible"
+
+
 def test_create_reservation_rejects_guest_pass_spaces(setup_overrides):
     now = datetime.now(timezone.utc)
     response = client.post(
@@ -368,7 +413,7 @@ def test_create_reservation_rejects_guest_pass_spaces(setup_overrides):
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "Esta zona común no admite reservas por franja horaria"
+    assert response.json()["detail"] == "Esta zona comun no admite reservas por franja horaria"
 
 
 def test_create_reservation_rejects_overlap_when_capacity_is_one(setup_overrides):
@@ -385,7 +430,7 @@ def test_create_reservation_rejects_overlap_when_capacity_is_one(setup_overrides
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "La franja horaria seleccionada ya no está disponible"
+    assert response.json()["detail"] == "La franja horaria seleccionada ya no esta disponible"
 
 
 def test_create_reservation_rejects_when_daily_limit_is_reached(setup_overrides):
@@ -416,7 +461,7 @@ def test_create_reservation_rejects_when_daily_limit_is_reached(setup_overrides)
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "Has alcanzado el límite diario de reservas para esta zona común"
+    assert response.json()["detail"] == "Has alcanzado el limite diario de reservas para esta zona comun"
 
 
 def test_create_guest_pass_returns_qr_token(setup_overrides):
@@ -435,6 +480,57 @@ def test_create_guest_pass_returns_qr_token(setup_overrides):
     assert data["qr_token"]
 
 
+def test_list_occupied_slots_returns_active_slots_for_day(setup_overrides):
+    now = datetime.now(timezone.utc)
+    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    setup_overrides["client"].storage["reservation"].append(
+        {
+            "id": 6,
+            "user_id": USER_ID,
+            "space_id": 3,
+            "start_at": (day_start + timedelta(hours=17)).isoformat(),
+            "end_at": (day_start + timedelta(hours=18)).isoformat(),
+            "qr_token": str(uuid4()),
+            "status_id": 1,
+            "guests_count": 0,
+        }
+    )
+
+    response = client.get(
+        f"/reservations/occupied-slots?space_id=3&reservation_date={now.date().isoformat()}"
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+
+
+def test_list_my_reservations_filters_by_association(setup_overrides):
+    response = client.get(f"/reservations/me?association_id={ASSOCIATION_ID}")
+
+    assert response.status_code == 200
+    assert len(response.json()) >= 2
+    assert response.json()[0]["association_id"] == ASSOCIATION_ID
+
+
+def test_cancel_reservation_updates_status(setup_overrides):
+    now = datetime.now(timezone.utc)
+    response = client.post(
+        "/reservations/",
+        json={
+            "space_id": 3,
+            "start_at": (now + timedelta(hours=3)).isoformat(),
+            "end_at": (now + timedelta(hours=4)).isoformat(),
+            "guests_count": 0,
+        },
+    )
+    reservation_id = response.json()["id"]
+
+    cancel_response = client.patch(f"/reservations/{reservation_id}/cancel")
+
+    assert cancel_response.status_code == 200
+    assert cancel_response.json()["deleted"] is True
+
+
 def test_create_guest_pass_rejects_exclusive_spaces(setup_overrides):
     response = client.post(
         "/guest-passes/",
@@ -445,7 +541,24 @@ def test_create_guest_pass_rejects_exclusive_spaces(setup_overrides):
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "Esta zona común no admite pases de invitado"
+    assert response.json()["detail"] == "Esta zona comun no admite pases de invitado"
+
+
+def test_list_my_guest_passes_returns_current_user_passes(setup_overrides):
+    response = client.get(f"/guest-passes/me?association_id={ASSOCIATION_ID}")
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["association_id"] == ASSOCIATION_ID
+
+
+def test_cancel_guest_pass_updates_status(setup_overrides):
+    guest_pass = setup_overrides["client"].storage["guest_pass"][0]
+
+    response = client.patch(f"/guest-passes/{guest_pass['id']}/cancel")
+
+    assert response.status_code == 200
+    assert response.json()["deleted"] is True
 
 
 def test_validate_qr_checks_in_pending_reservation_for_today(setup_overrides):
@@ -454,7 +567,10 @@ def test_validate_qr_checks_in_pending_reservation_for_today(setup_overrides):
 
     response = client.post(
         "/reservations/validate-qr",
-        json={"qr_token": reservation["qr_token"]},
+        json={
+            "qr_token": reservation["qr_token"],
+            "association_id": ASSOCIATION_ID,
+        },
     )
 
     assert response.status_code == 200
@@ -468,7 +584,10 @@ def test_validate_qr_checks_in_pending_guest_pass_for_today(setup_overrides):
 
     response = client.post(
         "/reservations/validate-qr",
-        json={"qr_token": guest_pass["qr_token"]},
+        json={
+            "qr_token": guest_pass["qr_token"],
+            "association_id": ASSOCIATION_ID,
+        },
     )
 
     assert response.status_code == 200
@@ -483,8 +602,27 @@ def test_validate_qr_rejects_used_code(setup_overrides):
 
     response = client.post(
         "/reservations/validate-qr",
-        json={"qr_token": reservation["qr_token"]},
+        json={
+            "qr_token": reservation["qr_token"],
+            "association_id": ASSOCIATION_ID,
+        },
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "Este código QR ya ha sido utilizado o ya no es válido"
+    assert response.json()["detail"] == "Este codigo QR ya ha sido utilizado o ya no es valido"
+
+
+def test_validate_qr_rejects_code_from_another_selected_community(setup_overrides):
+    reservation = setup_overrides["client"].storage["reservation"][0]
+    app.dependency_overrides[get_current_user] = lambda: setup_overrides["admin_user"]
+
+    response = client.post(
+        "/reservations/validate-qr",
+        json={
+            "qr_token": reservation["qr_token"],
+            "association_id": "22222222-2222-2222-2222-222222222222",
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Este codigo QR no pertenece a la comunidad seleccionada"

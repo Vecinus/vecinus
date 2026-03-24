@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   DarkTheme,
   DefaultTheme,
@@ -12,6 +12,7 @@ import "../global.css";
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import SidebarMenu from "../components/SidebarMenu";
+import { useAuthStore } from "../store/useAuthStore";
 import { useCommunityStore } from "../store/useCommunityStore";
 
 export const unstable_settings = {
@@ -20,11 +21,16 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const validateSession = useAuthStore((state) => state.validateSession);
 
   const activeCommunityRole = useCommunityStore(
     (state) => state.activeCommunityRole,
   );
   const isAdmin = activeCommunityRole === 1 || activeCommunityRole === 4;
+
+  useEffect(() => {
+    void validateSession();
+  }, [validateSession]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

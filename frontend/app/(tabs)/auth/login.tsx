@@ -1,14 +1,15 @@
+import { DrawerActions } from '@react-navigation/native';
+import { Menu } from 'lucide-react-native';
+import { useNavigation, useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { API_URL } from '@/constants/api';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useNavigation, useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
-import { DrawerActions } from '@react-navigation/native';
-import { Menu } from 'lucide-react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -23,7 +24,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Por favor, introduce correo y contraseña');
+      Alert.alert('Error', 'Por favor, introduce correo y contrasena');
       return;
     }
 
@@ -43,22 +44,21 @@ export default function LoginScreen() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.detail || 'Error al iniciar sesión');
+        throw new Error(data.detail || 'Error al iniciar sesion');
       }
 
       const token = data.session?.access_token || data.access_token;
-      
-      if (token) {
-        login(token);
-        Alert.alert('Éxito', 'Sesión iniciada correctamente');
-        router.replace('/');
-      } else {
-        throw new Error('No se recibió el token de sesión');
+
+      if (!token) {
+        throw new Error('No se recibio el token de sesion');
       }
 
+      await login(token);
+      Alert.alert('Exito', 'Sesion iniciada correctamente');
+      router.replace('/');
     } catch (error: unknown) {
       console.error('Login error:', error);
-      const message = error instanceof Error ? error.message : 'Ocurrió un error al intentar iniciar sesión';
+      const message = error instanceof Error ? error.message : 'Ocurrio un error al intentar iniciar sesion';
       Alert.alert('Error', message);
     } finally {
       setLoading(false);
@@ -71,12 +71,12 @@ export default function LoginScreen() {
         <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())} hitSlop={10}>
           <Menu color={textColor} size={26} />
         </TouchableOpacity>
-        <ThemedText style={styles.headerTitle}>Iniciar Sesión</ThemedText>
+        <ThemedText style={styles.headerTitle}>Iniciar sesion</ThemedText>
         <View style={styles.headerSpacer} />
       </View>
 
       <View style={styles.content}>
-        <ThemedText style={styles.label}>Correo Electrónico</ThemedText>
+        <ThemedText style={styles.label}>Correo electronico</ThemedText>
         <TextInput
           style={[styles.input, { color: textColor, borderColor: textColor }]}
           value={email}
@@ -87,19 +87,21 @@ export default function LoginScreen() {
           keyboardType="email-address"
         />
 
-        <ThemedText style={styles.label}>Contraseña</ThemedText>
+        <ThemedText style={styles.label}>Contrasena</ThemedText>
         <TextInput
           style={[styles.input, { color: textColor, borderColor: textColor }]}
           value={password}
           onChangeText={setPassword}
-          placeholder="Introduce tu contraseña"
+          placeholder="Introduce tu contrasena"
           placeholderTextColor="#888"
           secureTextEntry
         />
 
-        <TouchableOpacity 
-          style={[styles.button, loading && styles.buttonDisabled]} 
-          onPress={() => { void handleLogin(); }}
+        <TouchableOpacity
+          style={[styles.button, loading && styles.buttonDisabled]}
+          onPress={() => {
+            void handleLogin();
+          }}
           disabled={loading}
         >
           {loading ? (
@@ -108,7 +110,7 @@ export default function LoginScreen() {
             <ThemedText style={styles.buttonText}>Entrar</ThemedText>
           )}
         </TouchableOpacity>
-        
+
         <TouchableOpacity style={styles.linkButton} onPress={() => router.back()} disabled={loading}>
           <ThemedText style={styles.linkText}>Cancelar</ThemedText>
         </TouchableOpacity>
@@ -116,7 +118,6 @@ export default function LoginScreen() {
     </ThemedView>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: {

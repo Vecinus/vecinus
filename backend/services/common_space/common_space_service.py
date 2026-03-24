@@ -16,21 +16,14 @@ except ImportError:  # pragma: no cover - handled at runtime if dependency is mi
 TABLE_NAME = "common_space"
 
 
-def _resolve_association_id(payload: CommonSpaceCreate, association_id: UUID | None = None) -> str:
-    resolved_association_id = association_id or payload.association_id
-    if not resolved_association_id:
-        raise HTTPException(status_code=400, detail="association_id is required")
-    return str(resolved_association_id)
-
-
-def create_common_space(supabase: Client, payload: CommonSpaceCreate, association_id: UUID | None = None) -> dict:
+def create_common_space(supabase: Client, payload: CommonSpaceCreate, association_id: UUID) -> dict:
     insert_data = payload.model_dump(exclude_none=True)
-    insert_data["association_id"] = _resolve_association_id(payload, association_id)
+    insert_data["association_id"] = str(association_id)
 
     response = supabase.table(TABLE_NAME).insert(insert_data).execute()
 
     if not response.data:
-        raise HTTPException(status_code=500, detail="Failed to create common space")
+        raise HTTPException(status_code=500, detail="No se ha podido crear la zona común")
 
     return response.data[0]
 
@@ -57,7 +50,7 @@ def get_common_space_by_id(supabase: Client, association_id: UUID, common_space_
     )
 
     if not response.data:
-        raise HTTPException(status_code=404, detail="Common space not found")
+        raise HTTPException(status_code=404, detail="No se ha encontrado la zona común")
 
     return response.data[0]
 
@@ -65,7 +58,7 @@ def get_common_space_by_id(supabase: Client, association_id: UUID, common_space_
 def update_common_space(supabase: Client, association_id: UUID, common_space_id: int, payload: CommonSpaceUpdate) -> dict:
     update_data = payload.model_dump(exclude_none=True)
     if not update_data:
-        raise HTTPException(status_code=400, detail="No fields provided to update")
+        raise HTTPException(status_code=400, detail="No se han proporcionado campos para actualizar")
 
     response = (
         supabase.table(TABLE_NAME)
@@ -76,7 +69,7 @@ def update_common_space(supabase: Client, association_id: UUID, common_space_id:
     )
 
     if not response.data:
-        raise HTTPException(status_code=404, detail="Common space not found")
+        raise HTTPException(status_code=404, detail="No se ha encontrado la zona común")
 
     return response.data[0]
 
@@ -91,24 +84,18 @@ def delete_common_space(supabase: Client, association_id: UUID, common_space_id:
     )
 
     if not response.data:
-        raise HTTPException(status_code=404, detail="Common space not found")
+        raise HTTPException(status_code=404, detail="No se ha encontrado la zona común")
 
 
 def upload_common_space_photo(file_bytes: bytes, filename: str, content_type: str | None = None) -> dict:
     if cloudinary is None:
-        raise HTTPException(status_code=500, detail="Cloudinary dependency is not installed")
+        raise HTTPException(status_code=500, detail="La dependencia de Cloudinary no está instalada")
 
-    if not (
-        settings.CLOUDINARY_CLOUD_NAME
-        and settings.CLOUDINARY_API_KEY
-        and settings.CLOUDINARY_API_SECRET
-    ):
-        raise HTTPException(status_code=500, detail="Cloudinary is not configured")
+    if not settings.CLOUDINARY_URL:
+        raise HTTPException(status_code=500, detail="Cloudinary no está configurado")
 
     cloudinary.config(
-        cloud_name=settings.CLOUDINARY_CLOUD_NAME,
-        api_key=settings.CLOUDINARY_API_KEY,
-        api_secret=settings.CLOUDINARY_API_SECRET,
+        cloudinary_url=settings.CLOUDINARY_URL,
         secure=True,
     )
 
@@ -129,6 +116,6 @@ def upload_common_space_photo(file_bytes: bytes, filename: str, content_type: st
 
     secure_url = result.get("secure_url")
     if not secure_url:
-        raise HTTPException(status_code=500, detail="Cloudinary upload did not return a secure URL")
+        raise HTTPException(status_code=500, detail="Cloudinary no devolvió una URL segura")
 
     return {"secure_url": secure_url}
