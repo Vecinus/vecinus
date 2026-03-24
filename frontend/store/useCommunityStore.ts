@@ -59,7 +59,7 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
       activeCommunityId: id, 
       activeCommunityName: name,
       activeCommunityAddress: address || null,
-      activeCommunityRole: role || null,
+      activeCommunityRole: role ?? null,
     };
     storage.set('active-community', JSON.stringify(activeData));
     set(activeData);

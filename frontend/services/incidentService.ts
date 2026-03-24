@@ -1,6 +1,5 @@
-import { Platform } from 'react-native';
 import { API_URL } from '../constants/api';
-import type { Incident, IncidentStatus } from '../data/mock-incidencias';
+import type { Incident, IncidentStatus, IncidentType } from '../data/mock-incidencias';
 
 // --- TIPOS ---
 
@@ -12,7 +11,7 @@ type BackendIncident = {
   image_url?: string | null;
   membership_id?: string;
   status?: string | [string, string?] | null;
-  incident_states?: Array<{ status?: string; created_at?: string }>;
+  incident_states?: { status?: string; created_at?: string }[];
 };
 
 type IncidentUpload = {
@@ -69,6 +68,104 @@ const uploadHeaders = (token: string) => ({
 });
 
 /**
+ * Construye una URL segura para las incidencias.
+ * Solo permite construcción de URLs dentro del endpoint de incidencias.
+ * Las partes dinámicas se validan con regex antes de ser usadas.
+ */
+const buildSafeIncidentsUrl = (
+  pathParts: string[],
+  queryParams?: Record<string, string | boolean>
+): string => {
+  // Validar que cada parte del path sea segura (alfanuméricos, guiones, guiones bajos, solo)
+  for (const part of pathParts) {
+    if (!/^[a-zA-Z0-9\-_]+$/.test(part)) {
+      throw new Error('Invalid path component');
+    }
+  }
+  
+  // Construir la URL con solo componentes validados
+  // INCIDENTS_BASE_URL ya contiene /incidents, así que solo añadimos las partes adicionales
+  const relativePath = pathParts.join('/');
+  let urlString = `${INCIDENTS_BASE_URL}/${relativePath}`;
+  
+  // Agregar parámetros de query de forma segura
+  if (queryParams && Object.keys(queryParams).length > 0) {
+    const searchParams = new URLSearchParams();
+    for (const [key, value] of Object.entries(queryParams)) {
+      // Solo permitir parámetros específicos conocidos
+      if (key === 'mine' || key === 'status') {
+        searchParams.set(key, String(value));
+      }
+    }
+    const queryString = searchParams.toString();
+    if (queryString) {
+      urlString += `?${queryString}`;
+    }
+  }
+  
+  // Validar la URL final
+  try {
+    new URL(urlString); // Verificar que sea una URL válida
+  } catch {
+    throw new Error('Invalid URL constructed');
+  }
+  
+  return urlString;
+};
+
+/**
+ * Valida que una URL está en la whitelist permitida.
+ * Previene SSRF (Server-Side Request Forgery).
+ * Solo permite URLs del endpoint de incidencias del mismo servidor.
+ * Relanza un error si la URL no es segura.
+ */
+const validateUrlWhitelist = (urlString: string): string => {
+  try {
+    const url = new URL(urlString);
+    const baseUrl = new URL(INCIDENTS_BASE_URL);
+    
+    // Validar que el protocolo, hostname y parte base del path coincidan
+    if (url.protocol !== baseUrl.protocol) {
+      throw new Error('URL protocol mismatch - SSRF prevention');
+    }
+    if (url.hostname !== baseUrl.hostname) {
+      throw new Error('URL hostname mismatch - SSRF prevention');
+    }
+    if (url.port !== baseUrl.port) {
+      throw new Error('URL port mismatch - SSRF prevention');
+    }
+    
+    // Validar que la ruta comience con la ruta base permitida
+    const basePath = baseUrl.pathname;
+    const urlPath = url.pathname;
+    
+    if (!urlPath.startsWith(basePath)) {
+      throw new Error('URL path not in whitelist - SSRF prevention');
+    }
+    
+    // URL válida, retornar la URL sanitizada
+    return urlString;
+  } catch (error) {
+    // Si no es una URL válida, rechazar
+    throw new Error(`Invalid URL for incidents API - SSRF prevention: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+};
+
+/**
+ * Valida que una URL está en la whitelist permitida.
+ * Previene SSRF (Server-Side Request Forgery).
+ * Solo permite URLs del endpoint de incidencias del mismo servidor.
+ */
+const isUrlInWhitelist = (urlString: string): boolean => {
+  try {
+    validateUrlWhitelist(urlString);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/**
  * Convierte el estado del backend al tipo IncidentStatus del frontend.
  * Backend usa STATUS_ALIASES para convertir valores.
  * Convierte IN_PROGRESS → IN PROGRESS, RESOLVED → SOLVED
@@ -93,6 +190,16 @@ const parseStatus = (status: BackendIncident['status']): IncidentStatus => {
     default:
       return 'PENDING';
   }
+};
+
+const parseIncidentType = (type?: string | null): IncidentType => {
+  const normalized = String(type || '').toUpperCase();
+
+  if (normalized in BACK_TYPE_LABEL) {
+    return normalized as IncidentType;
+  }
+
+  return 'OTHER';
 };
 
 const parseErrorDetail = async (response: Response): Promise<string> => {
@@ -120,18 +227,18 @@ const mapIncident = (
   const states = Array.isArray(item.incident_states) ? item.incident_states : [];
   
   if (!item.status && states.length > 0) {
-    // Obtener el último estado
-    const lastState = states[states.length - 1];
+    // Obtener el último estado (el backend los devuelve DESC, por lo que es el [0])
+    const lastState = states[0];
     calculatedStatus = parseStatus(lastState.status);
   }
 
-  const typeKey = String(item.type || 'OTHER').toUpperCase() as unknown as string;
+  const typeKey = parseIncidentType(item.type);
 
   return {
     id: String(item.id),
     communityId: associationId,
     reporterId: memberData?.userId || item.membership_id || 'unknown-user',
-    title: (BACK_TYPE_LABEL[typeKey as keyof typeof BACK_TYPE_LABEL]) || 'Incidencia',
+    title: BACK_TYPE_LABEL[typeKey] || 'Incidencia',
     description: item.description || '',
     reporterName: memberData?.userName || 'Vecino',
     createdAt: item.created_at || new Date().toISOString(),
@@ -148,18 +255,25 @@ async function requestIncidents(
   token: string,
   mine: boolean
 ): Promise<{ incidents: Incident[]; context: IncidentContext }> {
-  // Validar que associationId sea seguro
+  // Validar que associationId sea seguro - solo alfanuméricos, guiones y guiones bajos
   if (!associationId || typeof associationId !== 'string' || associationId.length === 0) {
     throw new Error('Invalid association ID');
   }
+  if (!/^[a-zA-Z0-9\-_]+$/.test(associationId)) {
+    throw new Error('Invalid association ID format');
+  }
 
-  const incidentsResponse = await fetch(
-    `${INCIDENTS_BASE_URL}/${encodeURIComponent(associationId)}${mine ? '?mine=true' : ''}`,
-    {
-      method: 'GET',
-      headers: authHeaders(token),
-    }
-  );
+  const urlString = buildSafeIncidentsUrl([associationId], mine ? { mine: 'true' } : undefined);
+
+  // Only fetch from whitelisted URLs - SSRF prevention
+  if (!isUrlInWhitelist(urlString)) {
+    throw new Error('URL not in whitelist');
+  }
+
+  const incidentsResponse = await fetch(urlString, {
+    method: 'GET',
+    headers: authHeaders(token),
+  });
 
   if (!incidentsResponse.ok) {
     throw new Error(await parseErrorDetail(incidentsResponse));
@@ -188,9 +302,17 @@ export const createIncident = async (params: {
   description: string;
   image?: IncidentUpload | null;
 }): Promise<string> => {
-  // Validar que associationId sea seguro
+  // Validar que associationId sea seguro - solo alfanuméricos, guiones y guiones bajos
   if (!params.associationId || typeof params.associationId !== 'string' || params.associationId.length === 0) {
     throw new Error('Invalid association ID');
+  }
+  if (!/^[a-zA-Z0-9\-_]+$/.test(params.associationId)) {
+    throw new Error('Invalid association ID format');
+  }
+
+  // Validar que la descripción tenga al menos 10 caracteres
+  if (!params.description || params.description.trim().length < 10) {
+    throw new Error('La descripción debe tener al menos 10 caracteres');
   }
 
   const formData = new FormData();
@@ -205,7 +327,12 @@ export const createIncident = async (params: {
       } else if (params.image.uri) {
         // Prioridad 2: Para blob:// URLs en Expo Web, usar FileReader vía Blob
         if (params.image.uri.startsWith('blob:')) {
-          const response = await fetch(params.image.uri).catch(() => null);
+          // blob: URLs are safe local URLs (SSRF prevention - only blob: allowed)
+          const blobUri = params.image.uri;
+          if (!blobUri.match(/^blob:[a-zA-Z0-9\-_:/.]+$/)) {
+            throw new Error('Invalid blob URL format');
+          }
+          const response = await fetch(blobUri).catch(() => null);
           
           if (response) {
             const blob = await response.blob();
@@ -225,7 +352,14 @@ export const createIncident = async (params: {
     }
   }
 
-  const response = await fetch(`${INCIDENTS_BASE_URL}/${encodeURIComponent(params.associationId)}`, {
+  const urlString = buildSafeIncidentsUrl([params.associationId]);
+
+  // Only fetch from whitelisted URLs - SSRF prevention
+  if (!isUrlInWhitelist(urlString)) {
+    throw new Error('URL not in whitelist');
+  }
+
+  const response = await fetch(urlString, {
     method: 'POST',
     headers: uploadHeaders(params.token),
     body: formData,
@@ -273,23 +407,35 @@ export const updateIncidentStatus = async (params: {
   status: IncidentStatus; // Se espera 'IN PROGRESS', 'SOLVED', etc.
   token: string;
 }): Promise<void> => {
-  // Validar que associationId e incidentId sean seguros
+  // Validar que associationId e incidentId sean seguros - solo alfanuméricos, guiones y guiones bajos
   if (!params.associationId || typeof params.associationId !== 'string' || params.associationId.length === 0) {
     throw new Error('Invalid association ID');
+  }
+  if (!/^[a-zA-Z0-9\-_]+$/.test(params.associationId)) {
+    throw new Error('Invalid association ID format');
   }
   if (!params.incidentId || typeof params.incidentId !== 'string' || params.incidentId.length === 0) {
     throw new Error('Invalid incident ID');
   }
+  if (!/^[a-zA-Z0-9\-_]+$/.test(params.incidentId)) {
+    throw new Error('Invalid incident ID format');
+  }
 
   const backendStatus = statusToBackendFormat(params.status);
-  
-  const response = await fetch(
-    `${INCIDENTS_BASE_URL}/${encodeURIComponent(params.associationId)}/${encodeURIComponent(params.incidentId)}/status?status=${encodeURIComponent(backendStatus)}`,
-    {
-      method: 'POST',
-      headers: uploadHeaders(params.token),
-    }
+  const urlString = buildSafeIncidentsUrl(
+    [params.associationId, params.incidentId, 'status'],
+    { status: backendStatus }
   );
+  
+  // Only fetch from whitelisted URLs - SSRF prevention
+  if (!isUrlInWhitelist(urlString)) {
+    throw new Error('URL not in whitelist');
+  }
+
+  const response = await fetch(urlString, {
+    method: 'POST',
+    headers: uploadHeaders(params.token),
+  });
 
   if (!response.ok) {
     throw new Error(await parseErrorDetail(response));
@@ -301,15 +447,28 @@ export const getIncidentHistory = async (params: {
   incidentId: string;
   token: string;
 }): Promise<IncidentHistoryEntry[]> => {
-  // Validar que associationId e incidentId sean seguros
+  // Validar que associationId e incidentId sean seguros - solo alfanuméricos, guiones y guiones bajos
   if (!params.associationId || typeof params.associationId !== 'string' || params.associationId.length === 0) {
     throw new Error('Invalid association ID');
+  }
+  if (!/^[a-zA-Z0-9\-_]+$/.test(params.associationId)) {
+    throw new Error('Invalid association ID format');
   }
   if (!params.incidentId || typeof params.incidentId !== 'string' || params.incidentId.length === 0) {
     throw new Error('Invalid incident ID');
   }
+  if (!/^[a-zA-Z0-9\-_]+$/.test(params.incidentId)) {
+    throw new Error('Invalid incident ID format');
+  }
 
-  const response = await fetch(`${INCIDENTS_BASE_URL}/${encodeURIComponent(params.associationId)}/${encodeURIComponent(params.incidentId)}`, {
+  const urlString = buildSafeIncidentsUrl([params.associationId, params.incidentId]);
+
+  // Only fetch from whitelisted URLs - SSRF prevention
+  if (!isUrlInWhitelist(urlString)) {
+    throw new Error('URL not in whitelist');
+  }
+
+  const response = await fetch(urlString, {
     method: 'GET',
     headers: authHeaders(params.token),
   });
@@ -320,11 +479,11 @@ export const getIncidentHistory = async (params: {
 
   const data = (await response.json()) as BackendIncident;
   const states = Array.isArray(data.incident_states) ? data.incident_states : [];
-
+   
   if (states.length === 0) {
-    return [{ 
-      status: parseStatus(data.status), 
-      date: data.created_at || new Date().toISOString() 
+      return [{ 
+        status: parseStatus(data.status), 
+       date: data.created_at || new Date().toISOString() 
     }];
   }
 
@@ -344,18 +503,29 @@ export const getIncidentDetail = async (params: {
   incident: Incident;
   history: IncidentHistoryEntry[];
 }> => {
-  // Validar que associationId e incidentId sean seguros
+  // Validar que associationId e incidentId sean seguros - solo alfanuméricos, guiones y guiones bajos
   if (!params.associationId || typeof params.associationId !== 'string' || params.associationId.length === 0) {
     throw new Error('Invalid association ID');
+  }
+  if (!/^[a-zA-Z0-9\-_]+$/.test(params.associationId)) {
+    throw new Error('Invalid association ID format');
   }
   if (!params.incidentId || typeof params.incidentId !== 'string' || params.incidentId.length === 0) {
     throw new Error('Invalid incident ID');
   }
+  if (!/^[a-zA-Z0-9\-_]+$/.test(params.incidentId)) {
+    throw new Error('Invalid incident ID format');
+  }
 
-  const url = `${INCIDENTS_BASE_URL}/${encodeURIComponent(params.associationId)}/${encodeURIComponent(params.incidentId)}`;
-  
   try {
-    const response = await fetch(url, {
+    const urlString = buildSafeIncidentsUrl([params.associationId, params.incidentId]);
+
+    // Only fetch from whitelisted URLs - SSRF prevention
+    if (!isUrlInWhitelist(urlString)) {
+      throw new Error('URL not in whitelist');
+    }
+
+    const response = await fetch(urlString, {
       method: 'GET',
       headers: authHeaders(params.token),
     });
@@ -372,18 +542,18 @@ export const getIncidentDetail = async (params: {
     const states = Array.isArray(data.incident_states) ? data.incident_states : [];
     
     if (!data.status && states.length > 0) {
-      // Obtener el último estado
-      const lastState = states[states.length - 1];
+      // Obtener el estado más reciente (backend devuelve DESC)
+      const lastState = states[0];
       calculatedStatus = parseStatus(lastState.status);
     }
     
     // Construir el objeto Incident
-    const typeKey = String(data.type || 'OTHER').toUpperCase() as unknown as string;
+    const typeKey = parseIncidentType(data.type);
     const incident: Incident = {
       id: String(data.id),
       communityId: params.associationId,
       reporterId: data.membership_id || 'unknown-user',
-      title: (BACK_TYPE_LABEL[typeKey as keyof typeof BACK_TYPE_LABEL]) || 'Incidencia',
+      title: BACK_TYPE_LABEL[typeKey] || 'Incidencia',
       description: data.description || '',
       reporterName: 'Vecino',
       createdAt: data.created_at || new Date().toISOString(),
