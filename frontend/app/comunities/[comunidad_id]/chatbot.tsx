@@ -24,7 +24,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-  Bot,
   Send,
   Sparkles,
   FileText,
@@ -36,9 +35,9 @@ import {
   CheckCircle,
   Trash2,
 } from "lucide-react-native";
-import { useNavigation, useLocalSearchParams, useRouter } from "expo-router";
+import { useNavigation, useLocalSearchParams} from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
-import { DrawerActions } from "@react-navigation/native";
+import { DrawerActions, useFocusEffect } from "@react-navigation/native";
 
 import { useCommunityStore } from "@/store/useCommunityStore";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -68,7 +67,6 @@ type TabItemProps = {
 };
 
 export default function ChatBotScreen() {
-  const router = useRouter();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -172,36 +170,25 @@ export default function ChatBotScreen() {
     }
   }, [authHeaderToken, communities.length]);
 
-  useEffect(() => {
-    if (normalizedComunidadId && communities.length > 0) {
-      const currentComm = communities.find(
-        (c) => String(c.id) === String(normalizedComunidadId),
-      );
-      if (currentComm && currentComm.id !== activeCommunityId) {
-        setActiveCommunity(
-          currentComm.id,
-          currentComm.name,
-          currentComm.address,
-          currentComm.role,
+  // SINCRONIZACIÓN SEGURA: Solo cuando la pantalla está EN FOCO (activa)
+  useFocusEffect(
+    useCallback(() => {
+      if (normalizedComunidadId && communities.length > 0) {
+        const currentComm = communities.find(
+          (c) => String(c.id) === String(normalizedComunidadId),
         );
+        // Solo actualizamos si el ID de la URL es distinto al activo del Store
+        if (currentComm && currentComm.id !== activeCommunityId) {
+          setActiveCommunity(
+            currentComm.id,
+            currentComm.name,
+            currentComm.address,
+            currentComm.role,
+          );
+        }
       }
-    }
-  }, [
-    normalizedComunidadId,
-    communities,
-    activeCommunityId,
-    setActiveCommunity,
-  ]);
-
-  useEffect(() => {
-    if (
-      activeCommunityId &&
-      normalizedComunidadId &&
-      activeCommunityId !== normalizedComunidadId
-    ) {
-      router.replace(`/comunities/${activeCommunityId}/chatbot`);
-    }
-  }, [activeCommunityId, normalizedComunidadId, router]);
+    }, [normalizedComunidadId, communities, activeCommunityId, setActiveCommunity])
+  );
 
   useEffect(() => {
     if (!activeCommunityId) return;
@@ -504,10 +491,9 @@ export default function ChatBotScreen() {
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>Asistente VecinUs</Text>
           <Text style={styles.headerSubtitle} numberOfLines={1}>
-            {activeCommunityName} • ID: {normalizedComunidadId}
+            {activeCommunityName}
           </Text>
         </View>
-        <Bot color="#4F46E5" size={24} />
       </View>
 
       {!isDesktop && (

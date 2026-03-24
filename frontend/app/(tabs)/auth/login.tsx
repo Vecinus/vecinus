@@ -42,10 +42,17 @@ export default function LoginScreen() {
         }),
       });
 
-      const data = await response.json();
+      let data;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(text || 'Error inesperado del servidor');
+      }
 
       if (!response.ok) {
-        throw new Error(data.detail || 'Error al iniciar sesion');
+        throw new Error(data?.detail || 'Error al iniciar sesión. Comprueba tus credenciales.');
       }
 
       const token = data.session?.access_token || data.access_token;
