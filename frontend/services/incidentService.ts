@@ -69,32 +69,17 @@ const uploadHeaders = (token: string) => ({
 });
 
 /**
- * Valida que una URL pertenece al dominio permitido (whitelist).
+ * Valida que una URL está en la whitelist permitida.
  * Previene SSRF (Server-Side Request Forgery).
  */
-const validateUrlWhitelist = (url: URL): void => {
-  const allowedBaseUrl = new URL(INCIDENTS_BASE_URL);
+const isUrlInWhitelist = (urlString: string): boolean => {
+  // Whitelist de dominios y rutas permitidas
+  const whitelist = [
+    INCIDENTS_BASE_URL,
+    `${INCIDENTS_BASE_URL}/`,
+  ];
   
-  // Validar protocolo
-  if (url.protocol !== allowedBaseUrl.protocol) {
-    throw new Error('Invalid URL protocol');
-  }
-  
-  // Validar hostname
-  if (url.hostname !== allowedBaseUrl.hostname) {
-    throw new Error('URL does not belong to allowed domain');
-  }
-  
-  // Validar puerto (si está especificado)
-  if (url.port && url.port !== allowedBaseUrl.port) {
-    throw new Error('Invalid URL port');
-  }
-  
-  // Validar que la ruta comienza con la ruta base permitida
-  const basePath = allowedBaseUrl.pathname;
-  if (!url.pathname.startsWith(basePath)) {
-    throw new Error('URL path not allowed');
-  }
+  return whitelist.some(allowed => urlString.startsWith(allowed));
 };
 
 /**
@@ -185,15 +170,14 @@ async function requestIncidents(
     throw new Error('Invalid association ID format');
   }
 
-  const url = new URL(`incidents/${associationId}`, INCIDENTS_BASE_URL);
-  if (mine) {
-    url.searchParams.append('mine', 'true');
+  const urlString = new URL(`incidents/${associationId}${mine ? '?mine=true' : ''}`, INCIDENTS_BASE_URL).toString();
+  
+  // Validar contra whitelist
+  if (!isUrlInWhitelist(urlString)) {
+    throw new Error('URL not in whitelist');
   }
 
-  // Validación de whitelist: asegurar que la URL pertenece al dominio permitido
-  validateUrlWhitelist(url);
-
-  const incidentsResponse = await fetch(url, {
+  const incidentsResponse = await fetch(urlString, {
     method: 'GET',
     headers: authHeaders(token),
   });
@@ -265,12 +249,14 @@ export const createIncident = async (params: {
     }
   }
 
-  const url = new URL(params.associationId, INCIDENTS_BASE_URL);
+  const urlString = new URL(params.associationId, INCIDENTS_BASE_URL).toString();
   
-  // Validación de whitelist: asegurar que la URL pertenece al dominio permitido
-  validateUrlWhitelist(url);
+  // Validar contra whitelist
+  if (!isUrlInWhitelist(urlString)) {
+    throw new Error('URL not in whitelist');
+  }
 
-  const response = await fetch(url, {
+  const response = await fetch(urlString, {
     method: 'POST',
     headers: uploadHeaders(params.token),
     body: formData,
@@ -333,13 +319,14 @@ export const updateIncidentStatus = async (params: {
   }
 
   const backendStatus = statusToBackendFormat(params.status);
-  const url = new URL(`${params.associationId}/${params.incidentId}/status`, INCIDENTS_BASE_URL);
-  url.searchParams.append('status', backendStatus);
+  const urlString = new URL(`${params.associationId}/${params.incidentId}/status?status=${backendStatus}`, INCIDENTS_BASE_URL).toString();
   
-  // Validación de whitelist: asegurar que la URL pertenece al dominio permitido
-  validateUrlWhitelist(url);
+  // Validar contra whitelist
+  if (!isUrlInWhitelist(urlString)) {
+    throw new Error('URL not in whitelist');
+  }
   
-  const response = await fetch(url, {
+  const response = await fetch(urlString, {
     method: 'POST',
     headers: uploadHeaders(params.token),
   });
@@ -368,21 +355,23 @@ export const getIncidentHistory = async (params: {
     throw new Error('Invalid incident ID format');
   }
 
-  const url = new URL(`${params.associationId}/${params.incidentId}`, INCIDENTS_BASE_URL);
+  const urlString = new URL(`${params.associationId}/${params.incidentId}`, INCIDENTS_BASE_URL).toString();
   
-  // Validación de whitelist: asegurar que la URL pertenece al dominio permitido
-  validateUrlWhitelist(url);
+  // Validar contra whitelist
+  if (!isUrlInWhitelist(urlString)) {
+    throw new Error('URL not in whitelist');
+  }
 
-  const response = await fetch(url, {
+  const historyResponse = await fetch(urlString, {
     method: 'GET',
     headers: authHeaders(params.token),
   });
 
-  if (!response.ok) {
-    throw new Error(await parseErrorDetail(response));
+  if (!historyResponse.ok) {
+    throw new Error(await parseErrorDetail(historyResponse));
   }
 
-  const data = (await response.json()) as BackendIncident;
+  const data = (await historyResponse.json()) as BackendIncident;
   const states = Array.isArray(data.incident_states) ? data.incident_states : [];
 
   if (states.length === 0) {
@@ -422,13 +411,15 @@ export const getIncidentDetail = async (params: {
     throw new Error('Invalid incident ID format');
   }
 
-  const urlObj = new URL(`${params.associationId}/${params.incidentId}`, INCIDENTS_BASE_URL);
-  
-  // Validación de whitelist: asegurar que la URL pertenece al dominio permitido
-  validateUrlWhitelist(urlObj);
-
   try {
-    const response = await fetch(urlObj, {
+    const urlString = new URL(`${params.associationId}/${params.incidentId}`, INCIDENTS_BASE_URL).toString();
+    
+    // Validar contra whitelist
+    if (!isUrlInWhitelist(urlString)) {
+      throw new Error('URL not in whitelist');
+    }
+
+    const response = await fetch(urlString, {
       method: 'GET',
       headers: authHeaders(params.token),
     });
