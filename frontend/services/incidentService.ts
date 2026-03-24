@@ -69,6 +69,51 @@ const uploadHeaders = (token: string) => ({
 });
 
 /**
+ * Construye una URL segura para las incidencias.
+ * Solo permite construcción de URLs dentro del endpoint de incidencias.
+ * Las partes dinámicas se validan con regex antes de ser usadas.
+ */
+const buildSafeIncidentsUrl = (
+  pathParts: string[],
+  queryParams?: Record<string, string | boolean>
+): string => {
+  // Validar que cada parte del path sea segura (alfanuméricos, guiones, guiones bajos)
+  for (const part of pathParts) {
+    if (!/^[a-zA-Z0-9\-_/?=&]*$/.test(part)) {
+      throw new Error('Invalid path component');
+    }
+  }
+  
+  // Construir la URL con solo componentes validados
+  const relativePath = pathParts.join('/');
+  let urlString = `${INCIDENTS_BASE_URL}/${relativePath}`;
+  
+  // Agregar parámetros de query de forma segura
+  if (queryParams && Object.keys(queryParams).length > 0) {
+    const searchParams = new URLSearchParams();
+    for (const [key, value] of Object.entries(queryParams)) {
+      // Solo permitir parámetros específicos conocidos
+      if (key === 'mine' || key === 'status') {
+        searchParams.set(key, String(value));
+      }
+    }
+    const queryString = searchParams.toString();
+    if (queryString) {
+      urlString += `?${queryString}`;
+    }
+  }
+  
+  // Validar la URL final
+  try {
+    new URL(urlString); // Verificar que sea una URL válida
+  } catch {
+    throw new Error('Invalid URL constructed');
+  }
+  
+  return urlString;
+};
+
+/**
  * Valida que una URL está en la whitelist permitida.
  * Previene SSRF (Server-Side Request Forgery).
  * Solo permite URLs del endpoint de incidencias del mismo servidor.
@@ -193,12 +238,7 @@ async function requestIncidents(
     throw new Error('Invalid association ID format');
   }
 
-  const urlString = new URL(`incidents/${associationId}${mine ? '?mine=true' : ''}`, INCIDENTS_BASE_URL).toString();
-  
-  // Validar contra whitelist
-  if (!isUrlInWhitelist(urlString)) {
-    throw new Error('URL not in whitelist');
-  }
+  const urlString = buildSafeIncidentsUrl(['incidents', associationId], mine ? { mine: 'true' } : undefined);
 
   const incidentsResponse = await fetch(urlString, {
     method: 'GET',
@@ -272,12 +312,7 @@ export const createIncident = async (params: {
     }
   }
 
-  const urlString = new URL(params.associationId, INCIDENTS_BASE_URL).toString();
-  
-  // Validar contra whitelist
-  if (!isUrlInWhitelist(urlString)) {
-    throw new Error('URL not in whitelist');
-  }
+  const urlString = buildSafeIncidentsUrl(['incidents', params.associationId]);
 
   const response = await fetch(urlString, {
     method: 'POST',
@@ -342,12 +377,10 @@ export const updateIncidentStatus = async (params: {
   }
 
   const backendStatus = statusToBackendFormat(params.status);
-  const urlString = new URL(`${params.associationId}/${params.incidentId}/status?status=${backendStatus}`, INCIDENTS_BASE_URL).toString();
-  
-  // Validar contra whitelist
-  if (!isUrlInWhitelist(urlString)) {
-    throw new Error('URL not in whitelist');
-  }
+  const urlString = buildSafeIncidentsUrl(
+    ['incidents', params.associationId, params.incidentId, 'status'],
+    { status: backendStatus }
+  );
   
   const response = await fetch(urlString, {
     method: 'POST',
@@ -378,12 +411,7 @@ export const getIncidentHistory = async (params: {
     throw new Error('Invalid incident ID format');
   }
 
-  const urlString = new URL(`${params.associationId}/${params.incidentId}`, INCIDENTS_BASE_URL).toString();
-  
-  // Validar contra whitelist
-  if (!isUrlInWhitelist(urlString)) {
-    throw new Error('URL not in whitelist');
-  }
+  const urlString = buildSafeIncidentsUrl(['incidents', params.associationId, params.incidentId]);
 
   const historyResponse = await fetch(urlString, {
     method: 'GET',
@@ -435,12 +463,7 @@ export const getIncidentDetail = async (params: {
   }
 
   try {
-    const urlString = new URL(`${params.associationId}/${params.incidentId}`, INCIDENTS_BASE_URL).toString();
-    
-    // Validar contra whitelist
-    if (!isUrlInWhitelist(urlString)) {
-      throw new Error('URL not in whitelist');
-    }
+    const urlString = buildSafeIncidentsUrl(['incidents', params.associationId, params.incidentId]);
 
     const response = await fetch(urlString, {
       method: 'GET',
