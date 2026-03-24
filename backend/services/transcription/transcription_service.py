@@ -11,10 +11,9 @@ from google.genai import types
 from schemas.transcription.minutes import AIGeneratedContent
 
 logger = logging.getLogger(__name__)
-PEPPER_GLOBAL = os.getenv("PEPPER_GLOBAL")
 
 TRANSCRIPTION_PROMPT = """
-Actua como un Secretario Juridico. Procesa el audio y devuelve un JSON estricto.
+Actua como un Secretario Juridico. Procesa el audio y devuelve un JSON estricto en español.
 - transcription: Texto integro estructurado en parrafos cortos (max 4 lineas)
   con doble salto de linea.
 - summary: Resumen ejecutivo narrativo.
@@ -25,7 +24,7 @@ NO incluyas explicaciones, solo el JSON.
 """
 
 JSON_REPAIR_PROMPT_TEMPLATE = """
-Convierte el siguiente contenido en un JSON VALIDO y estricto.
+Convierte el siguiente contenido en un JSON VALIDO y estricto en español.
 Debes devolver exclusivamente un objeto JSON sin markdown, sin comentarios y sin texto extra.
 Manten el contenido semantico original y corrige solo formato, comillas, escapes y estructura.
 
