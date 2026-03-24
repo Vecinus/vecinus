@@ -16,13 +16,17 @@ name: Keep Supabase Alive
 on:
   schedule:
     # Runs every day at 07:00 UTC
-    - cron: '0 7 * * *'
+    - cron: "0 7 * * *"
   workflow_dispatch: # Allow manual trigger
 
 jobs:
   keep-alive:
-    name: Query Supabase directly
+    name: Query Supabase (${{ matrix.sprint }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        sprint: ${{ fromJson(vars.ACTIVE_SPRINTS) }}
+    environment: ${{ matrix.sprint }}
 
     steps:
       - name: Execute real query against Supabase
@@ -43,8 +47,8 @@ jobs:
           echo "$HTTP_BODY" | python3 -m json.tool 2>/dev/null || echo "$HTTP_BODY"
 
           if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
-            echo "✓ Supabase is awake"
+            echo "✓ Supabase (${{ matrix.sprint }}) is awake"
           else
-            echo "::error::Supabase query failed with status $HTTP_STATUS"
+            echo "::error::Supabase query (${{ matrix.sprint }}) failed with status $HTTP_STATUS"
             exit 1
           fi
