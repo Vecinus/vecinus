@@ -118,21 +118,22 @@ const buildSafeIncidentsUrl = (
  * Valida que una URL está en la whitelist permitida.
  * Previene SSRF (Server-Side Request Forgery).
  * Solo permite URLs del endpoint de incidencias del mismo servidor.
+ * Relanza un error si la URL no es segura.
  */
-const isUrlInWhitelist = (urlString: string): boolean => {
+const validateUrlWhitelist = (urlString: string): string => {
   try {
     const url = new URL(urlString);
     const baseUrl = new URL(INCIDENTS_BASE_URL);
     
     // Validar que el protocolo, hostname y parte base del path coincidan
     if (url.protocol !== baseUrl.protocol) {
-      return false;
+      throw new Error('URL protocol mismatch - SSRF prevention');
     }
     if (url.hostname !== baseUrl.hostname) {
-      return false;
+      throw new Error('URL hostname mismatch - SSRF prevention');
     }
     if (url.port !== baseUrl.port) {
-      return false;
+      throw new Error('URL port mismatch - SSRF prevention');
     }
     
     // Validar que la ruta comience con la ruta base permitida
@@ -140,13 +141,27 @@ const isUrlInWhitelist = (urlString: string): boolean => {
     const urlPath = url.pathname;
     
     if (!urlPath.startsWith(basePath)) {
-      return false;
+      throw new Error('URL path not in whitelist - SSRF prevention');
     }
     
-    // Ruta válida, solo permitimos incidentes dentro del base path
+    // URL válida, retornar la URL sanitizada
+    return urlString;
+  } catch (error) {
+    // Si no es una URL válida, rechazar
+    throw new Error(`Invalid URL for incidents API - SSRF prevention: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+};
+
+/**
+ * Valida que una URL está en la whitelist permitida.
+ * Previene SSRF (Server-Side Request Forgery).
+ * Solo permite URLs del endpoint de incidencias del mismo servidor.
+ */
+const isUrlInWhitelist = (urlString: string): boolean => {
+  try {
+    validateUrlWhitelist(urlString);
     return true;
   } catch {
-    // Si no es una URL válida, rechazar
     return false;
   }
 };
@@ -242,11 +257,9 @@ async function requestIncidents(
   const urlString = buildSafeIncidentsUrl([associationId], mine ? { mine: 'true' } : undefined);
 
   // Validate URL is whitelisted before making request (SSRF prevention)
-  if (!isUrlInWhitelist(urlString)) {
-    throw new Error('URL not in whitelist');
-  }
+  const validatedUrl = validateUrlWhitelist(urlString);
 
-  const incidentsResponse = await fetch(urlString, {
+  const incidentsResponse = await fetch(validatedUrl, {
     method: 'GET',
     headers: authHeaders(token),
   });
@@ -326,11 +339,9 @@ export const createIncident = async (params: {
   const urlString = buildSafeIncidentsUrl([params.associationId]);
 
   // Validate URL is whitelisted before making request (SSRF prevention)
-  if (!isUrlInWhitelist(urlString)) {
-    throw new Error('URL not in whitelist');
-  }
+  const validatedUrl = validateUrlWhitelist(urlString);
 
-  const response = await fetch(urlString, {
+  const response = await fetch(validatedUrl, {
     method: 'POST',
     headers: uploadHeaders(params.token),
     body: formData,
@@ -399,11 +410,9 @@ export const updateIncidentStatus = async (params: {
   );
   
   // Validate URL is whitelisted before making request (SSRF prevention)
-  if (!isUrlInWhitelist(urlString)) {
-    throw new Error('URL not in whitelist');
-  }
+  const validatedUrl = validateUrlWhitelist(urlString);
   
-  const response = await fetch(urlString, {
+  const response = await fetch(validatedUrl, {
     method: 'POST',
     headers: uploadHeaders(params.token),
   });
@@ -435,20 +444,18 @@ export const getIncidentHistory = async (params: {
   const urlString = buildSafeIncidentsUrl([params.associationId, params.incidentId]);
 
   // Validate URL is whitelisted before making request (SSRF prevention)
-  if (!isUrlInWhitelist(urlString)) {
-    throw new Error('URL not in whitelist');
-  }
+  const validatedUrl = validateUrlWhitelist(urlString);
 
-  const historyResponse = await fetch(urlString, {
+  const response = await fetch(validatedUrl, {
     method: 'GET',
     headers: authHeaders(params.token),
   });
 
-  if (!historyResponse.ok) {
-    throw new Error(await parseErrorDetail(historyResponse));
+  if (!response.ok) {
+    throw new Error(await parseErrorDetail(response));
   }
 
-  const data = (await historyResponse.json()) as BackendIncident;
+  const data = (await response.json()) as BackendIncident;
   const states = Array.isArray(data.incident_states) ? data.incident_states : [];
 
   if (states.length === 0) {
@@ -492,11 +499,9 @@ export const getIncidentDetail = async (params: {
     const urlString = buildSafeIncidentsUrl([params.associationId, params.incidentId]);
 
     // Validate URL is whitelisted before making request (SSRF prevention)
-    if (!isUrlInWhitelist(urlString)) {
-      throw new Error('URL not in whitelist');
-    }
+    const validatedUrl = validateUrlWhitelist(urlString);
 
-    const response = await fetch(urlString, {
+    const response = await fetch(validatedUrl, {
       method: 'GET',
       headers: authHeaders(params.token),
     });
