@@ -71,15 +71,38 @@ const uploadHeaders = (token: string) => ({
 /**
  * Valida que una URL está en la whitelist permitida.
  * Previene SSRF (Server-Side Request Forgery).
+ * Solo permite URLs del endpoint de incidencias del mismo servidor.
  */
 const isUrlInWhitelist = (urlString: string): boolean => {
-  // Whitelist de dominios y rutas permitidas
-  const whitelist = [
-    INCIDENTS_BASE_URL,
-    `${INCIDENTS_BASE_URL}/`,
-  ];
-  
-  return whitelist.some(allowed => urlString.startsWith(allowed));
+  try {
+    const url = new URL(urlString);
+    const baseUrl = new URL(INCIDENTS_BASE_URL);
+    
+    // Validar que el protocolo, hostname y parte base del path coincidan
+    if (url.protocol !== baseUrl.protocol) {
+      return false;
+    }
+    if (url.hostname !== baseUrl.hostname) {
+      return false;
+    }
+    if (url.port !== baseUrl.port) {
+      return false;
+    }
+    
+    // Validar que la ruta comience con la ruta base permitida
+    const basePath = baseUrl.pathname;
+    const urlPath = url.pathname;
+    
+    if (!urlPath.startsWith(basePath)) {
+      return false;
+    }
+    
+    // Ruta válida, solo permitimos incidentes dentro del base path
+    return true;
+  } catch {
+    // Si no es una URL válida, rechazar
+    return false;
+  }
 };
 
 /**
