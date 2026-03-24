@@ -153,13 +153,15 @@ async function requestIncidents(
     throw new Error('Invalid association ID');
   }
 
-  const incidentsResponse = await fetch(
-    `${INCIDENTS_BASE_URL}/${encodeURIComponent(associationId)}${mine ? '?mine=true' : ''}`,
-    {
-      method: 'GET',
-      headers: authHeaders(token),
-    }
-  );
+  const url = new URL(`incidents/${associationId}`, INCIDENTS_BASE_URL);
+  if (mine) {
+    url.searchParams.append('mine', 'true');
+  }
+
+  const incidentsResponse = await fetch(url.toString(), {
+    method: 'GET',
+    headers: authHeaders(token),
+  });
 
   if (!incidentsResponse.ok) {
     throw new Error(await parseErrorDetail(incidentsResponse));
@@ -225,7 +227,8 @@ export const createIncident = async (params: {
     }
   }
 
-  const response = await fetch(`${INCIDENTS_BASE_URL}/${encodeURIComponent(params.associationId)}`, {
+  const url = new URL(params.associationId, INCIDENTS_BASE_URL);
+  const response = await fetch(url.toString(), {
     method: 'POST',
     headers: uploadHeaders(params.token),
     body: formData,
@@ -282,14 +285,13 @@ export const updateIncidentStatus = async (params: {
   }
 
   const backendStatus = statusToBackendFormat(params.status);
+  const url = new URL(`${params.associationId}/${params.incidentId}/status`, INCIDENTS_BASE_URL);
+  url.searchParams.append('status', backendStatus);
   
-  const response = await fetch(
-    `${INCIDENTS_BASE_URL}/${encodeURIComponent(params.associationId)}/${encodeURIComponent(params.incidentId)}/status?status=${encodeURIComponent(backendStatus)}`,
-    {
-      method: 'POST',
-      headers: uploadHeaders(params.token),
-    }
-  );
+  const response = await fetch(url.toString(), {
+    method: 'POST',
+    headers: uploadHeaders(params.token),
+  });
 
   if (!response.ok) {
     throw new Error(await parseErrorDetail(response));
@@ -309,7 +311,8 @@ export const getIncidentHistory = async (params: {
     throw new Error('Invalid incident ID');
   }
 
-  const response = await fetch(`${INCIDENTS_BASE_URL}/${encodeURIComponent(params.associationId)}/${encodeURIComponent(params.incidentId)}`, {
+  const url = new URL(`${params.associationId}/${params.incidentId}`, INCIDENTS_BASE_URL);
+  const response = await fetch(url.toString(), {
     method: 'GET',
     headers: authHeaders(params.token),
   });
@@ -352,10 +355,10 @@ export const getIncidentDetail = async (params: {
     throw new Error('Invalid incident ID');
   }
 
-  const url = `${INCIDENTS_BASE_URL}/${encodeURIComponent(params.associationId)}/${encodeURIComponent(params.incidentId)}`;
+  const urlObj = new URL(`${params.associationId}/${params.incidentId}`, INCIDENTS_BASE_URL);
   
   try {
-    const response = await fetch(url, {
+    const response = await fetch(urlObj.toString(), {
       method: 'GET',
       headers: authHeaders(params.token),
     });
