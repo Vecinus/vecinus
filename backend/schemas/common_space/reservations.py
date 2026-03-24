@@ -60,3 +60,5 @@ class ReservationCancelResponse(BaseModel):
 class QRValidationResponse(BaseModel):
     guests_count: int
     status: str = "checked_in"
+    space_name: str | None = None
+    type: str | None = None
