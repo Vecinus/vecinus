@@ -10,11 +10,18 @@ import { ThemedView } from '@/components/themed-view';
 import { API_URL } from '@/constants/api';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { useAuthStore } from '@/store/useAuthStore';
+import { DrawerActions } from '@react-navigation/native';
+import { useNavigation, useRouter } from 'expo-router';
+import { Menu } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const router = useRouter();
   const navigation = useNavigation();
   const { login } = useAuthStore();
@@ -24,8 +31,10 @@ export default function LoginScreen() {
   const passwordInputRef = React.useRef<TextInput>(null);
 
   const handleLogin = async () => {
+    setErrorMessage('');
+
     if (!email || !password) {
-      Alert.alert('Error', 'Por favor, introduce correo y contrasena');
+      setErrorMessage('Por favor, introduce correo y contraseña');
       return;
     }
 
@@ -52,7 +61,14 @@ export default function LoginScreen() {
       }
 
       if (!response.ok) {
-        throw new Error(data?.detail || 'Error al iniciar sesión. Comprueba tus credenciales.');
+        const detail = typeof data?.detail === 'string' ? data.detail : '';
+        if (response.status === 401) {
+          setErrorMessage(detail || 'Correo o contraseña incorrectos.');
+          return;
+        }
+
+        setErrorMessage(detail || 'Error al iniciar sesión. Comprueba tus credenciales.');
+        return;
       }
 
       const token = data.session?.access_token || data.access_token;
@@ -66,8 +82,8 @@ export default function LoginScreen() {
       router.replace('/');
     } catch (error: unknown) {
       console.error('Login error:', error);
-      const message = error instanceof Error ? error.message : 'Ocurrio un error al intentar iniciar sesion';
-      Alert.alert('Error', message);
+      const message = error instanceof Error ? error.message : 'Ocurrió un error al intentar iniciar sesión';
+      setErrorMessage(message);
     } finally {
       setLoading(false);
     }
@@ -102,19 +118,24 @@ export default function LoginScreen() {
           ref={passwordInputRef}
           style={[styles.input, { color: textColor, borderColor: textColor }]}
           value={password}
-          onChangeText={setPassword}
-          placeholder="Introduce tu contrasena"
+          onChangeText={(value) => {
+            setPassword(value);
+            if (errorMessage) {
+              setErrorMessage('');
+            }
+          }}
+          placeholder="Introduce tu contraseña"
           placeholderTextColor="#888"
           secureTextEntry
           onSubmitEditing={() => { void handleLogin(); }}
           returnKeyType="send"
         />
 
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={() => {
-            void handleLogin();
-          }}
+        {errorMessage ? <ThemedText style={styles.errorText}>{errorMessage}</ThemedText> : null}
+
+        <TouchableOpacity 
+          style={[styles.button, loading && styles.buttonDisabled]} 
+          onPress={() => { void handleLogin(); }}
           disabled={loading}
         >
           {loading ? (
@@ -166,6 +187,12 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 24,
     fontSize: 16,
+  },
+  errorText: {
+    color: '#d32f2f',
+    marginTop: -16,
+    marginBottom: 16,
+    fontSize: 14,
   },
   button: {
     backgroundColor: '#0a7ea4',
