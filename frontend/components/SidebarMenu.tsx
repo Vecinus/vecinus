@@ -134,6 +134,7 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
           name: "Comunidades",
           icon: "business-outline" as IconName,
           route: "admin",
+          enabled: true,
           requiresAdmin: true,
         },
         {
@@ -170,7 +171,6 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
         />
         <View style={styles.headerTextContainer}>
           <Text style={styles.title}>Vecinus</Text>
-          <Text style={styles.subtitle}>Comunidad</Text>
         </View>
       </View>
 
