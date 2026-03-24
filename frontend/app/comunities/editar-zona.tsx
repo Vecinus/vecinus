@@ -62,7 +62,7 @@ export default function EditarZonaComun() {
     
     setModalVisible(false);
     if (router.canGoBack()) {
-      router.back();
+      router.push(`/comunities/${comunidad_id}/reservas` as any);
     } else {
       router.replace(`/comunities/${comunidad_id}/reservas` as any);
     }
@@ -80,7 +80,7 @@ export default function EditarZonaComun() {
     <>
       <ScrollView style={styles.container}>
         <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backIcon}>
+          <TouchableOpacity onPress={() => router.push(`/comunities/${comunidad_id}/reservas` as any)} style={styles.backIcon}>
             <Text style={styles.backIconText}>←</Text>
           </TouchableOpacity>
           <Text style={styles.title}>Editar Instalación</Text>

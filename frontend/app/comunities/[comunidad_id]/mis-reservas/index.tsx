@@ -57,7 +57,7 @@ export default function MisReservasListado() {
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backIcon}>
+        <TouchableOpacity onPress={() => router.push(`/comunities/${comunidad_id}/reservas` as any)} style={styles.backIcon}>
           <Text style={styles.backIconText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Mis Pases y Reservas</Text>

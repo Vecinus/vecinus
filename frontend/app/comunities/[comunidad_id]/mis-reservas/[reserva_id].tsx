@@ -44,7 +44,7 @@ export default function DetalleReservaQR() {
     return (
       <View style={styles.container}>
         <Text style={styles.errorText}>Reserva o pase no encontrado</Text>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.push(`/comunities/${comunidad_id}/mis-reservas` as any)} style={styles.backButton}>
            <Text style={styles.backButtonText}>Volver</Text>
         </TouchableOpacity>
       </View>
@@ -81,7 +81,7 @@ export default function DetalleReservaQR() {
     <View style={styles.container}>
       {/* Botón de retroceso rápido en la esquina superior */}
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.topBackButton}>
+        <TouchableOpacity onPress={() => router.push(`/comunities/${comunidad_id}/mis-reservas` as any)} style={styles.topBackButton}>
           <Text style={styles.topBackButtonText}>← Volver atrás</Text>
         </TouchableOpacity>
       </View>
