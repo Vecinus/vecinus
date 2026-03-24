@@ -27,7 +27,16 @@ export function formatSeconds(seconds: number): string {
 }
 
 /** Extensiones de audio aceptadas */
-const AUDIO_EXTENSIONS = [".mp3", ".m4a", ".wav", ".aac", ".ogg", ".webm"];
+const AUDIO_EXTENSIONS = [
+  ".mp3",
+  ".m4a",
+  ".wav",
+  ".aac",
+  ".ogg",
+  ".webm",
+  ".flac",
+  ".mp4",
+];
 
 export function isAudioFile(fileName: string): boolean {
   const lower = fileName.toLowerCase();

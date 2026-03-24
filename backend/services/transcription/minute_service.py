@@ -1,6 +1,7 @@
 import os
 from uuid import UUID
 
+from core.config import settings
 from schemas.transcription.minutes import MinutesResponse
 from supabase import Client, ClientOptions, create_client
 
@@ -14,7 +15,12 @@ class MinuteService:
         key = os.environ.get("SUPABASE_SERVICE_KEY")
 
         # Creamos el cliente que usará el MinuteService
-        return create_client(url, key, options=ClientOptions(schema="dev_s2"))
+        return create_client(url, key, options=ClientOptions(schema=settings.SUPABASE_SCHEMA))
+
+    async def get_minutes_by_association(self, association_id: UUID):
+        """Obtiene todas las actas de una asociación."""
+        res = self.db.table("minutes").select("*").eq("association_id", str(association_id)).order("scheduled_at", desc=True).execute()
+        return res.data
 
     async def create_initial_draft(self, association_id: UUID, data: MinutesResponse):
         """Inserta el resultado de la IA en la base de datos."""

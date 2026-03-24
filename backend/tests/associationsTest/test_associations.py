@@ -73,6 +73,9 @@ class MockSupabaseTable:
         self._data = [item for item in self._data if str(item.get(column)) == str(value)]
         return self
 
+    def limit(self, *args, **kwargs):
+        return self
+
     def update(self, data, *args, **kwargs):
         self._operation = "update"
         self._updated = []
@@ -206,14 +209,59 @@ def test_get_my_communities():
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
     try:
         response = client.get("/users/me/communities")
+        assert response.status_code == 200  # nosec B101
+        data = response.json()
+        assert isinstance(data, list)  # nosec B101
+        # The mock filters by profile_id = mock_user_id, so only 1 matches
+        assert len(data) == 1  # nosec B101
+        assert data[0]["association_id"] == mock_association_id  # nosec B101
+        assert data[0]["role"] == 1  # nosec B101
+        assert data[0]["neighborhood_associations"]["name"] == "Comunidad Test"  # nosec B101
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_get_current_user_profile_with_profile_data():
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase(
+        extra={
+            "profiles": [
+                {
+                    "id": mock_user_id,
+                    "username": "admin_test",
+                    "avatar_url": "https://example.com/avatar.png",
+                    "created_at": "2026-02-22T00:00:00Z",
+                }
+            ]
+        }
+    )
+    try:
+        response = client.get("/users/me")
         assert response.status_code == 200
         data = response.json()
-        assert isinstance(data, list)
-        # The mock filters by profile_id = mock_user_id, so only 1 matches
-        assert len(data) == 1
-        assert data[0]["association_id"] == mock_association_id
-        assert data[0]["role"] == 1
-        assert data[0]["neighborhood_associations"]["name"] == "Comunidad Test"
+        assert data["id"] == mock_user_id
+        assert data["email"] == mock_user_email
+        assert data["role"] == "authenticated"
+        assert data["username"] == "admin_test"
+        assert data["avatar_url"] == "https://example.com/avatar.png"
+        assert data["created_at"] == "2026-02-22T00:00:00Z"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_get_current_user_profile_without_profile_data():
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase(extra={"profiles": []})
+    try:
+        response = client.get("/users/me")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == mock_user_id
+        assert data["email"] == mock_user_email
+        assert data["role"] == "authenticated"
+        assert data["username"] is None
+        assert data["avatar_url"] is None
+        assert data["created_at"] is None
     finally:
         app.dependency_overrides.clear()
 
@@ -226,7 +274,12 @@ def test_get_my_communities():
 def test_invite_admin_success():
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
-    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
+
+    admin_mock = make_mock_supabase()
+    admin_mock.auth = MagicMock()
+    admin_mock.auth.admin.list_users = MagicMock(return_value=[])
+    app.dependency_overrides[get_supabase_admin] = lambda: admin_mock
+
     try:
         with patch("api.associations.associations.send_invitation_email"):
             response = client.post(
@@ -237,11 +290,11 @@ def test_invite_admin_success():
                     "role_to_grant": 4,  # PRESIDENT
                 },
             )
-        assert response.status_code == 200
+        assert response.status_code == 200  # nosec B101
         data = response.json()
-        assert data["target_email"] == "newmember@test.com"
-        assert data["role_to_grant"] == 4
-        assert data["status"] == 1
+        assert data["target_email"] == "newmember@test.com"  # nosec B101
+        assert data["role_to_grant"] == 4  # nosec B101
+        assert data["status"] == 1  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -258,8 +311,8 @@ def test_invite_admin_cannot_grant_admin_role():
                 "role_to_grant": 1,  # ADMIN — forbidden
             },
         )
-        assert response.status_code == 400
-        assert response.json()["detail"] == "Cannot grant ADMIN role via invitation"
+        assert response.status_code == 400  # nosec B101
+        assert response.json()["detail"] == "Cannot grant ADMIN role via invitation"  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -278,7 +331,7 @@ def test_invite_admin_non_admin_fails():
                 "role_to_grant": 2,
             },
         )
-        assert response.status_code == 403
+        assert response.status_code == 403  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -291,7 +344,12 @@ def test_invite_admin_non_admin_fails():
 def test_invite_tenant_success():
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_supabase] = lambda: make_owner_supabase()
-    app.dependency_overrides[get_supabase_admin] = lambda: make_owner_supabase()
+
+    admin_mock = make_owner_supabase()
+    admin_mock.auth = MagicMock()
+    admin_mock.auth.admin.list_users = MagicMock(return_value=[])
+    app.dependency_overrides[get_supabase_admin] = lambda: admin_mock
+
     try:
         with patch("api.associations.associations.send_invitation_email"):
             response = client.post(
@@ -302,11 +360,11 @@ def test_invite_tenant_success():
                     "target_email": "tenant@test.com",
                 },
             )
-        assert response.status_code == 200
+        assert response.status_code == 200  # nosec B101
         data = response.json()
-        assert data["target_email"] == "tenant@test.com"
-        assert data["role_to_grant"] == 3  # TENANT
-        assert data["status"] == 1
+        assert data["target_email"] == "tenant@test.com"  # nosec B101
+        assert data["role_to_grant"] == 3  # TENANT  # nosec B101
+        assert data["status"] == 1  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -328,7 +386,7 @@ def test_invite_tenant_not_owner_fails():
                 "target_email": "tenant@test.com",
             },
         )
-        assert response.status_code == 403
+        assert response.status_code == 403  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -344,41 +402,39 @@ def test_accept_invitation_success():
     mock_session = MagicMock()
     mock_session.access_token = "fake-jwt-token"
 
-    mock_new_user = MagicMock()
-    mock_new_user.id = new_user_id
+    mock_auth_user = MagicMock()
+    mock_auth_user.id = new_user_id
 
     mock_auth_response = MagicMock()
-    mock_auth_response.user = mock_new_user
+    mock_auth_response.user = mock_auth_user
     mock_auth_response.session = mock_session
 
     anon_mock = make_mock_supabase()
     anon_mock.auth = MagicMock()
-    anon_mock.auth.sign_up = MagicMock(return_value=mock_auth_response)
+    anon_mock.auth.sign_in_with_password = MagicMock(return_value=mock_auth_response)
 
-    # Mock the user-scoped client created inside the endpoint after sign_up
-    user_client_mock = make_mock_supabase()
-    user_client_mock.postgrest = MagicMock()
+    admin_mock = make_mock_supabase()
+    admin_mock.auth = MagicMock()
 
     app.dependency_overrides[get_supabase_anon] = lambda: anon_mock
-    with patch(
-        "api.associations.associations.create_client",
-        return_value=user_client_mock,
-    ):
-        try:
-            response = client.post(
-                "/auth/accept-invitation",
-                json={
-                    "invitation_token": mock_invitation_id,
-                    "password": "SecurePass123!",
-                },
-            )
-            assert response.status_code == 200
-            data = response.json()
-            assert data["message"] == "Invitation accepted"
-            assert data["user_id"] == new_user_id
-            anon_mock.auth.sign_up.assert_called_once_with({"email": "invited@test.com", "password": "SecurePass123!"})
-        finally:
-            app.dependency_overrides.clear()
+    app.dependency_overrides[get_supabase_admin] = lambda: admin_mock
+    try:
+        response = client.post(
+            "/auth/accept-invitation",
+            json={
+                "invitation_token": mock_invitation_id,
+                "password": "SecurePass123!",
+            },
+        )
+        assert response.status_code == 200  # nosec B101
+        data = response.json()
+        assert data["message"] == "Invitación aceptada con éxito"  # nosec B101
+        assert data["user_id"] == new_user_id  # nosec B101
+        anon_mock.auth.sign_in_with_password.assert_called_once_with(
+            {"email": "invited@test.com", "password": "SecurePass123!"}
+        )
+    finally:
+        app.dependency_overrides.clear()
 
 
 def test_accept_invitation_not_found():
@@ -400,8 +456,8 @@ def test_accept_invitation_not_found():
                 "password": "SomePass123!",
             },
         )
-        assert response.status_code == 404
-        assert response.json()["detail"] == "Invitation not found or already used"
+        assert response.status_code == 404  # nosec B101
+        assert response.json()["detail"] == "La invitación no existe o ya ha sido utilizada"  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -418,9 +474,9 @@ def test_remove_member_success():
 
     try:
         response = client.delete(f"/members/{mock_membership_id}")
-        assert response.status_code == 200
+        assert response.status_code == 200  # nosec B101
         data = response.json()
-        assert data["message"] == f"Membership {mock_membership_id} deleted successfully"
+        assert data["message"] == f"Membership {mock_membership_id} deleted successfully"  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -432,8 +488,8 @@ def test_remove_member_not_admin_fails():
     app.dependency_overrides[get_supabase] = lambda: blocked_mock
     try:
         response = client.delete(f"/members/{mock_membership_id}")
-        assert response.status_code == 403
-        assert response.json()["detail"] == "Admin access required for this action"
+        assert response.status_code == 403  # nosec B101
+        assert response.json()["detail"] == "Admin access required for this action"  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -447,8 +503,8 @@ def test_remove_member_different_association_fails():
     app.dependency_overrides[get_supabase] = lambda: hidden_mock
     try:
         response = client.delete(f"/members/{mock_membership2_id}")
-        assert response.status_code == 404
-        assert response.json()["detail"] == "Membership not found"
+        assert response.status_code == 404  # nosec B101
+        assert response.json()["detail"] == "Membership not found"  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -459,8 +515,102 @@ def test_remove_member_not_found():
     wrong_membership_id = "33"
     try:
         response = client.delete(f"/members/{wrong_membership_id}")
-        assert response.status_code == 404
-        assert response.json()["detail"] == "Membership not found"
+        assert response.status_code == 404  # nosec B101
+        assert response.json()["detail"] == "Membership not found"  # nosec B101
+    finally:
+        app.dependency_overrides.clear()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Test: POST /{association_id}/properties
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_create_property_success():
+    """Admin (role=1) crea una nueva propiedad exitosamente."""
+    mock_supabase = make_mock_supabase(extra={"properties": []})
+    mock_admin = make_mock_supabase(extra={"properties": []})
+
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_supabase] = lambda: mock_supabase
+    app.dependency_overrides[get_supabase_admin] = lambda: mock_admin
+    try:
+        response = client.post(
+            f"/{mock_association_id}/properties",
+            json={"number": "101"},
+        )
+        assert response.status_code == 200  # nosec B101
+        data = response.json()
+        assert data["number"] == "101"  # nosec B101
+        assert data["association_id"] == mock_association_id  # nosec B101
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_create_property_president_success():
+    """Presidente (role=4) puede crear una propiedad."""
+    president_mock = MockSupabaseClient(
+        {
+            "memberships": [
+                {
+                    "id": mock_membership_id,
+                    "association_id": mock_association_id,
+                    "profile_id": mock_user_id,
+                    "role": 4,  # PRESIDENT
+                    "property_id": None,
+                }
+            ],
+            "properties": [],
+        }
+    )
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_supabase] = lambda: president_mock
+    app.dependency_overrides[get_supabase_admin] = lambda: president_mock
+    try:
+        response = client.post(
+            f"/{mock_association_id}/properties",
+            json={"number": "202"},
+        )
+        assert response.status_code == 200  # nosec B101
+        data = response.json()
+        assert data["number"] == "202"  # nosec B101
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_create_property_non_admin_fails():
+    """Usuario sin rol admin/presidente (role=3, TENANT) recibe 403."""
+    app.dependency_overrides[get_current_user] = lambda: mock_non_owner
+    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+    try:
+        response = client.post(
+            f"/{mock_association_id}/properties",
+            json={"number": "303"},
+        )
+        assert response.status_code == 403  # nosec B101
+        assert response.json()["detail"] == "Acceso denegado. Se requiere ser Administrador o Presidente."  # nosec B101
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_create_property_already_exists():
+    """Devuelve 400 si ya existe una propiedad con ese número en la comunidad."""
+    existing_property = {
+        "id": str(uuid4()),
+        "association_id": mock_association_id,
+        "number": "101",
+    }
+    mock_supabase = make_mock_supabase(extra={"properties": [existing_property]})
+
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_supabase] = lambda: mock_supabase
+    try:
+        response = client.post(
+            f"/{mock_association_id}/properties",
+            json={"number": "101"},
+        )
+        assert response.status_code == 400  # nosec B101
+        assert response.json()["detail"] == "Esta propiedad ya existe en la comunidad."  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -487,7 +637,7 @@ def test_remove_member_not_found():
 #         f"{BACKEND_URL}/login",
 #         json={"email": ADMIN_EMAIL, "password": ADMIN},
 #     )
-#     assert login_res.status_code == 200, f"Login failed: {login_res.text}"
+#     assert login_res.status_code == 200, f"Login failed: {login_res.text}"  # nosec B101
 #     token = login_res.json()["session"]["access_token"]
 #
 #     # 2. Enviar invitación como Presidente (role=4)
@@ -500,11 +650,11 @@ def test_remove_member_not_found():
 #             "role_to_grant": 4,
 #         },
 #     )
-#     assert invite_res.status_code == 200, f"Invite failed: {invite_res.text}"
+#     assert invite_res.status_code == 200, f"Invite failed: {invite_res.text}"  # nosec B101
 #     invitation = invite_res.json()
-#     assert invitation["target_email"] == TARGET_EMAIL
-#     assert invitation["role_to_grant"] == 4
-#     assert invitation["status"] == 1
+#     assert invitation["target_email"] == TARGET_EMAIL  # nosec B101
+#     assert invitation["role_to_grant"] == 4  # nosec B101
+#     assert invitation["status"] == 1  # nosec B101
 #     invitation_id = invitation["id"]
 #
 #     # 3. Cleanup: borrar invitación de la BD con cliente admin
@@ -518,8 +668,8 @@ def test_remove_member_not_found():
 #         options=ClientOptions(schema=env.get("SUPABASE_SCHEMA", "dev")),
 #     )
 #     delete_res = admin_client.table("invitations").delete().eq("id", invitation_id).execute()
-#     assert delete_res.data is not None
+#     assert delete_res.data is not None  # nosec B101
 #
 #     # 4. Verificar que ya no existe
 #     check_res = admin_client.table("invitations").select("id").eq("id", invitation_id).execute()
-#     assert check_res.data == [], "La invitación no se borró correctamente"
+#     assert check_res.data == [], "La invitación no se borró correctamente"  # nosec B101

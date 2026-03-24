@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { API_URL, globalJwtToken } from '../constants/api';
+import { storage } from './storage';
 
 export interface Community {
   id: string; 
@@ -26,39 +27,62 @@ interface CommunityState {
   activeCommunityName: string | null;
   activeCommunityAddress: string | null;
   activeCommunityRole: number | null;
-  userToken: string | null;            
-  currentUserId?: string;
   communities: Community[];
   isLoading: boolean;
   error: string | null;
   
-  // CORRECCIÓN: address y role ahora son opcionales con "?" para evitar error TS2554
   setActiveCommunity: (id: string, name: string, address?: string, role?: number) => void;
-  setCommunities: (communities: Community[]) => void; // CORRECCIÓN: Añadido para error TS2551
-  setUserToken: (token: string | null) => void;      // CORRECCIÓN: Añadido para error TS2339
+  setCommunities: (communities: Community[]) => void;
   fetchCommunities: () => Promise<void>;
+  reset: () => void;
 }
 
+// Helpers para cargar/guardar en disco
+const getStoredCommunities = (): Community[] => {
+  const data = storage.getString('user-communities');
+  return data ? JSON.parse(data) : [];
+};
+
+const getStoredActiveCommunity = () => {
+  const data = storage.getString('active-community');
+  return data ? JSON.parse(data) : { id: null, name: null, address: null, role: null };
+};
+
 export const useCommunityStore = create<CommunityState>((set, get) => ({
-  activeCommunityId: null, 
-  activeCommunityName: null,
-  activeCommunityAddress: null,
-  activeCommunityRole: null,
-  userToken: null,           // Inicialización
-  communities: [],
+  ...getStoredActiveCommunity(),
+  communities: getStoredCommunities(),
   isLoading: false,
   error: null,
-  
-  setActiveCommunity: (id, name, address, role) => set({ 
-    activeCommunityId: id, 
-    activeCommunityName: name,
-    activeCommunityAddress: address || null,
-    activeCommunityRole: role || null,
-  }),
 
-  // Implementación de las nuevas funciones
-  setCommunities: (communities) => set({ communities }),
-  setUserToken: (token) => set({ userToken: token }),
+  setActiveCommunity: (id, name, address, role) => {
+    const activeData = { 
+      activeCommunityId: id, 
+      activeCommunityName: name,
+      activeCommunityAddress: address || null,
+      activeCommunityRole: role || null,
+    };
+    storage.set('active-community', JSON.stringify(activeData));
+    set(activeData);
+  },
+
+  setCommunities: (communities) => {
+    storage.set('user-communities', JSON.stringify(communities));
+    set({ communities });
+  },
+  
+  reset: () => {
+    storage.delete('user-communities');
+    storage.delete('active-community');
+    set({
+      activeCommunityId: null,
+      activeCommunityName: null,
+      activeCommunityAddress: null,
+      activeCommunityRole: null,
+      communities: [],
+      isLoading: false,
+      error: null,
+    });
+  },
 
   fetchCommunities: async () => {
     set({ isLoading: true, error: null });
@@ -87,14 +111,25 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
       const stillExists = formattedCommunities.find(c => c.id === currentActiveId);
       const communityToSet = stillExists || (formattedCommunities.length > 0 ? formattedCommunities[0] : null);
       
-      set({ 
+      const newState = { 
         communities: formattedCommunities, 
         isLoading: false,
         activeCommunityId: communityToSet?.id || null,
         activeCommunityName: communityToSet?.name || null,
         activeCommunityAddress: communityToSet?.address || null,
         activeCommunityRole: communityToSet?.role || null,
-      });
+      };
+
+      // Guardamos en disco
+      storage.set('user-communities', JSON.stringify(formattedCommunities));
+      storage.set('active-community', JSON.stringify({
+        activeCommunityId: newState.activeCommunityId,
+        activeCommunityName: newState.activeCommunityName,
+        activeCommunityAddress: newState.activeCommunityAddress,
+        activeCommunityRole: newState.activeCommunityRole
+      }));
+
+      set(newState);
       
     } catch (error: unknown) {
       if (error instanceof Error) {
