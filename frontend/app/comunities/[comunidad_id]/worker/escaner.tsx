@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Button, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Button, ActivityIndicator } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { useZonasStore } from '../../../../store/useZonesStore';
+import CustomModal from '../../../../components/ui/CustomModal';
 
 export default function EscanerTrabajador() {
   const router = useRouter();
@@ -10,6 +11,11 @@ export default function EscanerTrabajador() {
   const [scanned, setScanned] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   
+  // Estados para controlar el modal de resultado
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+
   const { validarAccesoQR } = useZonasStore();
 
   const handleBarCodeScanned = async ({ data }: { data: string }) => {
@@ -19,22 +25,35 @@ export default function EscanerTrabajador() {
     setIsValidating(true);
     
     try {
-      const accesoPermitido = await validarAccesoQR(data);
+      const response = await validarAccesoQR(data) as any;
+      setIsValidating(false); // Ocultamos el spinner del escáner
       
-      if (accesoPermitido) {
-        Alert.alert('✅ Acceso Permitido', 'La reserva es válida y corresponde a este horario.', [
-          { text: 'Siguiente escaneo', onPress: () => { setScanned(false); setIsValidating(false); } }
-        ]);
+      if (response.valid) {
+        let msg = 'Acceso concedido.';
+        if (response.data) {
+          msg = `Instalación: ${response.data.space_name || 'N/A'}\nVecino: ${response.data.neighbor_name || 'N/A'}\nTipo: ${response.data.type === 'guest_pass' ? 'Pase Invitado' : 'Reserva'}`;
+        }
+        setModalTitle('✅ Acceso Permitido');
+        setModalMessage(msg);
       } else {
-        Alert.alert('❌ Error', 'El código QR no es válido, está caducado o no corresponde a este horario.', [
-          { text: 'Reintentar', onPress: () => { setScanned(false); setIsValidating(false); } }
-        ]);
+        setModalTitle('❌ Acceso Denegado');
+        setModalMessage(response.message || 'El código QR no es válido o está caducado.');
       }
+      
+      setModalVisible(true);
     } catch(e) {
-      Alert.alert('Error de conexión', 'No se pudo verificar el código con el servidor.', [
-        { text: 'Reintentar', onPress: () => { setScanned(false); setIsValidating(false); } }
-      ]);
+      setIsValidating(false);
+      setModalTitle('⚠️ Error de conexión');
+      setModalMessage('No se pudo verificar el código con el servidor.');
+      setModalVisible(true);
     }
+  };
+
+  // Función para cerrar el modal y preparar el siguiente escaneo
+  const handleNextScan = () => {
+    setModalVisible(false);
+    setScanned(false);
+    setIsValidating(false);
   };
 
   if (!permission) {
@@ -80,6 +99,15 @@ export default function EscanerTrabajador() {
       <View style={styles.closeButton}>
         <Button title="Volver" onPress={() => router.back()} color="#FF5252" />
       </View>
+
+      {/* MODAL DE RESULTADO */}
+      <CustomModal
+        visible={modalVisible}
+        title={modalTitle}
+        message={modalMessage}
+        onConfirm={handleNextScan}
+        onCancel={handleNextScan} // Si pican fuera, también reinicia el escáner
+      />
     </View>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useZonasStore } from '../../../store/useZonesStore';
@@ -31,63 +31,129 @@ export default function ReservasComunidad() {
   const router = useRouter();
   const { comunidad_id } = useLocalSearchParams();
   
-  const { zonas, crearReserva, isLoading, fetchZonas, misReservas } = useZonasStore();
+  const { zonas, crearReserva, crearPaseInvitado, eliminarZona, isLoading, fetchZonas, obtenerHorariosOcupados } = useZonasStore();
   const { communities, activeCommunityId } = useCommunityStore();
   
   const activeCommunity = communities.find(c => c.id === activeCommunityId);
   const isAdminOrPresident = activeCommunity?.role === 1 || activeCommunity?.role === 4;
+  const isWorker = activeCommunity?.role === 5; 
 
-  const [zonaActivaId, setZonaActivaId] = useState<string>('');
+  const [zonaActivaId, setZonaActivaId] = useState<string | number>('');
   const [fechaSeleccionada, setFechaSeleccionada] = useState<string>('');
   const [horaSeleccionada, setHoraSeleccionada] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [horariosOcupados, setHorariosOcupados] = useState<any[]>([]);
 
   useEffect(() => {
-    if (comunidad_id) {
-      fetchZonas(comunidad_id as string);
-    }
+    if (comunidad_id) fetchZonas(comunidad_id as string);
   }, [comunidad_id]);
 
   useEffect(() => {
-    if (zonas.length > 0 && !zonaActivaId) {
+    if (zonas.length > 0 && (!zonaActivaId || !zonas.find(z => String(z.id) === String(zonaActivaId)))) {
       setZonaActivaId(zonas[0].id);
+      setHoraSeleccionada(null);
     }
   }, [zonas]);
 
-  const zonaActiva = zonas.find(z => z.id === zonaActivaId);
+  const zonaActiva = zonas.find(z => String(z.id) === String(zonaActivaId));
+  const modoUso = (zonaActiva as any)?.usage_mode;
+  const esModoExclusivo = modoUso === 'exclusive_reservation'; 
+
+  useEffect(() => {
+    if (fechaSeleccionada && zonaActivaId && esModoExclusivo && !isWorker) {
+      obtenerHorariosOcupados(zonaActivaId, fechaSeleccionada).then((slots) => {
+        setHorariosOcupados(slots || []);
+      });
+    } else {
+      setHorariosOcupados([]);
+    }
+  }, [fechaSeleccionada, zonaActivaId, esModoExclusivo, isWorker]);
 
   const slotsDisponibles = useMemo(() => {
-    if (!fechaSeleccionada || !zonaActiva) return [];
+    if (!fechaSeleccionada || !zonaActiva || !esModoExclusivo) return [];
+    
     const slots = [];
-    const inicio = parseInt(zonaActiva.horaInicio.split(':')[0]);
-    const fin = parseInt(zonaActiva.horaFin.split(':')[0]);
+    const inicioStr = zonaActiva.start_time || '09:00';
+    const finStr = zonaActiva.end_time || '21:00';
+    
+    const inicio = parseInt(inicioStr.split(':')[0]);
+    const fin = parseInt(finStr.split(':')[0]);
     
     for (let i = inicio; i <= fin; i++) {
       const horaStr = `${i < 10 ? `0${i}` : i}:00`;
       
-      const isBooked = misReservas.some(
-        (reserva) => reserva.zonaId === zonaActiva.id && reserva.fecha === fechaSeleccionada && reserva.hora === horaStr
-      );
-      
+      const isBooked = horariosOcupados.some(slot => {
+        if (!slot.start_at) return false;
+        const slotTime = slot.start_at.split('T')[1].substring(0, 5);
+        return slotTime === horaStr;
+      });
+
       slots.push({ time: horaStr, isBooked });
     }
     return slots;
-  }, [fechaSeleccionada, zonaActivaId, zonaActiva, misReservas]);
+  }, [fechaSeleccionada, zonaActiva, horariosOcupados, esModoExclusivo]);
 
-  const handleConfirmarReserva = async () => {
-    if (!zonaActiva || !fechaSeleccionada || !horaSeleccionada) return;
+  const handleConfirmarAccion = async () => {
+    if (!zonaActiva || !fechaSeleccionada || isSubmitting) return;
 
-    const reservaId = await crearReserva({
-      zonaId: zonaActiva.id,
-      zonaNombre: zonaActiva.nombre,
-      fecha: fechaSeleccionada,
-      hora: horaSeleccionada,
-      requiereQR: zonaActiva.requiereQR
-    });
+    setIsSubmitting(true);
+    
+    try {
+      let response;
+      if (esModoExclusivo && horaSeleccionada) {
+        const horaFinNum = parseInt(horaSeleccionada.split(':')[0]) + 1;
+        const horaFinStr = `${horaFinNum < 10 ? `0${horaFinNum}` : horaFinNum}:00`;
+        const startAt = `${fechaSeleccionada}T${horaSeleccionada}:00`;
 
-    setModalVisible(false);
-    setHoraSeleccionada(null);
-    router.push(`/comunities/${comunidad_id}/mis-reservas/${reservaId}` as any);
+        response = await crearReserva({
+          space_id: Number(zonaActiva.id),
+          start_at: startAt,
+          end_at: `${fechaSeleccionada}T${horaFinStr}:00`,
+          guests_count: "0"
+        });
+
+        setHorariosOcupados(prev => [...prev, { start_at: startAt }]);
+        
+      } else if (!esModoExclusivo) {
+        response = await crearPaseInvitado({
+          space_id: Number(zonaActiva.id),
+          valid_for_date: fechaSeleccionada
+        });
+      }
+
+      setModalVisible(false);
+      setHoraSeleccionada(null);
+      
+      if (response) {
+        router.push(`/comunities/${comunidad_id}/mis-reservas/${response.id}` as any);
+      } else {
+        router.push(`/comunities/${comunidad_id}/mis-reservas` as any);
+      }
+    } catch (error: any) {
+      setModalVisible(false);
+      Alert.alert("Error", error.message || "Ocurrió un error inesperado al realizar la acción.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteZone = async () => {
+    if (!zonaActivaId || !comunidad_id) return;
+    
+    setIsDeleting(true);
+    try {
+      await eliminarZona(comunidad_id as string, zonaActivaId);
+      setDeleteModalVisible(false);
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "No se ha podido eliminar la zona.");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const renderHeaderActions = () => (
@@ -100,12 +166,14 @@ export default function ReservasComunidad() {
           <Text style={styles.actionButtonText}>+ Zona</Text>
         </TouchableOpacity>
       )}
-      <TouchableOpacity 
-        style={styles.actionButton}
-        onPress={() => router.push(`/comunities/${comunidad_id}/mis-reservas` as any)}
-      >
-        <Text style={styles.actionButtonText}>Mis Reservas</Text>
-      </TouchableOpacity>
+      {!isWorker && (
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => router.push(`/comunities/${comunidad_id}/mis-reservas` as any)}
+        >
+          <Text style={styles.actionButtonText}>Mis Pases/Reservas</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 
@@ -113,7 +181,38 @@ export default function ReservasComunidad() {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={COLORS.primaryBlue} />
-        <Text style={{ marginTop: 10, color: COLORS.grayText }}>Cargando zonas comunes...</Text>
+      </View>
+    );
+  }
+
+  if (isWorker) {
+    return (
+      <View style={styles.container}>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.headerRow}>
+            <View style={styles.titleContainer}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.backIcon}>
+                <Text style={styles.backIconText}>←</Text>
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>Accesos</Text>
+            </View>
+          </View>
+          
+          <View style={styles.workerContainer}>
+            <View style={styles.workerCard}>
+              <Text style={styles.workerCardTitle}>Validación de QR</Text>
+              <Text style={styles.workerCardDesc}>
+                Escanea los códigos QR de los vecinos o invitados para comprobar si tienen una reserva o pase válido para acceder a las instalaciones.
+              </Text>
+              <TouchableOpacity 
+                style={styles.scannerButton} 
+                onPress={() => router.push(`/comunities/${comunidad_id}/worker/escaner` as any)}
+              >
+                <Text style={styles.scannerButtonText}>Abrir Escáner</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
       </View>
     );
   }
@@ -123,19 +222,19 @@ export default function ReservasComunidad() {
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.headerRow}>
-            <Text style={styles.headerTitle}>Reservas</Text>
+            <View style={styles.titleContainer}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.backIcon}>
+                <Text style={styles.backIconText}>←</Text>
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>Reservas</Text>
+            </View>
             {renderHeaderActions()}
           </View>
           <View style={styles.emptyStateContainer}>
             <Text style={styles.emptyTitle}>Sin zonas comunes</Text>
-            <Text style={styles.emptyStateText}>
-              Aún no hay ninguna instalación disponible para reservar en esta comunidad.
-            </Text>
+            <Text style={styles.emptyStateText}>No hay instalaciones disponibles.</Text>
             {isAdminOrPresident && (
-              <TouchableOpacity 
-                style={styles.createButton}
-                onPress={() => router.push({ pathname: '/comunities/crear-zona', params: { comunidad_id } })}
-              >
+              <TouchableOpacity style={styles.createButton} onPress={() => router.push({ pathname: '/comunities/crear-zona', params: { comunidad_id } })}>
                 <Text style={styles.createButtonText}>+ Crear nueva zona</Text>
               </TouchableOpacity>
             )}
@@ -149,7 +248,12 @@ export default function ReservasComunidad() {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>Reservas</Text>
+          <View style={styles.titleContainer}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backIcon}>
+              <Text style={styles.backIconText}>←</Text>
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Reservas</Text>
+          </View>
           {renderHeaderActions()}
         </View>
 
@@ -157,32 +261,41 @@ export default function ReservasComunidad() {
           {zonas.map((zona) => (
             <TouchableOpacity
               key={zona.id}
-              style={[styles.instPill, zonaActivaId === zona.id && styles.instPillActive]}
+              style={[styles.instPill, String(zonaActivaId) === String(zona.id) && styles.instPillActive]}
               onPress={() => { setZonaActivaId(zona.id); setHoraSeleccionada(null); }}
             >
-              <Text style={[styles.instText, zonaActivaId === zona.id && styles.instTextActive]}>
-                {zona.nombre}
+              <Text style={[styles.instText, String(zonaActivaId) === String(zona.id) && styles.instTextActive]}>
+                {zona.name}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
+
+        {isAdminOrPresident && zonaActiva && (
+          <View style={styles.adminActionsContainer}>
+             <Text style={styles.adminInfoText}>Administración de instalación:</Text>
+             <View style={styles.adminButtonsRow}>
+               <TouchableOpacity 
+                 style={styles.editZoneButton} 
+                 onPress={() => router.push({ pathname: '/comunities/editar-zona', params: { comunidad_id, zona_id: zonaActiva.id } })}
+               >
+                  <Text style={styles.editZoneButtonText}>Editar</Text>
+               </TouchableOpacity>
+               <TouchableOpacity style={styles.deleteZoneButton} onPress={() => setDeleteModalVisible(true)}>
+                  <Text style={styles.deleteZoneButtonText}>Eliminar</Text>
+               </TouchableOpacity>
+             </View>
+          </View>
+        )}
 
         {zonaActiva && (
           <View style={styles.calendarContainer}>
             <Calendar
               key={zonaActiva.id}
               theme={{
-                backgroundColor: COLORS.white,
-                calendarBackground: COLORS.white,
-                textSectionTitleColor: COLORS.darkBlue,
                 selectedDayBackgroundColor: COLORS.primaryBlue,
-                selectedDayTextColor: COLORS.white,
                 todayTextColor: COLORS.greenCheck,
-                dayTextColor: '#2d4150',
-                textDisabledColor: '#d9e1e8',
                 arrowColor: COLORS.primaryBlue,
-                monthTextColor: COLORS.darkBlue,
-                textMonthFontWeight: 'bold',
               }}
               minDate={new Date().toISOString().split('T')[0]}
               onDayPress={(day: any) => { setFechaSeleccionada(day.dateString); setHoraSeleccionada(null); }}
@@ -191,57 +304,59 @@ export default function ReservasComunidad() {
           </View>
         )}
 
-        {fechaSeleccionada && zonaActiva ? (
+        {Boolean(fechaSeleccionada) && esModoExclusivo && (
           <View style={styles.slotsWrapper}>
             <Text style={styles.sectionTitle}>Horarios disponibles</Text>
             <View style={styles.slotsGrid}>
-              {slotsDisponibles.map((slot, index) => {
-                const isSelected = horaSeleccionada === slot.time;
-                return (
-                  <TouchableOpacity
-                    key={index}
-                    disabled={slot.isBooked}
-                    onPress={() => setHoraSeleccionada(slot.time)}
-                    style={[
-                      styles.slotButton,
-                      slot.isBooked && styles.slotBooked,
-                      isSelected && styles.slotSelected
-                    ]}
-                  >
-                    <Text style={[
-                      styles.slotText,
-                      slot.isBooked && styles.slotTextBooked,
-                      isSelected && styles.slotTextSelected
-                    ]}>
-                      {slot.time}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+              {slotsDisponibles.map((slot, index) => (
+                <TouchableOpacity
+                  key={index}
+                  disabled={slot.isBooked}
+                  onPress={() => setHoraSeleccionada(slot.time)}
+                  style={[styles.slotButton, slot.isBooked && styles.slotBooked, horaSeleccionada === slot.time && styles.slotSelected]}
+                >
+                  <Text style={[styles.slotText, slot.isBooked && styles.slotTextBooked, horaSeleccionada === slot.time && styles.slotTextSelected]}>
+                    {slot.time}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
-          </View>
-        ) : (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>Selecciona un día en el calendario para ver los horarios disponibles.</Text>
           </View>
         )}
       </ScrollView>
 
-      {horaSeleccionada && (
+      {Boolean((esModoExclusivo && horaSeleccionada) || (!esModoExclusivo && fechaSeleccionada)) && (
         <View style={styles.footer}>
-          <TouchableOpacity style={styles.confirmButton} onPress={() => setModalVisible(true)}>
-            <Text style={styles.confirmButtonText}>Reservar ({horaSeleccionada})</Text>
+          <TouchableOpacity 
+            style={[styles.confirmButton, isSubmitting && { opacity: 0.7 }]} 
+            onPress={() => setModalVisible(true)}
+            disabled={isSubmitting}
+          >
+            <Text style={styles.confirmButtonText}>
+              {!esModoExclusivo ? 'Generar Pase de Invitado' : `Reservar (${horaSeleccionada})`}
+            </Text>
           </TouchableOpacity>
         </View>
       )}
 
       <CustomModal
         visible={modalVisible}
-        title="Confirmar Reserva"
-        message={`¿Deseas reservar ${zonaActiva?.nombre} el ${fechaSeleccionada} a las ${horaSeleccionada}?`}
+        title={!esModoExclusivo ? "Generar Pase" : "Confirmar Reserva"}
+        message={!esModoExclusivo 
+          ? `¿Deseas generar un pase de invitado para ${zonaActiva?.name} el ${fechaSeleccionada}?` 
+          : `¿Deseas reservar ${zonaActiva?.name} el ${fechaSeleccionada} a las ${horaSeleccionada}?`}
         onCancel={() => setModalVisible(false)}
-        onConfirm={handleConfirmarReserva}
-        isLoading={isLoading}
+        onConfirm={handleConfirmarAccion}
+        isLoading={isSubmitting || isLoading}
+      />
+
+      <CustomModal
+        visible={deleteModalVisible}
+        title="Eliminar Instalación"
+        message={`¿Estás seguro de que deseas eliminar permanentemente la instalación "${zonaActiva?.name}"? Esta acción borrará el calendario y no se puede deshacer.`}
+        onCancel={() => setDeleteModalVisible(false)}
+        onConfirm={handleDeleteZone}
+        isLoading={isDeleting}
       />
     </View>
   );
@@ -251,32 +366,50 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.lightBackground },
   scrollContent: { padding: 20, paddingTop: 60, paddingBottom: 100 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  titleContainer: { flexDirection: 'row', alignItems: 'center' },
+  backIcon: { marginRight: 15, padding: 5 },
+  backIconText: { fontSize: 28, color: COLORS.darkBlue, fontWeight: 'bold' },
   headerTitle: { fontSize: 32, fontWeight: 'bold', color: COLORS.darkBlue },
   headerActions: { flexDirection: 'row', gap: 10 },
-  actionButton: { backgroundColor: COLORS.white, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, borderWidth: 1, borderColor: COLORS.primaryBlue, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, elevation: 2 },
+  actionButton: { backgroundColor: COLORS.white, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, borderWidth: 1, borderColor: COLORS.primaryBlue },
   actionButtonText: { color: COLORS.primaryBlue, fontWeight: 'bold', fontSize: 14 },
-  emptyStateContainer: { backgroundColor: COLORS.white, padding: 30, borderRadius: 20, alignItems: 'center', marginTop: 40, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 5 },
+  emptyStateContainer: { backgroundColor: COLORS.white, padding: 30, borderRadius: 20, alignItems: 'center', marginTop: 40 },
   emptyTitle: { fontSize: 22, fontWeight: 'bold', color: COLORS.darkBlue, marginBottom: 10 },
   createButton: { backgroundColor: COLORS.primaryBlue, paddingVertical: 14, paddingHorizontal: 30, borderRadius: 12, marginTop: 20 },
   createButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: 16 },
   instalacionesContainer: { flexDirection: 'row', marginBottom: 20 },
-  instPill: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 25, backgroundColor: COLORS.white, marginRight: 10, borderWidth: 1, borderColor: COLORS.grayBorder, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 2 },
+  instPill: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 25, backgroundColor: COLORS.white, marginRight: 10, borderWidth: 1, borderColor: COLORS.grayBorder },
   instPillActive: { backgroundColor: COLORS.darkBlue, borderColor: COLORS.darkBlue },
   instText: { color: COLORS.grayText, fontWeight: '600', fontSize: 16 },
   instTextActive: { color: COLORS.white },
-  calendarContainer: { backgroundColor: COLORS.white, borderRadius: 20, padding: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 5, marginBottom: 24 },
+  
+  adminActionsContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, paddingHorizontal: 5 },
+  adminInfoText: { fontSize: 14, color: COLORS.grayText, fontWeight: '500' },
+  adminButtonsRow: { flexDirection: 'row', gap: 10 },
+  editZoneButton: { backgroundColor: '#E6F4FA', paddingHorizontal: 15, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: COLORS.primaryBlue },
+  editZoneButtonText: { color: COLORS.primaryBlue, fontWeight: 'bold', fontSize: 12 },
+  deleteZoneButton: { backgroundColor: '#FFEDED', paddingHorizontal: 15, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#FF5252' },
+  deleteZoneButtonText: { color: '#FF5252', fontWeight: 'bold', fontSize: 12 },
+
+  calendarContainer: { backgroundColor: COLORS.white, borderRadius: 20, padding: 10, marginBottom: 24 },
   slotsWrapper: { marginTop: 10 },
   sectionTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.darkBlue, marginBottom: 16 },
-  slotsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 10 },
+  slotsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   slotButton: { width: '30%', paddingVertical: 12, backgroundColor: COLORS.white, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: COLORS.primaryBlue },
   slotBooked: { backgroundColor: COLORS.grayDisabled, borderColor: COLORS.grayBorder },
   slotSelected: { backgroundColor: COLORS.greenCheck, borderColor: COLORS.greenCheck },
   slotText: { fontSize: 16, color: COLORS.primaryBlue, fontWeight: 'bold' },
   slotTextBooked: { color: '#999', textDecorationLine: 'line-through' },
   slotTextSelected: { color: COLORS.white },
-  emptyState: { marginTop: 20, padding: 20, alignItems: 'center' },
-  emptyStateText: { color: COLORS.grayText, textAlign: 'center', fontSize: 16, lineHeight: 24 },
+  emptyStateText: { color: COLORS.grayText, textAlign: 'center', fontSize: 16 },
   footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, backgroundColor: 'rgba(245,249,255,0.9)' },
-  confirmButton: { backgroundColor: COLORS.greenCheck, paddingVertical: 18, borderRadius: 16, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, elevation: 6 },
-  confirmButtonText: { color: COLORS.white, fontSize: 18, fontWeight: 'bold' }
+  confirmButton: { backgroundColor: COLORS.greenCheck, paddingVertical: 18, borderRadius: 16, alignItems: 'center' },
+  confirmButtonText: { color: COLORS.white, fontSize: 18, fontWeight: 'bold' },
+
+  workerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 40 },
+  workerCard: { backgroundColor: COLORS.white, padding: 30, borderRadius: 20, width: '100%', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 3 },
+  workerCardTitle: { fontSize: 22, fontWeight: 'bold', color: COLORS.darkBlue, marginBottom: 15 },
+  workerCardDesc: { fontSize: 16, color: COLORS.grayText, textAlign: 'center', marginBottom: 30, lineHeight: 24 },
+  scannerButton: { backgroundColor: COLORS.primaryBlue, paddingVertical: 16, paddingHorizontal: 40, borderRadius: 16, width: '100%', alignItems: 'center' },
+  scannerButtonText: { color: COLORS.white, fontSize: 18, fontWeight: 'bold' }
 });

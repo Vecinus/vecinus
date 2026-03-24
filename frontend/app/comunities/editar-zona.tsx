@@ -1,16 +1,20 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, Switch, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, Switch, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useZonasStore } from '../../store/useZonesStore';
 import CustomModal from '../../components/ui/CustomModal';
 
 const COLORS = { primaryBlue: '#0088CC', white: '#FFFFFF', grayText: '#666666', grayBorder: '#E0E0E0', lightBackground: '#F5F9FF' };
 
-export default function CrearZonaComun() {
+export default function EditarZonaComun() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const comunidad_id = params.comunidad_id as string || params.id as string;
-  const { crearZona, isLoading } = useZonasStore();
+  const comunidad_id = params.comunidad_id as string;
+  const zona_id = params.zona_id as string;
+  
+  const { zonas, actualizarZona, isLoading } = useZonasStore();
+  
+  const [zonaInicial, setZonaInicial] = useState<any>(null);
 
   const [nombre, setNombre] = useState('');
   const [aforo, setAforo] = useState('');
@@ -21,9 +25,32 @@ export default function CrearZonaComun() {
   const [maxGuests, setMaxGuests] = useState('1');
   
   const [modalVisible, setModalVisible] = useState(false);
+  const [isReady, setIsReady] = useState(false);
 
-  const handleCrearZona = async () => {
-    await crearZona(comunidad_id, { 
+  // Cargar datos iniciales
+  useEffect(() => {
+    const zona = zonas.find(z => String(z.id) === String(zona_id));
+    if (zona) {
+      setZonaInicial(zona);
+      setNombre(zona.name || '');
+      setAforo(String(zona.capacity || '1'));
+      setRequiereQR(Boolean(zona.requires_qr));
+      setHoraInicio(zona.start_time ? zona.start_time.substring(0, 5) : '09:00');
+      setHoraFin(zona.end_time ? zona.end_time.substring(0, 5) : '21:00');
+      
+      const uMode = (zona as any).usage_mode;
+      setUsageMode(uMode === 'guest_pass' ? 'guest_pass' : 'exclusive_reservation');
+      
+      setMaxGuests(String((zona as any).max_guests_per_reservation || '1'));
+      setIsReady(true);
+    } else {
+      Alert.alert("Error", "No se encontró la información de la zona.");
+      router.back();
+    }
+  }, [zona_id, zonas]);
+
+  const handleGuardarCambios = async () => {
+    await actualizarZona(comunidad_id, zona_id, { 
       name: nombre, 
       capacity: parseInt(aforo) || 1, 
       requires_qr: requiereQR, 
@@ -41,6 +68,14 @@ export default function CrearZonaComun() {
     }
   };
 
+  if (!isReady) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={COLORS.primaryBlue} />
+      </View>
+    );
+  }
+
   return (
     <>
       <ScrollView style={styles.container}>
@@ -48,7 +83,7 @@ export default function CrearZonaComun() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backIcon}>
             <Text style={styles.backIconText}>←</Text>
           </TouchableOpacity>
-          <Text style={styles.title}>Nueva Zona Común</Text>
+          <Text style={styles.title}>Editar Instalación</Text>
         </View>
         
         <View style={styles.formGroup}>
@@ -107,17 +142,17 @@ export default function CrearZonaComun() {
           onPress={() => setModalVisible(true)}
           disabled={!nombre}
         >
-          <Text style={styles.saveButtonText}>Crear Zona Común</Text>
+          <Text style={styles.saveButtonText}>Guardar Cambios</Text>
         </TouchableOpacity>
         <View style={{ height: 40 }} />
       </ScrollView>
 
       <CustomModal
         visible={modalVisible}
-        title="Crear nueva zona"
-        message={`¿Estás seguro de crear la instalación "${nombre}"?`}
+        title="Guardar Cambios"
+        message={`¿Estás seguro de que deseas actualizar la información de "${nombre}"?`}
         onCancel={() => setModalVisible(false)}
-        onConfirm={handleCrearZona}
+        onConfirm={handleGuardarCambios}
         isLoading={isLoading}
       />
     </>
