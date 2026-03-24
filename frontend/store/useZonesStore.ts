@@ -19,6 +19,8 @@ export interface Reserva {
   start_at: string;
   end_at: string;
   guests_count: string;
+  status_id?: number; // <-- AÑADIR ESTO
+  qr_token?: string;  // <-- AÑADIR ESTO TAMBIÉN (ya lo usábamos en el paso anterior)
 }
 
 export interface PaseInvitado {
@@ -55,9 +57,7 @@ interface ZonasState {
   subirFotoZona: (file: File | any) => Promise<any>;
   
   crearReserva: (reserva: Partial<Reserva>) => Promise<Reserva | null>;
-  // AQUÍ ESTÁ LA CORRECCIÓN DE TYPESCRIPT:
-  validarAccesoQR: (qrData: string) => Promise<{ valid: boolean; data?: any; message?: string }>;
-  crearPaseInvitado: (pase: Partial<PaseInvitado>) => Promise<PaseInvitado | null>;
+  validarAccesoQR: (qrData: string, associationId: string) => Promise<{ valid: boolean; data?: any; message?: any }>;  crearPaseInvitado: (pase: Partial<PaseInvitado>) => Promise<PaseInvitado | null>;
 
   obtenerHorariosOcupados: (spaceId: number | string, reservationDate: string) => Promise<OccupiedSlot[]>;
   obtenerMisReservas: (associationId: string) => Promise<void>;
@@ -229,14 +229,14 @@ export const useZonasStore = create<ZonasState>((set, get) => ({
     }
   },
 
-  validarAccesoQR: async (qrData: string) => {
+validarAccesoQR: async (qrData: string, associationId: string) => {
     try {
       const token = useAuthStore.getState().token;
-      let payload = {};
-      try {
-        payload = JSON.parse(qrData);
-      } catch (e) {
-        payload = { qr_code: qrData };
+      
+      const payload = JSON.parse(qrData);
+      
+      if (!payload.association_id) {
+        payload.association_id = associationId;
       }
       
       const response = await fetch(`${API_URL}/reservations/validate-qr`, {
@@ -254,10 +254,13 @@ export const useZonasStore = create<ZonasState>((set, get) => ({
       } 
       
       const errorData = await response.json().catch(() => ({}));
-      return { valid: false, message: errorData.detail || 'Código denegado por el servidor.' };
+      return { valid: false, message: errorData };
 
-    } catch (error) {
-      return { valid: false, message: 'No se pudo conectar con el servidor.' };
+    } catch (error: any) {
+      return { 
+        valid: false, 
+        message: error.message || 'El formato del código QR no es válido.' 
+      };
     }
   },
 
