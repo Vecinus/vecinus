@@ -161,6 +161,11 @@ async function requestIncidents(
     url.searchParams.append('mine', 'true');
   }
 
+  // Validación de whitelist: asegurar que la URL pertenece al dominio permitido
+  if (!url.toString().startsWith(INCIDENTS_BASE_URL)) {
+    throw new Error('URL does not belong to allowed domain');
+  }
+
   const incidentsResponse = await fetch(url, {
     method: 'GET',
     headers: authHeaders(token),
@@ -234,6 +239,12 @@ export const createIncident = async (params: {
   }
 
   const url = new URL(params.associationId, INCIDENTS_BASE_URL);
+  
+  // Validación de whitelist: asegurar que la URL pertenece al dominio permitido
+  if (!url.toString().startsWith(INCIDENTS_BASE_URL)) {
+    throw new Error('URL does not belong to allowed domain');
+  }
+
   const response = await fetch(url, {
     method: 'POST',
     headers: uploadHeaders(params.token),
@@ -300,6 +311,11 @@ export const updateIncidentStatus = async (params: {
   const url = new URL(`${params.associationId}/${params.incidentId}/status`, INCIDENTS_BASE_URL);
   url.searchParams.append('status', backendStatus);
   
+  // Validación de whitelist: asegurar que la URL pertenece al dominio permitido
+  if (!url.toString().startsWith(INCIDENTS_BASE_URL)) {
+    throw new Error('URL does not belong to allowed domain');
+  }
+  
   const response = await fetch(url, {
     method: 'POST',
     headers: uploadHeaders(params.token),
@@ -330,6 +346,12 @@ export const getIncidentHistory = async (params: {
   }
 
   const url = new URL(`${params.associationId}/${params.incidentId}`, INCIDENTS_BASE_URL);
+  
+  // Validación de whitelist: asegurar que la URL pertenece al dominio permitido
+  if (!url.toString().startsWith(INCIDENTS_BASE_URL)) {
+    throw new Error('URL does not belong to allowed domain');
+  }
+
   const response = await fetch(url, {
     method: 'GET',
     headers: authHeaders(params.token),
@@ -381,6 +403,11 @@ export const getIncidentDetail = async (params: {
 
   const urlObj = new URL(`${params.associationId}/${params.incidentId}`, INCIDENTS_BASE_URL);
   
+  // Validación de whitelist: asegurar que la URL pertenece al dominio permitido
+  if (!urlObj.toString().startsWith(INCIDENTS_BASE_URL)) {
+    throw new Error('URL does not belong to allowed domain');
+  }
+
   try {
     const response = await fetch(urlObj, {
       method: 'GET',
