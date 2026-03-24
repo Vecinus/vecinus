@@ -125,13 +125,13 @@ const mapIncident = (
     calculatedStatus = parseStatus(lastState.status);
   }
 
-  const typeKey = String(item.type || 'OTHER').toUpperCase() as any;
+  const typeKey = String(item.type || 'OTHER').toUpperCase() as unknown as string;
 
   return {
     id: String(item.id),
     communityId: associationId,
     reporterId: memberData?.userId || item.membership_id || 'unknown-user',
-    title: BACK_TYPE_LABEL[typeKey] || 'Incidencia',
+    title: (BACK_TYPE_LABEL[typeKey as keyof typeof BACK_TYPE_LABEL]) || 'Incidencia',
     description: item.description || '',
     reporterName: memberData?.userName || 'Vecino',
     createdAt: item.created_at || new Date().toISOString(),
@@ -148,8 +148,13 @@ async function requestIncidents(
   token: string,
   mine: boolean
 ): Promise<{ incidents: Incident[]; context: IncidentContext }> {
+  // Validar que associationId sea seguro
+  if (!associationId || typeof associationId !== 'string' || associationId.length === 0) {
+    throw new Error('Invalid association ID');
+  }
+
   const incidentsResponse = await fetch(
-    `${INCIDENTS_BASE_URL}/${associationId}${mine ? '?mine=true' : ''}`,
+    `${INCIDENTS_BASE_URL}/${encodeURIComponent(associationId)}${mine ? '?mine=true' : ''}`,
     {
       method: 'GET',
       headers: authHeaders(token),
@@ -183,6 +188,11 @@ export const createIncident = async (params: {
   description: string;
   image?: IncidentUpload | null;
 }): Promise<string> => {
+  // Validar que associationId sea seguro
+  if (!params.associationId || typeof params.associationId !== 'string' || params.associationId.length === 0) {
+    throw new Error('Invalid association ID');
+  }
+
   const formData = new FormData();
   formData.append('type', params.type);
   formData.append('description', params.description);
@@ -207,7 +217,7 @@ export const createIncident = async (params: {
             uri: params.image.uri,
             name: params.image.name,
             type: params.image.mimeType || 'image/jpeg',
-          } as any);
+          } as unknown as Blob);
         }
       }
     } catch (error) {
@@ -215,7 +225,7 @@ export const createIncident = async (params: {
     }
   }
 
-  const response = await fetch(`${INCIDENTS_BASE_URL}/${params.associationId}`, {
+  const response = await fetch(`${INCIDENTS_BASE_URL}/${encodeURIComponent(params.associationId)}`, {
     method: 'POST',
     headers: uploadHeaders(params.token),
     body: formData,
@@ -263,10 +273,18 @@ export const updateIncidentStatus = async (params: {
   status: IncidentStatus; // Se espera 'IN PROGRESS', 'SOLVED', etc.
   token: string;
 }): Promise<void> => {
+  // Validar que associationId e incidentId sean seguros
+  if (!params.associationId || typeof params.associationId !== 'string' || params.associationId.length === 0) {
+    throw new Error('Invalid association ID');
+  }
+  if (!params.incidentId || typeof params.incidentId !== 'string' || params.incidentId.length === 0) {
+    throw new Error('Invalid incident ID');
+  }
+
   const backendStatus = statusToBackendFormat(params.status);
   
   const response = await fetch(
-    `${INCIDENTS_BASE_URL}/${params.associationId}/${params.incidentId}/status?status=${encodeURIComponent(backendStatus)}`,
+    `${INCIDENTS_BASE_URL}/${encodeURIComponent(params.associationId)}/${encodeURIComponent(params.incidentId)}/status?status=${encodeURIComponent(backendStatus)}`,
     {
       method: 'POST',
       headers: uploadHeaders(params.token),
@@ -283,7 +301,15 @@ export const getIncidentHistory = async (params: {
   incidentId: string;
   token: string;
 }): Promise<IncidentHistoryEntry[]> => {
-  const response = await fetch(`${INCIDENTS_BASE_URL}/${params.associationId}/${params.incidentId}`, {
+  // Validar que associationId e incidentId sean seguros
+  if (!params.associationId || typeof params.associationId !== 'string' || params.associationId.length === 0) {
+    throw new Error('Invalid association ID');
+  }
+  if (!params.incidentId || typeof params.incidentId !== 'string' || params.incidentId.length === 0) {
+    throw new Error('Invalid incident ID');
+  }
+
+  const response = await fetch(`${INCIDENTS_BASE_URL}/${encodeURIComponent(params.associationId)}/${encodeURIComponent(params.incidentId)}`, {
     method: 'GET',
     headers: authHeaders(params.token),
   });
@@ -318,7 +344,15 @@ export const getIncidentDetail = async (params: {
   incident: Incident;
   history: IncidentHistoryEntry[];
 }> => {
-  const url = `${INCIDENTS_BASE_URL}/${params.associationId}/${params.incidentId}`;
+  // Validar que associationId e incidentId sean seguros
+  if (!params.associationId || typeof params.associationId !== 'string' || params.associationId.length === 0) {
+    throw new Error('Invalid association ID');
+  }
+  if (!params.incidentId || typeof params.incidentId !== 'string' || params.incidentId.length === 0) {
+    throw new Error('Invalid incident ID');
+  }
+
+  const url = `${INCIDENTS_BASE_URL}/${encodeURIComponent(params.associationId)}/${encodeURIComponent(params.incidentId)}`;
   
   try {
     const response = await fetch(url, {
@@ -344,12 +378,12 @@ export const getIncidentDetail = async (params: {
     }
     
     // Construir el objeto Incident
-    const typeKey = String(data.type || 'OTHER').toUpperCase() as any;
+    const typeKey = String(data.type || 'OTHER').toUpperCase() as unknown as string;
     const incident: Incident = {
       id: String(data.id),
       communityId: params.associationId,
       reporterId: data.membership_id || 'unknown-user',
-      title: BACK_TYPE_LABEL[typeKey] || 'Incidencia',
+      title: (BACK_TYPE_LABEL[typeKey as keyof typeof BACK_TYPE_LABEL]) || 'Incidencia',
       description: data.description || '',
       reporterName: 'Vecino',
       createdAt: data.created_at || new Date().toISOString(),

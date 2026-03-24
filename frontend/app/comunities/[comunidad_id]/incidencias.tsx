@@ -90,7 +90,7 @@ const statusIcons = {
   'DISCARDED': X,
 };
 
-const incidentTypeIcons: Record<string, React.ComponentType<any>> = {
+const incidentTypeIcons: Record<string, React.ComponentType<unknown>> = {
   'LIGHTING': Lightbulb,
   'ELEVATOR': ArrowUp,
   'PLUMBING': Droplet,
@@ -137,6 +137,23 @@ export default function IncidenciasScreen() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1024;
+
+  // Helper functions para acceso seguro a objetos
+  const getSafeStatusColor = (status: IncidentStatus) => {
+    return STATUS_COLORS[status] || STATUS_COLORS['PENDING'];
+  };
+
+  const getSafeStatusIcon = (status: IncidentStatus) => {
+    return statusIcons[status] || AlertTriangle;
+  };
+
+  const getSafeIncidentTypeIcon = (type: string) => {
+    return incidentTypeIcons[type as keyof typeof incidentTypeIcons] || HelpCircle;
+  };
+
+  const getSafeStatusLabel = (status: IncidentStatus) => {
+    return INCIDENT_STATUS_LABEL[status] || status;
+  };
 
   const { comunidad_id } = useLocalSearchParams();
   const normalizedComunidadId = useMemo(
@@ -381,7 +398,7 @@ export default function IncidenciasScreen() {
     [incidencias]
   );
 
-const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
+const filterTabs = useMemo<Array<{ key: unknown; label: string }>>(() => {
   const baseTabs = [
     { key: 'todas', label: 'Todas' },
     { key: 'PENDING', label: 'Pendientes' },
@@ -565,7 +582,7 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
       setDetailModalOpen(false);
       Alert.alert(
         '✅ Estado actualizado',
-        `La incidencia ha sido marcada como: ${INCIDENT_STATUS_LABEL[draftStatus]}\n\nSe han guardado los cambios correctamente.`,
+        `La incidencia ha sido marcada como: ${getSafeStatusLabel(draftStatus)}\n\nSe han guardado los cambios correctamente.`,
         [{ text: 'Ok', style: 'default' }]
       );
     } catch (error) {
@@ -680,7 +697,7 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
               uri: newImageAsset.uri,
               name: newImageAsset.name || newImageAsset.uri.split('/').pop() || 'incidencia.jpg',
               mimeType: newImageAsset.mimeType || 'image/jpeg',
-              file: (newImageAsset as any).file, // Pasar el File object si está disponible (Expo Web)
+              file: (newImageAsset as unknown).file, // Pasar el File object si está disponible (Expo Web)
             }
           : null,
       });
@@ -750,9 +767,9 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
 
   const renderIncident = ({ item }: { item: Incident }) => {
     const normalizedStatus = normalizeStatus(item.status);
-    const tone = STATUS_COLORS[normalizedStatus];
-    const StatusIcon = statusIcons[normalizedStatus];
-    const IncidentIcon = incidentTypeIcons[item.type] || HelpCircle;
+    const tone = getSafeStatusColor(normalizedStatus);
+    const StatusIcon = getSafeStatusIcon(normalizedStatus);
+    const IncidentIcon = getSafeIncidentTypeIcon(item.type);
 
     return (
       <TouchableOpacity style={styles.card} onPress={() => void openIncidentDetail(item)} activeOpacity={0.9}>
@@ -767,7 +784,7 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
           <View style={[styles.statusBadge, { backgroundColor: tone.bg, borderColor: tone.border }]}>
             <StatusIcon color={tone.text} size={14} />
             <Text style={[styles.statusBadgeText, { color: tone.text }]}>
-              {INCIDENT_STATUS_LABEL[normalizedStatus]}
+              {getSafeStatusLabel(normalizedStatus)}
             </Text>
           </View>
         </View>
@@ -811,7 +828,7 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
       <View style={styles.contentSection}>
         {!canManageStatus && (
           <View style={styles.actionsRow}>
-            <TouchableOpacity style={styles.newButton} onPress={() => setCreateModalOpen(true)}>
+            <TouchableOpacity style={styles.newButton} onPress={() => { setCreateModalOpen(true); }}>
               <Plus color="#FFFFFF" size={15} />
               <Text style={styles.newButtonText}>Nueva incidencia</Text>
             </TouchableOpacity>
@@ -844,7 +861,7 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
                   !isDesktop && styles.filterTabMobile,
                   selected && styles.filterTabActive,
                 ]}
-                onPress={() => setActiveFilter(tab.key)}
+                onPress={() => { setActiveFilter(tab.key); }}
               >
                 <Text
                   style={[
@@ -877,7 +894,7 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
               </View>
             ) : !canManageStatus ? (
               <View style={styles.emptyState}>
-                <TouchableOpacity style={styles.emptyStateButton} onPress={() => setCreateModalOpen(true)}>
+                <TouchableOpacity style={styles.emptyStateButton} onPress={() => { setCreateModalOpen(true); }}>
                   <Plus color="#FFFFFF" size={16} />
                   <Text style={styles.emptyStateButtonText}>Nueva incidencia</Text>
                 </TouchableOpacity>
@@ -896,13 +913,13 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
         visible={createModalOpen}
         transparent
         animationType="fade"
-        onRequestClose={() => setCreateModalOpen(false)}
+        onRequestClose={() => { setCreateModalOpen(false); }}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.createModalContent}>
             <View style={styles.createModalHeader}>
               <Text style={styles.modalTitle}>Reportar incidencia</Text>
-              <TouchableOpacity style={styles.closeButton} onPress={() => setCreateModalOpen(false)}>
+              <TouchableOpacity style={styles.closeButton} onPress={() => { setCreateModalOpen(false); }}>
                 <X color="#475569" size={22} />
               </TouchableOpacity>
             </View>
@@ -911,7 +928,7 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
             <View style={styles.dropdownFieldWrap}>
               <TouchableOpacity
                 style={styles.statusDropdown}
-                onPress={() => setTypeMenuOpen((prev) => !prev)}
+                onPress={() => { setTypeMenuOpen((prev) => !prev); }}
                 activeOpacity={0.85}
               >
                 <Text style={styles.statusDropdownText}>
@@ -1009,7 +1026,7 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
             />
 
             <Text style={styles.fieldLabel}>Fotografia</Text>
-            <TouchableOpacity style={styles.uploadBox} onPress={pickImage}>
+                <TouchableOpacity style={styles.uploadBox} onPress={() => { void pickImage(); }}>
               <Camera color="#1E293B" size={20} />
               <Text style={styles.uploadBoxText}>{newImageName || 'Adjuntar foto'}</Text>
             </TouchableOpacity>
@@ -1034,7 +1051,7 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
         visible={detailModalOpen}
         transparent
         animationType="fade"
-        onRequestClose={() => setDetailModalOpen(false)}
+        onRequestClose={() => { setDetailModalOpen(false); }}
       >
         <View style={styles.modalOverlay}>
           {isLoadingDetail && (
@@ -1056,7 +1073,7 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
                   <Lightbulb color="#1E293B" size={22} />
                   <Text style={styles.modalTitle}>{selectedIncident?.title || 'Incidencia'}</Text>
                 </View>
-                <TouchableOpacity style={styles.closeButton} onPress={() => setDetailModalOpen(false)}>
+                <TouchableOpacity style={styles.closeButton} onPress={() => { setDetailModalOpen(false); }}>
                   <X color="#475569" size={22} />
                 </TouchableOpacity>
               </View>
@@ -1096,12 +1113,12 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
                       style={[
                         styles.statusDropdown,
                       ]}
-                      onPress={() => setStatusMenuOpen((prev) => !prev)}
+                      onPress={() => { setStatusMenuOpen((prev) => !prev); }}
                       activeOpacity={0.85}
                     >
                       <Text style={[
                         styles.statusDropdownText,
-                      ]}>{INCIDENT_STATUS_LABEL[draftStatus]}</Text>
+                      ]}>{getSafeStatusLabel(draftStatus)}</Text>
                       <Animated.View
                         style={{
                           transform: [
@@ -1172,7 +1189,7 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
                                     selected && { color: '#083344', fontWeight: '700' },
                                   ]}
                                 >
-                                  {INCIDENT_STATUS_LABEL[status]}
+                                  {getSafeStatusLabel(status)}
                                 </Text>
                               </TouchableOpacity>
                             );
@@ -1188,8 +1205,8 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
               <View style={styles.historyList}>
                 {incidentHistory.map((entry, index) => {
                   const normalizedStatus = normalizeStatus(entry.status);
-                  const tone = STATUS_COLORS[normalizedStatus];
-                  const Icon = statusIcons[normalizedStatus];
+                  const tone = getSafeStatusColor(normalizedStatus);
+                  const Icon = getSafeStatusIcon(normalizedStatus);
 
                   return (
                     <View key={`${normalizedStatus}-${entry.date}-${index}`} style={styles.historyItem}>
@@ -1197,7 +1214,7 @@ const filterTabs = useMemo<Array<{ key: any; label: string }>>(() => {
                         <Icon color={tone.text} size={14} />
                       </View>
                       <View>
-                        <Text style={styles.historyTitle}>{INCIDENT_STATUS_LABEL[normalizedStatus]}</Text>
+                        <Text style={styles.historyTitle}>{getSafeStatusLabel(normalizedStatus)}</Text>
                         <Text style={styles.historyDate}>{formatDateTime(entry.date)}</Text>
                       </View>
                     </View>
