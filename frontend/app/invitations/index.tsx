@@ -146,7 +146,9 @@ export default function PendingInvitationsScreen() {
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>Invitaciones</Text>
-          <Text style={styles.headerSubtitle}>{invitations.length} pendientes</Text>
+          <Text style={styles.headerSubtitle}>
+            {invitations.length} {invitations.length === 1 ? 'pendiente' : 'pendientes'}
+          </Text>
         </View>
       </View>
 
