@@ -85,3 +85,4 @@ tiktoken
 pinecone-client==3.1.0
 email-validator
 resend
+cloudinary
