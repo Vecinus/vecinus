@@ -1,0 +1,59 @@
+# Blueprint for Sprint 2 - Based on Sprint 1 Export
+version: "1"
+projects:
+  - name: Vecinus
+    environments:
+      - name: Sprint2
+        services:
+          - type: web
+            name: Vecinus-S2
+            runtime: static
+            repo: https://github.com/Vecinus/vecinus
+            branch: release/sprint2
+            envVars:
+              - key: EXPO_PUBLIC_BACKEND_URL
+                fromService:
+                  type: web
+                  name: Vecinus-Backend-S2
+                  property: host
+            buildCommand: npm install && npx expo export --platform web
+            staticPublishPath: dist
+            autoDeployTrigger: "off"
+            rootDir: frontend
+
+          - type: web
+            name: Vecinus-Backend-S2
+            runtime: docker
+            repo: https://github.com/Vecinus/vecinus
+            branch: release/sprint2
+            plan: free
+            envVars:
+              - key: GEMINI_API_KEY
+                sync: false
+              - key: PINECONE_INDEX_NAME
+                sync: false
+              - key: PINECONE_ENVIRONMENT
+                sync: false
+              - key: PINECONE_API_KEY
+                sync: false
+              - key: SUPABASE_SCHEMA
+                value: dev_s2
+              - key: SUPABASE_SERVICE_KEY
+                sync: false
+              - key: SUPABASE_KEY
+                sync: false
+              - key: SUPABASE_URL
+                sync: false
+              - key: CLOUDINARY_URL
+                sync: false
+              - key: APP_BASE_URL
+                fromService:
+                  type: static
+                  name: Vecinus-S2
+                  property: host
+            region: frankfurt
+            healthCheckPath: /health
+            dockerContext: .
+            dockerfilePath: ./Dockerfile
+            autoDeployTrigger: "off"
+            rootDir: backend
