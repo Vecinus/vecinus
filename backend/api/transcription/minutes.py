@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import List
+from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -25,7 +26,6 @@ ALLOWED_CONTENT_TYPES = {
 MAX_FILE_SIZE = 150 * 1024 * 1024
 
 
-# Dependencia para obtener el servicio ya configurado
 def get_service(db=Depends(MinuteService.get_supabase_client)):
     return MinuteService(db)
 
@@ -92,7 +92,6 @@ async def transcribe_meeting(
         )
 
     try:
-        # Lógica de IA (Servicio ya refactorizado a clase)
         ai_service = TranscriptionService()
         ai_content = await ai_service.process_audio_to_minutes(audio_bytes, mime_type=audio.content_type)
 
@@ -102,29 +101,26 @@ async def transcribe_meeting(
             meeting_type=meeting_type,
             scheduled_at=scheduled_at,
             version=1,
-            **ai_content.model_dump(),  # Expandimos los campos de la IA (transcription, summary, etc.)
+            **ai_content.model_dump(),
         )
 
         db_result = await service.create_initial_draft(association_id, full_minute_response)
 
-        result = MinutesReadResponse(
+        return MinutesReadResponse(
             id=db_result["id"],
             association_id=db_result["association_id"],
             status=db_result["status"],
             title=db_result["title"],
             location=db_result["location"],
-            meeting_type=db_result["type"],  # Mapeamos 'type' (DB) a 'meeting_type' (Modelo)
+            meeting_type=db_result["type"],
             scheduled_at=db_result["scheduled_at"],
             version=db_result["version"],
             document_hash=db_result.get("document_hash"),
             created_at=db_result.get("created_at"),
             updated_at=db_result.get("updated_at"),
             locked_at=db_result.get("locked_at"),
-            # Sacamos todo lo que está dentro de content_json a la raíz
             **db_result["content_json"],
         )
-
-        return result
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -137,14 +133,13 @@ async def transcribe_meeting(
 
 @router.post("/generate-document-preview")
 async def generate_minutes_document_preview(minutes: MinutesResponse):
-    """Visualizar acta en frontend mientras se edita el borrador,
-    sin guardarlo todavía en la BD"""
     try:
         buffer = DocumentService.generate_docx(minutes)
+        filename = DocumentService.build_docx_filename(minutes.title)
         return StreamingResponse(
             buffer,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            headers={"Content-Disposition": "attachment; filename=acta_reunion.docx"},
+            headers={"Content-Disposition": f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"},
         )
     except Exception as e:
         raise HTTPException(

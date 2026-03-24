@@ -29,11 +29,6 @@ class AgreementResult(str, Enum):
 
 
 # Clases auxiliares para el contenido de actas
-class Attendee(BaseModel):
-    name: str
-    role: MeetingRole
-    is_present: bool
-    represented_by: Optional[str] = None
 
 
 class Agreement(BaseModel):
@@ -55,7 +50,6 @@ class AIGeneratedContent(BaseModel):
     topics: List[str]
     agreements: List[Agreement]
     tasks: List[Task]
-    attendees: List[Attendee]
 
 
 class MinutesResponse(AIGeneratedContent):
