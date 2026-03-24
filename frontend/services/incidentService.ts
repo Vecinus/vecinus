@@ -148,9 +148,12 @@ async function requestIncidents(
   token: string,
   mine: boolean
 ): Promise<{ incidents: Incident[]; context: IncidentContext }> {
-  // Validar que associationId sea seguro
+  // Validar que associationId sea seguro - solo alfanuméricos, guiones y guiones bajos
   if (!associationId || typeof associationId !== 'string' || associationId.length === 0) {
     throw new Error('Invalid association ID');
+  }
+  if (!/^[a-zA-Z0-9\-_]+$/.test(associationId)) {
+    throw new Error('Invalid association ID format');
   }
 
   const url = new URL(`incidents/${associationId}`, INCIDENTS_BASE_URL);
@@ -190,9 +193,12 @@ export const createIncident = async (params: {
   description: string;
   image?: IncidentUpload | null;
 }): Promise<string> => {
-  // Validar que associationId sea seguro
+  // Validar que associationId sea seguro - solo alfanuméricos, guiones y guiones bajos
   if (!params.associationId || typeof params.associationId !== 'string' || params.associationId.length === 0) {
     throw new Error('Invalid association ID');
+  }
+  if (!/^[a-zA-Z0-9\-_]+$/.test(params.associationId)) {
+    throw new Error('Invalid association ID format');
   }
 
   const formData = new FormData();
@@ -276,12 +282,18 @@ export const updateIncidentStatus = async (params: {
   status: IncidentStatus; // Se espera 'IN PROGRESS', 'SOLVED', etc.
   token: string;
 }): Promise<void> => {
-  // Validar que associationId e incidentId sean seguros
+  // Validar que associationId e incidentId sean seguros - solo alfanuméricos, guiones y guiones bajos
   if (!params.associationId || typeof params.associationId !== 'string' || params.associationId.length === 0) {
     throw new Error('Invalid association ID');
   }
+  if (!/^[a-zA-Z0-9\-_]+$/.test(params.associationId)) {
+    throw new Error('Invalid association ID format');
+  }
   if (!params.incidentId || typeof params.incidentId !== 'string' || params.incidentId.length === 0) {
     throw new Error('Invalid incident ID');
+  }
+  if (!/^[a-zA-Z0-9\-_]+$/.test(params.incidentId)) {
+    throw new Error('Invalid incident ID format');
   }
 
   const backendStatus = statusToBackendFormat(params.status);
@@ -303,12 +315,18 @@ export const getIncidentHistory = async (params: {
   incidentId: string;
   token: string;
 }): Promise<IncidentHistoryEntry[]> => {
-  // Validar que associationId e incidentId sean seguros
+  // Validar que associationId e incidentId sean seguros - solo alfanuméricos, guiones y guiones bajos
   if (!params.associationId || typeof params.associationId !== 'string' || params.associationId.length === 0) {
     throw new Error('Invalid association ID');
   }
+  if (!/^[a-zA-Z0-9\-_]+$/.test(params.associationId)) {
+    throw new Error('Invalid association ID format');
+  }
   if (!params.incidentId || typeof params.incidentId !== 'string' || params.incidentId.length === 0) {
     throw new Error('Invalid incident ID');
+  }
+  if (!/^[a-zA-Z0-9\-_]+$/.test(params.incidentId)) {
+    throw new Error('Invalid incident ID format');
   }
 
   const url = new URL(`${params.associationId}/${params.incidentId}`, INCIDENTS_BASE_URL);
@@ -347,12 +365,18 @@ export const getIncidentDetail = async (params: {
   incident: Incident;
   history: IncidentHistoryEntry[];
 }> => {
-  // Validar que associationId e incidentId sean seguros
+  // Validar que associationId e incidentId sean seguros - solo alfanuméricos, guiones y guiones bajos
   if (!params.associationId || typeof params.associationId !== 'string' || params.associationId.length === 0) {
     throw new Error('Invalid association ID');
   }
+  if (!/^[a-zA-Z0-9\-_]+$/.test(params.associationId)) {
+    throw new Error('Invalid association ID format');
+  }
   if (!params.incidentId || typeof params.incidentId !== 'string' || params.incidentId.length === 0) {
     throw new Error('Invalid incident ID');
+  }
+  if (!/^[a-zA-Z0-9\-_]+$/.test(params.incidentId)) {
+    throw new Error('Invalid incident ID format');
   }
 
   const urlObj = new URL(`${params.associationId}/${params.incidentId}`, INCIDENTS_BASE_URL);
