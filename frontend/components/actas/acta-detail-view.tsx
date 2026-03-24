@@ -395,15 +395,6 @@ export function ActaDetailView({
                 </Text>
               </View>
             </Button>
-
-            {onSign && isPresidente && (
-              <Button variant="outline" className="w-full" onPress={onSign}>
-                <View style={styles.btnInner}>
-                  <FilePenLine size={16} color={COLORS.foreground} />
-                  <Text style={styles.btnText}>Firmar acta</Text>
-                </View>
-              </Button>
-            )}
           </View>
         </View>
       </View>
