@@ -158,7 +158,7 @@ async function requestIncidents(
     url.searchParams.append('mine', 'true');
   }
 
-  const incidentsResponse = await fetch(url.toString(), {
+  const incidentsResponse = await fetch(url, {
     method: 'GET',
     headers: authHeaders(token),
   });
@@ -228,7 +228,7 @@ export const createIncident = async (params: {
   }
 
   const url = new URL(params.associationId, INCIDENTS_BASE_URL);
-  const response = await fetch(url.toString(), {
+  const response = await fetch(url, {
     method: 'POST',
     headers: uploadHeaders(params.token),
     body: formData,
@@ -288,7 +288,7 @@ export const updateIncidentStatus = async (params: {
   const url = new URL(`${params.associationId}/${params.incidentId}/status`, INCIDENTS_BASE_URL);
   url.searchParams.append('status', backendStatus);
   
-  const response = await fetch(url.toString(), {
+  const response = await fetch(url, {
     method: 'POST',
     headers: uploadHeaders(params.token),
   });
@@ -312,7 +312,7 @@ export const getIncidentHistory = async (params: {
   }
 
   const url = new URL(`${params.associationId}/${params.incidentId}`, INCIDENTS_BASE_URL);
-  const response = await fetch(url.toString(), {
+  const response = await fetch(url, {
     method: 'GET',
     headers: authHeaders(params.token),
   });
@@ -358,7 +358,7 @@ export const getIncidentDetail = async (params: {
   const urlObj = new URL(`${params.associationId}/${params.incidentId}`, INCIDENTS_BASE_URL);
   
   try {
-    const response = await fetch(urlObj.toString(), {
+    const response = await fetch(urlObj, {
       method: 'GET',
       headers: authHeaders(params.token),
     });
