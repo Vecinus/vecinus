@@ -200,6 +200,9 @@ export default function IncidenciasScreen() {
   const [newImageName, setNewImageName] = useState<string | null>(null);
   const [newImageAsset, setNewImageAsset] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
 
+  // Validation Error State
+  const [validationError, setValidationError] = useState<string>('');
+
   const currentUserId = incidentContext?.currentUserId ?? '';
   const currentUserName = incidentContext?.currentUserName ?? 'Vecino';
 
@@ -663,24 +666,25 @@ const filterTabs = useMemo<Array<{ key: unknown; label: string }>>(() => {
 
   const createIncidencia = async () => {
     const description = newDescription.trim();
+    setValidationError('');
 
     if (!newType || !description) {
-      Alert.alert('Campos incompletos', 'Por favor selecciona un tipo de incidencia y completa la descripción.');
+      setValidationError('Por favor selecciona un tipo de incidencia y completa la descripción.');
       return;
     }
 
     if (description.length < 10) {
-      Alert.alert('Descripción muy corta', 'La descripción debe tener al menos 10 caracteres para ser suficientemente descriptiva.');
+      setValidationError('La descripción debe tener al menos 10 caracteres.');
       return;
     }
 
     if (description.length > 500) {
-      Alert.alert('Descripción muy larga', 'La descripción no puede exceder 500 caracteres. Por favor sé más conciso.');
+      setValidationError('La descripción no puede exceder 500 caracteres.');
       return;
     }
 
     if (!token || !normalizedComunidadId) {
-      Alert.alert('Sesión expirada', 'No se encontró una sesión activa. Por favor, inicia sesión nuevamente.');
+      setValidationError('No se encontró una sesión activa. Por favor, inicia sesión nuevamente.');
       return;
     }
 
@@ -716,6 +720,7 @@ const filterTabs = useMemo<Array<{ key: unknown; label: string }>>(() => {
       setNewDescription('');
       setNewImageName(null);
       setNewImageAsset(null);
+      setValidationError('');
       
       Alert.alert(
         '✅ Incidencia creada',
@@ -729,7 +734,10 @@ const filterTabs = useMemo<Array<{ key: unknown; label: string }>>(() => {
       if (error instanceof Error) {
         const errorMsg = error.message.toLowerCase();
         
-        if (error.message.includes('403')) {
+        if (error.message.includes('al menos 10 caracteres')) {
+          errorTitle = 'Descripción muy corta';
+          errorMessage = 'La descripción debe tener al menos 10 caracteres. Por favor, añade más detalles sobre el problema que quieres reportar.';
+        } else if (error.message.includes('403')) {
           errorTitle = 'Acceso denegado';
           if (errorMsg.includes('admin')) {
             errorMessage = 'Los administradores no pueden crear incidencias. Solo los vecinos pueden reportar problemas.';
@@ -1024,7 +1032,7 @@ const filterTabs = useMemo<Array<{ key: unknown; label: string }>>(() => {
               multiline
               textAlignVertical="top"
             />
-
+            {validationError ? <Text style={styles.validationError}>{validationError}</Text> : null}
             <Text style={styles.fieldLabel}>Fotografia</Text>
                 <TouchableOpacity style={styles.uploadBox} onPress={() => { void pickImage(); }}>
               <Camera color="#1E293B" size={20} />
@@ -1589,6 +1597,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 8,
     marginTop: 10,
+  },
+  validationError: {
+    color: '#DC2626',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 12,
+    marginTop: -14,
   },
   pickerWrap: {
     borderWidth: 1,

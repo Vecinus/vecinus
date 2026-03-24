@@ -77,14 +77,15 @@ const buildSafeIncidentsUrl = (
   pathParts: string[],
   queryParams?: Record<string, string | boolean>
 ): string => {
-  // Validar que cada parte del path sea segura (alfanuméricos, guiones, guiones bajos)
+  // Validar que cada parte del path sea segura (alfanuméricos, guiones, guiones bajos, solo)
   for (const part of pathParts) {
-    if (!/^[a-zA-Z0-9\-_/?=&]*$/.test(part)) {
+    if (!/^[a-zA-Z0-9\-_]+$/.test(part)) {
       throw new Error('Invalid path component');
     }
   }
   
   // Construir la URL con solo componentes validados
+  // INCIDENTS_BASE_URL ya contiene /incidents, así que solo añadimos las partes adicionales
   const relativePath = pathParts.join('/');
   let urlString = `${INCIDENTS_BASE_URL}/${relativePath}`;
   
@@ -238,7 +239,12 @@ async function requestIncidents(
     throw new Error('Invalid association ID format');
   }
 
-  const urlString = buildSafeIncidentsUrl(['incidents', associationId], mine ? { mine: 'true' } : undefined);
+  const urlString = buildSafeIncidentsUrl([associationId], mine ? { mine: 'true' } : undefined);
+
+  // Validate URL is whitelisted before making request (SSRF prevention)
+  if (!isUrlInWhitelist(urlString)) {
+    throw new Error('URL not in whitelist');
+  }
 
   const incidentsResponse = await fetch(urlString, {
     method: 'GET',
@@ -280,6 +286,11 @@ export const createIncident = async (params: {
     throw new Error('Invalid association ID format');
   }
 
+  // Validar que la descripción tenga al menos 10 caracteres
+  if (!params.description || params.description.trim().length < 10) {
+    throw new Error('La descripción debe tener al menos 10 caracteres');
+  }
+
   const formData = new FormData();
   formData.append('type', params.type);
   formData.append('description', params.description);
@@ -312,7 +323,12 @@ export const createIncident = async (params: {
     }
   }
 
-  const urlString = buildSafeIncidentsUrl(['incidents', params.associationId]);
+  const urlString = buildSafeIncidentsUrl([params.associationId]);
+
+  // Validate URL is whitelisted before making request (SSRF prevention)
+  if (!isUrlInWhitelist(urlString)) {
+    throw new Error('URL not in whitelist');
+  }
 
   const response = await fetch(urlString, {
     method: 'POST',
@@ -378,9 +394,14 @@ export const updateIncidentStatus = async (params: {
 
   const backendStatus = statusToBackendFormat(params.status);
   const urlString = buildSafeIncidentsUrl(
-    ['incidents', params.associationId, params.incidentId, 'status'],
+    [params.associationId, params.incidentId, 'status'],
     { status: backendStatus }
   );
+  
+  // Validate URL is whitelisted before making request (SSRF prevention)
+  if (!isUrlInWhitelist(urlString)) {
+    throw new Error('URL not in whitelist');
+  }
   
   const response = await fetch(urlString, {
     method: 'POST',
@@ -411,7 +432,12 @@ export const getIncidentHistory = async (params: {
     throw new Error('Invalid incident ID format');
   }
 
-  const urlString = buildSafeIncidentsUrl(['incidents', params.associationId, params.incidentId]);
+  const urlString = buildSafeIncidentsUrl([params.associationId, params.incidentId]);
+
+  // Validate URL is whitelisted before making request (SSRF prevention)
+  if (!isUrlInWhitelist(urlString)) {
+    throw new Error('URL not in whitelist');
+  }
 
   const historyResponse = await fetch(urlString, {
     method: 'GET',
@@ -463,7 +489,12 @@ export const getIncidentDetail = async (params: {
   }
 
   try {
-    const urlString = buildSafeIncidentsUrl(['incidents', params.associationId, params.incidentId]);
+    const urlString = buildSafeIncidentsUrl([params.associationId, params.incidentId]);
+
+    // Validate URL is whitelisted before making request (SSRF prevention)
+    if (!isUrlInWhitelist(urlString)) {
+      throw new Error('URL not in whitelist');
+    }
 
     const response = await fetch(urlString, {
       method: 'GET',
