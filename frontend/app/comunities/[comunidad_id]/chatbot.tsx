@@ -98,6 +98,7 @@ export default function ChatBotScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
 
   const [docTitle, setDocTitle] = useState("");
   const [docContent, setDocContent] = useState("");
@@ -119,6 +120,34 @@ export default function ChatBotScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const flatListRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const style = document.createElement('style');
+      style.textContent = `
+        input:focus,
+        input:focus-visible,
+        textarea:focus,
+        textarea:focus-visible {
+          outline: none !important;
+          outline-width: 0 !important;
+          outline-offset: 0 !important;
+          box-shadow: none !important;
+          -webkit-appearance: none;
+        }
+        input,
+        textarea {
+          outline: none !important;
+          box-shadow: none !important;
+          -webkit-appearance: none;
+        }
+      `;
+      document.head.appendChild(style);
+      return () => {
+        document.head.removeChild(style);
+      };
+    }
+  }, []);
 
   const showToast = (message: string) => {
     setToast({ message, visible: true });
@@ -549,7 +578,15 @@ export default function ChatBotScreen() {
                   { paddingHorizontal: isDesktop ? "10%" : 16 },
                 ]}
               >
-                <View style={styles.inputWrapper}>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    {
+                      borderColor: inputFocused ? "#4F46E5" : "#E2E8F0",
+                      backgroundColor: inputFocused ? "#F8FAFC" : "#fff",
+                    },
+                  ]}
+                >
                   <TextInput
                     style={styles.textInput}
                     placeholder="Haz una pregunta..."
@@ -557,6 +594,18 @@ export default function ChatBotScreen() {
                     onChangeText={setInput}
                     placeholderTextColor="#94A3B8"
                     multiline
+                    onSubmitEditing={() => { void handleSend(); }}
+                    returnKeyType="send"
+                    blurOnSubmit={false}
+                    onFocus={() => setInputFocused(true)}
+                    onBlur={() => setInputFocused(false)}
+                    scrollEnabled={false}
+                    onKeyPress={(e: any) => {
+                      if (Platform.OS === 'web' && e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        void handleSend();
+                      }
+                    }}
                   />
                   <TouchableOpacity
                     onPress={() => {
@@ -565,7 +614,10 @@ export default function ChatBotScreen() {
                     disabled={isTyping}
                     style={[
                       styles.sendBtn,
-                      { backgroundColor: isTyping ? "#94A3B8" : "#4F46E5" },
+                      {
+                        backgroundColor: isTyping ? "#94A3B8" : "#4F46E5",
+                        opacity: isTyping ? 0.6 : 1,
+                      },
                     ]}
                   >
                     <Send color="#fff" size={18} />
@@ -822,15 +874,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#fff",
     borderRadius: 28,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: "#E2E8F0",
     paddingHorizontal: 16,
     paddingVertical: Platform.OS === "ios" ? 10 : 4,
-    shadowColor: "#000",
+    shadowColor: "#4F46E5",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
   },
   textInput: {
     flex: 1,

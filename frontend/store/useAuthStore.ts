@@ -1,6 +1,14 @@
 import { create } from 'zustand';
 
-import { API_URL, clearGlobalJwtToken, globalJwtToken, setGlobalJwtToken } from '../constants/api';
+import {
+  API_URL,
+  clearGlobalJwtToken,
+  clearJwtAutoLogout,
+  globalJwtToken,
+  isJwtExpired,
+  scheduleJwtAutoLogout,
+  setGlobalJwtToken,
+} from '../constants/api';
 import { useCommunityStore } from './useCommunityStore';
 import { useMembersStore } from './useMembersStore';
 import { usePropertyStore } from './usePropertyStore';
@@ -8,8 +16,8 @@ import { useUserStore } from './useUserStore';
 
 interface AuthState {
   isAuthenticated: boolean;
-  isRestoringSession: boolean;
   token: string | null;
+  isRestoringSession: boolean;
   login: (token: string) => Promise<void>;
   logout: () => void;
   validateSession: () => Promise<void>;
@@ -46,6 +54,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: () => {
+    clearJwtAutoLogout();
     clearGlobalJwtToken();
 
     useUserStore.getState().reset();

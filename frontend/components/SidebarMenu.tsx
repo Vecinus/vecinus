@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { DrawerContentComponentProps } from "@react-navigation/drawer";
-import { useRouter, type Href, usePathname } from "expo-router";
+import { usePathname, useRouter, type Href } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -211,19 +211,10 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
                   community.role,
                 );
                 setIsDropdownOpen(false);
-                if (pathname.startsWith("/comunities/")) {
-                  const pathParts = pathname.split("/");
-                  if (pathParts.length > 2) {
-                    pathParts[2] = community.id.toString();
-                    const newPath = pathParts.join("/");
-
-                    props.navigation.closeDrawer();
-                    router.replace(newPath as Href);
-                  }
-                } else {
-                  props.navigation.closeDrawer();
-                  router.replace(`/comunities/${community.id}/admin` as Href);
-                }
+                props.navigation.closeDrawer();
+                setTimeout(() => {
+                  router.replace("/" as Href);
+                }, 100);
               }}
             >
               <Text
