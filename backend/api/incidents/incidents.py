@@ -41,6 +41,25 @@ def get_latest_state(supabase: Client, incident_id: str) -> dict[str, dict]:
     return states_res.data[0] if states_res.data else {}
 
 
+def verify_own_incident(association_id: str, incident_id: str, user_id: str, supabase: Client):
+    membership_res = (
+        supabase.table("memberships")
+        .select("id")
+        .eq("association_id", association_id)
+        .eq("profile_id", user_id)
+        .execute()
+    )
+    if not membership_res.data:
+        raise HTTPException(status_code=404, detail="Membership not found in this community")
+    membership_id = membership_res.data[0].get("id")
+
+    incident_res = (
+        supabase.table("incidents").select("id").eq("id", incident_id).eq("membership_id", membership_id).execute()
+    )
+    if not incident_res.data:
+        raise HTTPException(status_code=403, detail="User does not own this incident")
+
+
 @router.get("/{association_id}", response_model=list[Incident])
 def get_incidents(
     association_id: str,
@@ -226,3 +245,28 @@ def update_incident_status(
         "old_status": latest_state.get("status"),
         "new_status": status,
     }
+
+
+@router.post("/{association_id}/{incident_id}/discard", status_code=201)
+def discard_incident(
+    association_id: str,
+    incident_id: str,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+):
+    user_id = current_user["id"]
+    verify_own_incident(association_id, incident_id, user_id, supabase)
+
+    latest_state = get_latest_state(supabase, incident_id)
+
+    if not latest_state:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    elif latest_state.get("status") not in {"DISCARDED", "SOLVED"}:
+        raise HTTPException(status_code=400, detail="Incident hasn't been reviewed")
+
+    try:
+        supabase.table("incident_states").delete().eq("incident_id", incident_id).execute()
+        supabase.table("incidents").delete().eq("id", incident_id).execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to discard incident: {str(e)}")
+    return {"message": "Incident discarded successfully", "incident_id": incident_id}
