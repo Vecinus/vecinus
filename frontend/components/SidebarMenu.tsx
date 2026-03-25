@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { DrawerContentComponentProps } from "@react-navigation/drawer";
-import { usePathname, useRouter, type Href } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -33,7 +33,6 @@ interface MenuItemType {
 
 export default function SidebarMenu(props: DrawerContentComponentProps) {
   const router = useRouter();
-  const pathname = usePathname();
 
   const {
     activeCommunityId,
@@ -214,9 +213,7 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
                 );
                 setIsDropdownOpen(false);
                 props.navigation.closeDrawer();
-                setTimeout(() => {
-                  router.replace("/" as Href);
-                }, 100);
+                router.replace("/" as Href);
               }}
             >
               <Text

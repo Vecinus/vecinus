@@ -1,8 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
 import { AudioRecorderState, RecordingResult } from "./useAudioRecorder";
 
 const PREFERRED_MIME_TYPES = ["audio/webm;codecs=opus", "audio/webm"];
+
+const showAlert = (title: string, message: string) => {
+  if (Platform.OS === "web") {
+    window.alert(`${title}\n\n${message}`);
+    return;
+  }
+  Alert.alert(title, message);
+};
 
 export function useAudioRecorder(
   onRecordingComplete?: (result: RecordingResult) => void,
@@ -25,10 +33,21 @@ export function useAudioRecorder(
   const requestPermissions = useCallback(async (): Promise<boolean> => {
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
-        Alert.alert("Error", "El navegador no soporta la grabación de audio");
+        showAlert("Error", "El navegador no soporta la grabación de audio");
         setHasPermission(false);
         return false;
       }
+
+      if (navigator.permissions?.query) {
+        const permissionStatus = await navigator.permissions.query({
+          name: "microphone" as PermissionName,
+        });
+        if (permissionStatus.state === "denied") {
+          setHasPermission(false);
+          return false;
+        }
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach((track) => {
         track.stop();
@@ -36,18 +55,25 @@ export function useAudioRecorder(
       setHasPermission(true);
       return true;
     } catch (error) {
-      console.error(
-        "[useAudioRecorder:web] Error al solicitar permisos:",
-        error,
-      );
-      Alert.alert("Permiso denegado", "No se pudo acceder al micrófono");
+      const errorName =
+        typeof error === "object" && error && "name" in error
+          ? String((error as DOMException).name)
+          : "UnknownError";
+
+      // NotAllowedError es esperado cuando el usuario/buscador bloquea el micrófono.
+      if (errorName !== "NotAllowedError") {
+        console.error(
+          "[useAudioRecorder:web] Error al solicitar permisos:",
+          error,
+        );
+      }
+
       setHasPermission(false);
       return false;
     }
   }, []);
 
   useEffect(() => {
-    requestPermissions();
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -85,7 +111,13 @@ export function useAudioRecorder(
 
   const startRecording = useCallback(async () => {
     const granted = hasPermission || (await requestPermissions());
-    if (!granted) return;
+    if (!granted) {
+      showAlert(
+        "Permiso de micrófono requerido",
+        "Activa el permiso del micrófono en tu navegador para poder grabar.",
+      );
+      return;
+    }
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -114,7 +146,7 @@ export function useAudioRecorder(
 
         if (!blob || blob.size === 0) {
           console.error("[useAudioRecorder:web] Blob vacío al finalizar");
-          Alert.alert("Error", "No se pudo generar el archivo de audio");
+          showAlert("Error", "No se pudo generar el archivo de audio");
           return;
         }
 
@@ -128,7 +160,7 @@ export function useAudioRecorder(
       };
 
       recorder.onerror = () => {
-        Alert.alert("Error", "No se pudo iniciar la grabación");
+        showAlert("Error", "No se pudo iniciar la grabación");
         setIsRecording(false);
       };
 
@@ -141,7 +173,7 @@ export function useAudioRecorder(
         "[useAudioRecorder:web] Error al iniciar grabación:",
         error,
       );
-      Alert.alert("Error", "No se pudo iniciar la grabación");
+      showAlert("Error", "No se pudo iniciar la grabación");
     }
   }, [hasPermission, requestPermissions]);
 
@@ -168,7 +200,7 @@ export function useAudioRecorder(
         "[useAudioRecorder:web] Error al detener grabación:",
         error,
       );
-      Alert.alert("Error", "No se pudo detener la grabación correctamente");
+      showAlert("Error", "No se pudo detener la grabación correctamente");
       setIsRecording(false);
     }
   }, []);
