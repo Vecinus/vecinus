@@ -355,6 +355,7 @@ strictyaml==1.7.3
     #   pyiceberg
 supabase==2.28.0
     # via -r backend/requirements.in
+cloudinary
 supabase-auth==2.28.0
     # via
     #   -r backend/requirements.in

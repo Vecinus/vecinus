@@ -31,5 +31,5 @@ def logout(supabase: Client = Depends(get_supabase_anon)):
     try:
         supabase.auth.sign_out()
         return {"message": "Logged out successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database error at logout: {str(e)}")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Database error at logout: {str(exc)}")
