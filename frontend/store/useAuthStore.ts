@@ -1,29 +1,41 @@
 import { create } from 'zustand';
-import { API_URL, clearGlobalJwtToken, setGlobalJwtToken, globalJwtToken } from '../constants/api';
+
+import {
+  API_URL,
+  clearGlobalJwtToken,
+  clearJwtAutoLogout,
+  globalJwtToken,
+  isJwtExpired,
+  scheduleJwtAutoLogout,
+  setGlobalJwtToken,
+} from '../constants/api';
 import { useCommunityStore } from './useCommunityStore';
-import { useUserStore } from './useUserStore';
 import { useMembersStore } from './useMembersStore';
 import { usePropertyStore } from './usePropertyStore';
+import { useUserStore } from './useUserStore';
 
 interface AuthState {
   isAuthenticated: boolean;
   token: string | null;
+  isRestoringSession: boolean;
   login: (token: string) => Promise<void>;
   logout: () => void;
+  validateSession: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  // Inicialización síncrona instantánea
   isAuthenticated: !!globalJwtToken,
+  isRestoringSession: false,
   token: globalJwtToken,
 
   login: async (token) => {
-    setGlobalJwtToken(token); // Esto ya guarda en disco (MMKV/Local) síncronamente
-    
+    setGlobalJwtToken(token);
+    set({ isAuthenticated: true, token });
+
     try {
       const response = await fetch(`${API_URL}/users/me`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -39,19 +51,60 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch (error) {
       console.error('Error fetching user profile during login:', error);
     }
-
-    set({ isAuthenticated: true, token });
   },
 
   logout: () => {
-    clearGlobalJwtToken(); // Esto ya borra de disco (MMKV/Local) síncronamente
-    
-    // Reset all stores
+    clearJwtAutoLogout();
+    clearGlobalJwtToken();
+
     useUserStore.getState().reset();
     useCommunityStore.getState().reset();
     useMembersStore.getState().reset();
     usePropertyStore.getState().reset();
-    
-    set({ isAuthenticated: false, token: null });
+
+    set({ isAuthenticated: false, token: null, isRestoringSession: false });
+  },
+
+  validateSession: async () => {
+    const token = globalJwtToken;
+
+    if (!token) {
+      set({ isAuthenticated: false, token: null, isRestoringSession: false });
+      return;
+    }
+
+    set({ isRestoringSession: true });
+
+    try {
+      const response = await fetch(`${API_URL}/users/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Session validation failed with status ${response.status}`);
+      }
+
+      const userData = await response.json();
+      useUserStore.getState().setUser({
+        id: userData.id,
+        name: userData.username || userData.email.split('@')[0],
+        email: userData.email,
+        avatar: userData.avatar_url,
+      });
+
+      set({ isAuthenticated: true, token, isRestoringSession: false });
+    } catch (error) {
+      console.warn('Stored session is invalid or expired. Clearing local session.', error);
+      clearGlobalJwtToken();
+
+      useUserStore.getState().reset();
+      useCommunityStore.getState().reset();
+      useMembersStore.getState().reset();
+      usePropertyStore.getState().reset();
+
+      set({ isAuthenticated: false, token: null, isRestoringSession: false });
+    }
   },
 }));
