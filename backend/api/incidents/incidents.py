@@ -1,10 +1,11 @@
 import cloudinary
 import cloudinary.uploader
-from api.chat.chat_helpers import verify_association_admin, verify_association_membership
+from api.chat.chat_helpers import verify_association_membership
 from core.config import settings
 from core.deps import get_current_user, get_supabase
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from schemas.incidents.incidents import Incident
+from services.helpers.role_service import get_user_role
 from supabase import Client
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
@@ -206,7 +207,8 @@ def update_incident_status(
 ):
     check_status(status)
     user_id = current_user["id"]
-    verify_association_admin(association_id, user_id, supabase)
+    if get_user_role(supabase, association_id, user_id) not in {"1", "4", "5"}:
+        raise HTTPException(status_code=403, detail="Admin, president or employee access required for this action")
 
     latest_state = get_latest_state(supabase, incident_id)
 
