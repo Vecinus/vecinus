@@ -1,8 +1,14 @@
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from datetime import datetime
+from typing import List
+from urllib.parse import quote
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
-from schemas.transcription.minutes import MinutesResponse
-from services.document_service import generate_docx
-from services.transcription.transcription_service import process_audio_to_minutes
+from schemas.transcription.minutes import MeetingType, MinutesReadResponse, MinutesResponse
+from services.transcription.document_service import DocumentService
+from services.transcription.minute_service import MinuteService
+from services.transcription.transcription_service import TranscriptionService
 
 router = APIRouter(prefix="/api/minutes", tags=["Minutes"])
 
@@ -20,8 +26,56 @@ ALLOWED_CONTENT_TYPES = {
 MAX_FILE_SIZE = 150 * 1024 * 1024
 
 
-@router.post("/transcribe", response_model=MinutesResponse)
-async def transcribe_meeting(audio: UploadFile = File(...)):
+def get_service(db=Depends(MinuteService.get_supabase_client)):
+    return MinuteService(db)
+
+
+@router.get("/{association_id}", response_model=List[MinutesReadResponse])
+async def get_minutes(
+    association_id: UUID,
+    service: MinuteService = Depends(get_service),
+):
+    try:
+        db_results = await service.get_minutes_by_association(association_id)
+        results = []
+        for row in db_results:
+            results.append(
+                MinutesReadResponse(
+                    id=row["id"],
+                    association_id=row["association_id"],
+                    status=row["status"],
+                    title=row["title"],
+                    location=row["location"] or "",
+                    meeting_type=row["type"],
+                    scheduled_at=row["scheduled_at"],
+                    version=row["version"],
+                    document_hash=row.get("document_hash"),
+                    created_at=row.get("created_at"),
+                    updated_at=row.get("updated_at"),
+                    locked_at=row.get("locked_at"),
+                    **row["content_json"],
+                )
+            )
+        return results
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error fetching minutes: {str(e)}",
+        )
+
+
+@router.post("/transcribe", response_model=MinutesReadResponse)
+async def transcribe_meeting(
+    association_id: UUID,
+    title: str,
+    location: str = "Residencial Vecinus",
+    meeting_type: MeetingType = MeetingType.ORDINARY,
+    scheduled_at: datetime = None,
+    audio: UploadFile = File(...),
+    service: MinuteService = Depends(get_service),
+):
+    if not scheduled_at:
+        scheduled_at = datetime.now()
     if audio.content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(
             status_code=415,
@@ -38,8 +92,35 @@ async def transcribe_meeting(audio: UploadFile = File(...)):
         )
 
     try:
-        result = await process_audio_to_minutes(audio_bytes, mime_type=audio.content_type)
-        return result
+        ai_service = TranscriptionService()
+        ai_content = await ai_service.process_audio_to_minutes(audio_bytes, mime_type=audio.content_type)
+
+        full_minute_response = MinutesResponse(
+            title=title,
+            location=location,
+            meeting_type=meeting_type,
+            scheduled_at=scheduled_at,
+            version=1,
+            **ai_content.model_dump(),
+        )
+
+        db_result = await service.create_initial_draft(association_id, full_minute_response)
+
+        return MinutesReadResponse(
+            id=db_result["id"],
+            association_id=db_result["association_id"],
+            status=db_result["status"],
+            title=db_result["title"],
+            location=db_result["location"],
+            meeting_type=db_result["type"],
+            scheduled_at=db_result["scheduled_at"],
+            version=db_result["version"],
+            document_hash=db_result.get("document_hash"),
+            created_at=db_result.get("created_at"),
+            updated_at=db_result.get("updated_at"),
+            locked_at=db_result.get("locked_at"),
+            **db_result["content_json"],
+        )
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -50,14 +131,15 @@ async def transcribe_meeting(audio: UploadFile = File(...)):
         await audio.close()
 
 
-@router.post("/generate-document")
-async def generate_minutes_document(minutes: MinutesResponse):
+@router.post("/generate-document-preview")
+async def generate_minutes_document_preview(minutes: MinutesResponse):
     try:
-        buffer = generate_docx(minutes)
+        buffer = DocumentService.generate_docx(minutes)
+        filename = DocumentService.build_docx_filename(minutes.title)
         return StreamingResponse(
             buffer,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            headers={"Content-Disposition": "attachment; filename=acta_reunion.docx"},
+            headers={"Content-Disposition": f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"},
         )
     except Exception as e:
         raise HTTPException(

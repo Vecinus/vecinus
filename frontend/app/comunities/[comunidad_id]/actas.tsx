@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   ScrollView,
   View,
@@ -18,7 +18,7 @@ import {
   Clock,
   Menu,
 } from "lucide-react-native";
-import { useNavigation, useRouter } from "expo-router";
+import { useNavigation, useRouter, useLocalSearchParams } from "expo-router";
 import { DrawerActions, useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/ui/button";
@@ -38,24 +38,29 @@ import { ActaListItem } from "@/components/actas/acta-list-item";
 import { RecordingResult } from "@/hooks/useAudioRecorder";
 import { isAudioFile, confirmAction } from "@/lib/utils";
 import { COLORS } from "@/lib/colors";
-import { MOCK_ACTAS } from "@/data/mock-actas";
 import { Acta } from "@/types/acta";
 import { API_URL } from "@/constants/api";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useCommunityStore } from '../../../store/useCommunityStore';
 
 // ─── Pantalla principal ──────────────────────────────────────────────
 
 export default function ActasScreen() {
+  const { comunidad_id } = useLocalSearchParams();
+  const normalizedComunidadId = Array.isArray(comunidad_id)
+    ? comunidad_id[0]
+    : comunidad_id;
   // TODO: obtener del contexto de autenticacion
-  const isPresidente = true;
-  const userName = "Adrián Díaz";
+  const { activeCommunityRole } = useCommunityStore();
+  const isPresidente = activeCommunityRole === 1 || activeCommunityRole === 4;
   const navigation = useNavigation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { token, isAuthenticated } = useAuthStore();
 
   // --- Estado global ---
-  const [actas, setActas] = useState<Acta[]>(MOCK_ACTAS);
+  const [actas, setActas] = useState<Acta[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedActa, setSelectedActa] = useState<Acta | null>(null);
   const [signatureOpen, setSignatureOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -81,14 +86,54 @@ export default function ActasScreen() {
   const hasUploadedNonAudio = !!fileUri && !!fileName && !isAudioFile(fileName);
   const hasAnyAudio = hasRecordedAudio || hasUploadedAudio;
 
+  const fetchActas = useCallback(async () => {
+    if (!normalizedComunidadId || !token) return;
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_URL}/api/minutes/${normalizedComunidadId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const formattedData: Acta[] = data.map((item: any) => ({
+          id: item.id || `a-${Math.random().toString(36).substr(2, 9)}`,
+          association_id: item.association_id || normalizedComunidadId,
+          title: item.title,
+          scheduled_at: item.scheduled_at,
+          location: item.location || "Residencial Vecinus",
+          type: item.meeting_type || item.type || "ORDINARY",
+          status: item.status || "DRAFT",
+          version: item.version || 1,
+          summary: item.summary,
+          agreements: item.agreements || [],
+          transcription: item.transcription,
+          topics: item.topics || [],
+          tasks: item.tasks || [],
+          attendees: item.attendees || [],
+          created_at: item.created_at,
+          updated_at: item.updated_at,
+          locked_at: item.locked_at,
+        }));
+        setActas(formattedData);
+      }
+    } catch (err) {
+      console.error("[fetchActas] Error:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [normalizedComunidadId, token]);
+
   useFocusEffect(
     React.useCallback(() => {
       if (!token || !isAuthenticated) {
         setAuthRequiredOpen(true);
       } else {
         setAuthRequiredOpen(false);
+        fetchActas();
       }
-    }, [token, isAuthenticated]),
+    }, [token, isAuthenticated, fetchActas]),
   );
 
   if (!token || !isAuthenticated) {
@@ -177,15 +222,18 @@ export default function ActasScreen() {
   const handleFileUpload = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ["audio/*", "application/pdf"],
+        type: ["audio/*"],
         copyToCacheDirectory: true,
       });
       if (!result.canceled && result.assets?.[0]) {
         const file = result.assets[0];
+        if (!isAudioFile(file.name)) {
+          Alert.alert("fichero no compatible");
+          return;
+        }
         setFileUri(file.uri);
         setFileName(file.name);
-        const tipo = isAudioFile(file.name) ? "audio" : "archivo";
-        Alert.alert("Exito", `${tipo} "${file.name}" adjuntado correctamente`);
+        Alert.alert("Exito", `Audio "${file.name}" adjuntado correctamente`);
       }
     } catch {
       Alert.alert("Error", "No se pudo seleccionar el archivo");
@@ -269,8 +317,16 @@ export default function ActasScreen() {
           } as any);
         }
       }
-      const response = await fetch(`${API_URL}/api/minutes/transcribe`, {
+      if (!normalizedComunidadId) {
+        Alert.alert("Error", "No se encontró el identificador de la comunidad.");
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/api/minutes/transcribe?association_id=${encodeURIComponent(normalizedComunidadId)}&title=${encodeURIComponent(title)}`, {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
         body: formData,
       });
       if (!response.ok) {
@@ -297,16 +353,23 @@ export default function ActasScreen() {
       }
       const minutes = await response.json();
       const newActa: Acta = {
-        id: `a-${Date.now()}`,
-        title,
-        date: new Date().toISOString().split("T")[0],
-        executiveSummary: minutes.summary,
-        agreements: minutes.agreements,
-        transcript: minutes.transcription,
-        topics: minutes.topics,
-        tasks: minutes.tasks,
-        createdBy: userName,
-        status: "draft",
+        id: minutes.id,
+        association_id: minutes.association_id || normalizedComunidadId,
+        title: minutes.title || title,
+        scheduled_at: minutes.scheduled_at,
+        location: minutes.location || "Residencial Vecinus",
+        type: minutes.meeting_type || "ORDINARY",
+        status: minutes.status || "DRAFT",
+        version: minutes.version || 1,
+        summary: minutes.summary,
+        agreements: minutes.agreements || [],
+        transcription: minutes.transcription,
+        topics: minutes.topics || [],
+        tasks: minutes.tasks || [],
+        attendees: minutes.attendees || [],
+        created_at: minutes.created_at,
+        updated_at: minutes.updated_at,
+        locked_at: minutes.locked_at,
       };
       setCreateOpen(false);
       resetForm();
@@ -323,10 +386,10 @@ export default function ActasScreen() {
     }
   };
 
-  const handleEditorConfirm = (editedTranscript: string) => {
+  const handleEditorConfirm = (editedSummary: string) => {
     const acta = editingActaRef.current ?? selectedActa;
     if (!acta) return;
-    const updated = { ...acta, transcript: editedTranscript };
+    const updated = { ...acta, summary: editedSummary };
     setActas((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
     editingActaRef.current = null;
     setEditorOpen(false);
@@ -590,8 +653,8 @@ export default function ActasScreen() {
             <ActaEditorModal
               visible={editorOpen}
               initialContent={
-                editingActaRef.current?.transcript ??
-                selectedActa?.transcript ??
+                editingActaRef.current?.summary ??
+                selectedActa?.summary ??
                 ""
               }
               onConfirm={handleEditorConfirm}
