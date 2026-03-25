@@ -302,6 +302,7 @@ def test_invite_admin_success():
 def test_invite_admin_cannot_grant_admin_role():
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
     try:
         response = client.post(
             "/invite/admin",
@@ -322,6 +323,7 @@ def test_invite_admin_non_admin_fails():
     # RLS blocks INSERT on invitations because non_owner is not ADMIN
     blocked_mock = make_mock_supabase(rls_blocked={"invitations": {"insert"}})
     app.dependency_overrides[get_supabase] = lambda: blocked_mock
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
     try:
         response = client.post(
             "/invite/admin",
@@ -377,6 +379,7 @@ def test_invite_tenant_not_owner_fails():
         rls_blocked={"invitations": {"insert"}},
     )
     app.dependency_overrides[get_supabase] = lambda: blocked_mock
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
     try:
         response = client.post(
             "/invite/tenant",
@@ -448,6 +451,7 @@ def test_accept_invitation_not_found():
     anon_mock.auth = MagicMock()
 
     app.dependency_overrides[get_supabase_anon] = lambda: anon_mock
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
     try:
         response = client.post(
             "/auth/accept-invitation",
@@ -486,6 +490,7 @@ def test_remove_member_not_admin_fails():
     # RLS blocks DELETE on memberships because non_owner is not ADMIN
     blocked_mock = make_mock_supabase(rls_blocked={"memberships": {"delete"}})
     app.dependency_overrides[get_supabase] = lambda: blocked_mock
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
     try:
         response = client.delete(f"/members/{mock_membership_id}")
         assert response.status_code == 403  # nosec B101
@@ -501,6 +506,7 @@ def test_remove_member_different_association_fails():
     # Empty memberships: RLS hides mock_membership2_id (different association)
     hidden_mock = make_mock_supabase(extra={"memberships": []})
     app.dependency_overrides[get_supabase] = lambda: hidden_mock
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
     try:
         response = client.delete(f"/members/{mock_membership2_id}")
         assert response.status_code == 404  # nosec B101
@@ -512,6 +518,7 @@ def test_remove_member_different_association_fails():
 def test_remove_member_not_found():
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
     wrong_membership_id = "33"
     try:
         response = client.delete(f"/members/{wrong_membership_id}")
@@ -582,6 +589,7 @@ def test_create_property_non_admin_fails():
     """Usuario sin rol admin/presidente (role=3, TENANT) recibe 403."""
     app.dependency_overrides[get_current_user] = lambda: mock_non_owner
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
     try:
         response = client.post(
             f"/{mock_association_id}/properties",
@@ -604,6 +612,7 @@ def test_create_property_already_exists():
 
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_supabase] = lambda: mock_supabase
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
     try:
         response = client.post(
             f"/{mock_association_id}/properties",
