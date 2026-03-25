@@ -728,7 +728,7 @@ def test_post_incident_with_image_correct():
         "description": "Power outage in the building",
     }
     files = {"file": ("photo.png", b"fake image data", "image/png")}
-    with patch(
+    with patch("api.incidents.incidents.settings.CLOUDINARY_URL", "cloudinary://mock:url@mock"), patch(
         "api.incidents.incidents.cloudinary.uploader.upload",
         return_value={"secure_url": "https://example.com/photo.png"},
     ):
@@ -807,7 +807,9 @@ def test_post_incident_cloudinary_exception():
         "description": "Power outage in the building",
     }
     files = {"file": ("photo.png", b"fake image data", "image/png")}
-    with patch("api.incidents.incidents.cloudinary.uploader.upload", side_effect=Exception("Cloudinary upload failed")):
+    with patch("api.incidents.incidents.settings.CLOUDINARY_URL", "cloudinary://mock:url@mock"), patch(
+        "api.incidents.incidents.cloudinary.uploader.upload", side_effect=Exception("Cloudinary upload failed")
+    ):
         response = client.post(f"/incidents/{mock_association_id}", data=new_incident, files=files)
     assert response.status_code == 500
     data = response.json()
@@ -949,22 +951,22 @@ def test_post_state_invalid_status():
     assert data["detail"].endswith("'}")
 
 
-def test_post_state_not_admin():
+def test_post_state_wrong_role():
     app.dependency_overrides[get_current_user] = lambda: mock_tenant
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
     response = client.post(f"/incidents/{mock_association_id}/{mock_incident_3_id}/status?status=IN PROGRESS")
     assert response.status_code == 403
     data = response.json()
-    assert data["detail"] == "Admin access required for this action"
+    assert data["detail"] == "Admin, president or employee access required for this action"
 
 
 def test_post_state_wrong_association():
     app.dependency_overrides[get_current_user] = lambda: mock_admin
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
     response = client.post(f"/incidents/{mock_other_association_id}/{mock_incident_3_id}/status?status=IN PROGRESS")
-    assert response.status_code == 404
+    assert response.status_code == 403
     data = response.json()
-    assert data["detail"] == "Membership not found in this community"
+    assert data["detail"] == "User has no access to this association"
 
 
 def test_post_state_incident_not_found():

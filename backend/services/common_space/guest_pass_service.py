@@ -137,12 +137,7 @@ def cancel_guest_pass(supabase: Client, user_id: str, guest_pass_id: int) -> dic
     )
 
     verification_response = (
-        supabase.table(GUEST_PASS_TABLE)
-        .select("id")
-        .eq("id", guest_pass_id)
-        .eq("user_id", user_id)
-        .limit(1)
-        .execute()
+        supabase.table(GUEST_PASS_TABLE).select("id").eq("id", guest_pass_id).eq("user_id", user_id).limit(1).execute()
     )
 
     if verification_response.data:
