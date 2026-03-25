@@ -1,6 +1,6 @@
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useZonasStore } from '../../../../store/useZonesStore';
 
 const COLORS = {
@@ -72,7 +72,7 @@ export default function MisReservasListado() {
           <Text style={styles.emptyStateText}>No tienes ninguna reserva ni pase activo.</Text>
           <TouchableOpacity 
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => router.push(`/comunities/${comunidad_id}/reservas` as any)}
           >
             <Text style={styles.backButtonText}>Volver al calendario</Text>
           </TouchableOpacity>
