@@ -115,7 +115,9 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
         {
           name: "Incidencias",
           icon: "warning-outline" as IconName,
-          enabled: false,
+          route: "incidencias",
+          enabled: true,
+
         },
         {
           name: "Actas",
