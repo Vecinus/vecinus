@@ -25,6 +25,8 @@ export const unstable_settings = {
   anchor: "(tabs)",
 };
 
+const HIDDEN_DRAWER_ITEM_STYLE = { display: "none" as const };
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const validateSession = useAuthStore((state) => state.validateSession);
@@ -103,7 +105,7 @@ export default function RootLayout() {
             name="comunities/[comunidad_id]/admin"
             options={{
               headerShown: false,
-              drawerItemStyle: isAdmin ? undefined : { display: "none" },
+              drawerItemStyle: isAdmin ? undefined : HIDDEN_DRAWER_ITEM_STYLE,
             }}
           />
         </Drawer>
