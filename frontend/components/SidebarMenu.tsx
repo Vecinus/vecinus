@@ -104,7 +104,8 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
         {
           name: "Reservas",
           icon: "calendar-outline" as IconName,
-          enabled: false,
+          route: "reservas",
+          enabled: true,
         },
         {
           name: "Votaciones",

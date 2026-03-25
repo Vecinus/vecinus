@@ -1,29 +1,40 @@
+import { DrawerActions } from '@react-navigation/native';
+import { Menu } from 'lucide-react-native';
+import { useNavigation, useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { API_URL } from '@/constants/api';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { useAuthStore } from '@/store/useAuthStore';
+import { DrawerActions } from '@react-navigation/native';
 import { useNavigation, useRouter } from 'expo-router';
+import { Menu } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
-import { DrawerActions } from '@react-navigation/native';
-import { Menu } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const router = useRouter();
   const navigation = useNavigation();
   const { login } = useAuthStore();
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
   const insets = useSafeAreaInsets();
+  const passwordInputRef = React.useRef<TextInput>(null);
 
   const handleLogin = async () => {
+    setErrorMessage('');
+
     if (!email || !password) {
-      Alert.alert('Error', 'Por favor, introduce correo y contraseña');
+      setErrorMessage('Por favor, introduce correo y contraseña');
       return;
     }
 
@@ -50,23 +61,29 @@ export default function LoginScreen() {
       }
 
       if (!response.ok) {
-        throw new Error(data?.detail || 'Error al iniciar sesión. Comprueba tus credenciales.');
+        const detail = typeof data?.detail === 'string' ? data.detail : '';
+        if (response.status === 401) {
+          setErrorMessage(detail || 'Correo o contraseña incorrectos.');
+          return;
+        }
+
+        setErrorMessage(detail || 'Error al iniciar sesión. Comprueba tus credenciales.');
+        return;
       }
 
       const token = data.session?.access_token || data.access_token;
-      
-      if (token) {
-        login(token);
-        Alert.alert('Éxito', 'Sesión iniciada correctamente');
-        router.replace('/');
-      } else {
-        throw new Error('No se recibió el token de sesión');
+
+      if (!token) {
+        throw new Error('No se recibio el token de sesion');
       }
 
+      await login(token);
+      Alert.alert('Exito', 'Sesion iniciada correctamente');
+      router.replace('/');
     } catch (error: unknown) {
       console.error('Login error:', error);
       const message = error instanceof Error ? error.message : 'Ocurrió un error al intentar iniciar sesión';
-      Alert.alert('Error', message);
+      setErrorMessage(message);
     } finally {
       setLoading(false);
     }
@@ -78,12 +95,12 @@ export default function LoginScreen() {
         <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())} hitSlop={10}>
           <Menu color={textColor} size={26} />
         </TouchableOpacity>
-        <ThemedText style={styles.headerTitle}>Iniciar Sesión</ThemedText>
+        <ThemedText style={styles.headerTitle}>Iniciar sesion</ThemedText>
         <View style={styles.headerSpacer} />
       </View>
 
       <View style={styles.content}>
-        <ThemedText style={styles.label}>Correo Electrónico</ThemedText>
+        <ThemedText style={styles.label}>Correo electronico</ThemedText>
         <TextInput
           style={[styles.input, { color: textColor, borderColor: textColor }]}
           value={email}
@@ -92,24 +109,29 @@ export default function LoginScreen() {
           placeholderTextColor="#888"
           autoCapitalize="none"
           keyboardType="email-address"
+          onSubmitEditing={() => passwordInputRef.current?.focus()}
           returnKeyType="next"
         />
 
-        <ThemedText style={styles.label}>Contraseña</ThemedText>
+        <ThemedText style={styles.label}>Contrasena</ThemedText>
         <TextInput
+          ref={passwordInputRef}
           style={[styles.input, { color: textColor, borderColor: textColor }]}
           value={password}
-          onChangeText={setPassword}
+          onChangeText={(value) => {
+            setPassword(value);
+            if (errorMessage) {
+              setErrorMessage('');
+            }
+          }}
           placeholder="Introduce tu contraseña"
           placeholderTextColor="#888"
           secureTextEntry
-          returnKeyType="go"
-          onSubmitEditing={() => {
-            if (!loading) {
-              void handleLogin();
-            }
-          }}
+          onSubmitEditing={() => { void handleLogin(); }}
+          returnKeyType="send"
         />
+
+        {errorMessage ? <ThemedText style={styles.errorText}>{errorMessage}</ThemedText> : null}
 
         <TouchableOpacity 
           style={[styles.button, loading && styles.buttonDisabled]} 
@@ -122,7 +144,7 @@ export default function LoginScreen() {
             <ThemedText style={styles.buttonText}>Entrar</ThemedText>
           )}
         </TouchableOpacity>
-        
+
         <TouchableOpacity style={styles.linkButton} onPress={() => router.back()} disabled={loading}>
           <ThemedText style={styles.linkText}>Cancelar</ThemedText>
         </TouchableOpacity>
@@ -130,7 +152,6 @@ export default function LoginScreen() {
     </ThemedView>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: {
@@ -166,6 +187,12 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 24,
     fontSize: 16,
+  },
+  errorText: {
+    color: '#d32f2f',
+    marginTop: -16,
+    marginBottom: 16,
+    fontSize: 14,
   },
   button: {
     backgroundColor: '#0a7ea4',
