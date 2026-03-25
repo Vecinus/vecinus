@@ -50,7 +50,8 @@ click==8.3.1
     #   -r backend/requirements.in
     #   pyiceberg
     #   uvicorn
-cloudinary
+cloudinary==1.44.1
+    # via -r backend/requirements.in
 colorama==0.4.6
     # via
     #   -r backend/requirements.in
