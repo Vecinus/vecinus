@@ -21,6 +21,7 @@ export default function LoginScreen() {
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
   const insets = useSafeAreaInsets();
+  const passwordInputRef = React.useRef<TextInput>(null);
 
   const handleLogin = async () => {
     setErrorMessage('');
@@ -101,11 +102,13 @@ export default function LoginScreen() {
           placeholderTextColor="#888"
           autoCapitalize="none"
           keyboardType="email-address"
+          onSubmitEditing={() => passwordInputRef.current?.focus()}
           returnKeyType="next"
         />
 
         <ThemedText style={styles.label}>Contrasena</ThemedText>
         <TextInput
+          ref={passwordInputRef}
           style={[styles.input, { color: textColor, borderColor: textColor }]}
           value={password}
           onChangeText={(value) => {
