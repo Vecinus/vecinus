@@ -728,7 +728,7 @@ def test_post_incident_with_image_correct():
         "description": "Power outage in the building",
     }
     files = {"file": ("photo.png", b"fake image data", "image/png")}
-    with patch(
+    with patch("api.incidents.incidents.settings.CLOUDINARY_URL", "cloudinary://mock:url@mock"), patch(
         "api.incidents.incidents.cloudinary.uploader.upload",
         return_value={"secure_url": "https://example.com/photo.png"},
     ):
@@ -807,7 +807,9 @@ def test_post_incident_cloudinary_exception():
         "description": "Power outage in the building",
     }
     files = {"file": ("photo.png", b"fake image data", "image/png")}
-    with patch("api.incidents.incidents.cloudinary.uploader.upload", side_effect=Exception("Cloudinary upload failed")):
+    with patch("api.incidents.incidents.settings.CLOUDINARY_URL", "cloudinary://mock:url@mock"), patch(
+        "api.incidents.incidents.cloudinary.uploader.upload", side_effect=Exception("Cloudinary upload failed")
+    ):
         response = client.post(f"/incidents/{mock_association_id}", data=new_incident, files=files)
     assert response.status_code == 500
     data = response.json()
