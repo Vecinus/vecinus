@@ -226,7 +226,7 @@ def update_incident_status(
 ):
     check_status(status)
     user_id = current_user["id"]
-    if get_user_role(supabase, association_id, user_id) not in {"1", "4", "5"}:
+    if get_user_role(supabase, association_id, user_id) not in {1, 4, 5}:
         raise HTTPException(status_code=403, detail="Admin, president or employee access required for this action")
 
     latest_state = get_latest_state(supabase, incident_id)
