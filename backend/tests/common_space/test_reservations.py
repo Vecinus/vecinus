@@ -56,10 +56,10 @@ def patched_version(distribution_name: str) -> str:
 metadata.version = patched_version
 pydantic.networks.version = patched_version
 
+import api.common_space.common_space as common_space_api  # noqa: E402
 from api.common_space.common_space import router as common_space_router  # noqa: E402
 from api.common_space.guest_passes import router as guest_passes_router  # noqa: E402
 from api.common_space.reservations import router as reservations_router  # noqa: E402
-import api.common_space.common_space as common_space_api  # noqa: E402
 from core.deps import get_current_user, get_supabase, get_supabase_admin  # noqa: E402
 
 app = FastAPI()
@@ -496,9 +496,7 @@ def test_list_occupied_slots_returns_active_slots_for_day(setup_overrides):
         }
     )
 
-    response = client.get(
-        f"/reservations/occupied-slots?space_id=3&reservation_date={now.date().isoformat()}"
-    )
+    response = client.get(f"/reservations/occupied-slots?space_id=3&reservation_date={now.date().isoformat()}")
 
     assert response.status_code == 200
     assert len(response.json()) == 1
@@ -574,7 +572,11 @@ def test_validate_qr_checks_in_pending_reservation_for_today(setup_overrides):
     )
 
     assert response.status_code == 200
-    assert response.json() == {"guests_count": 0, "status": "checked_in"}
+    data = response.json()
+    assert data["guests_count"] == 0
+    assert data["status"] == "checked_in"
+    assert data["space_name"] == "Pista de padel"
+    assert data["type"] == "reservation"
     assert reservation["status_id"] == 2
 
 
@@ -591,7 +593,11 @@ def test_validate_qr_checks_in_pending_guest_pass_for_today(setup_overrides):
     )
 
     assert response.status_code == 200
-    assert response.json() == {"guests_count": 1, "status": "checked_in"}
+    data = response.json()
+    assert data["guests_count"] == 1
+    assert data["status"] == "checked_in"
+    assert data["space_name"] == "Piscina"
+    assert data["type"] == "guest_pass"
     assert guest_pass["status_id"] == 2
 
 

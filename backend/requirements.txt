@@ -30,6 +30,7 @@ cachetools==6.2.6
 certifi==2026.1.4
     # via
     #   -r backend/requirements.in
+    #   cloudinary
     #   httpcore
     #   httpx
     #   pinecone-client
@@ -334,6 +335,7 @@ rich==14.3.3
 six==1.17.0
     # via
     #   -r backend/requirements.in
+    #   cloudinary
     #   python-dateutil
 sniffio==1.3.1
     # via google-genai
@@ -355,7 +357,6 @@ strictyaml==1.7.3
     #   pyiceberg
 supabase==2.28.0
     # via -r backend/requirements.in
-cloudinary
 supabase-auth==2.28.0
     # via
     #   -r backend/requirements.in
@@ -381,6 +382,7 @@ tqdm==4.67.3
 typing-extensions==4.15.0
     # via
     #   -r backend/requirements.in
+    #   anyio
     #   fastapi
     #   google-genai
     #   langchain-core
@@ -390,6 +392,7 @@ typing-extensions==4.15.0
     #   python-docx
     #   realtime
     #   resend
+    #   starlette
     #   typing-inspection
 typing-inspection==0.4.2
     # via
@@ -400,6 +403,7 @@ typing-inspection==0.4.2
 urllib3==2.6.3
     # via
     #   -r backend/requirements.in
+    #   cloudinary
     #   pinecone-client
     #   requests
 uuid-utils==0.14.1

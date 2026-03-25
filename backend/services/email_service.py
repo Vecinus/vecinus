@@ -5,7 +5,7 @@ from core.config import settings
 
 logger = logging.getLogger(__name__)
 
-SENDER = "VecinUs <onboarding@resend.dev>"
+SENDER = "VecinUs <noreply@jesuspons.dev>"
 
 # Colores de la app (theme.ts)
 _PRIMARY = "#0a7ea4"
@@ -17,11 +17,7 @@ _TEXT = "#11181C"
 _TEXT_MUTED = "#687076"
 
 # Logo alojado en Supabase Storage (URL pública, evita base64 que dispara el límite de Gmail)
-_LOGO_SRC = "https://asgmplswntnjkxtyebvb.supabase.co/storage/v1/object/public/assets/logo.png"
-
-_LOGO_BLOCK = (
-    f'<img src="{_LOGO_SRC}" alt="VecinUs" width="72" height="72"' ' style="display:block; margin:0 auto 12px;" />'
-)
+_LOGO_BLOCK = ""
 
 
 def _build_html(accept_url: str, role_label: str) -> str:

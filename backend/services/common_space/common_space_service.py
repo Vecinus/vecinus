@@ -2,8 +2,8 @@ from io import BytesIO
 from typing import List
 from uuid import UUID
 
-from fastapi import HTTPException
 from core.config import settings
+from fastapi import HTTPException
 from schemas.common_space import CommonSpaceCreate, CommonSpaceUpdate
 from supabase import Client
 
@@ -55,7 +55,9 @@ def get_common_space_by_id(supabase: Client, association_id: UUID, common_space_
     return response.data[0]
 
 
-def update_common_space(supabase: Client, association_id: UUID, common_space_id: int, payload: CommonSpaceUpdate) -> dict:
+def update_common_space(
+    supabase: Client, association_id: UUID, common_space_id: int, payload: CommonSpaceUpdate
+) -> dict:
     update_data = payload.model_dump(exclude_none=True)
     if not update_data:
         raise HTTPException(status_code=400, detail="No se han proporcionado campos para actualizar")

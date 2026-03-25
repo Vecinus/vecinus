@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
@@ -60,3 +60,5 @@ class ReservationCancelResponse(BaseModel):
 class QRValidationResponse(BaseModel):
     guests_count: int
     status: str = "checked_in"
+    space_name: str | None = None
+    type: str | None = None
