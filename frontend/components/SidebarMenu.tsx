@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useAuthStore } from '../store/useAuthStore';
+import { useAuthStore } from "../store/useAuthStore";
 import { useCommunityStore } from "../store/useCommunityStore";
 import { useMembersStore } from "../store/useMembersStore";
 import { usePropertyStore } from "../store/usePropertyStore";
@@ -23,11 +23,12 @@ type MaterialIconName = keyof typeof MaterialCommunityIcons.glyphMap;
 interface MenuItemType {
   name: string;
   icon: IconName | MaterialIconName;
-  library?: 'MaterialCommunityIcons';
+  library?: "MaterialCommunityIcons";
   route?: string;
   isGlobal?: boolean;
   absolute?: boolean;
   requiresAdmin?: boolean;
+  enabled?: boolean;
 }
 
 export default function SidebarMenu(props: DrawerContentComponentProps) {
@@ -55,51 +56,109 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
     if (isAuthenticated) {
       fetchCommunities();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, fetchCommunities]);
 
   useEffect(() => {
     if (isAuthenticated && activeCommunityId) {
       fetchMembers(activeCommunityId);
       fetchAvailableProperties(activeCommunityId);
     }
-  }, [activeCommunityId, isAuthenticated]); 
+  }, [
+    activeCommunityId,
+    isAuthenticated,
+    fetchMembers,
+    fetchAvailableProperties,
+  ]);
 
-  const menuItems: MenuItemType[] = [
-    { name: "Chat", icon: "chatbubble-outline" as IconName },
-    { name: "Avisos", icon: "notifications-outline" as IconName },
-    { name: "Tablón", icon: "megaphone-outline" as IconName },
-    {
-      name: "Asistente IA",
-      icon: "robot-outline" as MaterialIconName,
-      library: "MaterialCommunityIcons",
-      route: "chatbot",
-    },
-    { name: "Reservas", icon: "calendar-outline" as IconName },
-    { name: "Votaciones", icon: "checkbox-outline" as IconName },
-    { name: "Incidencias", icon: "warning-outline" as IconName },
-    {
-      name: "Actas",
-      icon: "document-text-outline" as IconName,
-      route: "actas/actas",
-      absolute: true,
-    },
-    { name: "Economía", icon: "wallet-outline" as IconName },
-    {
-      name: "Comunidades",
-      icon: "business-outline" as IconName,
-      route: "admin",
-      requiresAdmin: true,
-    },
-    { name: "Administración", icon: "settings-outline" as IconName },
-  ];
+  const menuItems: MenuItemType[] = isAuthenticated
+    ? [
+        {
+          name: "Chat",
+          icon: "chatbubble-outline" as IconName,
+          enabled: false,
+        },
+        {
+          name: "Avisos",
+          icon: "notifications-outline" as IconName,
+          enabled: false,
+        },
+        {
+          name: "Tablón",
+          icon: "megaphone-outline" as IconName,
+          enabled: false,
+        },
+        {
+          name: "Invitaciones",
+          icon: "mail-unread-outline" as IconName,
+          route: "invitations",
+          isGlobal: true,
+          enabled: true,
+        },
+        {
+          name: "Asistente IA",
+          icon: "robot-outline" as MaterialIconName,
+          library: "MaterialCommunityIcons",
+          route: "chatbot",
+          enabled: true,
+        },
+        {
+          name: "Reservas",
+          icon: "calendar-outline" as IconName,
+          route: "reservas",
+          enabled: true,
+        },
+        {
+          name: "Votaciones",
+          icon: "checkbox-outline" as IconName,
+          enabled: false,
+        },
+        {
+          name: "Incidencias",
+          icon: "warning-outline" as IconName,
+          route: "incidencias",
+          enabled: true,
 
-  if (isAuthenticated) {
-    menuItems.push({ name: 'Cerrar Sesión', icon: 'log-out-outline' as IconName, route: '/auth/logout', isGlobal: true });
-  } else {
-    menuItems.push({ name: 'Iniciar Sesión', icon: 'log-in-outline' as IconName, route: '/auth/login', isGlobal: true });
-  }
+        },
+        {
+          name: "Actas",
+          icon: "document-text-outline" as IconName,
+          route: "actas",
+          enabled: true,
+        },
+        {
+          name: "Economía",
+          icon: "wallet-outline" as IconName,
+          enabled: false,
+        },
+        {
+          name: "Comunidades",
+          icon: "business-outline" as IconName,
+          route: "admin",
+          enabled: true,
+          requiresAdmin: true,
+        },
+        {
+          name: "Administración",
+          icon: "settings-outline" as IconName,
+          enabled: false,
+        },
+        {
+          name: "Cerrar Sesión",
+          icon: "log-out-outline" as IconName,
+          route: "/auth/logout",
+          isGlobal: true,
+        },
+      ]
+    : [
+        {
+          name: "Iniciar Sesión",
+          icon: "log-in-outline" as IconName,
+          route: "/auth/login",
+          isGlobal: true,
+        },
+      ];
   const visibleMenuItems = menuItems.filter(
-    (item) => !item.requiresAdmin || isAdmin
+    (item) => item.enabled !== false && (!item.requiresAdmin || isAdmin),
   );
 
   return (
@@ -112,7 +171,6 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
         />
         <View style={styles.headerTextContainer}>
           <Text style={styles.title}>Vecinus</Text>
-          <Text style={styles.subtitle}>Comunidad</Text>
         </View>
       </View>
 
@@ -151,9 +209,11 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
                   community.id,
                   community.name,
                   community.address,
-                  community.role
+                  community.role,
                 );
                 setIsDropdownOpen(false);
+                props.navigation.closeDrawer();
+                router.replace("/" as Href);
               }}
             >
               <Text
@@ -188,7 +248,7 @@ export default function SidebarMenu(props: DrawerContentComponentProps) {
               style={[styles.menuItem, isActive && styles.menuItemActive]}
               onPress={() => {
                 setActiveItem(item.name);
-                
+
                 // 4. LÓGICA DE NAVEGACIÓN DINÁMICA
                 if (item.route) {
                   if (item.isGlobal) {

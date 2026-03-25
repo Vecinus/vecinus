@@ -24,13 +24,13 @@ export function ActaListItem({ acta, onPress }: ActaListItemProps) {
               className="text-sm text-muted-foreground mt-1"
               numberOfLines={2}
             >
-              {acta.executiveSummary}
+              {acta.summary}
             </Text>
             <View className="flex-row items-center gap-2 mt-2">
               <View className="flex-row items-center gap-1">
                 <Calendar size={12} color={COLORS.mutedForeground} />
                 <Text className="text-xs text-muted-foreground">
-                  {new Date(acta.date).toLocaleDateString("es-ES")}
+                  {new Date(acta.scheduled_at).toLocaleDateString("es-ES")}
                 </Text>
               </View>
               <View className="px-2 py-0.5 rounded-full bg-primary/10">
