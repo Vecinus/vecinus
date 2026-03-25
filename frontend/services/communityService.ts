@@ -62,6 +62,8 @@ export const loadUserCommunities = async (token: string) => {
       store.setActiveCommunity(
         formattedCommunities[0].id,
         formattedCommunities[0].name,
+        formattedCommunities[0].address,
+        formattedCommunities[0].role,
       );
       console.log(
         "!!! COMUNIDAD ACTIVA SETEADA:",

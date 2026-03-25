@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
-import { Menu, Trash2, UserPlus, Users, Settings, Building, ShieldCheck, Key, User, Crown, Briefcase, Mail, Home, ChevronDown, ChevronUp, AlertTriangle, Clock } from 'lucide-react-native';
+import { Menu, Trash2, UserPlus, Users, Building, ShieldCheck, Key, User, Crown, Briefcase, Mail, Home, ChevronDown, ChevronUp, AlertTriangle, Clock } from 'lucide-react-native';
 import { Picker } from '@react-native-picker/picker';
 
 import { useMembersStore, Member } from '../../../store/useMembersStore'; 
@@ -196,9 +196,6 @@ const handleCreateProperty = async () => {
           <Text style={styles.headerTitle}>Comunidades</Text>
           <Text style={styles.headerSubtitle} numberOfLines={1}>Gestión de comunidad</Text>
         </View>
-        <TouchableOpacity hitSlop={10}>
-          <Settings color="#4F46E5" size={24} />
-        </TouchableOpacity>
       </View>
 
       <View style={styles.communityCard}>

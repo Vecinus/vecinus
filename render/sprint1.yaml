@@ -1,0 +1,48 @@
+# Exported from Render on 2026-03-23T17:50:02Z
+version: "1"
+projects:
+  - name: Vecinus
+    environments:
+      - name: Production
+        services:
+          - type: web
+            name: Vecinus-S1
+            runtime: static
+            repo: https://github.com/Vecinus/vecinus
+            branch: release/sprint1
+            envVars:
+              - key: EXPO_PUBLIC_BACKEND_URL
+                sync: false
+            buildCommand: npm install && npx expo export --platform web
+            staticPublishPath: dist
+            autoDeployTrigger: "off"
+            rootDir: frontend
+          - type: web
+            name: Vecinus-Backend-S1
+            runtime: docker
+            repo: https://github.com/Vecinus/vecinus
+            branch: release/sprint1
+            plan: free
+            envVars:
+              - key: GEMINI_API_KEY
+                sync: false
+              - key: PINECONE_INDEX_NAME
+                sync: false
+              - key: PINECONE_ENVIRONMENT
+                sync: false
+              - key: PINECONE_API_KEY
+                sync: false
+              - key: SUPABASE_SCHEMA
+                sync: false
+              - key: SUPABASE_SERVICE_KEY
+                sync: false
+              - key: SUPABASE_KEY
+                sync: false
+              - key: SUPABASE_URL
+                sync: false
+            region: frankfurt
+            healthCheckPath: /health
+            dockerContext: .
+            dockerfilePath: ./Dockerfile
+            autoDeployTrigger: "off"
+            rootDir: backend

@@ -1,6 +1,5 @@
-import { Platform } from 'react-native';
 import { API_URL } from '../constants/api';
-import type { Incident, IncidentStatus } from '../data/mock-incidencias';
+import type { Incident, IncidentStatus, IncidentType } from '../data/mock-incidencias';
 
 // --- TIPOS ---
 
@@ -12,7 +11,7 @@ type BackendIncident = {
   image_url?: string | null;
   membership_id?: string;
   status?: string | [string, string?] | null;
-  incident_states?: Array<{ status?: string; created_at?: string }>;
+  incident_states?: { status?: string; created_at?: string }[];
 };
 
 type IncidentUpload = {
@@ -193,6 +192,16 @@ const parseStatus = (status: BackendIncident['status']): IncidentStatus => {
   }
 };
 
+const parseIncidentType = (type?: string | null): IncidentType => {
+  const normalized = String(type || '').toUpperCase();
+
+  if (normalized in BACK_TYPE_LABEL) {
+    return normalized as IncidentType;
+  }
+
+  return 'OTHER';
+};
+
 const parseErrorDetail = async (response: Response): Promise<string> => {
   try {
     const data = await response.json();
@@ -218,18 +227,18 @@ const mapIncident = (
   const states = Array.isArray(item.incident_states) ? item.incident_states : [];
   
   if (!item.status && states.length > 0) {
-    // Obtener el último estado
-    const lastState = states[states.length - 1];
+    // Obtener el último estado (el backend los devuelve DESC, por lo que es el [0])
+    const lastState = states[0];
     calculatedStatus = parseStatus(lastState.status);
   }
 
-  const typeKey = String(item.type || 'OTHER').toUpperCase() as unknown as string;
+  const typeKey = parseIncidentType(item.type);
 
   return {
     id: String(item.id),
     communityId: associationId,
     reporterId: memberData?.userId || item.membership_id || 'unknown-user',
-    title: (BACK_TYPE_LABEL[typeKey as keyof typeof BACK_TYPE_LABEL]) || 'Incidencia',
+    title: BACK_TYPE_LABEL[typeKey] || 'Incidencia',
     description: item.description || '',
     reporterName: memberData?.userName || 'Vecino',
     createdAt: item.created_at || new Date().toISOString(),
@@ -256,10 +265,12 @@ async function requestIncidents(
 
   const urlString = buildSafeIncidentsUrl([associationId], mine ? { mine: 'true' } : undefined);
 
-  // Validate URL is whitelisted before making request (SSRF prevention)
-  const validatedUrl = validateUrlWhitelist(urlString);
-  // semgrep: ignore=ssrf
-  const incidentsResponse = await fetch(validatedUrl, {
+  // Only fetch from whitelisted URLs - SSRF prevention
+  if (!isUrlInWhitelist(urlString)) {
+    throw new Error('URL not in whitelist');
+  }
+
+  const incidentsResponse = await fetch(urlString, {
     method: 'GET',
     headers: authHeaders(token),
   });
@@ -316,7 +327,12 @@ export const createIncident = async (params: {
       } else if (params.image.uri) {
         // Prioridad 2: Para blob:// URLs en Expo Web, usar FileReader vía Blob
         if (params.image.uri.startsWith('blob:')) {
-          const response = await fetch(params.image.uri).catch(() => null);
+          // blob: URLs are safe local URLs (SSRF prevention - only blob: allowed)
+          const blobUri = params.image.uri;
+          if (!blobUri.match(/^blob:[a-zA-Z0-9\-_:/.]+$/)) {
+            throw new Error('Invalid blob URL format');
+          }
+          const response = await fetch(blobUri).catch(() => null);
           
           if (response) {
             const blob = await response.blob();
@@ -338,11 +354,12 @@ export const createIncident = async (params: {
 
   const urlString = buildSafeIncidentsUrl([params.associationId]);
 
-  // Validate URL is whitelisted before making request (SSRF prevention)
-  const validatedUrl = validateUrlWhitelist(urlString);
+  // Only fetch from whitelisted URLs - SSRF prevention
+  if (!isUrlInWhitelist(urlString)) {
+    throw new Error('URL not in whitelist');
+  }
 
-  // semgrep: ignore=ssrf
-  const response = await fetch(validatedUrl, {
+  const response = await fetch(urlString, {
     method: 'POST',
     headers: uploadHeaders(params.token),
     body: formData,
@@ -410,11 +427,12 @@ export const updateIncidentStatus = async (params: {
     { status: backendStatus }
   );
   
-  // Validate URL is whitelisted before making request (SSRF prevention)
-  const validatedUrl = validateUrlWhitelist(urlString);
+  // Only fetch from whitelisted URLs - SSRF prevention
+  if (!isUrlInWhitelist(urlString)) {
+    throw new Error('URL not in whitelist');
+  }
 
-  // semgrep: ignore=ssrf
-  const response = await fetch(validatedUrl, {
+  const response = await fetch(urlString, {
     method: 'POST',
     headers: uploadHeaders(params.token),
   });
@@ -445,11 +463,12 @@ export const getIncidentHistory = async (params: {
 
   const urlString = buildSafeIncidentsUrl([params.associationId, params.incidentId]);
 
-  // Validate URL is whitelisted before making request (SSRF prevention)
-  const validatedUrl = validateUrlWhitelist(urlString);
+  // Only fetch from whitelisted URLs - SSRF prevention
+  if (!isUrlInWhitelist(urlString)) {
+    throw new Error('URL not in whitelist');
+  }
 
-  // semgrep: ignore=ssrf
-  const response = await fetch(validatedUrl, {
+  const response = await fetch(urlString, {
     method: 'GET',
     headers: authHeaders(params.token),
   });
@@ -501,11 +520,12 @@ export const getIncidentDetail = async (params: {
   try {
     const urlString = buildSafeIncidentsUrl([params.associationId, params.incidentId]);
 
-    // Validate URL is whitelisted before making request (SSRF prevention)
-    const validatedUrl = validateUrlWhitelist(urlString);
+    // Only fetch from whitelisted URLs - SSRF prevention
+    if (!isUrlInWhitelist(urlString)) {
+      throw new Error('URL not in whitelist');
+    }
 
-    // semgrep: ignore=ssrf
-    const response = await fetch(validatedUrl, {
+    const response = await fetch(urlString, {
       method: 'GET',
       headers: authHeaders(params.token),
     });
@@ -522,18 +542,18 @@ export const getIncidentDetail = async (params: {
     const states = Array.isArray(data.incident_states) ? data.incident_states : [];
     
     if (!data.status && states.length > 0) {
-      // Obtener el último estado
-      const lastState = states[states.length - 1];
+      // Obtener el estado más reciente (backend devuelve DESC)
+      const lastState = states[0];
       calculatedStatus = parseStatus(lastState.status);
     }
     
     // Construir el objeto Incident
-    const typeKey = String(data.type || 'OTHER').toUpperCase() as unknown as string;
+    const typeKey = parseIncidentType(data.type);
     const incident: Incident = {
       id: String(data.id),
       communityId: params.associationId,
       reporterId: data.membership_id || 'unknown-user',
-      title: (BACK_TYPE_LABEL[typeKey as keyof typeof BACK_TYPE_LABEL]) || 'Incidencia',
+      title: BACK_TYPE_LABEL[typeKey] || 'Incidencia',
       description: data.description || '',
       reporterName: 'Vecino',
       createdAt: data.created_at || new Date().toISOString(),

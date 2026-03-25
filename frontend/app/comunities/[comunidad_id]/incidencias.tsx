@@ -20,9 +20,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useNavigation, useRouter, type Href } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
-import { Camera} from 'lucide-react-native';
 import {
   AlertTriangle,
+  Camera,
   CheckCircle2,
   ChevronDown,
   Clock3,
@@ -46,7 +46,6 @@ import { loadUserCommunities } from '@/services/communityService';
 import {
   createIncident,
   getIncidentDetail,
-  getIncidentHistory as fetchIncidentHistory,
   listIncidents,
   listMyIncidents,
   type IncidentContext,
@@ -61,7 +60,7 @@ import {
 
 type FilterStatus = 'todas' | 'mis_incidencias' | IncidentStatus;
 
-const INCIDENT_TYPES: Array<{ value: string; label: string }> = [
+const INCIDENT_TYPES: { value: string; label: string }[] = [
   { value: 'LIGHTING', label: 'Iluminación' },
   { value: 'ELEVATOR', label: 'Ascensor' },
   { value: 'PLUMBING', label: 'Fontanería' },
@@ -72,7 +71,6 @@ const INCIDENT_TYPES: Array<{ value: string; label: string }> = [
   { value: 'OTHER', label: 'Otros' },
 ];
 
-const STATUS_ORDER: IncidentStatus[] = ['PENDING', 'IN PROGRESS', 'SOLVED', 'DISCARDED'];
 const DROPDOWN_MAX_VISIBLE_ITEMS = 4;
 const DROPDOWN_ITEM_HEIGHT = 48;
 const DROPDOWN_MAX_HEIGHT = DROPDOWN_MAX_VISIBLE_ITEMS * DROPDOWN_ITEM_HEIGHT;
@@ -90,7 +88,9 @@ const statusIcons = {
   'DISCARDED': X,
 };
 
-const incidentTypeIcons: Record<string, React.ComponentType<unknown>> = {
+type LucideIconComponent = React.ComponentType<React.ComponentProps<typeof Lightbulb>>;
+
+const incidentTypeIcons: Record<string, LucideIconComponent> = {
   'LIGHTING': Lightbulb,
   'ELEVATOR': ArrowUp,
   'PLUMBING': Droplet,
@@ -124,9 +124,6 @@ const getAllowedStatusTransitions = (currentStatus: IncidentStatus): IncidentSta
       return ['IN PROGRESS', 'DISCARDED'];
     case 'IN PROGRESS':
       return ['SOLVED', 'DISCARDED'];
-    case 'SOLVED':
-    case 'DISCARDED':
-      return []; // No se pueden cambiar estados finales
     default:
       return [];
   }
@@ -170,7 +167,8 @@ export default function IncidenciasScreen() {
     setActiveCommunity,
   } = useCommunityStore();
 
-  const canManageStatus = activeCommunityRole === 1 || activeCommunityRole === 4;
+  const normalizedActiveRole = Number(activeCommunityRole);
+  const canManageStatus = normalizedActiveRole === 1 || normalizedActiveRole === 4;
 
   const [incidencias, setIncidencias] = useState<Incident[]>([]);
   const [myIncidencias, setMyIncidencias] = useState<Incident[]>([]);
@@ -203,8 +201,6 @@ export default function IncidenciasScreen() {
   // Validation Error State
   const [validationError, setValidationError] = useState<string>('');
 
-  const currentUserId = incidentContext?.currentUserId ?? '';
-  const currentUserName = incidentContext?.currentUserName ?? 'Vecino';
 
   useEffect(() => {
     if (communities.length === 0 && token) {
@@ -219,7 +215,9 @@ export default function IncidenciasScreen() {
       (community) => String(community.id) === String(normalizedComunidadId)
     );
 
-    if (currentCommunity && currentCommunity.id !== activeCommunityId) {
+    const roleOutOfSync = Number(currentCommunity?.role) !== Number(activeCommunityRole);
+
+    if (currentCommunity && (currentCommunity.id !== activeCommunityId || roleOutOfSync)) {
       setActiveCommunity(
         currentCommunity.id,
         currentCommunity.name,
@@ -227,7 +225,7 @@ export default function IncidenciasScreen() {
         currentCommunity.role
       );
     }
-  }, [normalizedComunidadId, communities, activeCommunityId, setActiveCommunity]);
+  }, [normalizedComunidadId, communities, activeCommunityId, activeCommunityRole, setActiveCommunity]);
 
   useEffect(() => {
     if (!activeCommunityId || !normalizedComunidadId) return;
@@ -401,8 +399,8 @@ export default function IncidenciasScreen() {
     [incidencias]
   );
 
-const filterTabs = useMemo<Array<{ key: unknown; label: string }>>(() => {
-  const baseTabs = [
+const filterTabs = useMemo<{ key: FilterStatus; label: string }[]>(() => {
+  const baseTabs: { key: FilterStatus; label: string }[] = [
     { key: 'todas', label: 'Todas' },
     { key: 'PENDING', label: 'Pendientes' },
     { key: 'IN PROGRESS', label: 'En proceso' },
@@ -459,7 +457,7 @@ const filterTabs = useMemo<Array<{ key: unknown; label: string }>>(() => {
 
   const buildFallbackIncidentHistory = (
     incident: Incident | null
-  ): Array<{ status: IncidentStatus; date: string }> => {
+  ): { status: IncidentStatus; date: string }[] => {
     if (!incident) return [];
 
     const normalizedStatus = normalizeStatus(incident.status);
@@ -531,8 +529,9 @@ const filterTabs = useMemo<Array<{ key: unknown; label: string }>>(() => {
   };
 
   const saveDraftStatus = async () => {
-    if (!canManageStatus || !selectedIncident || !normalizedComunidadId || !token) return;
-    if (draftStatus === selectedIncident.status) {
+    if (!selectedIncident || !normalizedComunidadId || !token) return;
+    const persistedStatus = normalizeStatus(selectedIncident.status);
+    if (draftStatus === persistedStatus) {
       setDetailModalOpen(false);
       return;
     }
@@ -546,12 +545,20 @@ const filterTabs = useMemo<Array<{ key: unknown; label: string }>>(() => {
         token,
       });
 
+      // Re-sincronizar con backend para evitar desajustes entre UI y estado real.
+      const { incident: refreshedIncident, history: refreshedHistory } = await getIncidentDetail({
+        associationId: String(normalizedComunidadId),
+        incidentId: selectedIncident.id,
+        token,
+      });
+      const nextStatus = normalizeStatus(refreshedIncident.status);
+
       setIncidencias((prev) =>
         prev.map((item) =>
           item.id === selectedIncident.id
             ? {
                 ...item,
-                status: draftStatus,
+                status: nextStatus,
               }
             : item
         )
@@ -562,25 +569,16 @@ const filterTabs = useMemo<Array<{ key: unknown; label: string }>>(() => {
           item.id === selectedIncident.id
             ? {
                 ...item,
-                status: draftStatus,
+                status: nextStatus,
               }
             : item
         )
       );
 
-      setSelectedIncident((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: draftStatus,
-            }
-          : prev
-      );
-
-      setIncidentHistory((prev) => [
-        ...prev,
-        { status: draftStatus, date: new Date().toISOString() },
-      ]);
+      setSelectedIncident(refreshedIncident);
+      setDraftStatus(nextStatus);
+      setIncidentHistory(refreshedHistory);
+      setStatusMenuOpen(false);
 
       setDetailModalOpen(false);
       Alert.alert(
@@ -593,6 +591,8 @@ const filterTabs = useMemo<Array<{ key: unknown; label: string }>>(() => {
       let errorMessage = 'No se pudo actualizar el estado. Intenta de nuevo.';
       
       if (error instanceof Error) {
+        setDraftStatus(normalizeStatus(selectedIncident.status));
+        setStatusMenuOpen(false);
         if (error.message.includes('403')) {
           errorTitle = 'Acceso denegado';
           errorMessage = 'Solo los administradores pueden cambiar el estado de las incidencias.';
@@ -701,7 +701,7 @@ const filterTabs = useMemo<Array<{ key: unknown; label: string }>>(() => {
               uri: newImageAsset.uri,
               name: newImageAsset.name || newImageAsset.uri.split('/').pop() || 'incidencia.jpg',
               mimeType: newImageAsset.mimeType || 'image/jpeg',
-              file: (newImageAsset as unknown).file, // Pasar el File object si está disponible (Expo Web)
+              file: (newImageAsset as DocumentPicker.DocumentPickerAsset & { file?: File }).file, // Pasar el File object si está disponible (Expo Web)
             }
           : null,
       });
@@ -834,15 +834,12 @@ const filterTabs = useMemo<Array<{ key: unknown; label: string }>>(() => {
       </View>
 
       <View style={styles.contentSection}>
-        {!canManageStatus && (
           <View style={styles.actionsRow}>
             <TouchableOpacity style={styles.newButton} onPress={() => { setCreateModalOpen(true); }}>
               <Plus color="#FFFFFF" size={15} />
               <Text style={styles.newButtonText}>Nueva incidencia</Text>
             </TouchableOpacity>
           </View>
-        )}
-
         <View style={[styles.kpiRow, isDesktop && styles.kpiRowDesktop]}>
           <View style={styles.kpiCard}>
             <Text style={[styles.kpiValue, { color: '#B42318' }]}>{counts.pendiente}</Text>
@@ -900,19 +897,13 @@ const filterTabs = useMemo<Array<{ key: unknown; label: string }>>(() => {
                   {activeFilter === 'mis_incidencias' ? 'Cargando mis incidencias...' : 'Cargando incidencias...'}
                 </Text>
               </View>
-            ) : !canManageStatus ? (
+            ) : 
               <View style={styles.emptyState}>
                 <TouchableOpacity style={styles.emptyStateButton} onPress={() => { setCreateModalOpen(true); }}>
                   <Plus color="#FFFFFF" size={16} />
                   <Text style={styles.emptyStateButtonText}>Nueva incidencia</Text>
                 </TouchableOpacity>
               </View>
-            ) : (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyTitle}>No hay incidencias</Text>
-                <Text style={styles.emptySubtitle}>Solo los vecinos pueden crear incidencias. Los administradores pueden ver y gestionar.</Text>
-              </View>
-            )
           }
         />
       </View>
@@ -1113,98 +1104,118 @@ const filterTabs = useMemo<Array<{ key: unknown; label: string }>>(() => {
                 </View>
               ) : null}
 
-              {canManageStatus && selectedIncident && getAllowedStatusTransitions(normalizeStatus(selectedIncident.status)).length > 0 ? (
+              {selectedIncident ? (
                 <>
                   <Text style={styles.sectionLabel}>Estado actual</Text>
                   <View style={styles.dropdownFieldWrap}>
-                    <TouchableOpacity
-                      style={[
-                        styles.statusDropdown,
-                      ]}
-                      onPress={() => { setStatusMenuOpen((prev) => !prev); }}
-                      activeOpacity={0.85}
-                    >
-                      <Text style={[
-                        styles.statusDropdownText,
-                      ]}>{getSafeStatusLabel(draftStatus)}</Text>
-                      <Animated.View
-                        style={{
-                          transform: [
-                            {
-                              rotate: statusMenuAnim.interpolate({
-                                inputRange: [0, 1],
-                                outputRange: ['0deg', '180deg'],
-                              }),
-                            },
-                          ],
-                        }}
-                      >
-                        <ChevronDown color="#64748B" size={20} />
-                      </Animated.View>
-                    </TouchableOpacity>
+                    {(() => {
+                      const persistedStatus = normalizeStatus(selectedIncident.status);
+                      const transitions = getAllowedStatusTransitions(persistedStatus);
+                      const canEditStatus = canManageStatus && transitions.length > 0;
 
-                    {renderStatusMenu ? (
-                      <Animated.View
-                        style={[
-                          styles.statusPickerCard,
-                          styles.dropdownMenuOverlay,
-                          {
-                            opacity: statusMenuAnim,
-                            transform: [
-                              {
-                                translateY: statusMenuAnim.interpolate({
-                                  inputRange: [0, 1],
-                                  outputRange: [-8, 0],
-                                }),
-                              },
-                              {
-                                scaleY: statusMenuAnim.interpolate({
-                                  inputRange: [0, 1],
-                                  outputRange: [0.92, 1],
-                                }),
-                              },
-                            ],
-                          },
-                        ]}
-                      >
-                        <ScrollView
-                          style={styles.dropdownScroll}
-                          contentContainerStyle={styles.dropdownScrollContent}
-                          showsVerticalScrollIndicator
-                          persistentScrollbar
-                          nestedScrollEnabled
-                          indicatorStyle="black"
-                        >
-                          {getAllowedStatusTransitions(normalizeStatus(selectedIncident.status)).map((status) => {
-                            const selected = draftStatus === status;
-                            return (
-                              <TouchableOpacity
-                                key={`detail-${status}`}
-                                style={[
-                                  styles.statusPickerItem,
-                                  selected && {
-                                    backgroundColor: '#2CC9BB',
+                      if (!canEditStatus) {
+                        return (
+                          <View style={[styles.statusDropdown, styles.statusDropdownDisabled]}>
+                            <Text style={[styles.statusDropdownText, styles.statusDropdownTextDisabled]}>
+                              {getSafeStatusLabel(persistedStatus)}
+                            </Text>
+                          </View>
+                        );
+                      }
+
+                      return (
+                        <>
+                          <TouchableOpacity
+                            style={[
+                              styles.statusDropdown,
+                            ]}
+                            onPress={() => { setStatusMenuOpen((prev) => !prev); }}
+                            activeOpacity={0.85}
+                          >
+                            <Text style={[
+                              styles.statusDropdownText,
+                            ]}>{getSafeStatusLabel(draftStatus)}</Text>
+                            <Animated.View
+                              style={{
+                                transform: [
+                                  {
+                                    rotate: statusMenuAnim.interpolate({
+                                      inputRange: [0, 1],
+                                      outputRange: ['0deg', '180deg'],
+                                    }),
                                   },
-                                ]}
-                                onPress={() => {
-                                  setDraftStatus(status);
-                                  setStatusMenuOpen(false);
-                                }}
+                                ],
+                              }}
+                            >
+                              <ChevronDown color="#64748B" size={20} />
+                            </Animated.View>
+                          </TouchableOpacity>
+
+                          {renderStatusMenu ? (
+                            <Animated.View
+                              style={[
+                                styles.statusPickerCard,
+                                styles.dropdownMenuOverlay,
+                                {
+                                  opacity: statusMenuAnim,
+                                  transform: [
+                                    {
+                                      translateY: statusMenuAnim.interpolate({
+                                        inputRange: [0, 1],
+                                        outputRange: [-8, 0],
+                                      }),
+                                    },
+                                    {
+                                      scaleY: statusMenuAnim.interpolate({
+                                        inputRange: [0, 1],
+                                        outputRange: [0.92, 1],
+                                      }),
+                                    },
+                                  ],
+                                },
+                              ]}
+                            >
+                              <ScrollView
+                                style={styles.dropdownScroll}
+                                contentContainerStyle={styles.dropdownScrollContent}
+                                showsVerticalScrollIndicator
+                                persistentScrollbar
+                                nestedScrollEnabled
+                                indicatorStyle="black"
                               >
-                                <Text
-                                  style={[
-                                    styles.statusPickerText,
-                                    selected && { color: '#083344', fontWeight: '700' },
-                                  ]}
-                                >
-                                  {getSafeStatusLabel(status)}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </ScrollView>
-                      </Animated.View>
-                    ) : null}
+                                {transitions.map((status) => {
+                                  const selected = draftStatus === status;
+                                  return (
+                                    <TouchableOpacity
+                                      key={`detail-${status}`}
+                                      style={[
+                                        styles.statusPickerItem,
+                                        selected && {
+                                          backgroundColor: '#2CC9BB',
+                                        },
+                                      ]}
+                                      onPress={() => {
+                                        setDraftStatus(status);
+                                        setStatusMenuOpen(false);
+                                      }}
+                                    >
+                                      <Text
+                                        style={[
+                                          styles.statusPickerText,
+                                          selected && { color: '#083344', fontWeight: '700' },
+                                        ]}
+                                      >
+                                        {getSafeStatusLabel(status)}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
+                              </ScrollView>
+                            </Animated.View>
+                          ) : null}
+                        </>
+                      );
+                    })()}
                   </View>
                 </>
               ) : null}
