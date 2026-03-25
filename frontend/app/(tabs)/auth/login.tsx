@@ -1,10 +1,3 @@
-import { DrawerActions } from '@react-navigation/native';
-import { Menu } from 'lucide-react-native';
-import { useNavigation, useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { API_URL } from '@/constants/api';
@@ -122,8 +115,12 @@ export default function LoginScreen() {
           placeholder="Introduce tu contraseña"
           placeholderTextColor="#888"
           secureTextEntry
-          onSubmitEditing={() => { void handleLogin(); }}
-          returnKeyType="send"
+          returnKeyType="go"
+          onSubmitEditing={() => {
+            if (!loading) {
+              void handleLogin();
+            }
+          }}
         />
 
         {errorMessage ? <ThemedText style={styles.errorText}>{errorMessage}</ThemedText> : null}
