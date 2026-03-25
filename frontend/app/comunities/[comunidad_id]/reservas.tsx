@@ -293,7 +293,7 @@ export default function ReservasComunidad() {
              <View style={styles.adminButtonsRow}>
                <TouchableOpacity 
                  style={styles.editZoneButton} 
-                 onPress={() => router.push({ pathname: '/comunities/editar-zona', params: { comunidad_id, zona_id: zonaActiva.id } })}
+                 onPress={() => router.push({ pathname: '/comunities/editar-zona', params: { comunidad_id, zona_id: zonaActiva.id } } as any)}
                >
                   <Text style={styles.editZoneButtonText}>Editar</Text>
                </TouchableOpacity>

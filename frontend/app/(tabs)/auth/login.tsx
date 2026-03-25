@@ -1,3 +1,17 @@
+import React, { useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { DrawerActions, useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
+import { Menu } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { API_URL } from '@/constants/api';

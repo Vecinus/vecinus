@@ -4,8 +4,8 @@ import types
 from importlib import metadata
 from typing import Any, Dict, List
 
-import pytest
 import pydantic.networks
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -119,7 +119,9 @@ class MockSupabaseTable:
     def execute(self):
         if self._operation == "insert":
             current = self._storage[self._table_name]
-            next_id = (max((row["id"] for row in current), default=0) + 1) if self._table_name == "common_space" else None
+            next_id = (
+                (max((row["id"] for row in current), default=0) + 1) if self._table_name == "common_space" else None
+            )
             new_row = dict(self._payload)
             if self._table_name == "common_space":
                 new_row["id"] = next_id
