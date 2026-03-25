@@ -949,22 +949,22 @@ def test_post_state_invalid_status():
     assert data["detail"].endswith("'}")
 
 
-def test_post_state_not_admin():
+def test_post_state_wrong_role():
     app.dependency_overrides[get_current_user] = lambda: mock_tenant
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
     response = client.post(f"/incidents/{mock_association_id}/{mock_incident_3_id}/status?status=IN PROGRESS")
     assert response.status_code == 403
     data = response.json()
-    assert data["detail"] == "Admin access required for this action"
+    assert data["detail"] == "Admin, president or employee access required for this action"
 
 
 def test_post_state_wrong_association():
     app.dependency_overrides[get_current_user] = lambda: mock_admin
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
     response = client.post(f"/incidents/{mock_other_association_id}/{mock_incident_3_id}/status?status=IN PROGRESS")
-    assert response.status_code == 404
+    assert response.status_code == 403
     data = response.json()
-    assert data["detail"] == "Membership not found in this community"
+    assert data["detail"] == "User has no access to this association"
 
 
 def test_post_state_incident_not_found():
