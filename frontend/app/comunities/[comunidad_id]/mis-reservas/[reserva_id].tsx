@@ -51,10 +51,12 @@ export default function DetalleReservaQR() {
     );
   }
 
-  const qrValue = isPase 
-    ? item.qr_token 
-    : (item.qr_code || JSON.stringify({ reservation_id: item.id }));
-    
+  const qrValue = item.qr_token 
+  ? JSON.stringify({ 
+      qr_token: item.qr_token, 
+      association_id: comunidad_id 
+    }) 
+  : null;
   const fechaFormateada = isPase ? item.valid_for_date : (item.start_at ? item.start_at.split('T')[0] : '');
   const horaFormateada = isPase ? '' : (item.start_at ? item.start_at.split('T')[1].substring(0, 5) : '');
 
@@ -81,7 +83,7 @@ export default function DetalleReservaQR() {
     <View style={styles.container}>
       {/* Botón de retroceso rápido en la esquina superior */}
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => router.push(`/comunities/${comunidad_id}/mis-reservas` as any)} style={styles.topBackButton}>
+        <TouchableOpacity onPress={() => router.push(`/comunities/${comunidad_id}/mis-reservas`) as any} style={styles.topBackButton}>
           <Text style={styles.topBackButtonText}>← Volver atrás</Text>
         </TouchableOpacity>
       </View>
@@ -124,15 +126,23 @@ export default function DetalleReservaQR() {
         <Text style={styles.doneButtonText}>Ir a Mis Pases/Reservas</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity 
-        style={styles.cancelButton} 
-        onPress={() => setModalVisible(true)}
-        disabled={isCanceling} 
-      >
-        <Text style={styles.cancelButtonText}>
-          {isPase ? 'Cancelar Pase' : 'Cancelar Reserva'}
-        </Text>
-      </TouchableOpacity>
+      {item.status_id === 1 ? (
+        <TouchableOpacity 
+          style={styles.cancelButton} 
+          onPress={() => setModalVisible(true)}
+          disabled={isCanceling} 
+        >
+          <Text style={styles.cancelButtonText}>
+            {isPase ? 'Cancelar Pase' : 'Cancelar Reserva'}
+          </Text>
+        </TouchableOpacity>
+      ) : item.status_id === 2 ? (
+        <View style={{ marginTop: 10, paddingVertical: 12, paddingHorizontal: 25, backgroundColor: '#E8F5E9', borderRadius: 12, borderWidth: 1, borderColor: '#4CAF50' }}>
+          <Text style={{ color: '#2E7D32', fontSize: 16, fontWeight: 'bold', textAlign: 'center' }}>
+            ✅ QR Validado en puerta
+          </Text>
+        </View>
+      ) : null}
 
       <CustomModal
         visible={modalVisible}

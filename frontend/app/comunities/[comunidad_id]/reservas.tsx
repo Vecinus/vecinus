@@ -2,6 +2,9 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { DrawerActions, useNavigation } from '@react-navigation/native';
+import { Menu } from 'lucide-react-native';
+
 import { useZonasStore } from '../../../store/useZonesStore';
 import { useCommunityStore } from '../../../store/useCommunityStore';
 import CustomModal from '../../../components/ui/CustomModal';
@@ -29,6 +32,7 @@ const COLORS = {
 
 export default function ReservasComunidad() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { comunidad_id } = useLocalSearchParams();
   
   const { zonas, crearReserva, crearPaseInvitado, eliminarZona, isLoading, fetchZonas, obtenerHorariosOcupados } = useZonasStore();
@@ -191,8 +195,12 @@ export default function ReservasComunidad() {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.headerRow}>
             <View style={styles.titleContainer}>
-              <TouchableOpacity onPress={() => router.back()} style={styles.backIcon}>
-                <Text style={styles.backIconText}>←</Text>
+              <TouchableOpacity 
+                onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())} 
+                style={styles.menuIcon}
+                hitSlop={10}
+              >
+                <Menu color={COLORS.darkBlue} size={28} />
               </TouchableOpacity>
               <Text style={styles.headerTitle}>Accesos</Text>
             </View>
@@ -223,8 +231,12 @@ export default function ReservasComunidad() {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.headerRow}>
             <View style={styles.titleContainer}>
-              <TouchableOpacity onPress={() => router.back()} style={styles.backIcon}>
-                <Text style={styles.backIconText}>←</Text>
+              <TouchableOpacity 
+                onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())} 
+                style={styles.menuIcon}
+                hitSlop={10}
+              >
+                <Menu color={COLORS.darkBlue} size={28} />
               </TouchableOpacity>
               <Text style={styles.headerTitle}>Reservas</Text>
             </View>
@@ -249,8 +261,12 @@ export default function ReservasComunidad() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.headerRow}>
           <View style={styles.titleContainer}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backIcon}>
-              <Text style={styles.backIconText}>←</Text>
+            <TouchableOpacity 
+              onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())} 
+              style={styles.menuIcon}
+              hitSlop={10}
+            >
+              <Menu color={COLORS.darkBlue} size={28} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Reservas</Text>
           </View>
@@ -367,9 +383,8 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 20, paddingTop: 60, paddingBottom: 100 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
   titleContainer: { flexDirection: 'row', alignItems: 'center' },
-  backIcon: { marginRight: 15, padding: 5 },
-  backIconText: { fontSize: 28, color: COLORS.darkBlue, fontWeight: 'bold' },
-  headerTitle: { fontSize: 32, fontWeight: 'bold', color: COLORS.darkBlue },
+  menuIcon: { marginRight: 15, padding: 5, justifyContent: 'center' },
+  headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#005588' },
   headerActions: { flexDirection: 'row', gap: 10 },
   actionButton: { backgroundColor: COLORS.white, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, borderWidth: 1, borderColor: COLORS.primaryBlue },
   actionButtonText: { color: COLORS.primaryBlue, fontWeight: 'bold', fontSize: 14 },

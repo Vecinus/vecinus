@@ -209,4 +209,6 @@ def validate_guest_pass_qr_and_check_in(
     return {
         "guests_count": 1,
         "status": "checked_in",
+        "space_name": common_space.get("name", "N/A"),
+        "type": "guest_pass",
     }
