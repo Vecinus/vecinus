@@ -59,7 +59,7 @@ def verify_own_incident(association_id: str, incident_id: str, user_id: str, sup
 
     if not incident_res.data:
         return False
-    elif incident_res.data > 1:
+    elif len(incident_res.data) > 1:
         raise HTTPException(status_code=500, detail="Multiple incidents found with the same ID and membership")
     return True
 
