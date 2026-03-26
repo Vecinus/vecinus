@@ -247,7 +247,7 @@ def update_incident_status(
     }
 
 
-@router.post("/{association_id}/{incident_id}/discard", status_code=201)
+@router.delete("/{association_id}/{incident_id}", status_code=204)
 def discard_incident(
     association_id: str,
     incident_id: str,
@@ -269,4 +269,3 @@ def discard_incident(
         supabase.table("incidents").delete().eq("id", incident_id).execute()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to discard incident: {str(e)}")
-    return {"message": "Incident discarded successfully", "incident_id": incident_id}
