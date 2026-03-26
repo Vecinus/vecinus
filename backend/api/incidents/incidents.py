@@ -240,7 +240,7 @@ def update_incident_status(
     if not latest_state:
         raise HTTPException(status_code=404, detail="Incident not found")
     elif latest_state.get("status") not in {"PENDING", "IN PROGRESS"}:
-        raise HTTPException(status_code=400, detail="Cannot update status of a resolved or discarded incident")
+        raise HTTPException(status_code=409, detail="Cannot update status of a resolved or discarded incident")
     elif latest_state.get("status") == status:
         raise HTTPException(status_code=400, detail=f"Incident is already in {status} status")
 
