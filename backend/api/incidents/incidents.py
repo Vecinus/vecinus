@@ -50,7 +50,7 @@ def verify_own_incident(association_id: str, incident_id: str, user_id: str, sup
         .execute()
     )
     if not membership_res.data:
-        raise HTTPException(status_code=404, detail="Membership not found in this community")
+        raise HTTPException(status_code=404, detail="Membership not found in this association")
     membership_id = membership_res.data[0].get("id")
 
     incident_res = (
