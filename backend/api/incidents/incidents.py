@@ -266,10 +266,8 @@ def discard_incident(
 
     latest_state = get_latest_state(supabase, incident_id)
 
-    if not latest_state:
-        raise HTTPException(status_code=404, detail="Incident not found")
-    elif latest_state.get("status") not in {"DISCARDED", "SOLVED"}:
-        raise HTTPException(status_code=400, detail="Incident hasn't been reviewed")
+    if latest_state.get("status") not in {"DISCARDED", "SOLVED"}:
+        raise HTTPException(status_code=409, detail="Incident hasn't been reviewed")
 
     try:
         supabase.table("incident_states").delete().eq("incident_id", incident_id).execute()
