@@ -56,8 +56,12 @@ def verify_own_incident(association_id: str, incident_id: str, user_id: str, sup
     incident_res = (
         supabase.table("incidents").select("id").eq("id", incident_id).eq("membership_id", membership_id).execute()
     )
+
     if not incident_res.data:
-        raise HTTPException(status_code=403, detail="User does not own this incident")
+        return False
+    elif incident_res.data > 1:
+        raise HTTPException(status_code=500, detail="Multiple incidents found with the same ID and membership")
+    return True
 
 
 @router.get("/{association_id}", response_model=list[Incident])
@@ -255,7 +259,8 @@ def discard_incident(
     supabase: Client = Depends(get_supabase),
 ):
     user_id = current_user["id"]
-    verify_own_incident(association_id, incident_id, user_id, supabase)
+    if not verify_own_incident(association_id, incident_id, user_id, supabase):
+        raise HTTPException(status_code=403, detail="User does not own this incident")
 
     latest_state = get_latest_state(supabase, incident_id)
 
