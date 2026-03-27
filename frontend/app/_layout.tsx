@@ -1,116 +1,65 @@
-import React, { useEffect } from "react";
-import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
-} from "@react-navigation/native";
-import { usePathname, useRouter } from "expo-router";
-import { Drawer } from "expo-router/drawer";
-import { StatusBar } from "expo-status-bar";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import "react-native-reanimated";
-import "../global.css";
+import 'react-native-gesture-handler';
+import '@/global.css';
+import { useEffect } from 'react';
+import { NAV_THEME } from '@/lib/theme';
+import { ThemeProvider } from '@react-navigation/native';
+import { PortalHost } from '@rn-primitives/portal';
+import { Stack, useRouter, useSegments } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useColorScheme } from 'nativewind';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { ActivityIndicator, View } from 'react-native';
 
-import {
-  installAuthFetchInterceptor,
-  registerSessionExpiredHandler,
-  scheduleJwtAutoLogout,
-} from "@/constants/api";
-import { useColorScheme } from "@/hooks/use-color-scheme";
-import SidebarMenu from "../components/SidebarMenu";
-import { useAuthStore } from "../store/useAuthStore";
-import { useCommunityStore } from "../store/useCommunityStore";
+export {
+  // Catch any errors thrown by the Layout component.
+  ErrorBoundary,
+} from 'expo-router';
 
-export const unstable_settings = {
-  anchor: "(tabs)",
-};
+const queryClient = new QueryClient();
 
-const HIDDEN_DRAWER_ITEM_STYLE = { display: "none" as const };
+function RootLayoutNav() {
+  const { isAuthenticated, isLoading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+  const { colorScheme } = useColorScheme();
+  const theme = NAV_THEME[colorScheme ?? 'light'];
+
+  useEffect(() => {
+    if (isLoading) return; // Espera a que termine el hydrate()
+
+    const inAuthGroup = segments[0] === '(auth)';
+
+    if (!isAuthenticated && !inAuthGroup) {
+      router.replace('/(auth)/sign-in');
+    } else if (isAuthenticated && inAuthGroup) {
+      router.replace('/');
+    }
+  }, [isAuthenticated, isLoading, segments, router]);
+
+  if (isLoading) {
+    return (
+      <View className="flex-1 justify-center items-center bg-background">
+        <ActivityIndicator color={theme.colors.primary} /> 
+      </View>
+    );
+  }
+
+  return <Stack screenOptions={{ headerShown: false }} />;
+}
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const validateSession = useAuthStore((state) => state.validateSession);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const isRestoringSession = useAuthStore((state) => state.isRestoringSession);
-  const token = useAuthStore((state) => state.token);
-  const router = useRouter();
-  const pathname = usePathname();
-
-  const activeCommunityRole = useCommunityStore(
-    (state) => state.activeCommunityRole,
-  );
-  const isAdmin = activeCommunityRole === 1 || activeCommunityRole === 4;
-
-  useEffect(() => {
-    void validateSession();
-  }, [validateSession]);
-
-  useEffect(() => {
-    installAuthFetchInterceptor();
-    registerSessionExpiredHandler(() => {
-      useAuthStore.getState().logout();
-      router.replace("/auth/login");
-    });
-  }, [router]);
-
-  useEffect(() => {
-    scheduleJwtAutoLogout(token);
-  }, [token]);
-
-  useEffect(() => {
-    if (isRestoringSession) {
-      return;
-    }
-
-    const publicRoutes = new Set(["/", "/auth/login", "/auth/accept-invitation"]);
-
-    if (!isAuthenticated && !publicRoutes.has(pathname)) {
-      router.replace("/auth/login");
-      return;
-    }
-
-    if (isAuthenticated && pathname === "/auth/login") {
-      router.replace("/");
-    }
-  }, [isAuthenticated, isRestoringSession, pathname, router]);
+  const { colorScheme } = useColorScheme();
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-        <Drawer
-          drawerContent={(props) => <SidebarMenu {...props} />}
-          screenOptions={{ headerShown: false }}
-        >
-          <Drawer.Screen name="(tabs)" options={{ drawerLabel: "Inicio" }} />
-          <Drawer.Screen
-            name="modal"
-            options={{ drawerItemStyle: { display: "none" } }}
-          />
-          <Drawer.Screen
-            name="comunities/[comunidad_id]/incidencias"
-            options={{ headerShown: false }}
-          />
-
-          <Drawer.Screen
-            name="comunities/[comunidad_id]/chatbot"
-            options={{ headerShown: false }}
-          />
-
-          <Drawer.Screen
-            name="comunities/[comunidad_id]/actas"
-            options={{ headerShown: false }}
-          />
-
-          <Drawer.Screen
-            name="comunities/[comunidad_id]/admin"
-            options={{
-              headerShown: false,
-              drawerItemStyle: isAdmin ? undefined : HIDDEN_DRAWER_ITEM_STYLE,
-            }}
-          />
-        </Drawer>
-        <StatusBar style="auto" />
-      </ThemeProvider>
-    </GestureHandlerRootView>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <ThemeProvider value={NAV_THEME[colorScheme ?? 'light']}>
+          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+          <RootLayoutNav />
+          <PortalHost /> 
+        </ThemeProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }
