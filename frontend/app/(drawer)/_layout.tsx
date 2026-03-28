@@ -3,11 +3,15 @@ import CustomDrawerContent from '@/components/custom-drawer-content';
 import { useColorScheme } from 'nativewind';
 import { NAV_THEME } from '@/lib/theme';
 import { Icon } from '@/components/ui/icon';
-import { HomeIcon } from 'lucide-react-native';
+import { HomeIcon, FileTextIcon } from 'lucide-react-native';
+import { useAuth } from '@/context/AuthContext';
 
 export default function DrawerLayout() {
   const { colorScheme } = useColorScheme();
   const theme = NAV_THEME[colorScheme ?? 'light'];
+  const { activeCommunity } = useAuth();
+
+
 
   return (
     <Drawer
@@ -38,6 +42,21 @@ export default function DrawerLayout() {
           drawerIcon: ({ size, color }) => (
             <Icon 
               as={HomeIcon} 
+              size={size} 
+              className="text-foreground" 
+            />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/actas"
+        initialParams={{ communityId: activeCommunity?.id }}
+        options={{
+          title: 'Actas',
+          drawerLabel: 'Actas',
+          drawerIcon: ({ size, color }) => (
+            <Icon 
+              as={FileTextIcon} 
               size={size} 
               className="text-foreground" 
             />

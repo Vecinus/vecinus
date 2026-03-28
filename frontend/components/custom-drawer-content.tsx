@@ -11,9 +11,19 @@ import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { LogOutIcon, UserIcon } from 'lucide-react-native';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+  type Option,
+} from '@/components/ui/select';
 
 export default function CustomDrawerContent(props: DrawerContentComponentProps) {
-  const { user, logoutContext } = useAuth();
+  const { user, logoutContext, activeCommunity, setActiveCommunity } = useAuth();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -22,6 +32,33 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
     router.replace('/(auth)/sign-in');
   };
 
+  const handleCommunityChange = (option: Option | null) => {
+    if (!option) return;
+    
+    const selectedCommunity = user?.CommunitiesAndRole.find(
+      (c) => c.community.id === option.value
+    );
+
+    if (selectedCommunity) {
+      setActiveCommunity({
+        id: selectedCommunity.community.id,
+        name: selectedCommunity.community.name,
+        role: selectedCommunity.role,
+      });
+      router.replace(`/`);
+    }
+  };
+
+  const communityOptions: Option[] = user?.CommunitiesAndRole.map((c) => ({
+    label: c.community.name,
+    value: c.community.id,
+  })) || [];
+
+  const currentOption = activeCommunity ? {
+    label: activeCommunity.name,
+    value: activeCommunity.id,
+  } : undefined;
+
   return (
     <View className="flex-1 bg-background">
       <DrawerContentScrollView
@@ -29,7 +66,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         contentContainerStyle={{ paddingTop: insets.top }}
       >
         <View className="p-6 border-b border-border mb-4">
-          <View className="flex-row items-center gap-4">
+          <View className="flex-row items-center gap-4 mb-6">
             <View className="size-14 rounded-full bg-muted items-center justify-center border border-border">
               <Icon as={UserIcon} size={28} className="text-muted-foreground" />
             </View>
@@ -41,6 +78,37 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
                 {user?.email || 'usuario@ejemplo.com'}
               </Text>
             </View>
+          </View>
+
+          <View className="gap-2">
+            <Text className="text-xs font-semibold text-muted-foreground uppercase px-1">
+              Comunidad Activa
+            </Text>
+            <Select
+              value={currentOption}
+              onValueChange={handleCommunityChange}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue
+                  placeholder="Selecciona una comunidad"
+                  className="text-foreground text-sm"
+                />
+              </SelectTrigger>
+              <SelectContent className="w-[250px]">
+                <SelectGroup>
+                  <SelectLabel>Tus Comunidades</SelectLabel>
+                  {communityOptions.map((option) => (
+                    <SelectItem
+                      key={option!.value}
+                      label={option!.label}
+                      value={option!.value}
+                    >
+                      {option!.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </View>
         </View>
 
