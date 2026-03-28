@@ -1,73 +1,66 @@
-# Minimal Template
+# Guia de frontend
 
-This is a [React Native](https://reactnative.dev/) project built with [Expo](https://expo.dev/) and [React Native Reusables](https://reactnativereusables.com).
+Este documento va dirigido a todo aquel que trabaje en el equipo de frontend o tenga la necesidad de ejecutar el frontend.
+AVISO: TODO AQUEL QUE NO SE TOME EN SERIO EL DESARROLLO Y SE REPITA ALGO SIMILAR AL SPRINT 2 LO INVITO A ABANDONAR EL EQUIPO Y LA ASIGNATURA.
 
-It was initialized using the following command, then the `Minimal (Nativewind)` template was selected when prompted:
 
+## Instalación y ejecución
+Para instalar las dependencias del proyecto:
 ```bash
-npx @react-native-reusables/cli@latest init
+    npm install // Esto instala las dependencias del package.json
 ```
 
-## Getting Started
-
-To run the development server:
+Para ejecutar el servidor de desarrollo:
 
 ```bash
     npm run dev
-    # or
-    yarn dev
-    # or
-    pnpm dev
-    # or
-    bun dev
 ```
 
 This will start the Expo Dev Server. Open the app in:
+Esto iniciará el servidor de desarrollo de expo. Para abrir la app en alguna plataforma:
 
-- **iOS**: press `i` to launch in the iOS simulator _(Mac only)_
-- **Android**: press `a` to launch in the Android emulator
-- **Web**: press `w` to run in a browser
+- **iOS**: Pulse `i` para iniciar el emulador de ios _(Mac only)_  
+- **Android**: Pulse `a` para iniciar el emulador de android
+- **Web**: Pulse `w` para ejecutarlo en una navegador
 
-You can also scan the QR code using the [Expo Go](https://expo.dev/go) app on your device. This project fully supports running in Expo Go for quick testing on physical devices.
+Tambien podeis escanear el QR usando la app [Expo Go](https://expo.dev/go) en vuestro dispositivo.
 
-## Adding components
-
-You can add more reusable components using the CLI:
-
-```bash
-npx react-native-reusables/cli@latest add [...components]
+## Estructura del proyecto
+Seguiremos en un principio la siguiente estructura de carpetas:
+```text
+app/
+├── (drawer)/             
+│   ├── [communityId]/      
+│   │   ├── index.tsx        
+│   ├── _layout.tsx        
+│   └── home.tsx            
+└── _layout.tsx           
 ```
+Aquellas vistas que no dependan de un id se debe de avisar por el grupo para acordar la ruta
 
-> e.g. `npx react-native-reusables/cli@latest add input textarea`
+## Tecnologías usadas
 
-If you don't specify any component names, you'll be prompted to select which components to add interactively. Use the `--all` flag to install all available components at once.
-
-## Project Features
-
-- ⚛️ Built with [Expo Router](https://expo.dev/router)
-- 🎨 Styled with [Tailwind CSS](https://tailwindcss.com/) via [Nativewind](https://www.nativewind.dev/)
-- 📦 UI powered by [React Native Reusables](https://github.com/founded-labs/react-native-reusables)
-- 🚀 New Architecture enabled
-- 🔥 Edge to Edge enabled
-- 📱 Runs on iOS, Android, and Web
-
-## Learn More
-
-To dive deeper into the technologies used:
+Las tecnología que usaremos durante el desarrollo serán las siguientes:
 
 - [React Native Docs](https://reactnative.dev/docs/getting-started)
 - [Expo Docs](https://docs.expo.dev/)
 - [Nativewind Docs](https://www.nativewind.dev/)
 - [React Native Reusables](https://reactnativereusables.com)
+- [TanStack Query](https://tanstack.com/query/latest)
+- [Axios](https://axios-http.com/docs/intro)
 
-## Deploy with EAS
+## Duda frecuente:
+AVISO: AQUEL QUE PREGUNTE FRECUENTEMENTE POR ALGUNA DUDA DOCUMENTADA SU NOTA SE VERÁ AFECTADA POR ENTORPECER EL DESARROLLO.
 
-The easiest way to deploy your app is with [Expo Application Services (EAS)](https://expo.dev/eas).
+### Error FAILED TO FETCH
+Este error ocurre cuando el frontend es incapaz de comunicarse con el backend correctamente.
+Algunos motivos son:
+- El backend no está iniciado
+- El .env no está ajustado a la red a la que estamos conectados. Para corregirlo lo más facil es comprobar cual es vuestra ip mediante:
+```bash
+    ipconfig // windows
+    ip addr // linux
+```
 
-- [EAS Build](https://docs.expo.dev/build/introduction/)
-- [EAS Updates](https://docs.expo.dev/eas-update/introduction/)
-- [EAS Submit](https://docs.expo.dev/submit/introduction/)
 
----
 
-If you enjoy using React Native Reusables, please consider giving it a ⭐ on [GitHub](https://github.com/founded-labs/react-native-reusables). Your support means a lot!
