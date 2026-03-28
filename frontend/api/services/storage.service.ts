@@ -42,10 +42,10 @@ export const storageService = {
     await AsyncStorage.removeItem(USER_KEY);
   },
 
-  saveActiveCommunity: async (community: { id: string; name: string }): Promise<void> => {
+  saveActiveCommunity: async (community: { id: string; name: string; role: string }): Promise<void> => {
     await AsyncStorage.setItem(COMMUNITY_KEY, JSON.stringify(community));
   },
-  getActiveCommunity: async (): Promise<{ id: string; name: string } | null> => {
+  getActiveCommunity: async (): Promise<{ id: string; name: string; role: string } | null> => {
     const data = await AsyncStorage.getItem(COMMUNITY_KEY);
     return data ? JSON.parse(data) : null;
   },

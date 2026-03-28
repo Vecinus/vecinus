@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect, useContext, ReactNode, useMe
 import { storageService } from '@/api/services/storage.service';
 import { User } from '@/types/auth.types';
 
-type ActiveCommunity = { id: string; name: string };
+type ActiveCommunity = { id: string; name: string, role: string };
 
 interface AuthContextType {
   user: User | null;
@@ -63,7 +63,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const selectFirstCommunity = async (userData: User) => {
     if (userData.CommunitiesAndRole.length > 0) {
-      const firstCommunity = userData.CommunitiesAndRole[0].community;
+      const firstCommunity = {
+        id: userData.CommunitiesAndRole[0].community.id,
+        name: userData.CommunitiesAndRole[0].community.name,
+        role: userData.CommunitiesAndRole[0].role,
+      };
       setActiveCommunityState(firstCommunity);
       await storageService.saveActiveCommunity(firstCommunity);
     }
