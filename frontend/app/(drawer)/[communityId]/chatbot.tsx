@@ -20,7 +20,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/context/AuthContext';
@@ -661,29 +660,34 @@ export default function CommunityChatbotScreen() {
             </Card>
 
             {!isDesktop && canManageDocuments ? (
-              <Tabs
-                value={activeTab}
-                onValueChange={(value) => {
-                  setActiveTab(toChatTabValue(value));
-                }}>
-                <TabsList className="grid w-full grid-cols-2 rounded-2xl bg-muted p-1">
-                  <TabsTrigger value="chat" className="rounded-xl">
-                    <Icon as={MessageSquareIcon} size={14} />
-                    <Text>Chat</Text>
-                  </TabsTrigger>
-                  <TabsTrigger value="documents" className="rounded-xl">
-                    <Icon as={LibraryIcon} size={14} />
-                    <Text>Documentos</Text>
-                  </TabsTrigger>
-                </TabsList>
+              <View className="min-h-0 flex-1 gap-4">
+                <View className="rounded-2xl bg-muted p-1">
+                  <View className="flex-row">
+                    <Button
+                      variant={activeTab === 'chat' ? 'secondary' : 'ghost'}
+                      onPress={() => {
+                        setActiveTab(toChatTabValue('chat'));
+                      }}
+                      className="flex-1 rounded-xl">
+                      <Icon as={MessageSquareIcon} size={14} />
+                      <Text>Chat</Text>
+                    </Button>
+                    <Button
+                      variant={activeTab === 'documents' ? 'secondary' : 'ghost'}
+                      onPress={() => {
+                        setActiveTab(toChatTabValue('documents'));
+                      }}
+                      className="flex-1 rounded-xl">
+                      <Icon as={LibraryIcon} size={14} />
+                      <Text>Documentos</Text>
+                    </Button>
+                  </View>
+                </View>
 
-                <TabsContent value="chat" className="mt-4 flex-1">
-                  {renderChatArea}
-                </TabsContent>
-                <TabsContent value="documents" className="mt-4 flex-1">
-                  {renderDocumentsArea}
-                </TabsContent>
-              </Tabs>
+                <View className="min-h-0 flex-1">
+                  {activeTab === 'chat' ? renderChatArea : renderDocumentsArea}
+                </View>
+              </View>
             ) : (
               <View
                 className={cn(
