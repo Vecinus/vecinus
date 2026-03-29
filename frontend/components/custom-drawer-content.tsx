@@ -44,8 +44,9 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         id: selectedCommunity.community.id,
         name: selectedCommunity.community.name,
         role: selectedCommunity.role,
+        address: selectedCommunity.community.address ?? null,
       });
-      router.replace(`/`);
+      router.replace('/');
     }
   };
 

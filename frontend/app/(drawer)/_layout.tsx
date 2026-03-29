@@ -3,13 +3,15 @@ import CustomDrawerContent from '@/components/custom-drawer-content';
 import { useColorScheme } from 'nativewind';
 import { NAV_THEME } from '@/lib/theme';
 import { Icon } from '@/components/ui/icon';
-import { HomeIcon, FileTextIcon } from 'lucide-react-native';
+import { HomeIcon, FileTextIcon, Building2, MailIcon } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
+import { isAdminRole } from '@/utils/community-role';
 
 export default function DrawerLayout() {
   const { colorScheme } = useColorScheme();
   const theme = NAV_THEME[colorScheme ?? 'light'];
-  const { activeCommunity } = useAuth();
+  const { activeCommunity, currentRole } = useAuth();
+  const isAdmin = isAdminRole(currentRole);
 
 
 
@@ -61,6 +63,36 @@ export default function DrawerLayout() {
               className="text-foreground" 
             />
           ),
+        }}
+      />
+      <Drawer.Screen
+        name="invitations"
+        options={{
+          title: 'Invitaciones',
+          drawerLabel: 'Invitaciones',
+          drawerIcon: ({ size, color }) => (
+            <Icon
+              as={MailIcon}
+              size={size}
+              className="text-foreground"
+            />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/admin"
+        initialParams={{ communityId: activeCommunity?.id }}
+        options={{
+          title: 'Comunidad',
+          drawerLabel: 'Comunidad',
+          drawerIcon: ({ size, color }) => (
+            <Icon
+              as={Building2}
+              size={size}
+              className="text-foreground"
+            />
+          ),
+          drawerItemStyle: isAdmin ? undefined : { display: 'none' },
         }}
       />
     </Drawer>
