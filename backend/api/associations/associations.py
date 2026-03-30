@@ -617,7 +617,7 @@ def update_property(
     if not update_data:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No se enviaron datos para actualizar")
 
-    response = supabase.table("dev_s2.properties").update(update_data).eq("id", str(property_id)).execute()
+    response = supabase.table("properties").update(update_data).eq("id", str(property_id)).execute()
 
     if not response.data:
         raise HTTPException(

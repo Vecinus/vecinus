@@ -60,7 +60,7 @@ def publish_poll(
     return service.publish_poll(poll_id, publish_data)
 
 
-@router.post("/polls/{poll_id}/close", response_model=PollResponse)
+@router.post("/{poll_id}/close", response_model=PollResponse)
 def close_poll_manually(
     poll_id: UUID,
     current_user: dict = Depends(get_current_user),

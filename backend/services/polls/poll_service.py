@@ -20,13 +20,13 @@ class PollService:
             "status": "DRAFT",
         }
 
-        response = self.supabase.table("dev_s2.polls").insert(data).execute()
+        response = self.supabase.table("poll").insert(data).execute()
         if not response.data:
             raise HTTPException(status_code=400, detail="Error al crear la votación")
         return response.data[0]
 
     def get_polls_by_community(self, association_id: UUID):
-        response = self.supabase.table("dev_s2.polls").select("*").eq("association_id", str(association_id)).execute()
+        response = self.supabase.table("poll").select("*").eq("association_id", str(association_id)).execute()
         return response.data
 
     def publish_poll(self, poll_id: UUID, publish_data: PollPublish):
@@ -38,7 +38,7 @@ class PollService:
         }
 
         poll_res = (
-            self.supabase.table("dev_s2.poll")
+            self.supabase.table("poll")
             .update(update_data)
             .eq("id", str(poll_id))
             .select("association_id, title")
@@ -52,13 +52,11 @@ class PollService:
         association_id = poll_info["association_id"]
         poll_title = poll_info["title"]
 
-        assoc_res = (
-            self.supabase.table("dev_s2.neighborhood_associations").select("name").eq("id", association_id).execute()
-        )
+        assoc_res = self.supabase.table("neighborhood_associations").select("name").eq("id", association_id).execute()
         association_name = assoc_res.data[0]["name"] if assoc_res.data else "Tu Comunidad"
 
         voters_res = (
-            self.supabase.table("dev_s2.memberships")
+            self.supabase.table("memberships")
             .select("id, profiles(email, username), properties(is_defaulter)")
             .eq("association_id", association_id)
             .execute()
@@ -95,7 +93,7 @@ class PollService:
                 emails_to_send.append({"email": email, "token": new_token})
 
         if tokens_to_insert:
-            self.supabase.table("dev_s2.voting_tokens").insert(tokens_to_insert).execute()
+            self.supabase.table("voting_tokens").insert(tokens_to_insert).execute()
 
             for data in emails_to_send:
                 try:
@@ -111,7 +109,5 @@ class PollService:
         return poll_res.data[0]
 
     def close_poll_manually(self, poll_id: UUID):
-        response = (
-            self.supabase.table("dev_s2.polls").update({"status": "MANUALLY_CLOSED"}).eq("id", str(poll_id)).execute()
-        )
+        response = self.supabase.table("poll").update({"status": "MANUALLY_CLOSED"}).eq("id", str(poll_id)).execute()
         return response.data[0]
