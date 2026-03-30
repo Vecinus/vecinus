@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, FlatList, ActivityIndicator, TouchableOpacity, Modal, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, FlatList, ActivityIndicator, TouchableOpacity, Modal, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { MemberCard } from '@/components/community/MemberCard';
 import { PendingInvitationCard } from '@/components/community/PendingInvitationCard';
@@ -391,20 +392,28 @@ export default function CommunityAdminScreen() {
                     <Text className="text-slate-500 dark:text-zinc-400 text-xs">No quedan propiedades libres</Text>
                   </View>
                 ) : (
-                  <View className="flex-row flex-wrap gap-2 mb-4">
-                    {availableProperties.map((prop) => {
-                      const selected = propertyId === prop.id;
-                      return (
-                        <TouchableOpacity
-                          key={prop.id.toString()}
-                          className={`px-3 py-2 rounded-lg border ${selected ? 'bg-emerald-500 border-emerald-500' : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700'}`}
-                          activeOpacity={0.8}
-                          onPress={() => setPropertyId(prop.id)}
-                        >
-                          <Text className={`font-semibold text-xs ${selected ? 'text-white' : 'text-slate-700 dark:text-zinc-200'}`}>{prop.number}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
+                  <View className="mb-4 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl overflow-hidden">
+                    <ScrollView style={{ maxHeight: 156 }} nestedScrollEnabled showsVerticalScrollIndicator>
+                      {availableProperties.map((prop, index) => {
+                        const selected = propertyId === prop.id;
+                        const isLast = index === availableProperties.length - 1;
+                        return (
+                          <TouchableOpacity
+                            key={prop.id.toString()}
+                            className={`px-4 py-3 flex-row items-center justify-between ${!isLast ? 'border-b border-slate-200 dark:border-zinc-800' : ''} ${selected ? 'bg-emerald-600/10 dark:bg-emerald-500/20' : ''}`}
+                            activeOpacity={0.7}
+                            onPress={() => setPropertyId(prop.id)}
+                          >
+                            <Text className={`font-semibold text-[15px] ${selected ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-700 dark:text-zinc-300'}`}>
+                              {prop.number}
+                            </Text>
+                            {selected && (
+                              <View className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
                   </View>
                 )}
               </>
