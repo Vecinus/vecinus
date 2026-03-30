@@ -54,7 +54,7 @@ python-dateutil==2.9.0.post0
 python-dotenv==1.2.1
 PyYAML==6.0.3
 realtime==2.28.0
-requests==2.32.5
+requests==2.33.0
 rich==14.3.3
 six==1.17.0
 starlette==0.52.1
@@ -80,7 +80,7 @@ google-genai==1.68.0
 python-docx==1.1.2
 # AI / RAG
 langchain
-pypdf==6.8.0
+pypdf==6.9.2
 pillow==12.1.1
 tiktoken
 pinecone-client==3.1.0
