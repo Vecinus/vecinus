@@ -75,12 +75,19 @@ def get_incidents(
     user_id = current_user["id"]
     verify_association_membership(association_id, user_id, supabase)
     is_admin = (
-        supabase.table("memberships")
-        .select("role")
-        .eq("association_id", str(association_id))
-        .eq("profile_id", str(user_id))
-        .execute()
-    ).data[0].get("role") == "1"
+        str(
+            (
+                supabase.table("memberships")
+                .select("role")
+                .eq("association_id", str(association_id))
+                .eq("profile_id", str(user_id))
+                .execute()
+            )
+            .data[0]
+            .get("role")
+        )
+        == "1"
+    )
     if status == "DISCARDED" and not is_admin:
         raise HTTPException(status_code=403, detail="Admin access required for this action")
 
@@ -172,7 +179,7 @@ def create_incident(
 
     if not membership_res.data:
         raise HTTPException(status_code=403, detail="User has no access to this association")
-    elif membership_res.data[0].get("role") == "1":
+    elif str(membership_res.data[0].get("role")) == "1":
         raise HTTPException(status_code=403, detail="Admins cannot create incidents")
 
     membership_id = membership_res.data[0].get("id")
@@ -230,7 +237,7 @@ def update_incident_status(
 ):
     check_status(status)
     user_id = current_user["id"]
-    if get_user_role(supabase, association_id, user_id) not in {"1", "4", "5"}:
+    if str(get_user_role(supabase, association_id, user_id)) not in {"1", "4", "5"}:
         raise HTTPException(status_code=403, detail="Admin, president or employee access required for this action")
     elif verify_own_incident(association_id, incident_id, user_id, supabase):
         raise HTTPException(status_code=403, detail="Users cannot update the status of their own incidents")

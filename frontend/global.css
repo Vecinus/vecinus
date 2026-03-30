@@ -45,9 +45,9 @@
     /* Fondos Oscuros (Azul noche para mantener la armonía) y texto blanco */
     --background: 222 47% 11%;
     --foreground: 0 0% 98%;
-    --card: 222 47% 11%;
+    --card: 222 47% 15%;
     --card-foreground: 0 0% 98%;
-    --popover: 222 47% 11%;
+    --popover: 222 47% 15%;
     --popover-foreground: 0 0% 98%;
 
     /* Color Primario: AZUL (Un poco más claro para destacar en fondo oscuro) */

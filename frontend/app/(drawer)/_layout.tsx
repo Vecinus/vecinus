@@ -3,7 +3,7 @@ import CustomDrawerContent from '@/components/custom-drawer-content';
 import { useColorScheme } from 'nativewind';
 import { NAV_THEME } from '@/lib/theme';
 import { Icon } from '@/components/ui/icon';
-import { HomeIcon, FileTextIcon, Building2, MailIcon } from 'lucide-react-native';
+import { HomeIcon, FileTextIcon, Building2, MailIcon, AlertTriangle } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import { isAdminRole } from '@/utils/community-role';
 
@@ -61,6 +61,21 @@ export default function DrawerLayout() {
               as={FileTextIcon} 
               size={size} 
               className="text-foreground" 
+            />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/incidencias"
+        initialParams={{ communityId: activeCommunity?.id }}
+        options={{
+          title: 'Incidencias',
+          drawerLabel: 'Incidencias',
+          drawerIcon: ({ size, color }) => (
+            <Icon
+              as={AlertTriangle}
+              size={size}
+              className="text-foreground"
             />
           ),
         }}

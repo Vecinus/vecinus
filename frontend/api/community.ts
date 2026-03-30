@@ -41,7 +41,7 @@ export const communityApi = {
   getMembers: async (communityId: string): Promise<Member[]> => {
     // El frontend antiguo llamaba a: `${API_URL}/${communityId}/users`
     const { data } = await apiClient.get(`/${communityId}/users`);
-    
+
     // Mapeo defensivo para evitar fallos si el backend devuelve ids raros
     const formattedMembers: Member[] = data.map((item: any) => {
       const roleId = typeof item.role === 'number' ? item.role : parseInt(item.role, 10) || 3;

@@ -1,37 +1,9 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode, useMemo } from 'react';
 import { storageService } from '@/api/services/storage.service';
-import { apiClient } from '@/api/client';
+import { fetchUserWithCommunities } from '@/api/auth';
 import { User } from '@/types/auth.types';
 
 type ActiveCommunity = { id: string; name: string; role: string | number; address?: string | null };
-
-const fetchUserWithCommunities = async (jwtToken: string): Promise<User> => {
-  const [userResponse, communitiesResponse] = await Promise.all([
-    apiClient.get<any>('/users/me', {
-      headers: { Authorization: `Bearer ${jwtToken}` },
-    }),
-    apiClient.get<any[]>('/users/me/communities', {
-      headers: { Authorization: `Bearer ${jwtToken}` },
-    }),
-  ]);
-
-  const profile = userResponse.data;
-  const communitiesData = communitiesResponse.data;
-
-  return {
-    id: profile.id,
-    name: profile.username,
-    email: profile.email,
-    CommunitiesAndRole: communitiesData.map((membership) => ({
-      community: {
-        id: membership.neighborhood_associations.id,
-        name: membership.neighborhood_associations.name,
-        address: membership.neighborhood_associations.address ?? null,
-      },
-      role: membership.role,
-    })),
-  };
-};
 
 interface AuthContextType {
   user: User | null;
