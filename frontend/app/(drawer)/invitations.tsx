@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Alert, FlatList, Modal, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
 import { Building, Check, Inbox, ShieldCheck, User, X } from 'lucide-react-native';
 
@@ -39,7 +39,14 @@ export default function InvitationsScreen() {
   const router = useRouter();
   const { refreshUserContext, logoutContext } = useAuth();
 
-  const { data: invitations = [], isLoading, isError, error } = useMyInvitations();
+  const { data: invitations = [], isLoading, isError, error, refetch } = useMyInvitations();
+  
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
+  
   const acceptInvitation = useAcceptInvitation();
   const rejectInvitation = useRejectInvitation();
 
@@ -123,11 +130,11 @@ export default function InvitationsScreen() {
         </View>
 
         <View className="flex-row gap-3">
-          <TouchableOpacity
-            className="flex-1 h-12 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 items-center justify-center flex-row"
+          <Button
+            variant="outline"
+            className="flex-1 h-12 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20"
             onPress={() => setInvitationToReject(item.id)}
             disabled={isProcessing}
-            activeOpacity={0.7}
           >
             {isRejecting ? (
               <ActivityIndicator color="#ef4444" />
@@ -137,25 +144,24 @@ export default function InvitationsScreen() {
                 <Text className="text-red-500 font-semibold ml-2">Rechazar</Text>
               </>
             )}
-          </TouchableOpacity>
+          </Button>
 
-          <TouchableOpacity
-            className="flex-1 h-12 rounded-xl bg-indigo-600 items-center justify-center flex-row"
+          <Button
+            className="flex-1 h-12"
             onPress={() => {
               void handleAccept(item.id);
             }}
             disabled={isProcessing}
-            activeOpacity={0.8}
           >
             {isAccepting ? (
               <ActivityIndicator color="#ffffff" />
             ) : (
               <>
                 <Check size={18} color="#ffffff" />
-                <Text className="text-white font-semibold ml-2">Aceptar</Text>
+                <Text className="text-primary-foreground font-semibold ml-2">Aceptar</Text>
               </>
             )}
-          </TouchableOpacity>
+          </Button>
         </View>
       </View>
     );
@@ -224,16 +230,17 @@ export default function InvitationsScreen() {
                 onPress={() => setInvitationToReject(null)}
                 disabled={!!rejectingId}
               >
-                <Text>Cancelar</Text>
+                <Text className="font-semibold text-foreground">Cancelar</Text>
               </Button>
               <Button
-                className="flex-1 h-12 bg-red-500"
+                variant="outline"
+                className="flex-1 h-12 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20"
                 onPress={() => {
                   void handleReject();
                 }}
                 disabled={!!rejectingId}
               >
-                {rejectingId ? <ActivityIndicator color="#fff" /> : <Text className="text-white">Rechazar</Text>}
+                {rejectingId ? <ActivityIndicator color="#dc2626" /> : <Text className="font-semibold text-red-600 dark:text-red-400">Rechazar</Text>}
               </Button>
             </View>
           </View>

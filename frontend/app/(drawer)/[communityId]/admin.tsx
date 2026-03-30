@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, FlatList, ActivityIndicator, TouchableOpacity, Modal, KeyboardAvoidingView, Platform } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -65,9 +65,21 @@ export default function CommunityAdminScreen() {
   const [propertyError, setPropertyError] = useState('');
 
   // --- Queries ---
-  const { data: members, isLoading: isLoadingMembers, isError, error: membersError } = useCommunityMembers(communityId, isAdmin);
-  const { data: pendingInvitations } = usePendingInvitations(communityId, isAdmin);
-  const { data: availableProperties, isLoading: isLoadingProperties } = useAvailableProperties(communityId, isAdmin);
+  const { data: members, isLoading: isLoadingMembers, isError, error: membersError, refetch: refetchMembers } = useCommunityMembers(communityId, isAdmin);
+  const { data: pendingInvitations, refetch: refetchInvitations } = usePendingInvitations(communityId, isAdmin);
+  const { data: availableProperties, isLoading: isLoadingProperties, refetch: refetchProperties } = useAvailableProperties(communityId, isAdmin);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (communityId) {
+        refetchMembers();
+        if (isAdmin) {
+          refetchInvitations();
+          refetchProperties();
+        }
+      }
+    }, [communityId, isAdmin])
+  );
 
   // --- Mutations ---
   const { mutate: deleteMember, isPending: isDeleting } = useDeleteMember(communityId);
@@ -164,7 +176,7 @@ export default function CommunityAdminScreen() {
   // --- RENDER ---
   if (isLoadingMembers) {
     return (
-      <View className="flex-1 items-center justify-center bg-slate-50 dark:bg-zinc-950">
+      <View className="flex-1 items-center justify-center bg-background">
         <ActivityIndicator size="large" color="#4f46e5" />
         <Text className="mt-4 text-slate-500 font-semibold tracking-wide">Construyendo directorio...</Text>
       </View>
@@ -173,7 +185,7 @@ export default function CommunityAdminScreen() {
 
   if (!communityId) {
     return (
-      <View className="flex-1 items-center justify-center bg-slate-50 dark:bg-zinc-950">
+      <View className="flex-1 items-center justify-center bg-background">
         <ActivityIndicator size="large" color="#4f46e5" />
         <Text className="mt-4 text-slate-500 font-semibold tracking-wide">Resolviendo comunidad activa...</Text>
       </View>
@@ -182,7 +194,7 @@ export default function CommunityAdminScreen() {
 
   if (!isAdmin) {
     return (
-      <View className="flex-1 items-center justify-center bg-slate-50 dark:bg-zinc-950">
+      <View className="flex-1 items-center justify-center bg-background">
         <ActivityIndicator size="large" color="#4f46e5" />
         <Text className="mt-4 text-slate-500 font-semibold tracking-wide">Redirigiendo...</Text>
       </View>
@@ -200,7 +212,7 @@ export default function CommunityAdminScreen() {
           : detail || 'No pudimos conectar con los servidores de tu comunidad. Si estas trabajando en local, asegurate de que `EXPO_PUBLIC_BACKEND_URL` apunte a tu IP local y no a localhost con el tunel.';
 
     return (
-      <View className="flex-1 items-center justify-center bg-slate-50 dark:bg-zinc-950 p-8">
+      <View className="flex-1 items-center justify-center bg-background p-8">
         <View className="w-16 h-16 bg-red-100 dark:bg-red-900/40 rounded-full items-center justify-center mb-6">
           <AlertTriangle size={32} color="#ef4444" />
         </View>
@@ -231,10 +243,10 @@ export default function CommunityAdminScreen() {
   }
 
   return (
-    <View style={{ flex: 1, paddingBottom: insets.bottom }} className="bg-slate-50 dark:bg-zinc-950">
+    <View style={{ flex: 1, paddingBottom: insets.bottom }} className="bg-background">
 
       {/* Banner de la comunidad: compacto para movil */}
-      <View className="mx-5 mt-3 mb-4 rounded-2xl overflow-hidden bg-white dark:bg-zinc-900 shadow-md shadow-slate-200/70 dark:shadow-none border border-slate-100 dark:border-zinc-800">
+      <View className="mx-5 mt-3 mb-4 rounded-2xl overflow-hidden bg-white dark:bg-card/95 shadow-md shadow-slate-200/70 dark:shadow-none border border-slate-100 dark:border-zinc-800">
         <View className="px-4 py-3 flex-row items-center">
           <View className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center">
             <Building color="#ffffff" size={22} strokeWidth={2.5} />
@@ -297,7 +309,7 @@ export default function CommunityAdminScreen() {
             <View className="flex-row items-center justify-between mt-2 mb-5">
               <View className="flex-row items-center">
                 <Users className="text-slate-800 dark:text-slate-200" size={26} strokeWidth={2.5} />
-                <Text className="text-2xl font-black text-slate-900 dark:text-white ml-3 tracking-tight">Directorio de vecinos</Text>
+                <Text className="text-2xl font-black text-slate-900 dark:text-white ml-3 tracking-tight">Listado de vecinos</Text>
               </View>
               <View className="bg-slate-200 dark:bg-zinc-800 px-3 py-1 rounded-full">
                 <Text className="text-xs font-bold text-slate-600 dark:text-zinc-400">
@@ -311,7 +323,7 @@ export default function CommunityAdminScreen() {
 
       {/* FOOTER ACTION BUTTONS */}
       {isAdmin && (
-        <View className="absolute bottom-0 w-full px-5 py-4 bg-white/90 dark:bg-zinc-950/95 border-t border-slate-200/60 dark:border-zinc-800/50 backdrop-blur-3xl flex-row gap-4">
+        <View className="absolute bottom-0 w-full px-5 py-4 bg-white/90 dark:bg-card/95 border-t border-slate-200/60 dark:border-border/50 backdrop-blur-3xl flex-row gap-4">
           <Button 
             className="flex-1 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-500 shadow-lg shadow-indigo-200/60 dark:shadow-none h-14 rounded-2xl flex-row items-center" 
             onPress={() => setInviteModalVisible(true)}
@@ -453,25 +465,30 @@ export default function CommunityAdminScreen() {
       {/* --- MODAL ELIMINAR --- */}
       <Modal visible={deleteModalVisible} animationType="fade" transparent>
         <View className="flex-1 justify-center bg-black/45 px-6">
-          <View className="bg-white dark:bg-zinc-900 rounded-3xl p-6 border border-slate-200 dark:border-zinc-700">
+          <View className="bg-white dark:bg-card rounded-3xl p-6 border border-slate-200 dark:border-border">
             <View className="w-14 h-14 bg-red-50 dark:bg-red-900/25 rounded-2xl items-center justify-center mb-4 self-center">
               <AlertTriangle color="#ef4444" size={28} strokeWidth={2.5} />
             </View>
-            <Text className="text-xl font-bold text-slate-900 dark:text-white mb-2 text-center">Eliminar Vecino</Text>
-            <Text className="text-sm text-slate-500 dark:text-zinc-300 text-center leading-relaxed mb-6">
-              ¿Estás seguro de expulsar a <Text className="font-bold text-slate-800 dark:text-zinc-200">{memberToDelete.name}</Text>? Se le revocará todo el acceso.
+            <Text className="text-xl font-bold text-slate-900 dark:text-foreground mb-2 text-center">Eliminar Vecino</Text>
+            <Text className="text-sm text-slate-500 dark:text-muted-foreground text-center leading-relaxed mb-6">
+              ¿Estás seguro de expulsar a <Text className="font-bold text-slate-800 dark:text-foreground">{memberToDelete.name}</Text>? Se le revocará todo el acceso.
             </Text>
             <View className="flex-row gap-3 mt-1">
               <Button
                 variant="outline"
-                className="flex-1 h-12 border-slate-200 dark:border-zinc-700 bg-transparent"
+                className="flex-1 h-12"
                 onPress={() => setDeleteModalVisible(false)}
                 disabled={isDeleting}
               >
-                <Text className="font-semibold text-slate-700 dark:text-zinc-200">Cancelar</Text>
+                <Text className="font-semibold text-foreground">Cancelar</Text>
               </Button>
-              <Button className="flex-1 h-12 bg-red-500" onPress={confirmDelete} disabled={isDeleting}>
-                {isDeleting ? <ActivityIndicator color="#fff" /> : <Text className="text-white">Expulsar</Text>}
+              <Button
+                variant="outline"
+                className="flex-1 h-12 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20"
+                onPress={confirmDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? <ActivityIndicator color="#dc2626" /> : <Text className="font-semibold text-red-600 dark:text-red-400">Expulsar</Text>}
               </Button>
             </View>
           </View>
