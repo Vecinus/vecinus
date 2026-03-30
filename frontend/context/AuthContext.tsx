@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { storageService } from '@/api/services/storage.service';
 import { fetchUserWithCommunities } from '@/api/auth';
 import { User } from '@/types/auth.types';
@@ -25,6 +26,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeCommunity, setActiveCommunityState] = useState<ActiveCommunity | null>(null);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const hydrate = async () => {
@@ -164,7 +166,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
     setToken(null);
     setActiveCommunityState(null);
-    await storageService.clearAll(); 
+    await storageService.clearAll();
+    queryClient.clear();
   };
 
   return (
