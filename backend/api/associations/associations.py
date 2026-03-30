@@ -1,8 +1,9 @@
 from datetime import datetime, timedelta, timezone
 from typing import List
+from uuid import UUID
 
 from core.deps import get_current_user, get_supabase, get_supabase_admin, get_supabase_anon
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel  # <-- NUEVO IMPORT
 from schemas.associations import (
     AcceptInvitationRequest,
@@ -11,6 +12,7 @@ from schemas.associations import (
     InviteAdminRequest,
     InviteTenantRequest,
     MembershipWithCommunity,
+    PropertyUpdate,
     UserMeResponse,
 )
 from services.email_service import ROLE_LABELS, send_invitation_email
@@ -598,3 +600,28 @@ def get_pending_community_invitations(
     )
 
     return response.data
+
+
+@router.patch("/properties/{property_id}")
+def update_property(
+    property_id: UUID,
+    property_data: PropertyUpdate,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+):
+    """
+    Actualiza el coeficiente (cuota) o el estado de morosidad de una propiedad.
+    """
+    update_data = property_data.model_dump(exclude_unset=True)
+
+    if not update_data:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No se enviaron datos para actualizar")
+
+    response = supabase.table("dev_s2.properties").update(update_data).eq("id", str(property_id)).execute()
+
+    if not response.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Propiedad no encontrada o no se pudo actualizar"
+        )
+
+    return response.data[0]

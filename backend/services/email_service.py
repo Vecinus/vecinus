@@ -163,3 +163,39 @@ ROLE_LABELS = {
     4: "Presidente",
     5: "Empleado",
 }
+
+
+def send_voting_email(self, to_email: str, association_name: str, poll_title: str, token: str):
+    subject = f"Nueva votación en tu comunidad: {poll_title}"
+    voting_link = f"{settings.FRONTEND_URL}/votar?token={token}"
+
+    html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 8px;">
+                    <h2 style="color: #2c3e50;">¡Hola!</h2>
+                    <p>Se ha publicado una nueva votación vinculante en tu comunidad <strong>{association_name}</strong> a través de Vecinus.</p>
+                    
+                    <div style="background-color: #f8f9fa; padding: 15px; border-left: 4px solid #0056b3; margin: 20px 0;">
+                        <strong>Asunto a votar:</strong><br>
+                        {poll_title}
+                    </div>
+
+                    <p>Para ejercer tu derecho a voto, haz clic en el siguiente enlace personal e intransferible:</p>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="{voting_link}" style="background-color: #0056b3; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                            Votar Ahora
+                        </a>
+                    </div>
+                    
+                    <p style="font-size: 0.9em; color: #666;">
+                        <em>* Nota legal: Este enlace es de un único uso. Al emitir tu voto, tu cuota de participación quedará registrada de forma inmutable.</em>
+                    </p>
+                    <br>
+                    <p>Saludos,<br>El equipo de Vecinus</p>
+                </div>
+            </body>
+        </html>
+        """
+    self.send_email(to_email, subject, html_content)
