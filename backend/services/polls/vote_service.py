@@ -31,7 +31,7 @@ class VoteService:
         if now > datetime.fromisoformat(token_info["expires_at"]):
             raise HTTPException(status_code=403, detail="El plazo para votar con este enlace ha expirado")
 
-        poll_res = self.supabase.table("polls").select("options").eq("id", str(poll_id)).execute()
+        poll_res = self.supabase.table("poll").select("options").eq("id", str(poll_id)).execute()
         valid_options = poll_res.data[0]["options"]
         if vote_data.selected_option not in valid_options:
             raise HTTPException(status_code=400, detail="La opción seleccionada no es válida para esta votación")
@@ -59,7 +59,7 @@ class VoteService:
         }
 
         try:
-            vote_res = self.supabase.table("votes").insert(vote_insert_data).execute()
+            vote_res = self.supabase.table("vote").insert(vote_insert_data).execute()
         except Exception as e:
             raise HTTPException(
                 status_code=400, detail=f"Ya se ha registrado un voto para esta propiedad, error: {str(e)}"
