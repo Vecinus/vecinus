@@ -1,13 +1,12 @@
 import React, { useState } from "react";
-import { View, TouchableOpacity, ScrollView, Alert, Platform } from "react-native";
+import { View, ScrollView, Alert, Platform, TouchableOpacity } from "react-native";
 import { Image } from "expo-image";
 import { useNavigation, ParamListBase } from "@react-navigation/native";
 import { DrawerNavigationProp } from "@react-navigation/drawer";
-import { Menu, FileText, MessageSquare, CalendarDays, BellRing, ChevronRight, LucideIcon } from "lucide-react-native";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { FileText, MessageSquare, CalendarDays, BellRing, ChevronRight, LucideIcon } from "lucide-react-native";
 import { Text } from "@/components/ui/text";
 import { API_URL, globalJwtToken } from "@/constants/api";
+import { FeedbackSection } from "@/components/send-feedback";
 
 interface FeatureProps {
   Icon: LucideIcon;
@@ -16,15 +15,15 @@ interface FeatureProps {
 }
 
 const Feature = ({ Icon, title, desc }: FeatureProps) => (
-  <View className="flex-row items-center bg-card border border-border rounded-2xl p-4">
+  <View className="flex-row items-center bg-card border border-border rounded-2xl p-4 w-full">
     <View className="w-14 h-14 rounded-xl items-center justify-center bg-blue-100 dark:bg-blue-900/30 mr-4">
       <Icon size={26} color="#5c90cf" />
     </View>
-    <View className="flex-1">
-      <Text className="font-semibold text-base text-card-foreground">
+    <View className="flex-1 items-center">
+      <Text className="font-semibold text-base text-card-foreground text-center">
         {title}
       </Text>
-      <Text className="text-sm text-muted-foreground">
+      <Text className="text-sm text-muted-foreground text-center">
         {desc}
       </Text>
     </View>
@@ -91,50 +90,31 @@ export default function HomeScreen() {
         </View>
 
         <View className="px-5 md:px-10 max-w-3xl w-full self-center">
-          <View className="mb-10">
-            <Text className="text-3xl font-extrabold text-foreground mb-2">
+          <View className="mb-10 items-center">
+            <Text className="text-3xl font-extrabold text-foreground mb-2 text-center">
               Bienvenido a Vecinus
             </Text>
-            <Text className="text-blue-500 font-semibold mb-3">
+            <Text className="text-blue-500 font-semibold mb-3 text-center">
               Tu comunidad conectada
             </Text>
-            <Text className="text-muted-foreground">
+            <Text className="text-muted-foreground text-center">
               Gestiona tu comunidad desde un solo lugar.
             </Text>
           </View>
 
-          <View className="bg-card border border-border rounded-2xl p-5 mb-10">
-            <Text className="text-lg font-semibold text-card-foreground mb-1">
-              Feedback
-            </Text>
-            <Text className="text-muted-foreground mb-4">
-              Ayúdanos a mejorar Vecinus.
-            </Text>
+          <FeedbackSection
+            feedback={feedback}
+            setFeedback={setFeedback}
+            isSubmitting={isSubmitting}
+            onSubmit={handleFeedbackSubmit}
+          />
 
-            <Input
-              value={feedback}
-              onChangeText={setFeedback}
-              placeholder="Escribe tu comentario..."
-              multiline
-              numberOfLines={6}
-              maxLength={2000}
-              className="h-[120px] mb-4"
-              style={{ textAlignVertical: "top" }}
-            />
-
-            <Button onPress={handleFeedbackSubmit} disabled={isSubmitting}>
-              <Text className="text-primary-foreground font-bold">
-                {isSubmitting ? "Enviando..." : "Enviar feedback"}
-              </Text>
-            </Button>
-          </View>
-
-          <View className="mb-6">
-            <Text className="text-xl font-bold text-foreground mb-4">
+          <View className="mb-6 items-center">
+            <Text className="text-xl font-bold text-foreground mb-4 text-center">
               Qué puedes hacer
             </Text>
 
-            <View className="gap-4 md:flex-row md:flex-wrap">
+            <View className="gap-4 md:flex-row md:flex-wrap w-full">
               <View className="md:w-[48%]">
                 <Feature
                   Icon={FileText}
@@ -171,11 +151,9 @@ export default function HomeScreen() {
 
           <TouchableOpacity
             onPress={() => navigation.openDrawer()}
-            className="bg-blue-500 rounded-2xl py-4 flex-row items-center justify-center mt-4"
+            className="bg-blue-500 rounded-2xl py-4 px-6 flex-row items-center justify-center mt-4 self-center min-w-[180px]"
           >
-            <Text className="text-white font-extrabold text-lg mr-2">
-              Explorar
-            </Text>
+            <Text className="text-white font-extrabold text-lg mr-2">Explorar</Text>
             <ChevronRight color="white" size={22} />
           </TouchableOpacity>
         </View>
