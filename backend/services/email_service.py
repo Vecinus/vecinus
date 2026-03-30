@@ -165,8 +165,8 @@ ROLE_LABELS = {
 }
 
 
-def send_voting_email(self, to_email: str, association_name: str, poll_title: str, token: str):
-    subject = f"Nueva votación en tu comunidad: {poll_title}"
+def send_voting_email(to_email: str, association_name: str, poll_title: str, token: str) -> None:
+    resend.api_key = settings.RESEND_API_KEY
     voting_link = f"{settings.FRONTEND_URL}/votar?token={token}"
 
     html_content = f"""
@@ -198,4 +198,15 @@ def send_voting_email(self, to_email: str, association_name: str, poll_title: st
             </body>
         </html>
         """
-    self.send_email(to_email, subject, html_content)
+    try:
+        resend.Emails.send(
+            {
+                "from": SENDER,
+                "to": [to_email],
+                "subject": f"Nueva votación en tu comunidad: {poll_title}",
+                "html": html_content,
+            }
+        )
+        logger.info("Voting email sent to %s", to_email)
+    except Exception as e:
+        logger.error("Failed to send voting email to %s: %s", to_email, str(e))
