@@ -28,7 +28,7 @@ class RoleService:
         Si no lo es, lanza un Error 403 (Forbidden) automáticamente.
         """
         response = (
-            supabase_client.table("dev_s2.memberships")
+            supabase_client.table("memberships")
             .select("role, roles(role)")
             .eq("profile_id", str(user_id))
             .eq("association_id", str(association_id))

@@ -6,11 +6,11 @@ class EscrutinioService:
         self.supabase = supabase_admin_client
 
     def calculate_results(self, poll_id: UUID, association_id: UUID):
-        poll_res = self.supabase.table("dev_s2.poll").select("options").eq("id", str(poll_id)).execute()
+        poll_res = self.supabase.table("poll").select("options").eq("id", str(poll_id)).execute()
         options = poll_res.data[0]["options"]
 
         props_res = (
-            self.supabase.table("dev_s2.properties")
+            self.supabase.table("properties")
             .select("coefficient, is_defaulter")
             .eq("association_id", str(association_id))
             .execute()
@@ -25,7 +25,7 @@ class EscrutinioService:
                 eligible_coefficient += float(prop["coefficient"])
 
         votes_res = (
-            self.supabase.table("dev_s2.vote")
+            self.supabase.table("vote")
             .select("selected_option, coefficient_snapshot, is_presumed_vote, memberships(properties(number))")
             .eq("poll_id", str(poll_id))
             .execute()

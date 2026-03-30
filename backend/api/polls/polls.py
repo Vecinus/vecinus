@@ -15,7 +15,7 @@ from supabase import Client
 router = APIRouter(prefix="/polls", tags=["Votaciones"])
 
 
-@router.post("/associations/{association_id}/polls", response_model=PollResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/associations/{association_id}", response_model=PollResponse, status_code=status.HTTP_201_CREATED)
 def create_poll(
     association_id: UUID,
     poll_data: PollCreate,
@@ -48,7 +48,7 @@ def publish_poll(
     """Publica una votación y envía los links mágicos (Solo Admins)."""
     user_id = current_user["id"]
 
-    poll_res = supabase.table("dev_s2.poll").select("association_id").eq("id", str(poll_id)).execute()
+    poll_res = supabase.table("poll").select("association_id").eq("id", str(poll_id)).execute()
     if not poll_res.data:
         raise HTTPException(status_code=404, detail="Votación no encontrada")
 
@@ -69,7 +69,7 @@ def close_poll_manually(
     """Fuerza el cierre de una votación (Solo Admins)."""
     user_id = current_user["id"]
 
-    poll_res = supabase.table("dev_s2.poll").select("association_id").eq("id", str(poll_id)).execute()
+    poll_res = supabase.table("poll").select("association_id").eq("id", str(poll_id)).execute()
     if not poll_res.data:
         raise HTTPException(status_code=404, detail="Votación no encontrada")
 
@@ -88,7 +88,7 @@ def cast_vote(poll_id: UUID, vote_data: VoteCreate, supabase: Client = Depends(g
     return service.cast_vote(poll_id, vote_data)
 
 
-@router.get("/{association_id}/polls/{poll_id}/results", response_model=PollResultResponse)
+@router.get("/{association_id}/{poll_id}/results", response_model=PollResultResponse)
 def get_poll_results(association_id: UUID, poll_id: UUID, supabase: Client = Depends(get_supabase_admin)):
     """Genera el escrutinio de la votación (Doble mayoría: Personas y Cuotas)."""
     service = EscrutinioService(supabase)
