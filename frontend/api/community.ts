@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import { ROLE_LABELS } from '@/utils/role.util';
 
 export interface Member {
   id: string;
@@ -29,14 +30,6 @@ export interface UserInvitation {
   date: string;
 }
 
-const ROLE_NAMES: Record<number, string> = {
-  1: 'Administrador',
-  2: 'Propietario',
-  3: 'Inquilino',
-  4: 'Presidente',
-  5: 'Empleado',
-};
-
 export const communityApi = {
   getMembers: async (communityId: string): Promise<Member[]> => {
     // El frontend antiguo llamaba a: `${API_URL}/${communityId}/users`
@@ -50,7 +43,7 @@ export const communityApi = {
         membershipId: item.membership_id,
         name: item.username || 'Usuario sin nombre',
         roleId,
-        roleName: ROLE_NAMES[roleId] || 'Desconocido',
+        roleName: ROLE_LABELS[roleId] || 'Desconocido',
       };
     });
 
@@ -120,7 +113,7 @@ export const communityApi = {
       const roleName =
         item.roleName ??
         item.role_name ??
-        ROLE_NAMES[roleId] ??
+        ROLE_LABELS[roleId] ??
         'Miembro';
       const date = item.date ?? item.created_at ?? new Date().toISOString();
 
@@ -144,14 +137,14 @@ export const communityApi = {
 
   getRolesOptions: () => {
     return [
-      { id: 2, label: ROLE_NAMES[2] },
-      { id: 3, label: ROLE_NAMES[3] },
-      { id: 4, label: ROLE_NAMES[4] },
-      { id: 5, label: ROLE_NAMES[5] },
+      { id: 2, label: ROLE_LABELS[2] },
+      { id: 3, label: ROLE_LABELS[3] },
+      { id: 4, label: ROLE_LABELS[4] },
+      { id: 5, label: ROLE_LABELS[5] },
     ];
   },
 
   getRoleName: (roleId: number) => {
-    return ROLE_NAMES[roleId] || 'Desconocido';
+    return ROLE_LABELS[roleId] || 'Desconocido';
   }
 };
