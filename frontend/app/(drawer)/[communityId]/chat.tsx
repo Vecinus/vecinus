@@ -459,7 +459,7 @@ export default function CommunityChatScreen() {
                     );
                     setComposerHeight(nextHeight);
                   }}
-                  placeholder="Escribe un mensaje para tu comunidad..."
+                  placeholder="Escribe tu mensaje"
                   numberOfLines={1}
                   scrollEnabled={composerHeight >= CHAT_COMPOSER_MAX_HEIGHT}
                   style={{ height: composerHeight, maxHeight: CHAT_COMPOSER_MAX_HEIGHT }}
