@@ -15,7 +15,26 @@ def login(user: UserLogin, supabase: Client = Depends(get_supabase_anon)):
         if not getattr(session, "session", None):
             raise HTTPException(status_code=401, detail="Credenciales incorrectas")
 
-        return session
+        user_id = session.session.user.id
+        user_data = supabase.table("profiles").select("""
+            id,
+            username,
+            email,
+            avatar_url,
+            memberships(
+                neighborhood_associations(
+                    id,
+                    name
+                ),
+                role
+            )
+            """).eq("id", user_id).single().execute()
+
+        if not user_data.data:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+        return {"userdata": user_data.data, "session": session}
+
     except HTTPException:
         raise
     except AuthApiError as aae:
