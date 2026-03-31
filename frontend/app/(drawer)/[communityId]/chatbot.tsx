@@ -17,7 +17,7 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
@@ -25,7 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import type { ChatMessage, UploadDocumentFile } from '@/types/chatbot.types';
-import { isAdministratorRole } from '@/utils/role.util';
+import { ADMIN_ROLE_ID } from '@/utils/role.util';
 import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams } from 'expo-router';
 import {
@@ -46,14 +46,35 @@ import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
+  type NativeSyntheticEvent,
   Platform,
   Pressable,
   ScrollView,
+  type TextInputContentSizeChangeEventData,
   View,
   useWindowDimensions,
 } from 'react-native';
 
 type ChatTabValue = 'chat' | 'documents';
+const CHAT_COMPOSER_MIN_HEIGHT = 24;
+const CHAT_COMPOSER_MAX_HEIGHT = 132;
+
+function toRoleId(role: string | number | null | undefined): number | null {
+  if (typeof role === 'number' && Number.isFinite(role)) {
+    return role;
+  }
+
+  if (typeof role === 'string') {
+    const parsedRole = Number.parseInt(role, 10);
+    return Number.isNaN(parsedRole) ? null : parsedRole;
+  }
+
+  return null;
+}
+
+function isAdministratorRole(role: string | number | null | undefined): boolean {
+  return toRoleId(role) === ADMIN_ROLE_ID;
+}
 
 function buildMessage(
   partial: Omit<ChatMessage, 'id' | 'createdAt'> & { id?: string; createdAt?: string }
@@ -175,6 +196,7 @@ export default function CommunityChatbotScreen() {
   const [selectedFile, setSelectedFile] = React.useState<UploadDocumentFile | null>(null);
   const [feedbackMessage, setFeedbackMessage] = React.useState<string | null>(null);
   const [pendingDeleteTitle, setPendingDeleteTitle] = React.useState<string | null>(null);
+  const [composerHeight, setComposerHeight] = React.useState(CHAT_COMPOSER_MIN_HEIGHT);
 
   const membership = React.useMemo(() => {
     return (
@@ -258,6 +280,7 @@ export default function CommunityChatbotScreen() {
 
     setMessages((currentMessages) => [...currentMessages, userMessage]);
     setQuestion('');
+    setComposerHeight(CHAT_COMPOSER_MIN_HEIGHT);
 
     try {
       const response = await sendQuestionMutation.mutateAsync({
@@ -280,6 +303,18 @@ export default function CommunityChatbotScreen() {
       );
     }
   }, [normalizedCommunityId, question, sendQuestionMutation]);
+
+  const handleComposerSizeChange = React.useCallback(
+    (event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>) => {
+      const nextHeight = Math.max(
+        CHAT_COMPOSER_MIN_HEIGHT,
+        Math.min(CHAT_COMPOSER_MAX_HEIGHT, Math.ceil(event.nativeEvent.contentSize.height))
+      );
+
+      setComposerHeight(nextHeight);
+    },
+    []
+  );
 
   const handlePickDocument = React.useCallback(async () => {
     try {
@@ -383,22 +418,6 @@ export default function CommunityChatbotScreen() {
 
   const renderChatArea = (
     <Card className="min-h-0 flex-1 gap-0 overflow-hidden py-0">
-      <CardHeader className="gap-2 border-b border-border px-4 py-4">
-        <View className="flex-row items-start justify-between gap-3">
-          <View className="flex-1">
-            <CardTitle className="text-xl">Asistente Vecinus</CardTitle>
-            <CardDescription className="mt-0">
-              Respuestas contextualizadas para la comunidad {communityName}.
-            </CardDescription>
-          </View>
-          <Badge variant="outline" className="border-primary/30 bg-primary/5">
-            <Text className="text-xs text-primary">
-              {canManageDocuments ? 'Administrador' : 'Miembro'}
-            </Text>
-          </Badge>
-        </View>
-      </CardHeader>
-
       <View className="flex-1 bg-muted/30">
         <FlatList
           ref={flatListRef}
@@ -439,32 +458,29 @@ export default function CommunityChatbotScreen() {
           </Alert>
         ) : null}
 
-        <Textarea
-          value={question}
-          onChangeText={setQuestion}
-          placeholder="Haz una pregunta sobre la comunidad..."
-          numberOfLines={4}
-          className="min-h-24 bg-background"
-        />
-
-        <View className="flex-row items-center justify-between gap-3">
-          <Text className="flex-1 text-sm text-muted-foreground">
-            El backend es stateless: cada consulta se resuelve contra la base documental disponible.
-          </Text>
+        <View className="flex-row items-end gap-3 rounded-3xl border border-border bg-background px-3 py-2">
+          <Textarea
+            value={question}
+            onChangeText={setQuestion}
+            onContentSizeChange={handleComposerSizeChange}
+            placeholder="Haz una pregunta sobre la comunidad..."
+            numberOfLines={1}
+            scrollEnabled={composerHeight >= CHAT_COMPOSER_MAX_HEIGHT}
+            style={{ height: composerHeight, maxHeight: CHAT_COMPOSER_MAX_HEIGHT }}
+            className="min-h-0 flex-1 border-0 bg-transparent px-0 py-1 shadow-none"
+          />
 
           <Button
             onPress={() => {
               void handleSend();
             }}
             disabled={!question.trim() || sendQuestionMutation.isPending}
-            className="h-12 rounded-full px-5">
+            size="icon"
+            className="size-11 rounded-full">
             {sendQuestionMutation.isPending ? (
               <ActivityIndicator color="white" />
             ) : (
-              <>
-                <Icon as={SendIcon} size={16} className="text-primary-foreground" />
-                <Text>Enviar</Text>
-              </>
+              <Icon as={SendIcon} size={16} className="text-primary-foreground" />
             )}
           </Button>
         </View>
@@ -475,23 +491,11 @@ export default function CommunityChatbotScreen() {
   const renderDocumentsArea = canManageDocuments ? (
     <Card
       className={cn(
-        'min-h-0 gap-0 overflow-hidden py-0',
-        isDesktop ? 'h-full max-h-[calc(100vh-12rem)] w-[360px]' : 'flex-1'
+        'min-h-0 flex-1 gap-0 overflow-hidden py-0',
+        isDesktop ? 'h-full max-h-[calc(100vh-12rem)] w-[360px]' : ''
       )}>
-      <CardHeader className="gap-2 border-b border-border px-4 py-4">
-        <View className="flex-row items-center justify-between gap-3">
-          <View className="flex-row items-center gap-3">
-            <View className="rounded-2xl bg-primary/10 p-3">
-              <Icon as={LibraryIcon} size={18} className="text-primary" />
-            </View>
-            <View>
-              <CardTitle>Documentos del bot</CardTitle>
-              <CardDescription className="mt-0">
-                Índice RAG para respuestas de la comunidad.
-              </CardDescription>
-            </View>
-          </View>
-
+      <CardHeader className="border-b border-border px-4 py-4">
+        <View className="flex-row justify-end">
           <Button
             variant="outline"
             size="icon"
@@ -521,7 +525,7 @@ export default function CommunityChatbotScreen() {
             }}
             className="h-12 justify-start rounded-2xl px-4">
             <Icon as={PaperclipIcon} size={16} className="text-foreground" />
-            <Text className="flex-1 text-left">
+            <Text className="flex-1 text-left" numberOfLines={1}>
               {selectedFile ? selectedFile.name : 'Seleccionar PDF o TXT'}
             </Text>
           </Button>
@@ -532,7 +536,7 @@ export default function CommunityChatbotScreen() {
                 setSelectedFile(null);
               }}
               className="rounded-xl border border-dashed border-border bg-muted/50 px-4 py-3">
-              <Text className="text-sm font-medium text-foreground">
+              <Text className="text-sm font-medium text-foreground" numberOfLines={1}>
                 Archivo listo: {selectedFile.name}
               </Text>
               <Text className="mt-1 text-xs text-muted-foreground">
@@ -645,20 +649,6 @@ export default function CommunityChatbotScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View className="flex-1 bg-background p-4">
           <View className="mb-4 min-h-0 flex-1 gap-4">
-            <Card className="rounded-3xl border-primary/15 bg-primary/5 py-0">
-              <CardContent className="flex-row items-center gap-4 px-4 py-4">
-                <View className="rounded-2xl bg-primary/15 p-3">
-                  <Icon as={MessageSquareIcon} size={20} className="text-primary" />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-base font-semibold text-foreground">{communityName}</Text>
-                  <Text className="text-sm text-muted-foreground">
-                    Chatbot comunitario migrado a `expo-router`, `nativewind` y `react-query`.
-                  </Text>
-                </View>
-              </CardContent>
-            </Card>
-
             {!isDesktop && canManageDocuments ? (
               <View className="min-h-0 flex-1 gap-4">
                 <View className="rounded-2xl bg-muted p-1">
