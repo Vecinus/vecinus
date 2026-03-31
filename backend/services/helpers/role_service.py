@@ -9,7 +9,7 @@ def get_user_role(supabase: Client, association_id: UUID, user_id: str) -> str:
         supabase.table("memberships")
         .select("role")
         .eq("association_id", str(association_id))
-        .eq("profile_id", user_id)
+        .eq("profile_id", str(user_id))
         .limit(1)
         .execute()
     )

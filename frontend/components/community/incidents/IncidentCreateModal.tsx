@@ -78,7 +78,7 @@ export function IncidentCreateModal({
                   <TouchableOpacity
                     key={typeOption}
                     className={`px-3 py-2 rounded-lg border ${
-                      selected ? 'bg-primary border-primary' : 'bg-card border-border'
+                      selected ? 'bg-emerald-500 border-emerald-500' : 'bg-card border-border'
                     }`}
                     activeOpacity={0.8}
                     onPress={() => {

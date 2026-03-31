@@ -110,6 +110,13 @@ export default function DrawerLayout() {
           drawerItemStyle: isAdmin ? undefined : { display: 'none' },
         }}
       />
+      <Drawer.Screen
+        name="[communityId]/incidencia/[incidentId]"
+        options={{
+          headerTitle: 'Detalle de Incidencia',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
     </Drawer>
   );
 }

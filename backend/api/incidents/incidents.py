@@ -45,8 +45,8 @@ def verify_own_incident(association_id: str, incident_id: str, user_id: str, sup
     membership_res = (
         supabase.table("memberships")
         .select("id")
-        .eq("association_id", association_id)
-        .eq("profile_id", user_id)
+        .eq("association_id", str(association_id))
+        .eq("profile_id", str(user_id))
         .execute()
     )
     if not membership_res.data:
@@ -54,7 +54,11 @@ def verify_own_incident(association_id: str, incident_id: str, user_id: str, sup
     membership_id = membership_res.data[0].get("id")
 
     incident_res = (
-        supabase.table("incidents").select("id").eq("id", incident_id).eq("membership_id", membership_id).execute()
+        supabase.table("incidents")
+        .select("id")
+        .eq("id", str(incident_id))
+        .eq("membership_id", str(membership_id))
+        .execute()
     )
 
     if not incident_res.data:
@@ -98,7 +102,7 @@ def get_incidents(
                 created_at,
                 image_url,
                 membership_id,
-                memberships(association_id, role)
+                memberships!inner(association_id, role, profiles(username))
                 """).eq("memberships.association_id", association_id).execute()
 
     raw_incidents = incidents_res.data or []
