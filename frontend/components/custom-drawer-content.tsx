@@ -50,6 +50,22 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         name: selectedCommunity.community.name,
         role: selectedCommunity.role,
       });
+
+      if (pathname.endsWith('/actas')) {
+        router.replace(`/${selectedCommunity.community.id}/actas`);
+        return;
+      }
+
+      if (pathname.endsWith('/chatbot')) {
+        router.replace(`/${selectedCommunity.community.id}/chatbot`);
+        return;
+      }
+
+      if (pathname.endsWith('/chat')) {
+        router.replace(`/${selectedCommunity.community.id}/chat`);
+        return;
+      }
+
       router.replace(`/`);
     }
   };
@@ -69,6 +85,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
 
   const isHomeActive = pathname === '/';
   const isActasActive = pathname.endsWith('/actas');
+  const isChatActive = pathname.endsWith('/chat');
   const isChatbotActive = pathname.endsWith('/chatbot');
 
   return (
@@ -138,6 +155,19 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
               router.replace(`/${activeCommunity.id}/actas`);
             }}
             icon={({ size }) => <Icon as={FileTextIcon} size={size} className="text-foreground" />}
+            labelStyle={{ marginLeft: 0, fontWeight: '500' }}
+          />
+
+          <DrawerItem
+            label="Chat vecinos"
+            focused={isChatActive}
+            onPress={() => {
+              if (!activeCommunity?.id) return;
+              router.replace(`/${activeCommunity.id}/chat`);
+            }}
+            icon={({ size }) => (
+              <Icon as={MessageSquareIcon} size={size} className="text-foreground" />
+            )}
             labelStyle={{ marginLeft: 0, fontWeight: '500' }}
           />
 

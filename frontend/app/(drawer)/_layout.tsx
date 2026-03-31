@@ -53,6 +53,17 @@ export default function DrawerLayout() {
         }}
       />
       <Drawer.Screen
+        name="[communityId]/chat"
+        initialParams={{ communityId: activeCommunity?.id }}
+        options={{
+          title: 'Chat vecinos',
+          drawerLabel: 'Chat vecinos',
+          drawerIcon: ({ size }) => (
+            <Icon as={MessageSquareIcon} size={size} className="text-foreground" />
+          ),
+        }}
+      />
+      <Drawer.Screen
         name="[communityId]/chatbot"
         initialParams={{ communityId: activeCommunity?.id }}
         options={{
