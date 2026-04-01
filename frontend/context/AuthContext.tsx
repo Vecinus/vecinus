@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect, useContext, ReactNode, useMe
 import { storageService } from '@/api/services/storage.service';
 import { User } from '@/types/auth.types';
 
-type ActiveCommunity = { id: string; name: string, role: string };
+export type ActiveCommunity = { id: string; name: string, role: string };
 
 interface AuthContextType {
   user: User | null;
