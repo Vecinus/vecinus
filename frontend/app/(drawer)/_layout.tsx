@@ -3,15 +3,11 @@ import CustomDrawerContent from '@/components/custom-drawer-content';
 import { useColorScheme } from 'nativewind';
 import { NAV_THEME } from '@/lib/theme';
 import { Icon } from '@/components/ui/icon';
-import { HomeIcon, FileTextIcon } from 'lucide-react-native';
-import { useAuth } from '@/context/AuthContext';
+import { HomeIcon } from 'lucide-react-native';
 
 export default function DrawerLayout() {
   const { colorScheme } = useColorScheme();
   const theme = NAV_THEME[colorScheme ?? 'light'];
-  const { activeCommunity } = useAuth();
-
-
 
   return (
     <Drawer
@@ -25,42 +21,51 @@ export default function DrawerLayout() {
         drawerActiveTintColor: theme.colors.text,
         drawerInactiveTintColor: theme.colors.text,
         drawerStyle: {
-            width: 300,
-            backgroundColor: theme.colors.card,
+          width: 300,
+          backgroundColor: theme.colors.card,
         },
         drawerLabelStyle: {
           marginLeft: 0,
           fontWeight: '500',
         },
-      }}
-    >
+      }}>
       <Drawer.Screen
         name="index"
         options={{
           title: 'Inicio',
           drawerLabel: 'Inicio',
           drawerIcon: ({ size, color }) => (
-            <Icon 
-              as={HomeIcon} 
-              size={size} 
-              className="text-foreground" 
-            />
+            <Icon as={HomeIcon} size={size} className="text-foreground" />
           ),
         }}
       />
       <Drawer.Screen
-        name="[communityId]/actas"
-        initialParams={{ communityId: activeCommunity?.id }}
+        name="[communityId]/actas/index"
         options={{
           title: 'Actas',
-          drawerLabel: 'Actas',
-          drawerIcon: ({ size, color }) => (
-            <Icon 
-              as={FileTextIcon} 
-              size={size} 
-              className="text-foreground" 
-            />
-          ),
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/actas/[actaId]"
+        options={{
+          title: 'Detalle de Acta',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/actas"
+        options={{
+          drawerItemStyle: { display: 'none' },
+          headerShown: false,
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/acta-detail"
+        options={{
+          title: 'Detalle de Acta',
+          drawerItemStyle: { display: 'none' },
+          headerShown: false,
         }}
       />
     </Drawer>

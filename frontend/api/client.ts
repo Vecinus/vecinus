@@ -1,6 +1,5 @@
 import axios from 'axios';
 import { storageService } from './services/storage.service';
-import { Platform } from 'react-native';
 
 const getBackendUrl = () => {
   if (process.env.EXPO_PUBLIC_BACKEND_URL) {

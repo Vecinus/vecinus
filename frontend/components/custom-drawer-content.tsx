@@ -3,14 +3,14 @@ import {
   DrawerContentScrollView,
   DrawerItemList,
 } from '@react-navigation/drawer';
-import { View } from 'react-native';
+import { View, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
-import { LogOutIcon, UserIcon } from 'lucide-react-native';
+import { LogOutIcon, UserIcon, FileTextIcon } from 'lucide-react-native';
 import {
   Select,
   SelectContent,
@@ -114,6 +114,16 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
 
         <View className="px-2">
             <DrawerItemList {...props} />
+            
+            {activeCommunity && (
+              <TouchableOpacity
+                onPress={() => router.push(`/(drawer)/${activeCommunity.id}/actas`)}
+                className="flex-row items-center gap-3 px-4 py-3 rounded-lg active:bg-muted"
+              >
+                <Icon as={FileTextIcon} size={24} className="text-muted-foreground" />
+                <Text className="text-foreground font-medium">Actas</Text>
+              </TouchableOpacity>
+            )}
         </View>
       </DrawerContentScrollView>
 
