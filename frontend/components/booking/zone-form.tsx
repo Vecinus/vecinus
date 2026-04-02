@@ -22,12 +22,18 @@ export default function ZoneForm({
   const defaultEndTime = initialData.end_time?.substring(0, 5) ?? '21:00';
   const defaultRequiresQr = Boolean(initialData.requires_qr);
   const defaultCapacity = String(initialData.max_capacity ?? '1');
+  const defaultUsageMode = (initialData as any).usage_mode ?? 'exclusive_reservation';
+  const defaultMaxGuests = String((initialData as any).max_guests_per_reservation ?? '1');
 
   const [name, setName] = useState(defaultName);
   const [startTime, setStartTime] = useState(defaultStartTime);
   const [endTime, setEndTime] = useState(defaultEndTime);
   const [requiresQr, setRequiresQr] = useState(defaultRequiresQr);
   const [capacity, setCapacity] = useState(defaultCapacity);
+  const [usageMode, setUsageMode] = useState<'exclusive_reservation' | 'guest_pass'>(
+    defaultUsageMode
+  );
+  const [maxGuests, setMaxGuests] = useState(defaultMaxGuests);
   const [saving, setSaving] = useState(false);
   const [alertConfig, setAlertConfig] = useState<AlertConfig>({
     visible: false,
@@ -42,6 +48,8 @@ export default function ZoneForm({
     setEndTime(defaultEndTime);
     setRequiresQr(defaultRequiresQr);
     setCapacity(defaultCapacity);
+    setUsageMode(defaultUsageMode);
+    setMaxGuests(defaultMaxGuests);
   }, [initialData.id]);
 
   const hasChanges =
@@ -49,10 +57,13 @@ export default function ZoneForm({
     startTime !== defaultStartTime ||
     endTime !== defaultEndTime ||
     requiresQr !== defaultRequiresQr ||
-    capacity !== defaultCapacity;
+    capacity !== defaultCapacity ||
+    usageMode !== defaultUsageMode ||
+    maxGuests !== defaultMaxGuests;
 
   const handleSubmit = async () => {
     const capNum = parseInt(capacity);
+    const guestNum = parseInt(maxGuests);
     if (!name.trim()) {
       return;
     }
@@ -65,6 +76,9 @@ export default function ZoneForm({
     if (!/^\d{2}:\d{2}$/.test(endTime)) {
       return;
     }
+    if (isNaN(guestNum) || guestNum < 1) {
+      return;
+    }
 
     setSaving(true);
     try {
@@ -74,6 +88,8 @@ export default function ZoneForm({
         end_time: endTime,
         requires_qr: requiresQr,
         max_capacity: capNum,
+        usage_mode: usageMode,
+        max_guests_per_reservation: guestNum,
       });
     } finally {
       setSaving(false);
@@ -100,6 +116,8 @@ export default function ZoneForm({
     setEndTime(defaultEndTime);
     setRequiresQr(defaultRequiresQr);
     setCapacity(defaultCapacity);
+    setUsageMode(defaultUsageMode);
+    setMaxGuests(defaultMaxGuests);
     setAlertConfig((prev) => ({ ...prev, visible: false }));
     onCancel();
   };
@@ -127,6 +145,51 @@ export default function ZoneForm({
             placeholder="Ej. 50"
           />
         </View>
+
+        <View className="gap-2">
+          <Label>Modo de uso</Label>
+          <View className="flex-row gap-2">
+            <Button
+              onPress={() => setUsageMode('exclusive_reservation')}
+              variant={usageMode === 'exclusive_reservation' ? 'default' : 'outline'}
+              className={`h-10 flex-1 rounded-lg ${
+                usageMode === 'exclusive_reservation' ? 'bg-primary' : 'border-primary'
+              }`}>
+              <Text
+                className={`text-sm font-bold ${
+                  usageMode === 'exclusive_reservation' ? 'text-primary-foreground' : 'text-primary'
+                }`}>
+                Reserva Exclusiva
+              </Text>
+            </Button>
+            <Button
+              onPress={() => setUsageMode('guest_pass')}
+              variant={usageMode === 'guest_pass' ? 'default' : 'outline'}
+              className={`h-10 flex-1 rounded-lg ${
+                usageMode === 'guest_pass' ? 'bg-primary' : 'border-primary'
+              }`}>
+              <Text
+                className={`text-sm font-bold ${
+                  usageMode === 'guest_pass' ? 'text-primary-foreground' : 'text-primary'
+                }`}>
+                Pase Invitado
+              </Text>
+            </Button>
+          </View>
+        </View>
+
+        {usageMode === 'guest_pass' && (
+          <View className="gap-2">
+            <Label nativeID="maxGuests">Invitados máximos por reserva</Label>
+            <Input
+              nativeID="maxGuests"
+              value={maxGuests}
+              onChangeText={setMaxGuests}
+              keyboardType="numeric"
+              placeholder="Ej. 5"
+            />
+          </View>
+        )}
 
         <View className="flex-row gap-3">
           <View className="flex-1 gap-2">

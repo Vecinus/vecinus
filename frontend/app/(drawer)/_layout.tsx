@@ -91,6 +91,13 @@ export default function DrawerLayout() {
           drawerItemStyle: { display: 'none' },
         }}
       />
+      <Drawer.Screen
+        name="[communityId]/crear-zona"
+        options={{
+          title: 'Crear Instalación',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
     </Drawer>
   );
 }

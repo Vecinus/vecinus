@@ -20,11 +20,22 @@ export interface CommonSpaceUpdate {
   requires_qr?: boolean;
   start_time?: string;
   end_time?: string;
+  usage_mode?: 'exclusive_reservation' | 'guest_pass';
+  max_capacity?: number;
+  max_guests_per_reservation?: number;
 }
 
 export const commonSpaceApi = {
   listCommonSpaces: async (associationId: string): Promise<CommonSpace[]> => {
     const response = await apiClient.get<CommonSpace[]>(`/common-spaces/${associationId}`);
+    return response.data;
+  },
+
+  createCommonSpace: async (
+    associationId: string,
+    payload: CommonSpaceUpdate
+  ): Promise<CommonSpace> => {
+    const response = await apiClient.post<CommonSpace>(`/common-spaces/${associationId}`, payload);
     return response.data;
   },
 
