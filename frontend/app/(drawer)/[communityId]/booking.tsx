@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, ScrollView } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -91,24 +91,35 @@ export default function Reservas() {
     return zona?.usage_mode === 'exclusive_reservation';
   };
 
-  useEffect(() => {
-    const fetchZonas = async () => {
-      try {
-        const data = await commonSpaceApi.listCommonSpaces(associationId);
-        setZonas(data);
+  const fetchZonas = useCallback(async () => {
+    try {
+      const data = await commonSpaceApi.listCommonSpaces(associationId);
+      setZonas(data);
 
-        if (data.length > 0) {
-          setZonaActivaId(data[0].id);
+      setZonaActivaId((prevId) => {
+        if (prevId && data.some((z) => z.id === prevId)) {
+          return prevId;
         }
-      } catch (error) {
-        console.error(error);
-      }
-    };
+        return data.length > 0 ? data[0].id : null;
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  }, [associationId]);
 
+  useEffect(() => {
     if (associationId) {
       fetchZonas();
     }
-  }, [associationId]);
+  }, [associationId, fetchZonas]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (associationId) {
+        fetchZonas();
+      }
+    }, [associationId, fetchZonas])
+  );
 
   const fetchSlots = async () => {
     if (!zonaActivaId || !fechaSeleccionada) return;

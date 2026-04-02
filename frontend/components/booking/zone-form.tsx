@@ -42,7 +42,7 @@ export default function ZoneForm({
     setEndTime(defaultEndTime);
     setRequiresQr(defaultRequiresQr);
     setCapacity(defaultCapacity);
-  }, [defaultName, defaultStartTime, defaultEndTime, defaultRequiresQr, defaultCapacity]);
+  }, [initialData.id]);
 
   const hasChanges =
     name !== defaultName ||
@@ -52,14 +52,28 @@ export default function ZoneForm({
     capacity !== defaultCapacity;
 
   const handleSubmit = async () => {
+    const capNum = parseInt(capacity);
+    if (!name.trim()) {
+      return;
+    }
+    if (isNaN(capNum) || capNum < 1) {
+      return;
+    }
+    if (!/^\d{2}:\d{2}$/.test(startTime)) {
+      return;
+    }
+    if (!/^\d{2}:\d{2}$/.test(endTime)) {
+      return;
+    }
+
     setSaving(true);
     try {
       await onSubmit({
-        name,
+        name: name.trim(),
         start_time: startTime,
         end_time: endTime,
         requires_qr: requiresQr,
-        capacity: parseInt(capacity) || 1,
+        max_capacity: capNum,
       });
     } finally {
       setSaving(false);
@@ -81,6 +95,11 @@ export default function ZoneForm({
   };
 
   const handleConfirmCancel = () => {
+    setName(defaultName);
+    setStartTime(defaultStartTime);
+    setEndTime(defaultEndTime);
+    setRequiresQr(defaultRequiresQr);
+    setCapacity(defaultCapacity);
     setAlertConfig((prev) => ({ ...prev, visible: false }));
     onCancel();
   };
@@ -117,6 +136,7 @@ export default function ZoneForm({
               value={startTime}
               onChangeText={setStartTime}
               placeholder="09:00"
+              maxLength={5}
             />
           </View>
           <View className="flex-1 gap-2">
@@ -126,6 +146,7 @@ export default function ZoneForm({
               value={endTime}
               onChangeText={setEndTime}
               placeholder="21:00"
+              maxLength={5}
             />
           </View>
         </View>
@@ -151,7 +172,9 @@ export default function ZoneForm({
             onPress={handleCancelClick}
             variant="outline"
             className="h-12 rounded-lg border-border">
-            <Text className="text-base font-bold text-foreground">Cancelar</Text>
+            <Text className="text-base font-bold text-foreground">
+              {hasChanges ? 'Cancelar' : 'Volver'}
+            </Text>
           </Button>
         </View>
       </View>
