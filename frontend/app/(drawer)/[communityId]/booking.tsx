@@ -1,9 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, Alert } from 'react-native';
+import { View, ScrollView } from 'react-native'; // Eliminado Alert de react-native
 import { Calendar, LocaleConfig } from 'react-native-calendars';
+import { useRouter } from 'expo-router';
+
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+// Importamos los componentes de AlertDialog
+import { 
+  AlertDialog, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle, 
+  AlertDialogAction 
+} from "@/components/ui/alert-dialog";
+
 import { ReservasHeader } from '../../../components/booking/booking-header';
 import { ZoneSelector } from '../../../components/booking/zone-selector';
 import { TimeSlotsGrid } from '../../../components/booking/time-slots-grid';
@@ -30,6 +42,7 @@ const GENERATE_BASE_SLOTS = () => {
 };
 
 export default function Reservas() {
+  const router = useRouter();
   const currentRole = useRole();
   const isWorker = currentRole === 5;
   const isAdminOrPresident = currentRole === 1 || currentRole === 4;
@@ -37,13 +50,21 @@ export default function Reservas() {
   const associationId = activeCommunity ? activeCommunity.id : '';
 
   const [zonas, setZonas] = useState<CommonSpace[]>([]);
-  const [zonaActivaId, setZonaActivaId] = useState<number | null>(null); // Corregido: Inicializado como number | null
+  const [zonaActivaId, setZonaActivaId] = useState<number | null>(null);
   const [fechaSeleccionada, setFechaSeleccionada] = useState(new Date().toISOString().split('T')[0]);
   const [horaSeleccionada, setHoraSeleccionada] = useState('10:00');
   const [slotsDisponibles, setSlotsDisponibles] = useState<{ time: string; isBooked: boolean }[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Corregido: Protegemos contra posibles `undefined` al pasar la zonaActiva
+  // Estado para controlar nuestro AlertDialog personalizado
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    isSuccess: false,
+    confirmText: 'Aceptar'
+  });
+
   const esModoExclusivo = (zona: CommonSpace | undefined): boolean => {
     if (!zona) return false;
     return zona?.usage_mode === "exclusive_reservation";
@@ -73,7 +94,7 @@ export default function Reservas() {
 
     try {
       const baseSlots = GENERATE_BASE_SLOTS();
-      const occupiedSlots = await bookingApi.listOccupiedSlots(zonaActivaId, fechaSeleccionada); // Pasamos id directo
+      const occupiedSlots = await bookingApi.listOccupiedSlots(zonaActivaId, fechaSeleccionada);
       
       const newSlots = baseSlots.map(time => {
         const isBooked = occupiedSlots.some(slot => {
@@ -96,53 +117,84 @@ export default function Reservas() {
     fetchSlots();
   }, [zonaActivaId, fechaSeleccionada]);
 
-  const handleReservar = async () => {
-  if (!zonaActivaId || !fechaSeleccionada) return;
-
-  try {
-    setIsSubmitting(true);
-    const esExclusivo = esModoExclusivo(zonaActiva);
-
-    if (esExclusivo) {
-      if (!horaSeleccionada) return;
-      const startAt = new Date(`${fechaSeleccionada}T${horaSeleccionada}:00`);
-      const endAt = new Date(startAt.getTime() + 60 * 60 * 1000); 
-
-      await bookingApi.createReservation({
-        space_id: zonaActivaId,
-        start_at: startAt.toISOString(),
-        end_at: endAt.toISOString(),
-        guests_count: 0
-      });
-
-      Alert.alert("Éxito", "Reserva creada correctamente");
-      await fetchSlots(); 
-      
-    } else {
-      await guestPassApi.createGuestPass({
-        space_id: zonaActivaId,
-        valid_for_date: fechaSeleccionada
-      });
-      
-      Alert.alert("Éxito", "Pase de invitado generado");
-    }
-
-  } catch (error) {
-    console.error(error);
-    Alert.alert("Error", "No se pudo completar la acción");
-  } finally {
-    setIsSubmitting(false);
-  }
-};
-
   const zonaActiva = zonas.find(z => z.id === zonaActivaId);
+
+  const handleReservar = async () => {
+    if (!zonaActivaId || !fechaSeleccionada) return;
+
+    try {
+      setIsSubmitting(true);
+      const esExclusivo = esModoExclusivo(zonaActiva);
+
+      if (esExclusivo) {
+        if (!horaSeleccionada) return;
+        const startAt = new Date(`${fechaSeleccionada}T${horaSeleccionada}:00`);
+        const endAt = new Date(startAt.getTime() + 60 * 60 * 1000); 
+
+        await bookingApi.createReservation({
+          space_id: zonaActivaId,
+          start_at: startAt.toISOString(),
+          end_at: endAt.toISOString(),
+          guests_count: 0
+        });
+
+        await fetchSlots(); 
+        
+        // Mostrar alerta de éxito
+        setAlertConfig({
+          visible: true,
+          title: "¡Reserva Confirmada!",
+          message: "Tu reserva se ha creado correctamente.",
+          isSuccess: true,
+          confirmText: "Ver mis reservas"
+        });
+        
+      } else {
+        await guestPassApi.createGuestPass({
+          space_id: zonaActivaId,
+          valid_for_date: fechaSeleccionada
+        });
+        
+        // Mostrar alerta de éxito
+        setAlertConfig({
+          visible: true,
+          title: "¡Pase Generado!",
+          message: "El pase de invitado se ha generado correctamente.",
+          isSuccess: true,
+          confirmText: "Ver mis pases"
+        });
+      }
+
+    } catch (error) {
+      console.error(error);
+      // Mostrar alerta de error
+      setAlertConfig({
+        visible: true,
+        title: "Error",
+        message: "No se pudo completar la acción. Inténtalo de nuevo.",
+        isSuccess: false,
+        confirmText: "Aceptar"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Función que se ejecuta al presionar el botón del AlertDialog
+  const handleAlertConfirm = () => {
+    setAlertConfig(prev => ({ ...prev, visible: false }));
+    if (alertConfig.isSuccess) {
+      router.push(`/${associationId}/mis-reservas`);
+    }
+  };
+
   const isSelectedSlotBooked = slotsDisponibles.find(s => s.time === horaSeleccionada)?.isBooked;
 
   return (
     <View className="flex-1 bg-background">
       <ScrollView contentContainerClassName="p-5 pt-6 pb-28">
         
-        <ReservasHeader isAdminOrPresident={isAdminOrPresident} isWorker={isWorker} />
+        <ReservasHeader isAdminOrPresident={isAdminOrPresident} isWorker={isWorker} associationId={associationId}/>
 
         <ZoneSelector 
           zonas={zonas} 
@@ -192,34 +244,43 @@ export default function Reservas() {
       </ScrollView>
 
       <View className="absolute bottom-0 left-0 right-0 p-5 bg-background/90 border-t border-border">
-  <Button 
-    className="bg-green-500 h-14 rounded-2xl" 
-    onPress={handleReservar}
-    disabled={isSubmitting || (esModoExclusivo(zonaActiva) && isSelectedSlotBooked) || !zonaActivaId}
-  >
-    <Text className="text-white text-lg font-bold">
-      {isSubmitting 
-        ? 'Procesando...' 
-        : (!esModoExclusivo(zonaActiva) 
-            ? 'Generar Pase de Invitado' 
-            : `Reservar (${horaSeleccionada})`)}
-    </Text>
-  </Button>
-</View>
+        <Button 
+          className="bg-green-500 h-14 rounded-2xl" 
+          onPress={handleReservar}
+          disabled={isSubmitting || (esModoExclusivo(zonaActiva) && isSelectedSlotBooked) || !zonaActivaId}
+        >
+          <Text className="text-white text-lg font-bold">
+            {isSubmitting 
+              ? 'Procesando...' 
+              : (!esModoExclusivo(zonaActiva) 
+                  ? 'Generar Pase de Invitado' 
+                  : `Reservar (${horaSeleccionada})`)}
+          </Text>
+        </Button>
+      </View>
 
-      <Dialog>
-        <DialogTrigger>
-          <Text className="hidden">Open</Text>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>¿Estás seguro?</DialogTitle>
-            <DialogDescription>
-              Esta acción no se puede deshacer.
-            </DialogDescription>
-          </DialogHeader>
-        </DialogContent>
-      </Dialog>
+      {/* AlertDialog Reutilizable */}
+      <AlertDialog 
+        open={alertConfig.visible} 
+        onOpenChange={(visible) => setAlertConfig(prev => ({ ...prev, visible }))}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {alertConfig.title}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {alertConfig.message}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onPress={handleAlertConfirm}>
+              <Text>{alertConfig.confirmText}</Text>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </View>
   );
 }

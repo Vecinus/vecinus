@@ -3,12 +3,15 @@ import { View, ScrollView } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { ReservasHeader } from './booking-header';
+import { useAuth } from '@/context/AuthContext';
 
 export function WorkerView() {
+  const {activeCommunity} = useAuth()
+  const associationId = activeCommunity ? activeCommunity.id : '';
   return (
     <View className="flex-1 bg-background">
       <ScrollView contentContainerClassName="p-5 pt-16 pb-24">
-        <ReservasHeader title="Accesos" isAdminOrPresident={false} isWorker={true} />
+        <ReservasHeader title="Accesos" isAdminOrPresident={false} isWorker={true} associationId={associationId} />
         
         <View className="flex-1 justify-center items-center mt-10">
           <View className="bg-card p-8 rounded-3xl w-full items-center border border-border shadow-sm">

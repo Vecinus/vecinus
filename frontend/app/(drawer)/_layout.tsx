@@ -78,6 +78,20 @@ export default function DrawerLayout() {
           ),
         }}
       />
+      <Drawer.Screen
+        name="[communityId]/mis-reservas" 
+        options={{
+          title: 'Mis Reservas', 
+          drawerItemStyle: { display: 'none' } 
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/mis-reservas/[id]" 
+        options={{
+          title: 'Detalle de Reserva/Pase', 
+          drawerItemStyle: { display: 'none' } 
+        }}
+      />
     </Drawer>
   );
 }
