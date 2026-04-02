@@ -2,6 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from '@/types/auth.types';
 import { Platform } from 'react-native';
+import { MinutesReadResponse } from '@/types/minutes.types';
 
 
 const TOKEN_KEY = 'jwt_token';
@@ -54,10 +55,10 @@ export const storageService = {
     await AsyncStorage.removeItem(COMMUNITY_KEY);
   },
 
-  saveSelectedMinute: async (minute: any): Promise<void> => {
+  saveSelectedMinute: async (minute: MinutesReadResponse): Promise<void> => {
     await AsyncStorage.setItem(SELECTED_MINUTE_KEY, JSON.stringify(minute));
   },
-  getSelectedMinute: async (): Promise<any | null> => {
+  getSelectedMinute: async (): Promise<MinutesReadResponse | null> => {
     const data = await AsyncStorage.getItem(SELECTED_MINUTE_KEY);
     return data ? JSON.parse(data) : null;
   },

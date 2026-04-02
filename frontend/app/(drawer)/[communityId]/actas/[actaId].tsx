@@ -70,9 +70,11 @@ export default function ActaDetail() {
     const loadActa = async () => {
       setLoading(true);
       const storedActa = await storageService.getSelectedMinute();
-      if (storedActa) {
-        setActa(storedActa);
-      }
+      if (storedActa && String((storedActa).id) === String(actaId)) {
+          setActa(storedActa as MinutesReadResponse);
+        } else {
+          setActa(null);
+        }
       setLoading(false);
     };
     loadActa();

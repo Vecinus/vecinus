@@ -53,21 +53,6 @@ export default function DrawerLayout() {
           drawerItemStyle: { display: 'none' },
         }}
       />
-      <Drawer.Screen
-        name="[communityId]/actas"
-        options={{
-          drawerItemStyle: { display: 'none' },
-          headerShown: false,
-        }}
-      />
-      <Drawer.Screen
-        name="[communityId]/acta-detail"
-        options={{
-          title: 'Detalle de Acta',
-          drawerItemStyle: { display: 'none' },
-          headerShown: false,
-        }}
-      />
     </Drawer>
   );
 }
