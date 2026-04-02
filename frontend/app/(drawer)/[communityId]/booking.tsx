@@ -1,20 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView } from 'react-native'; // Eliminado Alert de react-native
+import { View, ScrollView } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useRouter } from 'expo-router';
 
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
-// Importamos los componentes de AlertDialog
-import { 
-  AlertDialog, 
-  AlertDialogContent, 
-  AlertDialogDescription, 
-  AlertDialogFooter, 
-  AlertDialogHeader, 
-  AlertDialogTitle, 
-  AlertDialogAction 
-} from "@/components/ui/alert-dialog";
+
+import { CustomAlertDialog, AlertConfig } from '@/components/custom-alert';
 
 import { ReservasHeader } from '../../../components/booking/booking-header';
 import { ZoneSelector } from '../../../components/booking/zone-selector';
@@ -24,6 +16,7 @@ import { CommonSpace, commonSpaceApi } from '@/api/commonSpace';
 import { bookingApi } from '@/api/booking';
 import { useAuth } from '@/context/AuthContext';
 import { guestPassApi } from '@/api/guestPass';
+import { WorkerView } from '@/components/booking/worker-view';
 
 LocaleConfig.locales['es'] = {
   monthNames: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
@@ -56,13 +49,11 @@ export default function Reservas() {
   const [slotsDisponibles, setSlotsDisponibles] = useState<{ time: string; isBooked: boolean }[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Estado para controlar nuestro AlertDialog personalizado
-  const [alertConfig, setAlertConfig] = useState({
+  const [alertConfig, setAlertConfig] = useState<AlertConfig>({
     visible: false,
     title: '',
     message: '',
-    isSuccess: false,
-    confirmText: 'Aceptar'
+    type: 'success'
   });
 
   const esModoExclusivo = (zona: CommonSpace | undefined): boolean => {
@@ -140,13 +131,11 @@ export default function Reservas() {
 
         await fetchSlots(); 
         
-        // Mostrar alerta de éxito
         setAlertConfig({
           visible: true,
           title: "¡Reserva Confirmada!",
           message: "Tu reserva se ha creado correctamente.",
-          isSuccess: true,
-          confirmText: "Ver mis reservas"
+          type: 'success'
         });
         
       } else {
@@ -155,40 +144,39 @@ export default function Reservas() {
           valid_for_date: fechaSeleccionada
         });
         
-        // Mostrar alerta de éxito
         setAlertConfig({
           visible: true,
           title: "¡Pase Generado!",
           message: "El pase de invitado se ha generado correctamente.",
-          isSuccess: true,
-          confirmText: "Ver mis pases"
+          type: 'success'
         });
       }
 
     } catch (error) {
       console.error(error);
-      // Mostrar alerta de error
       setAlertConfig({
         visible: true,
         title: "Error",
         message: "No se pudo completar la acción. Inténtalo de nuevo.",
-        isSuccess: false,
-        confirmText: "Aceptar"
+        type: 'error'
       });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Función que se ejecuta al presionar el botón del AlertDialog
   const handleAlertConfirm = () => {
     setAlertConfig(prev => ({ ...prev, visible: false }));
-    if (alertConfig.isSuccess) {
+    if (alertConfig.type === 'success') {
       router.push(`/${associationId}/mis-reservas`);
     }
   };
 
   const isSelectedSlotBooked = slotsDisponibles.find(s => s.time === horaSeleccionada)?.isBooked;
+
+  if (isWorker) {
+    return <WorkerView />;
+  }
 
   return (
     <View className="flex-1 bg-background">
@@ -259,28 +247,12 @@ export default function Reservas() {
         </Button>
       </View>
 
-      {/* AlertDialog Reutilizable */}
-      <AlertDialog 
-        open={alertConfig.visible} 
-        onOpenChange={(visible) => setAlertConfig(prev => ({ ...prev, visible }))}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {alertConfig.title}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {alertConfig.message}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onPress={handleAlertConfirm}>
-              <Text>{alertConfig.confirmText}</Text>
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
+      <CustomAlertDialog
+        config={alertConfig}
+        onConfirm={() => {}}
+        onCancel={() => setAlertConfig(prev => ({ ...prev, visible: false }))}
+        onAcknowledge={handleAlertConfirm}
+      />
     </View>
   );
 }

@@ -92,6 +92,13 @@ export default function DrawerLayout() {
           drawerItemStyle: { display: 'none' } 
         }}
       />
+      <Drawer.Screen
+        name="[communityId]/scanner" 
+        options={{
+          title: 'Escaner', 
+          drawerItemStyle: { display: 'none' } 
+        }}
+      />
     </Drawer>
   );
 }

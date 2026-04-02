@@ -2,16 +2,14 @@ import React from 'react';
 import { View, ScrollView } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
-import { ReservasHeader } from './booking-header';
-import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'expo-router';
 
 export function WorkerView() {
-  const {activeCommunity} = useAuth()
-  const associationId = activeCommunity ? activeCommunity.id : '';
+  const router = useRouter();
+
   return (
     <View className="flex-1 bg-background">
       <ScrollView contentContainerClassName="p-5 pt-16 pb-24">
-        <ReservasHeader title="Accesos" isAdminOrPresident={false} isWorker={true} associationId={associationId} />
         
         <View className="flex-1 justify-center items-center mt-10">
           <View className="bg-card p-8 rounded-3xl w-full items-center border border-border shadow-sm">
@@ -19,7 +17,10 @@ export function WorkerView() {
             <Text className="text-base text-muted-foreground text-center mb-8 leading-6">
               Escanea los códigos QR de los vecinos o invitados para comprobar si tienen una reserva o pase válido para acceder a las instalaciones.
             </Text>
-            <Button className="w-full h-14 rounded-2xl">
+            <Button 
+              className="w-full h-14 rounded-2xl"
+              onPress={() => router.push('./scanner')}
+            >
               <Text className="text-primary-foreground text-lg font-bold">Abrir Escáner</Text>
             </Button>
           </View>
