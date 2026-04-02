@@ -11,8 +11,6 @@ export default function DrawerLayout() {
   const theme = NAV_THEME[colorScheme ?? 'light'];
   const { activeCommunity } = useAuth();
 
-
-
   return (
     <Drawer
       drawerContent={(props) => <CustomDrawerContent {...props} />}
@@ -25,26 +23,21 @@ export default function DrawerLayout() {
         drawerActiveTintColor: theme.colors.text,
         drawerInactiveTintColor: theme.colors.text,
         drawerStyle: {
-            width: 300,
-            backgroundColor: theme.colors.card,
+          width: 300,
+          backgroundColor: theme.colors.card,
         },
         drawerLabelStyle: {
           marginLeft: 0,
           fontWeight: '500',
         },
-      }}
-    >
+      }}>
       <Drawer.Screen
         name="index"
         options={{
           title: 'Inicio',
           drawerLabel: 'Inicio',
           drawerIcon: ({ size, color }) => (
-            <Icon 
-              as={HomeIcon} 
-              size={size} 
-              className="text-foreground" 
-            />
+            <Icon as={HomeIcon} size={size} className="text-foreground" />
           ),
         }}
       />
@@ -55,11 +48,7 @@ export default function DrawerLayout() {
           title: 'Actas',
           drawerLabel: 'Actas',
           drawerIcon: ({ size, color }) => (
-            <Icon 
-              as={FileTextIcon} 
-              size={size} 
-              className="text-foreground" 
-            />
+            <Icon as={FileTextIcon} size={size} className="text-foreground" />
           ),
         }}
       />
@@ -70,33 +59,36 @@ export default function DrawerLayout() {
           title: 'Reservas',
           drawerLabel: 'Reservas',
           drawerIcon: ({ size, color }) => (
-            <Icon 
-              as={CalendarCheck} 
-              size={size} 
-              className="text-foreground" 
-            />
+            <Icon as={CalendarCheck} size={size} className="text-foreground" />
           ),
         }}
       />
       <Drawer.Screen
-        name="[communityId]/mis-reservas" 
+        name="[communityId]/mis-reservas"
         options={{
-          title: 'Mis Reservas', 
-          drawerItemStyle: { display: 'none' } 
+          title: 'Mis Reservas',
+          drawerItemStyle: { display: 'none' },
         }}
       />
       <Drawer.Screen
-        name="[communityId]/mis-reservas/[id]" 
+        name="[communityId]/mis-reservas/[id]"
         options={{
-          title: 'Detalle de Reserva/Pase', 
-          drawerItemStyle: { display: 'none' } 
+          title: 'Detalle de Reserva/Pase',
+          drawerItemStyle: { display: 'none' },
         }}
       />
       <Drawer.Screen
-        name="[communityId]/scanner" 
+        name="[communityId]/scanner"
         options={{
-          title: 'Escaner', 
-          drawerItemStyle: { display: 'none' } 
+          title: 'Escaner',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/editar-zona"
+        options={{
+          title: 'Editar Instalación',
+          drawerItemStyle: { display: 'none' },
         }}
       />
     </Drawer>

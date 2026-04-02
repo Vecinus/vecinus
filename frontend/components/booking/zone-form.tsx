@@ -1,0 +1,167 @@
+import { useState, useEffect } from 'react';
+import { View } from 'react-native';
+import { Text } from '@/components/ui/text';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { CustomAlertDialog, AlertConfig } from '@/components/custom-alert';
+import { CommonSpace } from '@/api/commonSpace';
+
+export default function ZoneForm({
+  initialData,
+  onSubmit,
+  onCancel,
+}: {
+  initialData: CommonSpace;
+  onSubmit: (data: any) => Promise<void> | void;
+  onCancel: () => void;
+}) {
+  const defaultName = initialData.name ?? '';
+  const defaultStartTime = initialData.start_time?.substring(0, 5) ?? '09:00';
+  const defaultEndTime = initialData.end_time?.substring(0, 5) ?? '21:00';
+  const defaultRequiresQr = Boolean(initialData.requires_qr);
+  const defaultCapacity = String(initialData.max_capacity ?? '1');
+
+  const [name, setName] = useState(defaultName);
+  const [startTime, setStartTime] = useState(defaultStartTime);
+  const [endTime, setEndTime] = useState(defaultEndTime);
+  const [requiresQr, setRequiresQr] = useState(defaultRequiresQr);
+  const [capacity, setCapacity] = useState(defaultCapacity);
+  const [saving, setSaving] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<AlertConfig>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'confirm',
+  });
+
+  useEffect(() => {
+    setName(defaultName);
+    setStartTime(defaultStartTime);
+    setEndTime(defaultEndTime);
+    setRequiresQr(defaultRequiresQr);
+    setCapacity(defaultCapacity);
+  }, [defaultName, defaultStartTime, defaultEndTime, defaultRequiresQr, defaultCapacity]);
+
+  const hasChanges =
+    name !== defaultName ||
+    startTime !== defaultStartTime ||
+    endTime !== defaultEndTime ||
+    requiresQr !== defaultRequiresQr ||
+    capacity !== defaultCapacity;
+
+  const handleSubmit = async () => {
+    setSaving(true);
+    try {
+      await onSubmit({
+        name,
+        start_time: startTime,
+        end_time: endTime,
+        requires_qr: requiresQr,
+        capacity: parseInt(capacity) || 1,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelClick = () => {
+    if (hasChanges) {
+      setAlertConfig({
+        visible: true,
+        title: 'Cancelar cambios',
+        message:
+          '¿Estás seguro de que deseas cancelar los cambios? Se perderán todos los cambios realizados.',
+        type: 'confirm',
+      });
+    } else {
+      onCancel();
+    }
+  };
+
+  const handleConfirmCancel = () => {
+    setAlertConfig((prev) => ({ ...prev, visible: false }));
+    onCancel();
+  };
+
+  return (
+    <>
+      <View className="gap-5">
+        <View className="gap-2">
+          <Label nativeID="nombre">Nombre de la instalación</Label>
+          <Input
+            nativeID="nombre"
+            value={name}
+            onChangeText={setName}
+            placeholder="Ej. Piscina Comunitaria"
+          />
+        </View>
+
+        <View className="gap-2">
+          <Label nativeID="capacity">Aforo máximo permitido</Label>
+          <Input
+            nativeID="capacity"
+            value={capacity}
+            onChangeText={setCapacity}
+            keyboardType="numeric"
+            placeholder="Ej. 50"
+          />
+        </View>
+
+        <View className="flex-row gap-3">
+          <View className="flex-1 gap-2">
+            <Label nativeID="startTime">Hora Apertura</Label>
+            <Input
+              nativeID="startTime"
+              value={startTime}
+              onChangeText={setStartTime}
+              placeholder="09:00"
+            />
+          </View>
+          <View className="flex-1 gap-2">
+            <Label nativeID="endTime">Hora Cierre</Label>
+            <Input
+              nativeID="endTime"
+              value={endTime}
+              onChangeText={setEndTime}
+              placeholder="21:00"
+            />
+          </View>
+        </View>
+
+        <View className="flex-row items-center justify-between gap-3 rounded-lg bg-secondary/50 p-3">
+          <Text className="text-sm font-medium text-foreground">
+            ¿Requiere invitación (QR) para acceder?
+          </Text>
+          <Switch checked={requiresQr} onCheckedChange={setRequiresQr} />
+        </View>
+
+        <View className="mt-6 gap-2">
+          <Button
+            onPress={handleSubmit}
+            disabled={saving || !name.trim() || !hasChanges}
+            className="h-12 rounded-lg bg-primary">
+            <Text className="text-base font-bold text-primary-foreground">
+              {saving ? 'Guardando...' : 'Guardar cambios'}
+            </Text>
+          </Button>
+
+          <Button
+            onPress={handleCancelClick}
+            variant="outline"
+            className="h-12 rounded-lg border-border">
+            <Text className="text-base font-bold text-foreground">Cancelar</Text>
+          </Button>
+        </View>
+      </View>
+
+      <CustomAlertDialog
+        config={alertConfig}
+        onConfirm={handleConfirmCancel}
+        onCancel={() => setAlertConfig((prev) => ({ ...prev, visible: false }))}
+        onAcknowledge={() => {}}
+      />
+    </>
+  );
+}
