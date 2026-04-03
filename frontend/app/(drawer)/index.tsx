@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, Alert, Platform, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useNavigation, ParamListBase } from '@react-navigation/native';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
@@ -13,14 +13,20 @@ import {
   SunIcon,
 } from 'lucide-react-native';
 
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import { Textarea } from '@/components/ui/textarea';
 import { Icon } from '@/components/ui/icon';
 import { Feature } from '@/components/feature';
+import { FeedbackSection } from '@/components/send-feedback';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
-import { API_URL, getGlobalJwtToken } from '@/constants/api';
+import { apiClient } from '@/api/client';
 import { useColorScheme } from 'nativewind';
 
 const THEME_ICONS = {
@@ -49,10 +55,14 @@ export default function HomeScreen() {
   const navigation = useNavigation<DrawerNavigationProp<ParamListBase>>();
   const [feedback, setFeedback] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogTitle, setDialogTitle] = useState('');
+  const [dialogMessage, setDialogMessage] = useState('');
 
   const showAlert = (title: string, message: string) => {
-    if (Platform.OS === 'web') window.alert(`${title}\n\n${message}`);
-    else Alert.alert(title, message);
+    setDialogTitle(title);
+    setDialogMessage(message);
+    setDialogOpen(true);
   };
 
   const handleFeedbackSubmit = async () => {
@@ -64,27 +74,11 @@ export default function HomeScreen() {
     setIsSubmitting(true);
 
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-
-      const token = getGlobalJwtToken();
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const response = await fetch(`${API_URL}/feedback`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ feedback }),
-      });
-
-      if (response.ok) {
-        showAlert('¡Gracias!', 'Feedback enviado.');
-        setFeedback('');
-      } else {
-        showAlert('Error', 'No se pudo enviar.');
-      }
-    } catch {
-      showAlert('Error', 'Servidor no disponible.');
+      await apiClient.post('/feedback', { feedback });
+      showAlert('¡Gracias!', 'Feedback enviado.');
+      setFeedback('');
+    } catch (error) {
+      showAlert('Error', 'No se pudo enviar.');
     } finally {
       setIsSubmitting(false);
     }
@@ -113,25 +107,12 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        <Card className="mb-8">
-          <CardContent>
-            <View className="gap-4">
-              <Text className="text-lg font-semibold">Feedback</Text>
-
-              <Textarea
-                value={feedback}
-                onChangeText={setFeedback}
-                placeholder="Escribe tu comentario..."
-                className="min-h-[100px]"
-                maxLength={2000}
-              />
-
-              <Button onPress={handleFeedbackSubmit} disabled={isSubmitting}>
-                <Text>{isSubmitting ? 'Enviando...' : 'Enviar feedback'}</Text>
-              </Button>
-            </View>
-          </CardContent>
-        </Card>
+        <FeedbackSection
+          feedback={feedback}
+          setFeedback={setFeedback}
+          isSubmitting={isSubmitting}
+          onSubmit={handleFeedbackSubmit}
+        />
 
         <View className="mb-6 gap-4">
           <Text className="text-center text-xl font-bold">Qué puedes hacer</Text>
@@ -152,6 +133,18 @@ export default function HomeScreen() {
           <ChevronRight size={18} color="white" />
         </View>
       </Button>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{dialogTitle}</DialogTitle>
+          </DialogHeader>
+          <DialogDescription>{dialogMessage}</DialogDescription>
+          <Button onPress={() => setDialogOpen(false)} className="self-start">
+            <Text>Aceptar</Text>
+          </Button>
+        </DialogContent>
+      </Dialog>
     </ScrollView>
   );
 }
