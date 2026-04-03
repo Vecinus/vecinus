@@ -1,7 +1,8 @@
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Text } from "@/components/ui/text";
-import { View } from "react-native";
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Text } from '@/components/ui/text';
+import { Textarea } from '@/components/ui/textarea';
+import { View } from 'react-native';
 
 interface FeedbackSectionProps {
   feedback: string;
@@ -17,30 +18,24 @@ export function FeedbackSection({
   onSubmit,
 }: FeedbackSectionProps) {
   return (
-    <View className="bg-card border border-border rounded-2xl p-5 mb-10 w-full">
-      <Text className="text-lg font-semibold text-card-foreground mb-1 text-center">
-        Feedback
-      </Text>
-      <Text className="text-muted-foreground mb-4 text-center">
-        Ayúdanos a mejorar Vecinus.
-      </Text>
+    <Card className="mb-8">
+      <CardContent>
+        <View className="gap-4">
+          <Text className="text-lg font-semibold">Feedback</Text>
 
-      <Input
-        value={feedback}
-        onChangeText={setFeedback}
-        placeholder="Escribe tu comentario..."
-        multiline
-        numberOfLines={8}
-        maxLength={2000}
-        className="h-[150px] mb-4"
-        style={{ textAlignVertical: "top" }}
-      />
+          <Textarea
+            value={feedback}
+            onChangeText={setFeedback}
+            placeholder="Escribe tu comentario..."
+            className="min-h-[100px]"
+            maxLength={2000}
+          />
 
-      <Button onPress={onSubmit} disabled={isSubmitting}>
-        <Text className="text-primary-foreground font-bold">
-          {isSubmitting ? "Enviando..." : "Enviar feedback"}
-        </Text>
-      </Button>
-    </View>
+          <Button onPress={onSubmit} disabled={isSubmitting}>
+            <Text>{isSubmitting ? 'Enviando...' : 'Enviar feedback'}</Text>
+          </Button>
+        </View>
+      </CardContent>
+    </Card>
   );
 }
