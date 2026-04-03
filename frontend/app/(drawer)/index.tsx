@@ -1,31 +1,63 @@
-import React, { useState } from "react";
-import { ScrollView, Alert, Platform, View } from "react-native";
-import { Image } from "expo-image";
-import { useNavigation, ParamListBase } from "@react-navigation/native";
-import { DrawerNavigationProp } from "@react-navigation/drawer";
-import { FileText, MessageSquare, CalendarDays, BellRing, ChevronRight, LucideIcon } from "lucide-react-native";
+import React, { useState } from 'react';
+import { ScrollView, Alert, Platform, View } from 'react-native';
+import { Image } from 'expo-image';
+import { useNavigation, ParamListBase } from '@react-navigation/native';
+import { DrawerNavigationProp } from '@react-navigation/drawer';
+import {
+  FileText,
+  MessageSquare,
+  CalendarDays,
+  BellRing,
+  ChevronRight,
+  MoonStarIcon,
+  SunIcon,
+} from 'lucide-react-native';
 
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Text } from "@/components/ui/text";
-import { Textarea } from "@/components/ui/textarea";
-import { Feature } from "@/components/feature";
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/text';
+import { Textarea } from '@/components/ui/textarea';
+import { Icon } from '@/components/ui/icon';
+import { Feature } from '@/components/feature';
 
-import { API_URL, getGlobalJwtToken } from "@/constants/api";
+import { API_URL, getGlobalJwtToken } from '@/constants/api';
+import { useColorScheme } from 'nativewind';
+
+const THEME_ICONS = {
+  light: SunIcon,
+  dark: MoonStarIcon,
+};
+
+function ThemeToggle() {
+  const { colorScheme, toggleColorScheme } = useColorScheme() as {
+    colorScheme: 'light' | 'dark' | null | undefined;
+    toggleColorScheme: () => void;
+  };
+
+  return (
+    <Button
+      onPressIn={toggleColorScheme}
+      size="icon"
+      variant="ghost"
+      className="ios:size-9 rounded-full web:mx-4">
+      <Icon as={THEME_ICONS[colorScheme ?? 'light']} className="size-5" />
+    </Button>
+  );
+}
 
 export default function HomeScreen() {
   const navigation = useNavigation<DrawerNavigationProp<ParamListBase>>();
-  const [feedback, setFeedback] = useState("");
+  const [feedback, setFeedback] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const showAlert = (title: string, message: string) => {
-    if (Platform.OS === "web") window.alert(`${title}\n\n${message}`);
+    if (Platform.OS === 'web') window.alert(`${title}\n\n${message}`);
     else Alert.alert(title, message);
   };
 
   const handleFeedbackSubmit = async () => {
     if (!feedback.trim()) {
-      showAlert("Aviso", "Escribe un comentario antes de enviar.");
+      showAlert('Aviso', 'Escribe un comentario antes de enviar.');
       return;
     }
 
@@ -33,26 +65,26 @@ export default function HomeScreen() {
 
     try {
       const headers: Record<string, string> = {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       };
 
       const token = getGlobalJwtToken();
-      if (token) headers["Authorization"] = `Bearer ${token}`;
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
       const response = await fetch(`${API_URL}/feedback`, {
-        method: "POST",
+        method: 'POST',
         headers,
         body: JSON.stringify({ feedback }),
       });
 
       if (response.ok) {
-        showAlert("¡Gracias!", "Feedback enviado.");
-        setFeedback("");
+        showAlert('¡Gracias!', 'Feedback enviado.');
+        setFeedback('');
       } else {
-        showAlert("Error", "No se pudo enviar.");
+        showAlert('Error', 'No se pudo enviar.');
       }
     } catch {
-      showAlert("Error", "Servidor no disponible.");
+      showAlert('Error', 'Servidor no disponible.');
     } finally {
       setIsSubmitting(false);
     }
@@ -60,20 +92,23 @@ export default function HomeScreen() {
 
   return (
     <ScrollView className="flex-1 bg-background">
-      <View className="pt-16 pb-10 px-5 md:px-10 max-w-3xl w-full self-center">
-        
-        <View className="items-center mb-10">
+      <View className="absolute right-4 top-4 z-10">
+        <ThemeToggle />
+      </View>
+
+      <View className="w-full max-w-3xl self-center px-5 pb-10 pt-16 md:px-10">
+        <View className="mb-10 items-center">
           <Image
-              source={require("@/assets/logos/vecinusicon.png")}
-              style={{ width: 230, height: 230 }}
-              contentFit="contain"
+            source={require('@/assets/logos/vecinusicon.png')}
+            style={{ width: 230, height: 230 }}
+            contentFit="contain"
           />
 
-          <Text variant="lead" className="text-blue-500 font-semibold mt-2 text-center">
+          <Text variant="lead" className="mt-2 text-center font-semibold text-blue-500">
             Tu comunidad conectada
           </Text>
 
-          <Text className="text-muted-foreground text-center mt-2">
+          <Text className="mt-2 text-center text-muted-foreground">
             Gestiona tu comunidad desde un solo lugar.
           </Text>
         </View>
@@ -92,39 +127,31 @@ export default function HomeScreen() {
               />
 
               <Button onPress={handleFeedbackSubmit} disabled={isSubmitting}>
-                <Text>
-                  {isSubmitting ? "Enviando..." : "Enviar feedback"}
-                </Text>
+                <Text>{isSubmitting ? 'Enviando...' : 'Enviar feedback'}</Text>
               </Button>
             </View>
           </CardContent>
         </Card>
 
-        <View className="gap-4 mb-6">
-          <Text className="text-xl font-bold text-center">
-            Qué puedes hacer
-          </Text>
+        <View className="mb-6 gap-4">
+          <Text className="text-center text-xl font-bold">Qué puedes hacer</Text>
 
-          <View className="flex-row flex-wrap gap-4 justify-center">
+          <View className="flex-row flex-wrap justify-center gap-4">
             <Feature Icon={FileText} title="Actas y votaciones" desc="Consulta y participa." />
             <Feature Icon={MessageSquare} title="Asistente virtual" desc="Resuelve dudas rápido." />
             <Feature Icon={CalendarDays} title="Reservas" desc="Gestiona espacios." />
             <Feature Icon={BellRing} title="Avisos" desc="Mantente informado." />
           </View>
         </View>
-
-        <Button
-          className="self-center"
-          onPress={() => navigation.openDrawer()}
-          size={"lg"}
-        >
-          <View className="flex-row items-center gap-2">
-            <Text>Explorar</Text>
-            <ChevronRight size={18} color="white" />
-          </View>
-        </Button>
-
       </View>
+
+      <View className="h-16" />
+      <Button className="self-center" onPress={() => navigation.openDrawer()} size={'lg'}>
+        <View className="flex-row items-center gap-2">
+          <Text>Explorar</Text>
+          <ChevronRight size={18} color="white" />
+        </View>
+      </Button>
     </ScrollView>
   );
 }
