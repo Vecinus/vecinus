@@ -124,121 +124,137 @@ export default function ZoneForm({
 
   return (
     <>
-      <View className="gap-5">
-        <View className="gap-2">
-          <Label nativeID="nombre">Nombre de la instalación</Label>
-          <Input
-            nativeID="nombre"
-            value={name}
-            onChangeText={setName}
-            placeholder="Ej. Piscina Comunitaria"
-          />
-        </View>
-
-        <View className="gap-2">
-          <Label nativeID="capacity">Aforo máximo permitido</Label>
-          <Input
-            nativeID="capacity"
-            value={capacity}
-            onChangeText={setCapacity}
-            keyboardType="numeric"
-            placeholder="Ej. 50"
-          />
-        </View>
-
-        <View className="gap-2">
-          <Label>Modo de uso</Label>
-          <View className="flex-row gap-2">
-            <Button
-              onPress={() => setUsageMode('exclusive_reservation')}
-              variant={usageMode === 'exclusive_reservation' ? 'default' : 'outline'}
-              className={`h-10 flex-1 rounded-lg ${
-                usageMode === 'exclusive_reservation' ? 'bg-primary' : 'border-primary'
-              }`}>
-              <Text
-                className={`text-sm font-bold ${
-                  usageMode === 'exclusive_reservation' ? 'text-primary-foreground' : 'text-primary'
-                }`}>
-                Reserva Exclusiva
-              </Text>
-            </Button>
-            <Button
-              onPress={() => setUsageMode('guest_pass')}
-              variant={usageMode === 'guest_pass' ? 'default' : 'outline'}
-              className={`h-10 flex-1 rounded-lg ${
-                usageMode === 'guest_pass' ? 'bg-primary' : 'border-primary'
-              }`}>
-              <Text
-                className={`text-sm font-bold ${
-                  usageMode === 'guest_pass' ? 'text-primary-foreground' : 'text-primary'
-                }`}>
-                Pase Invitado
-              </Text>
-            </Button>
-          </View>
-        </View>
-
-        {usageMode === 'guest_pass' && (
+      <View className="w-full items-center gap-5">
+        <View className="w-full max-w-5xl gap-5">
           <View className="gap-2">
-            <Label nativeID="maxGuests">Invitados máximos por reserva</Label>
+            <Label className="text-lg" nativeID="nombre">
+              Nombre de la instalación
+            </Label>
             <Input
-              nativeID="maxGuests"
-              value={maxGuests}
-              onChangeText={setMaxGuests}
+              nativeID="nombre"
+              value={name}
+              onChangeText={setName}
+              placeholder="Ej. Piscina Comunitaria"
+            />
+          </View>
+
+          <View className="gap-2">
+            <Label className="text-lg" nativeID="capacity">
+              Aforo máximo permitido
+            </Label>
+            <Input
+              nativeID="capacity"
+              value={capacity}
+              onChangeText={setCapacity}
               keyboardType="numeric"
-              placeholder="Ej. 5"
+              placeholder="Ej. 50"
             />
           </View>
-        )}
 
-        <View className="flex-row gap-3">
-          <View className="flex-1 gap-2">
-            <Label nativeID="startTime">Hora Apertura</Label>
-            <Input
-              nativeID="startTime"
-              value={startTime}
-              onChangeText={setStartTime}
-              placeholder="09:00"
-              maxLength={5}
-            />
+          <View className="gap-2">
+            <Label className="text-lg" nativeID="usageMode">
+              Modo de uso
+            </Label>
+            <View className="flex-row gap-2">
+              <Button
+                onPress={() => setUsageMode('exclusive_reservation')}
+                variant={usageMode === 'exclusive_reservation' ? 'default' : 'outline'}
+                className={`h-10 flex-1 rounded-lg ${
+                  usageMode === 'exclusive_reservation' ? 'bg-primary' : 'border-primary'
+                }`}>
+                <Text
+                  className={`text-sm font-bold ${
+                    usageMode === 'exclusive_reservation'
+                      ? 'text-primary-foreground'
+                      : 'text-primary'
+                  }`}>
+                  Reserva Exclusiva
+                </Text>
+              </Button>
+              <Button
+                onPress={() => setUsageMode('guest_pass')}
+                variant={usageMode === 'guest_pass' ? 'default' : 'outline'}
+                className={`h-10 flex-1 rounded-lg ${
+                  usageMode === 'guest_pass' ? 'bg-primary' : 'border-primary'
+                }`}>
+                <Text
+                  className={`text-sm font-bold ${
+                    usageMode === 'guest_pass' ? 'text-primary-foreground' : 'text-primary'
+                  }`}>
+                  Pase Invitado
+                </Text>
+              </Button>
+            </View>
           </View>
-          <View className="flex-1 gap-2">
-            <Label nativeID="endTime">Hora Cierre</Label>
-            <Input
-              nativeID="endTime"
-              value={endTime}
-              onChangeText={setEndTime}
-              placeholder="21:00"
-              maxLength={5}
-            />
+
+          {usageMode === 'guest_pass' && (
+            <View className="gap-2">
+              <Label className="text-base" nativeID="maxGuests">
+                Invitados máximos por reserva
+              </Label>
+              <Input
+                nativeID="maxGuests"
+                value={maxGuests}
+                onChangeText={setMaxGuests}
+                keyboardType="numeric"
+                placeholder="Ej. 5"
+              />
+            </View>
+          )}
+
+          <View className="flex-row gap-3">
+            <View className="flex-1 gap-2">
+              <Label className="text-lg" nativeID="startTime">
+                Hora Apertura
+              </Label>
+              <Input
+                nativeID="startTime"
+                value={startTime}
+                onChangeText={setStartTime}
+                placeholder="09:00"
+                maxLength={5}
+              />
+            </View>
+            <View className="flex-1 gap-2">
+              <Label className="text-lg" nativeID="endTime">
+                Hora Cierre
+              </Label>
+              <Input
+                nativeID="endTime"
+                value={endTime}
+                onChangeText={setEndTime}
+                placeholder="21:00"
+                maxLength={5}
+              />
+            </View>
           </View>
-        </View>
 
-        <View className="flex-row items-center justify-between gap-3 rounded-lg bg-secondary/50 p-3">
-          <Text className="text-sm font-medium text-foreground">
-            ¿Requiere invitación (QR) para acceder?
-          </Text>
-          <Switch checked={requiresQr} onCheckedChange={setRequiresQr} />
-        </View>
-
-        <View className="mt-6 gap-2">
-          <Button
-            onPress={handleSubmit}
-            disabled={saving || !name.trim() || !hasChanges}
-            className="h-12 rounded-lg bg-primary">
-            <Text className="text-base font-bold text-primary-foreground">
-              {saving ? 'Guardando...' : 'Guardar cambios'}
+          <View className="flex-row items-center justify-between gap-3 rounded-lg bg-secondary/50 p-3">
+            <Text className="text-sm font-medium text-foreground">
+              ¿Requiere invitación (QR) para acceder?
             </Text>
-          </Button>
+            <Switch checked={requiresQr} onCheckedChange={setRequiresQr} />
+          </View>
 
-          <Button
-            onPress={handleCancelClick}
-            variant="outline"
-            className="h-12 rounded-lg border-border">
-            <Text className="text-base font-bold text-foreground">
-              {hasChanges ? 'Cancelar' : 'Volver'}
-            </Text>
-          </Button>
+          <View className="mt-6 gap-2">
+            <Button
+              onPress={handleSubmit}
+              disabled={saving || !name.trim() || !hasChanges}
+              className="h-12 rounded-lg bg-primary">
+              <Text className="text-base font-bold text-primary-foreground">
+                {saving ? 'Guardando...' : 'Guardar cambios'}
+              </Text>
+            </Button>
+
+            <Button
+              onPress={handleCancelClick}
+              variant="outline"
+              className="h-12 rounded-lg border-border">
+              <Text className="text-base font-bold text-foreground">
+                {hasChanges ? 'Cancelar' : 'Volver'}
+              </Text>
+            </Button>
+          </View>
         </View>
       </View>
 
