@@ -22,7 +22,6 @@ import { useLocalSearchParams } from 'expo-router';
 import {
   CircleAlertIcon,
   MessageSquareIcon,
-  RefreshCcwIcon,
   SendIcon,
   ShieldAlertIcon,
   SparklesIcon,
@@ -148,7 +147,6 @@ export default function CommunityChatScreen() {
   const [composerHeight, setComposerHeight] = React.useState(CHAT_COMPOSER_MIN_HEIGHT);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [isSending, setIsSending] = React.useState(false);
-  const [isResolvingChannel, setIsResolvingChannel] = React.useState(false);
 
   React.useEffect(() => {
     if (!membership) {
@@ -179,7 +177,6 @@ export default function CommunityChatScreen() {
       return;
     }
 
-    setIsResolvingChannel(true);
     setFeedbackMessage(null);
 
     try {
@@ -208,8 +205,6 @@ export default function CommunityChatScreen() {
     } catch (error) {
       setState('error');
       setFeedbackMessage(getChatErrorMessage(error, 'No se pudo preparar el chat comunitario.'));
-    } finally {
-      setIsResolvingChannel(false);
     }
   }, [isAdmin, loadMessages, membership, normalizedCommunityId]);
 
@@ -339,26 +334,9 @@ export default function CommunityChatScreen() {
       <View className="flex-1 bg-background p-4">
         <Card className="min-h-0 flex-1 gap-0 overflow-hidden py-0">
           <CardHeader className="border-b border-border px-4 py-4">
-            <View className="flex-row items-center justify-between gap-3">
-              <View className="flex-row items-center gap-2">
-                <Icon as={MessageSquareIcon} size={16} className="text-primary" />
-                <Text className="text-base font-semibold text-foreground">Chat vecinal</Text>
-              </View>
-
-              <Button
-                variant="outline"
-                size="icon"
-                onPress={() => {
-                  void handleRefresh();
-                }}
-                disabled={isRefreshing || isResolvingChannel || !channel?.id}
-                className="rounded-full">
-                {isRefreshing || isResolvingChannel ? (
-                  <ActivityIndicator size="small" />
-                ) : (
-                  <Icon as={RefreshCcwIcon} size={16} className="text-foreground" />
-                )}
-              </Button>
+            <View className="flex-row items-center gap-2">
+              <Icon as={MessageSquareIcon} size={16} className="text-primary" />
+              <Text className="text-base font-semibold text-foreground">Chat vecinal</Text>
             </View>
           </CardHeader>
 

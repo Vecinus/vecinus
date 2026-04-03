@@ -17,7 +17,7 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
@@ -34,7 +34,6 @@ import {
   LibraryIcon,
   MessageSquareIcon,
   PaperclipIcon,
-  RefreshCcwIcon,
   SendIcon,
   SparklesIcon,
   Trash2Icon,
@@ -494,25 +493,6 @@ export default function CommunityChatbotScreen() {
         'min-h-0 flex-1 gap-0 overflow-hidden py-0',
         isDesktop ? 'h-full max-h-[calc(100vh-12rem)] w-[360px]' : ''
       )}>
-      <CardHeader className="border-b border-border px-4 py-4">
-        <View className="flex-row justify-end">
-          <Button
-            variant="outline"
-            size="icon"
-            onPress={() => {
-              void documentsQuery.refetch();
-            }}
-            disabled={documentsQuery.isFetching}
-            className="rounded-full">
-            {documentsQuery.isFetching ? (
-              <ActivityIndicator size="small" />
-            ) : (
-              <Icon as={RefreshCcwIcon} size={16} className="text-foreground" />
-            )}
-          </Button>
-        </View>
-      </CardHeader>
-
       <ScrollView
         className="min-h-0 flex-1"
         contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
