@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel, ConfigDict, computed_field
 
 
 class PollBase(BaseModel):
@@ -59,5 +59,4 @@ class PollResponse(PollBase):
 
         return "UNKNOWN"
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

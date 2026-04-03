@@ -25,7 +25,7 @@ def create_poll(
     """Crea una nueva votación en estado DRAFT (Solo Admins)."""
     user_id = current_user["id"]
 
-    RoleService.verify_admin_permissions(supabase, user_id, association_id)
+    RoleService.verify_admin_or_president_permissions(supabase, user_id, association_id)
 
     service = PollService(supabase)
     return service.create_poll(association_id, user_id, poll_data)
@@ -54,7 +54,7 @@ def publish_poll(
 
     association_id = poll_res.data[0]["association_id"]
 
-    RoleService.verify_admin_permissions(supabase, user_id, association_id)
+    RoleService.verify_admin_or_president_permissions(supabase, user_id, association_id)
 
     service = PollService(supabase)
     return service.publish_poll(poll_id, publish_data)
@@ -75,7 +75,7 @@ def close_poll_manually(
 
     association_id = poll_res.data[0]["association_id"]
 
-    RoleService.verify_admin_permissions(supabase, user_id, association_id)
+    RoleService.verify_admin_or_president_permissions(supabase, user_id, association_id)
 
     service = PollService(supabase)
     return service.close_poll_manually(poll_id)

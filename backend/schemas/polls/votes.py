@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class VoteCreate(BaseModel):
@@ -20,8 +20,7 @@ class VoteResponse(BaseModel):
     rgpd_accepted_at: datetime
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class VotingTokenResponse(BaseModel):
