@@ -22,6 +22,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -140,9 +141,11 @@ export default function HomeScreen() {
             <DialogTitle>{dialogTitle}</DialogTitle>
           </DialogHeader>
           <DialogDescription>{dialogMessage}</DialogDescription>
-          <Button onPress={() => setDialogOpen(false)} className="self-start">
-            <Text>Aceptar</Text>
-          </Button>
+          <DialogFooter>
+            <Button onPress={() => setDialogOpen(false)}>
+              <Text>Aceptar</Text>
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </ScrollView>
