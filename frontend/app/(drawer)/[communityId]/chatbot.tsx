@@ -20,6 +20,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  type Option,
+} from '@/components/ui/select';
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/context/AuthContext';
@@ -27,12 +35,10 @@ import { cn } from '@/lib/utils';
 import type { ChatMessage, UploadDocumentFile } from '@/types/chatbot.types';
 import { ADMIN_ROLE_ID } from '@/utils/role.util';
 import * as DocumentPicker from 'expo-document-picker';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useNavigation } from 'expo-router';
 import {
   CircleAlertIcon,
   FileTextIcon,
-  LibraryIcon,
-  MessageSquareIcon,
   PaperclipIcon,
   SendIcon,
   SparklesIcon,
@@ -89,6 +95,13 @@ function buildMessage(
 
 function toChatTabValue(value: string): ChatTabValue {
   return value === 'documents' ? 'documents' : 'chat';
+}
+
+function toMobileSectionOption(value: ChatTabValue): Option {
+  return {
+    label: value === 'chat' ? 'Chatbot' : 'Documentos',
+    value,
+  };
 }
 
 function normalizeDocumentAsset(
@@ -174,6 +187,7 @@ function ChatMessageBubble({ message }: { message: ChatMessage }) {
 
 export default function CommunityChatbotScreen() {
   const { communityId } = useLocalSearchParams<{ communityId: string | string[] }>();
+  const navigation = useNavigation();
   const { width } = useWindowDimensions();
   const { user, activeCommunity, setActiveCommunity } = useAuth();
   const flatListRef = React.useRef<FlatList<ChatMessage>>(null);
@@ -401,6 +415,56 @@ export default function CommunityChatbotScreen() {
   }, [deleteDocumentMutation, normalizedCommunityId, pendingDeleteTitle]);
 
   const documents = documentsQuery.data ?? [];
+  const currentMobileSection = React.useMemo(
+    () => toMobileSectionOption(activeTab),
+    [activeTab]
+  );
+  const currentMobileSectionValue = React.useMemo(
+    () =>
+      currentMobileSection ?? {
+        label: 'Chatbot',
+        value: 'chat',
+      },
+    [currentMobileSection]
+  );
+
+  React.useLayoutEffect(() => {
+    if (!canManageDocuments || isDesktop) {
+      navigation.setOptions({
+        headerTitle: 'Chatbot',
+      });
+      return;
+    }
+
+    navigation.setOptions({
+      headerTitle: () => (
+        <Select
+          value={currentMobileSectionValue}
+          onValueChange={(option) => {
+            if (!option?.value) return;
+            setActiveTab(toChatTabValue(option.value));
+          }}>
+          <SelectTrigger className="h-10 min-w-[170px] border-0 bg-transparent px-0 shadow-none">
+            <View className="flex-row items-center gap-2">
+              <Text className="text-base font-semibold text-foreground">
+                {currentMobileSectionValue.label}
+              </Text>
+            </View>
+          </SelectTrigger>
+          <SelectContent className="w-full min-w-[var(--radix-select-trigger-width)]">
+            <SelectGroup>
+              <SelectItem label="Chatbot" value="chat">
+                Chatbot
+              </SelectItem>
+              <SelectItem label="Documentos" value="documents">
+                Documentos
+              </SelectItem>
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      ),
+    });
+  }, [canManageDocuments, currentMobileSectionValue, isDesktop, navigation]);
 
   if (!normalizedCommunityId || !membership) {
     return (
@@ -631,29 +695,6 @@ export default function CommunityChatbotScreen() {
           <View className="mb-4 min-h-0 flex-1 gap-4">
             {!isDesktop && canManageDocuments ? (
               <View className="min-h-0 flex-1 gap-4">
-                <View className="rounded-2xl bg-muted p-1">
-                  <View className="flex-row">
-                    <Button
-                      variant={activeTab === 'chat' ? 'secondary' : 'ghost'}
-                      onPress={() => {
-                        setActiveTab(toChatTabValue('chat'));
-                      }}
-                      className="flex-1 rounded-xl">
-                      <Icon as={MessageSquareIcon} size={14} />
-                      <Text>Chat</Text>
-                    </Button>
-                    <Button
-                      variant={activeTab === 'documents' ? 'secondary' : 'ghost'}
-                      onPress={() => {
-                        setActiveTab(toChatTabValue('documents'));
-                      }}
-                      className="flex-1 rounded-xl">
-                      <Icon as={LibraryIcon} size={14} />
-                      <Text>Documentos</Text>
-                    </Button>
-                  </View>
-                </View>
-
                 <View className="min-h-0 flex-1">
                   {activeTab === 'chat' ? renderChatArea : renderDocumentsArea}
                 </View>
