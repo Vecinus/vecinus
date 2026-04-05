@@ -40,13 +40,13 @@ export default function InvitationsScreen() {
   const { refreshUserContext, logoutContext } = useAuth();
 
   const { data: invitations = [], isLoading, isError, error, refetch } = useMyInvitations();
-  
+
   useFocusEffect(
     useCallback(() => {
       refetch();
     }, [refetch])
   );
-  
+
   const acceptInvitation = useAcceptInvitation();
   const rejectInvitation = useRejectInvitation();
 
@@ -218,9 +218,9 @@ export default function InvitationsScreen() {
       <Modal visible={!!invitationToReject} transparent animationType="fade" onRequestClose={() => setInvitationToReject(null)}>
         <View className="flex-1 bg-black/40 items-center justify-center px-6">
           <View className="w-full max-w-[360px] bg-card rounded-3xl p-6 border border-border">
-            <Text className="text-xl font-bold text-foreground mb-3">Rechazar invitacion</Text>
+            <Text className="text-xl font-bold text-foreground mb-3">Rechazar invitación</Text>
             <Text className="text-sm text-muted-foreground mb-6">
-              Esta accion eliminara la invitacion pendiente y no podra recuperarse desde aqui.
+              Esta acción eliminará la invitación pendiente y no podrá recuperarse desde aquí.
             </Text>
 
             <View className="flex-row gap-3">

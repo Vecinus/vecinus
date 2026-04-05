@@ -9,17 +9,17 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 
 import { MemberCard } from '@/components/community/MemberCard';
 import { PendingInvitationCard } from '@/components/community/PendingInvitationCard';
-import { 
-  Building, Users, Clock, ChevronDown, ChevronUp, UserPlus, 
+import {
+  Building, Users, Clock, ChevronDown, ChevronUp, UserPlus,
   Home, AlertTriangle
 } from 'lucide-react-native';
 
 import { useAuth } from '@/context/AuthContext';
 import { communityApi } from '@/api/community';
 import { isAdminRole } from '@/utils/community-role';
-import { 
-  useCommunityMembers, 
-  usePendingInvitations, 
+import {
+  useCommunityMembers,
+  usePendingInvitations,
   useDeleteMember,
   useInviteMember,
   useAddProperty,
@@ -30,7 +30,7 @@ export default function CommunityAdminScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { communityId: routeCommunityIdRaw } = useLocalSearchParams<{ communityId?: string | string[] }>();
-  
+
   const { user, activeCommunity, currentRole } = useAuth();
   const routeCommunityId = Array.isArray(routeCommunityIdRaw)
     ? routeCommunityIdRaw[0]
@@ -44,13 +44,13 @@ export default function CommunityAdminScreen() {
     ? routeCommunityId
     : activeCommunity?.id;
   const currentUserId = user?.id;
-  
+
   const isAdmin = isAdminRole(currentRole);
   const communityAddress = activeCommunity?.address?.trim();
 
   // --- Estados UI ---
   const [showPending, setShowPending] = useState(false);
-  
+
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
   const [propertyModalVisible, setPropertyModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
@@ -61,7 +61,7 @@ export default function CommunityAdminScreen() {
   const [roleToGrant, setRoleToGrant] = useState<string>('');
   const [propertyId, setPropertyId] = useState<string>('');
   const [inviteError, setInviteError] = useState('');
-  
+
   const [propertyNumber, setPropertyNumber] = useState('');
   const [propertyError, setPropertyError] = useState('');
 
@@ -69,6 +69,19 @@ export default function CommunityAdminScreen() {
   const { data: members, isLoading: isLoadingMembers, isError, error: membersError, refetch: refetchMembers } = useCommunityMembers(communityId, isAdmin);
   const { data: pendingInvitations, refetch: refetchInvitations } = usePendingInvitations(communityId, isAdmin);
   const { data: availableProperties, isLoading: isLoadingProperties, refetch: refetchProperties } = useAvailableProperties(communityId, isAdmin);
+
+  const actuallyAvailableProperties = React.useMemo(() => {
+    if (!availableProperties) return [];
+    if (!pendingInvitations) return availableProperties;
+
+    const lockedPropertyIds = new Set(
+      pendingInvitations
+        .map(inv => inv.property_id)
+        .filter(id => id != null)
+    );
+
+    return availableProperties.filter(prop => !lockedPropertyIds.has(prop.id));
+  }, [availableProperties, pendingInvitations]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -269,8 +282,8 @@ export default function CommunityAdminScreen() {
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => (
-          <MemberCard 
-            member={item} 
+          <MemberCard
+            member={item}
             isMe={item.id === currentUserId}
             canDelete={isAdmin}
             onDelete={handleDeleteTrigger}
@@ -282,7 +295,7 @@ export default function CommunityAdminScreen() {
             {/* Sección de Invitaciones (Solo visible si eres Admin y hay algo pendiente) */}
             {isAdmin && pendingInvitations && pendingInvitations.length > 0 && (
               <View className="mb-5 rounded-2xl bg-amber-50 dark:bg-amber-950/35 border border-amber-200 dark:border-amber-900/50 overflow-hidden shadow-sm shadow-amber-100/70 dark:shadow-none">
-                <TouchableOpacity 
+                <TouchableOpacity
                   className="px-5 py-4 flex-row items-center justify-between"
                   onPress={() => setShowPending(!showPending)}
                   activeOpacity={0.7}
@@ -325,16 +338,16 @@ export default function CommunityAdminScreen() {
       {/* FOOTER ACTION BUTTONS */}
       {isAdmin && (
         <View className="absolute bottom-0 w-full px-5 py-4 bg-white/90 dark:bg-card/95 border-t border-slate-200/60 dark:border-border/50 backdrop-blur-3xl flex-row gap-4">
-          <Button 
-            className="flex-1 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-500 shadow-lg shadow-indigo-200/60 dark:shadow-none h-14 rounded-2xl flex-row items-center" 
+          <Button
+            className="flex-1 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-500 shadow-lg shadow-indigo-200/60 dark:shadow-none h-14 rounded-2xl flex-row items-center"
             onPress={() => setInviteModalVisible(true)}
           >
             <UserPlus size={20} color="#fff" strokeWidth={2.5} className="mr-3" />
             <Text className="text-white font-bold text-[15px]">Invitar Vecino</Text>
           </Button>
 
-          <Button 
-            className="flex-1 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-500 shadow-lg shadow-emerald-200/60 dark:shadow-none h-14 rounded-2xl flex-row items-center" 
+          <Button
+            className="flex-1 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-500 shadow-lg shadow-emerald-200/60 dark:shadow-none h-14 rounded-2xl flex-row items-center"
             onPress={() => setPropertyModalVisible(true)}
           >
             <Home size={20} color="#fff" strokeWidth={2.5} className="mr-3" />
@@ -380,23 +393,23 @@ export default function CommunityAdminScreen() {
               })}
             </View>
 
-            {roleToGrant && roleToGrant !== '5' && (
+            {!!roleToGrant && roleToGrant !== '5' && (
               <>
                 <Text className="mb-2 text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase">Propiedad libre</Text>
                 {isLoadingProperties ? (
                   <View className="h-12 rounded-xl bg-slate-50 dark:bg-zinc-800 items-center justify-center mb-4">
                     <ActivityIndicator color="#6366f1" />
                   </View>
-                ) : !availableProperties || availableProperties.length === 0 ? (
+                ) : !actuallyAvailableProperties || actuallyAvailableProperties.length === 0 ? (
                   <View className="rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 px-3 py-3 mb-4">
                     <Text className="text-slate-500 dark:text-zinc-400 text-xs">No quedan propiedades libres</Text>
                   </View>
                 ) : (
                   <View className="mb-4 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl overflow-hidden">
                     <ScrollView style={{ maxHeight: 156 }} nestedScrollEnabled showsVerticalScrollIndicator>
-                      {availableProperties.map((prop, index) => {
+                      {actuallyAvailableProperties.map((prop, index) => {
                         const selected = propertyId === prop.id;
-                        const isLast = index === availableProperties.length - 1;
+                        const isLast = index === actuallyAvailableProperties.length - 1;
                         return (
                           <TouchableOpacity
                             key={prop.id.toString()}

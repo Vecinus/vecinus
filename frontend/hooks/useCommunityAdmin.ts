@@ -43,6 +43,7 @@ export const useDeleteMember = (communityId: string | undefined) => {
     onSuccess: () => {
       if (communityId) {
         queryClient.invalidateQueries({ queryKey: communityQueryKeys.members(communityId) });
+        queryClient.invalidateQueries({ queryKey: communityQueryKeys.availableProperties(communityId) });
       }
     },
   });
@@ -58,6 +59,7 @@ export const useInviteMember = (communityId: string | undefined) => {
       if (communityId) {
         queryClient.invalidateQueries({ queryKey: communityQueryKeys.pendingInvitations(communityId) });
         queryClient.invalidateQueries({ queryKey: communityQueryKeys.members(communityId) });
+        queryClient.invalidateQueries({ queryKey: communityQueryKeys.availableProperties(communityId) });
       }
     },
   });

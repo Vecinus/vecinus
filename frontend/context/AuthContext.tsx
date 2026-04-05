@@ -11,7 +11,7 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  activeCommunity: ActiveCommunity | null; 
+  activeCommunity: ActiveCommunity | null;
   currentRole: string | number | null;
   loginContext: (user: User, token: string) => Promise<void>;
   logoutContext: () => Promise<void>;
@@ -101,18 +101,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const currentRole = useMemo<string | number | null>(() => {
     if (!user || !activeCommunity) return null;
-    
+
     const membership = user.CommunitiesAndRole.find(
       c => c.community.id === activeCommunity.id
     );
-    
+
     return membership?.role || null;
   }, [user, activeCommunity]);
 
   const loginContext = async (userData: User, jwtToken: string) => {
     setUser(userData);
     setToken(jwtToken);
-    
+
     await storageService.saveToken(jwtToken);
     await storageService.saveUser(userData);
 
