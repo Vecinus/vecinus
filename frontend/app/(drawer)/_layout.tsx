@@ -3,7 +3,7 @@ import CustomDrawerContent from '@/components/custom-drawer-content';
 import { useColorScheme } from 'nativewind';
 import { NAV_THEME } from '@/lib/theme';
 import { Icon } from '@/components/ui/icon';
-import { HomeIcon, FileTextIcon } from 'lucide-react-native';
+import { HomeIcon, FileTextIcon, CalendarCheck } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 
 export default function DrawerLayout() {
@@ -61,6 +61,42 @@ export default function DrawerLayout() {
               className="text-foreground" 
             />
           ),
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/booking"
+        initialParams={{ communityId: activeCommunity?.id }}
+        options={{
+          title: 'Reservas',
+          drawerLabel: 'Reservas',
+          drawerIcon: ({ size, color }) => (
+            <Icon 
+              as={CalendarCheck} 
+              size={size} 
+              className="text-foreground" 
+            />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/mis-reservas" 
+        options={{
+          title: 'Mis Reservas', 
+          drawerItemStyle: { display: 'none' } 
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/mis-reservas/[id]" 
+        options={{
+          title: 'Detalle de Reserva/Pase', 
+          drawerItemStyle: { display: 'none' } 
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/scanner" 
+        options={{
+          title: 'Escaner', 
+          drawerItemStyle: { display: 'none' } 
         }}
       />
     </Drawer>
