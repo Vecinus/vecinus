@@ -3,7 +3,7 @@ import CustomDrawerContent from '@/components/custom-drawer-content';
 import { useColorScheme } from 'nativewind';
 import { NAV_THEME } from '@/lib/theme';
 import { Icon } from '@/components/ui/icon';
-import { HomeIcon, FileTextIcon, Building2, MailIcon } from 'lucide-react-native';
+import { HomeIcon, FileTextIcon, Building2, MailIcon, CalendarCheck } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import { isAdminRole } from '@/utils/community-role';
 
@@ -27,8 +27,8 @@ export default function DrawerLayout() {
         drawerActiveTintColor: theme.colors.text,
         drawerInactiveTintColor: theme.colors.text,
         drawerStyle: {
-            width: 300,
-            backgroundColor: theme.colors.card,
+          width: 300,
+          backgroundColor: theme.colors.card,
         },
         drawerLabelStyle: {
           marginLeft: 0,
@@ -42,10 +42,10 @@ export default function DrawerLayout() {
           title: 'Inicio',
           drawerLabel: 'Inicio',
           drawerIcon: ({ size, color }) => (
-            <Icon 
-              as={HomeIcon} 
-              size={size} 
-              className="text-foreground" 
+            <Icon
+              as={HomeIcon}
+              size={size}
+              className="text-foreground"
             />
           ),
         }}
@@ -57,12 +57,48 @@ export default function DrawerLayout() {
           title: 'Actas',
           drawerLabel: 'Actas',
           drawerIcon: ({ size, color }) => (
-            <Icon 
-              as={FileTextIcon} 
-              size={size} 
-              className="text-foreground" 
+            <Icon
+              as={FileTextIcon}
+              size={size}
+              className="text-foreground"
             />
           ),
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/booking"
+        initialParams={{ communityId: activeCommunity?.id }}
+        options={{
+          title: 'Reservas',
+          drawerLabel: 'Reservas',
+          drawerIcon: ({ size, color }) => (
+            <Icon
+              as={CalendarCheck}
+              size={size}
+              className="text-foreground"
+            />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/mis-reservas"
+        options={{
+          title: 'Mis Reservas',
+          drawerItemStyle: { display: 'none' }
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/mis-reservas/[id]"
+        options={{
+          title: 'Detalle de Reserva/Pase',
+          drawerItemStyle: { display: 'none' }
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/scanner"
+        options={{
+          title: 'Escaner',
+          drawerItemStyle: { display: 'none' }
         }}
       />
       <Drawer.Screen
