@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   View,
+  Modal
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { Drawer } from 'expo-router/drawer';
@@ -134,6 +135,16 @@ export default function IncidenciasScreen() {
   >(null);
   const [formError, setFormError] = useState('');
 
+  const [infoModal, setInfoModal] = useState<{ visible: boolean; title: string; message: string; onConfirm?: () => void }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
+
+  const showAlert = (title: string, message: string, onConfirm?: () => void) => {
+    setInfoModal({ visible: true, title, message, onConfirm });
+  };
+
   const allIncidentsQuery = useIncidentsList(communityId, false, !!communityId, user?.id);
   const myIncidentsQuery = useIncidentsList(communityId, true, !!communityId, user?.id);
   const membersQuery = useQuery<Member[], Error>({
@@ -173,6 +184,15 @@ export default function IncidenciasScreen() {
     const isValid = filterTabs.some((tab) => tab.key === activeFilter);
     if (!isValid) setActiveFilter('todas');
   }, [filterTabs, activeFilter]);
+
+  useEffect(() => {
+    if (activeCommunity?.id && String(activeCommunity.id) !== String(routeCommunityId)) {
+      router.replace({
+        pathname: '/[communityId]/incidencias',
+        params: { communityId: activeCommunity.id },
+      });
+    }
+  }, [activeCommunity?.id, routeCommunityId, router]);
 
   const allIncidents = allIncidentsQuery.data ?? EMPTY_INCIDENTS;
   const myIncidents = myIncidentsQuery.data ?? EMPTY_INCIDENTS;
@@ -277,7 +297,7 @@ export default function IncidenciasScreen() {
       });
 
       resetCreateForm();
-      Alert.alert('Incidencia creada', 'El reporte se ha registrado correctamente.');
+      showAlert('Incidencia creada', 'El reporte se ha registrado correctamente.');
     } catch (error: any) {
       setFormError(getUserFacingErrorMessage(error, 'No se pudo crear la incidencia.'));
     }
@@ -372,6 +392,31 @@ export default function IncidenciasScreen() {
         onSubmit={onCreateIncident}
         modalCardStyle={modalCardStyle}
       />
+
+      {/* --- INFO MODAL --- */}
+      <Modal visible={infoModal.visible} transparent animationType="fade" onRequestClose={() => {
+          setInfoModal(prev => ({ ...prev, visible: false }));
+          infoModal.onConfirm?.();
+      }}>
+        <View className="flex-1 bg-black/50 items-center justify-center p-6">
+          <View className="bg-background rounded-2xl p-6 w-full max-w-sm border border-border shadow-xl">
+            <Text className="text-lg font-bold text-foreground mb-2">{infoModal.title}</Text>
+            <Text className="text-muted-foreground mb-6">{infoModal.message}</Text>
+            <View className="flex-row justify-end gap-3">
+              <Button 
+                onPress={() => {
+                  setInfoModal(prev => ({ ...prev, visible: false }));
+                  if (infoModal.onConfirm) {
+                    setTimeout(() => infoModal.onConfirm!(), 50);
+                  }
+                }}
+              >
+                <Text>Aceptar</Text>
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

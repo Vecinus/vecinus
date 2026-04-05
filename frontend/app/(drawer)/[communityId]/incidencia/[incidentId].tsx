@@ -8,7 +8,8 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   View,
-  Image
+  Image,
+  Modal
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Drawer } from 'expo-router/drawer';
@@ -27,22 +28,30 @@ import { normalizeRoleToBackendToken, getUserFacingErrorMessage } from '@/compon
 
 const DESKTOP_BREAKPOINT = 1024;
 
-const showAlert = (title: string, message: string) => {
-  if (Platform.OS === 'web') {
-    window.alert(`${title}: ${message}`);
-  } else {
-    Alert.alert(title, message);
-  }
-};
-
 export default function IncidentDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const { activeCommunity, currentRole, user, refreshUserContext } = useAuth();
 
+  const [infoModal, setInfoModal] = useState<{ visible: boolean; title: string; message: string; onConfirm?: () => void }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
+
+  const [confirmModal, setConfirmModal] = useState<{ visible: boolean; title: string; message: string; onConfirm?: () => void }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
+
+  const showAlert = (title: string, message: string, onConfirm?: () => void) => {
+    setInfoModal({ visible: true, title, message, onConfirm });
+  };
+
   const params = useLocalSearchParams<{ communityId?: string | string[]; incidentId?: string | string[] }>();
-  
+
   const routeCommunityIdRaw = params.communityId;
   const routeCommunityId = Array.isArray(routeCommunityIdRaw) ? routeCommunityIdRaw[0] : routeCommunityIdRaw;
   const isInvalidRouteCommunityId =
@@ -75,17 +84,17 @@ export default function IncidentDetailScreen() {
   const isDesktop = windowWidth >= DESKTOP_BREAKPOINT;
 
   const cardStyle = useMemo(() => ({
-      width: '100%' as const,
-      maxWidth: isDesktop ? 860 : undefined,
-      alignSelf: 'center' as const,
+    width: '100%' as const,
+    maxWidth: isDesktop ? 860 : undefined,
+    alignSelf: 'center' as const,
   }), [isDesktop]);
 
   const detailImageStyle = useMemo(() => ({
-      width: '100%' as const,
-      height: isDesktop ? 320 : 176,
-      borderRadius: 12,
-      marginBottom: 16,
-      backgroundColor: '#F1F5F9',
+    width: '100%' as const,
+    height: isDesktop ? 320 : 176,
+    borderRadius: 12,
+    marginBottom: 16,
+    backgroundColor: '#F1F5F9',
   }), [isDesktop]);
 
   const [draftStatus, setDraftStatus] = useState<IncidentStatus>('PENDING');
@@ -113,7 +122,7 @@ export default function IncidentDetailScreen() {
     const me = (membersQuery.data ?? []).find((member) => String(member.id) === String(user.id));
     return me?.membershipId ?? null;
   }, [membersQuery.data, user?.id]);
-  
+
   const reporterNameByMembershipId = useMemo(() => {
     const map = new Map<string, string>();
     (membersQuery.data ?? []).forEach((member) => {
@@ -144,14 +153,14 @@ export default function IncidentDetailScreen() {
     if (myIncidentIds.has(incident.id)) return 'Abierta por ti';
     if (myMembershipId && String(incident.membershipId) === String(myMembershipId)) return 'Abierta por ti';
 
-      if (incident.reporterName && incident.reporterName !== 'Vecino' && incident.reporterName !== 'Usuario sin nombre') {
-        return `Abierta por ${incident.reporterName}`;
-      }
+    if (incident.reporterName && incident.reporterName !== 'Vecino' && incident.reporterName !== 'Usuario sin nombre') {
+      return `Abierta por ${incident.reporterName}`;
+    }
 
-      const byMembership = incident.membershipId ? reporterNameByMembershipId.get(String(incident.membershipId)) : undefined;
-      if (byMembership && byMembership !== 'Usuario sin nombre') return `Abierta por ${byMembership}`;
+    const byMembership = incident.membershipId ? reporterNameByMembershipId.get(String(incident.membershipId)) : undefined;
+    if (byMembership && byMembership !== 'Usuario sin nombre') return `Abierta por ${byMembership}`;
 
-      return 'Abierta por un vecino';
+    return 'Abierta por un vecino';
   };
 
   useEffect(() => {
@@ -177,7 +186,7 @@ export default function IncidentDetailScreen() {
 
     try {
       await updateStatusMutation.mutateAsync({ incidentId: selectedIncident.id, status: draftStatus });
-      showAlert('Estado actualizado', `La incidencia ahora esta ${INCIDENT_STATUS_LABEL[draftStatus].toLowerCase()}.`);
+      showAlert('Estado actualizado', `La incidencia ahora está ${INCIDENT_STATUS_LABEL[draftStatus].toLowerCase()}.`);
       detailQuery.refetch();
     } catch (error: any) {
       const shouldRetryAfterRefresh = error?.response?.status === 403 && canManageStatus;
@@ -185,7 +194,7 @@ export default function IncidentDetailScreen() {
         await refreshUserContext();
         try {
           await updateStatusMutation.mutateAsync({ incidentId: selectedIncident.id, status: draftStatus });
-          showAlert('Estado actualizado', `La incidencia ahora esta ${INCIDENT_STATUS_LABEL[draftStatus].toLowerCase()}.`);
+          showAlert('Estado actualizado', `La incidencia ahora está ${INCIDENT_STATUS_LABEL[draftStatus].toLowerCase()}.`);
           detailQuery.refetch();
           return;
         } catch (retryError: any) {
@@ -203,20 +212,17 @@ export default function IncidentDetailScreen() {
     if (!selectedIncident) return;
     try {
       await discardIncidentMutation.mutateAsync({ incidentId: selectedIncident.id });
-      if (Platform.OS === 'web') {
-        window.alert('La incidencia se ha eliminado correctamente.');
-      } else {
-        Alert.alert('Incidencia eliminada', 'La incidencia se ha eliminado correctamente.');
-      }
-      handleGoBack();
+      showAlert('Incidencia eliminada', 'La incidencia se ha eliminado correctamente.', () => {
+        handleGoBack();
+      });
     } catch (error: any) {
       if (error?.response?.status === 403 && canManageStatus) {
         await refreshUserContext();
         try {
           await discardIncidentMutation.mutateAsync({ incidentId: selectedIncident.id });
-          if (Platform.OS === 'web') window.alert('La incidencia se ha eliminado correctamente.');
-          else Alert.alert('Incidencia eliminada', 'La incidencia se ha eliminado correctamente.');
-          handleGoBack();
+          showAlert('Incidencia eliminada', 'La incidencia se ha eliminado correctamente.', () => {
+             handleGoBack();
+          });
           return;
         } catch (retryError: any) {
           showAlert('Error', getUserFacingErrorMessage(retryError, 'No se pudo eliminar la incidencia.'));
@@ -228,19 +234,15 @@ export default function IncidentDetailScreen() {
   };
 
   const onDiscardIncident = () => {
-    if (Platform.OS === 'web') {
-      const ok = window.confirm('Deseas eliminar definitivamente esta incidencia? Esta accion no se puede deshacer.');
-      if (ok) onConfirmDiscardIncident();
-    } else {
-      Alert.alert(
-        'Eliminar Incidencia',
-        'Deseas eliminar definitivamente esta incidencia? Esta accion no se puede deshacer.',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Eliminar', style: 'destructive', onPress: onConfirmDiscardIncident }
-        ]
-      );
-    }
+    setConfirmModal({
+      visible: true,
+      title: 'Eliminar Incidencia',
+      message: '¿Deseas eliminar definitivamente esta incidencia? Esta acción no se puede deshacer.',
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, visible: false }));
+        onConfirmDiscardIncident();
+      }
+    });
   };
 
   const isPending = updateStatusMutation.isPending || discardIncidentMutation.isPending;
@@ -269,11 +271,11 @@ export default function IncidentDetailScreen() {
             </View>
           ) : (
             <>
-            <View className="flex-row items-center gap-2 mb-2">
-              <Text className="text-xl font-bold text-slate-900 dark:text-white flex-1 flex-wrap">
-                {INCIDENT_TYPE_LABEL[selectedIncident.type]}
-              </Text>
-            </View>
+              <View className="flex-row items-center gap-2 mb-2">
+                <Text className="text-xl font-bold text-slate-900 dark:text-white flex-1 flex-wrap">
+                  {INCIDENT_TYPE_LABEL[selectedIncident.type]}
+                </Text>
+              </View>
 
               <Text className="text-sm text-slate-500 dark:text-zinc-300 mb-4">
                 Reportada el {formatDate(selectedIncident.createdAt)}
@@ -297,26 +299,24 @@ export default function IncidentDetailScreen() {
               <View className="flex-row flex-wrap gap-2 mb-4">
                 {selectedIncidentTransitions.length > 0 && canManageStatus
                   ? [selectedIncident.status, ...selectedIncidentTransitions].map((statusOption, index, array) => {
-                      if (array.indexOf(statusOption) !== index) return null;
-                      const selected = draftStatus === statusOption;
-                      return (
-                        <TouchableOpacity
-                          key={statusOption}
-                          className={`px-3 py-2 rounded-lg border flex-row items-center gap-2 ${
-                            selected ? 'bg-emerald-500 border-emerald-500' : 'bg-muted border-border'
+                    if (array.indexOf(statusOption) !== index) return null;
+                    const selected = draftStatus === statusOption;
+                    return (
+                      <TouchableOpacity
+                        key={statusOption}
+                        className={`px-3 py-2 rounded-lg border flex-row items-center gap-2 ${selected ? 'bg-emerald-500 border-emerald-500' : 'bg-muted border-border'
                           }`}
-                          onPress={() => setDraftStatus(statusOption)}
-                        >
-                          <Text
-                            className={`text-xs font-semibold ${
-                              selected ? 'text-primary-foreground' : 'text-slate-700 dark:text-zinc-200'
+                        onPress={() => setDraftStatus(statusOption)}
+                      >
+                        <Text
+                          className={`text-xs font-semibold ${selected ? 'text-primary-foreground' : 'text-slate-700 dark:text-zinc-200'
                             }`}
-                          >
-                            {INCIDENT_STATUS_LABEL[statusOption]}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })
+                        >
+                          {INCIDENT_STATUS_LABEL[statusOption]}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })
                   : (
                     <View
                       className="px-3 py-2 rounded-lg border flex-row items-center gap-2"
@@ -367,21 +367,21 @@ export default function IncidentDetailScreen() {
               ) : null}
 
               {canDiscardSelectedIncident ? (
-                  <Button
-                    variant="outline"
-                    className="h-11 mb-3 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20"
-                    onPress={onDiscardIncident}
-                    disabled={isPending}
-                  >
-                    {isPending ? (
-                      <ActivityIndicator color="#dc2626" />
-                    ) : (
-                      <>
-                        <Trash2 size={16} color="#dc2626" />
-                        <Text className="ml-2 font-semibold text-red-600 dark:text-red-400">Eliminar incidencia</Text>
-                      </>
-                    )}
-                  </Button>
+                <Button
+                  variant="outline"
+                  className="h-11 mb-3 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20"
+                  onPress={onDiscardIncident}
+                  disabled={isPending}
+                >
+                  {isPending ? (
+                    <ActivityIndicator color="#dc2626" />
+                  ) : (
+                    <>
+                      <Trash2 size={16} color="#dc2626" />
+                      <Text className="ml-2 font-semibold text-red-600 dark:text-red-400">Eliminar incidencia</Text>
+                    </>
+                  )}
+                </Button>
               ) : null}
 
               {!canDiscardSelectedIncident && isSelectedIncidentReviewed ? (
@@ -418,6 +418,55 @@ export default function IncidentDetailScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* --- INFO MODAL --- */}
+      <Modal visible={infoModal.visible} transparent animationType="fade" onRequestClose={() => {
+          setInfoModal(prev => ({ ...prev, visible: false }));
+          infoModal.onConfirm?.();
+      }}>
+        <View className="flex-1 bg-black/50 items-center justify-center p-6">
+          <View className="bg-background rounded-2xl p-6 w-full max-w-sm border border-border shadow-xl">
+            <Text className="text-lg font-bold text-foreground mb-2">{infoModal.title}</Text>
+            <Text className="text-muted-foreground mb-6">{infoModal.message}</Text>
+            <View className="flex-row justify-end gap-3">
+              <Button 
+                onPress={() => {
+                  setInfoModal(prev => ({ ...prev, visible: false }));
+                  if (infoModal.onConfirm) {
+                    setTimeout(() => infoModal.onConfirm!(), 50);
+                  }
+                }}
+              >
+                <Text>Aceptar</Text>
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* --- CONFIRM MODAL --- */}
+      <Modal visible={confirmModal.visible} transparent animationType="fade" onRequestClose={() => setConfirmModal(prev => ({ ...prev, visible: false }))}>
+        <View className="flex-1 bg-black/50 items-center justify-center p-6">
+          <View className="bg-background rounded-2xl p-6 w-full max-w-sm border border-border shadow-xl">
+            <Text className="text-lg font-bold text-foreground mb-2">{confirmModal.title}</Text>
+            <Text className="text-muted-foreground mb-6">{confirmModal.message}</Text>
+            <View className="flex-row justify-end gap-3">
+              <Button 
+                variant="outline" 
+                onPress={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
+              >
+                <Text>Cancelar</Text>
+              </Button>
+              <Button 
+                variant="destructive"
+                onPress={confirmModal.onConfirm}
+              >
+                <Text className="text-destructive-foreground">Eliminar</Text>
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
