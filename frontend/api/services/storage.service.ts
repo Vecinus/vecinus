@@ -7,6 +7,7 @@ import { Platform } from 'react-native';
 const TOKEN_KEY = 'jwt_token';
 const USER_KEY = 'user_data';
 const COMMUNITY_KEY = 'community_data';
+type StoredActiveCommunity = { id: string; name: string; role: string | number; address?: string | null };
 
 export const storageService = {
   saveToken: async (token: string): Promise<void> => {
@@ -42,10 +43,10 @@ export const storageService = {
     await AsyncStorage.removeItem(USER_KEY);
   },
 
-  saveActiveCommunity: async (community: { id: string; name: string; role: string }): Promise<void> => {
+  saveActiveCommunity: async (community: StoredActiveCommunity): Promise<void> => {
     await AsyncStorage.setItem(COMMUNITY_KEY, JSON.stringify(community));
   },
-  getActiveCommunity: async (): Promise<{ id: string; name: string; role: string } | null> => {
+  getActiveCommunity: async (): Promise<StoredActiveCommunity | null> => {
     const data = await AsyncStorage.getItem(COMMUNITY_KEY);
     return data ? JSON.parse(data) : null;
   },

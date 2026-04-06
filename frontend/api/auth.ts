@@ -34,6 +34,7 @@ export const useLoginMutation = () => {
           community: {
             id: membership.neighborhood_associations.id,
             name: membership.neighborhood_associations.name,
+            address: membership.neighborhood_associations.address ?? null,
           },
           role: membership.role,
         })),
