@@ -2,10 +2,13 @@ import { Drawer } from 'expo-router/drawer';
 import CustomDrawerContent from '@/components/custom-drawer-content';
 import { useColorScheme } from 'nativewind';
 import { NAV_THEME } from '@/lib/theme';
+import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import {
   HomeIcon,
   FileTextIcon,
+  MoonStarIcon,
+  SunIcon,
   MessageSquareIcon,
   Building2,
   MailIcon,
@@ -19,6 +22,28 @@ export default function DrawerLayout() {
   const { colorScheme } = useColorScheme();
   const theme = NAV_THEME[colorScheme ?? 'light'];
   const { activeCommunity, currentRole } = useAuth();
+
+  const THEME_ICONS = {
+    light: SunIcon,
+    dark: MoonStarIcon,
+  };
+
+  function ThemeToggle() {
+    const { colorScheme, toggleColorScheme } = useColorScheme() as {
+      colorScheme: 'light' | 'dark' | null | undefined;
+      toggleColorScheme: () => void;
+    };
+
+    return (
+      <Button
+        onPressIn={toggleColorScheme}
+        size="icon"
+        variant="ghost"
+        className="ios:size-9 rounded-full web:mx-4">
+        <Icon as={THEME_ICONS[colorScheme ?? 'light']} className="size-5" />
+      </Button>
+    );
+  }
   const isAdmin = isAdminRole(currentRole);
 
   return (
@@ -46,6 +71,7 @@ export default function DrawerLayout() {
         options={{
           title: 'Inicio',
           drawerLabel: 'Inicio',
+          headerRight: () => <ThemeToggle />,
           drawerIcon: ({ size, color }) => (
             <Icon as={HomeIcon} size={size} className="text-foreground" />
           ),
