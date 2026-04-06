@@ -3,7 +3,8 @@ import CustomDrawerContent from '@/components/custom-drawer-content';
 import { useColorScheme } from 'nativewind';
 import { NAV_THEME } from '@/lib/theme';
 import { Icon } from '@/components/ui/icon';
-import { HomeIcon, FileTextIcon, Building2, MailIcon, CalendarCheck } from 'lucide-react-native';
+import {HomeIcon, FileTextIcon, MessageSquareIcon, Building2, MailIcon, CalendarCheck, } from 'lucide-react-native';
+
 import { useAuth } from '@/context/AuthContext';
 import { isAdminRole } from '@/utils/community-role';
 
@@ -12,8 +13,6 @@ export default function DrawerLayout() {
   const theme = NAV_THEME[colorScheme ?? 'light'];
   const { activeCommunity, currentRole } = useAuth();
   const isAdmin = isAdminRole(currentRole);
-
-
 
   return (
     <Drawer
@@ -34,19 +33,14 @@ export default function DrawerLayout() {
           marginLeft: 0,
           fontWeight: '500',
         },
-      }}
-    >
+      }}>
       <Drawer.Screen
         name="index"
         options={{
           title: 'Inicio',
           drawerLabel: 'Inicio',
           drawerIcon: ({ size, color }) => (
-            <Icon
-              as={HomeIcon}
-              size={size}
-              className="text-foreground"
-            />
+            <Icon as={HomeIcon} size={size} className="text-foreground" />
           ),
         }}
       />
@@ -57,11 +51,33 @@ export default function DrawerLayout() {
           title: 'Actas',
           drawerLabel: 'Actas',
           drawerIcon: ({ size, color }) => (
-            <Icon
-              as={FileTextIcon}
-              size={size}
-              className="text-foreground"
-            />
+<Icon as={FileTextIcon} size={size} className="text-foreground" />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/chat"
+        initialParams={{ communityId: activeCommunity?.id }}
+        options={{
+          title: 'Chat vecinos',
+          drawerLabel: 'Chat vecinos',
+          drawerIcon: ({ size }) => (
+            <Icon as={MessageSquareIcon} size={size} className="text-foreground" />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/chatbot"
+        initialParams={{ communityId: activeCommunity?.id }}
+        options={{
+          title: 'Chatbot',
+          drawerLabel: 'Chatbot',
+          drawerIcon: ({ size }) => (
+            <Icon as={MessageSquareIcon} size={size} className="text-foreground" />
+          ),
+        }}
+      />
+
           ),
         }}
       />
