@@ -165,6 +165,20 @@ export default function DrawerLayout() {
           drawerItemStyle: isAdmin ? undefined : { display: 'none' },
         }}
       />
+      <Drawer.Screen
+        name="[communityId]/crear-zona"
+        options={{
+          title: 'Crear Instalación',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/editar-zona"
+        options={{
+          title: 'Editar Instalación',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
     </Drawer>
   );
 }
