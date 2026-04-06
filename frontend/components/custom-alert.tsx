@@ -42,16 +42,11 @@ export function CustomAlertDialog({
   onAcknowledge: () => void;
 }) {
   return (
-    <Modal
-      transparent
-      visible={config.visible}
-      animationType="fade"
-      onRequestClose={onCancel}
-    >
-      <View className="flex-1 bg-black/50 items-center justify-center p-6">
-        <View className="bg-background rounded-2xl p-6 w-full max-w-sm border border-border shadow-xl">
-          <Text className="text-lg font-bold text-foreground mb-2">{config.title}</Text>
-          <Text className="text-muted-foreground mb-6">{config.message}</Text>
+    <Modal transparent visible={config.visible} animationType="fade" onRequestClose={onCancel}>
+      <View className="flex-1 items-center justify-center bg-black/50 p-6">
+        <View className="w-full max-w-sm rounded-2xl border border-border bg-background p-6 shadow-xl">
+          <Text className="mb-2 text-lg font-bold text-foreground">{config.title}</Text>
+          <Text className="mb-6 text-muted-foreground">{config.message}</Text>
           <View className="flex-row justify-end gap-3">
             {config.type === 'confirm' ? (
               <>
@@ -67,6 +62,43 @@ export function CustomAlertDialog({
                 <Text>Aceptar</Text>
               </Button>
             )}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+export function CustomAlertDeleteDialog({
+  visible,
+  title,
+  message,
+  onCancel,
+  onConfirm,
+  isLoading,
+}: {
+  visible: boolean;
+  title: string;
+  message: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+  isLoading: boolean;
+}) {
+  return (
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={onCancel}>
+      <View className="flex-1 items-center justify-center bg-black/50 p-6">
+        <View className="w-full max-w-sm rounded-2xl border border-border bg-background p-6 shadow-xl">
+          <Text className="mb-2 text-lg font-bold text-foreground">{title}</Text>
+          <Text className="mb-6 text-muted-foreground">{message}</Text>
+          <View className="flex-row justify-end gap-3">
+            <Button variant="outline" onPress={onCancel} disabled={isLoading}>
+              <Text>Cancelar</Text>
+            </Button>
+            <Button variant="destructive" onPress={onConfirm} disabled={isLoading}>
+              <Text className="text-destructive-foreground">
+                {isLoading ? 'Eliminando...' : 'Eliminar'}
+              </Text>
+            </Button>
           </View>
         </View>
       </View>

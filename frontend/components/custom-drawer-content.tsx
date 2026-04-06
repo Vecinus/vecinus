@@ -11,6 +11,7 @@ import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import {
+  CalendarCheck,
   FileTextIcon,
   HomeIcon,
   LogOutIcon,
@@ -67,7 +68,6 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       }
 
       router.replace('/');
-
     }
   };
 
@@ -88,6 +88,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
   const isActasActive = pathname.endsWith('/actas');
   const isChatActive = pathname.endsWith('/chat');
   const isChatbotActive = pathname.endsWith('/chatbot');
+  const isBookingActive = pathname.endsWith('/booking');
 
   return (
     <View className="flex-1 bg-background">
@@ -182,6 +183,17 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
             icon={({ size }) => (
               <Icon as={MessageSquareIcon} size={size} className="text-foreground" />
             )}
+            labelStyle={{ marginLeft: 0, fontWeight: '500' }}
+          />
+
+          <DrawerItem
+            label="Reservas"
+            focused={isBookingActive}
+            onPress={() => {
+              if (!activeCommunity?.id) return;
+              router.replace(`/${activeCommunity.id}/booking`);
+            }}
+            icon={({ size }) => <Icon as={CalendarCheck} size={size} className="text-foreground" />}
             labelStyle={{ marginLeft: 0, fontWeight: '500' }}
           />
         </View>

@@ -5,7 +5,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
-import { CustomAlertDialog, AlertConfig } from '@/components/custom-alert';
+import { CustomAlertDialog, AlertConfig, CustomAlertDeleteDialog } from '@/components/custom-alert';
 
 import { ReservasHeader } from '../../../components/booking/booking-header';
 import { TimeSlotsGrid } from '../../../components/booking/time-slots-grid';
@@ -87,6 +87,9 @@ export default function Reservas() {
     []
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeletingZone, setIsDeletingZone] = useState(false);
+  const [lastActionWasDelete, setLastActionWasDelete] = useState(false);
 
   const [alertConfig, setAlertConfig] = useState<AlertConfig>({
     visible: false,
@@ -215,8 +218,46 @@ export default function Reservas() {
 
   const handleAlertConfirm = () => {
     setAlertConfig((prev) => ({ ...prev, visible: false }));
-    if (alertConfig.type === 'success') {
+    if (alertConfig.type === 'success' && !lastActionWasDelete) {
       router.push(`/${associationId}/mis-reservas`);
+    }
+  };
+
+  const handleDeleteAlertConfirm = () => {
+    setAlertConfig((prev) => ({ ...prev, visible: false }));
+    setLastActionWasDelete(false);
+    if (alertConfig.type === 'success') {
+      router.push(`/${associationId}/booking`);
+    }
+  };
+
+  const handleDeleteZone = async () => {
+    if (!zonaActivaId) return;
+
+    try {
+      setIsDeletingZone(true);
+      await commonSpaceApi.deleteCommonSpace(associationId, zonaActivaId);
+      setDeleteDialogOpen(false);
+
+      setLastActionWasDelete(true);
+      setAlertConfig({
+        visible: true,
+        title: '¡Zona Eliminada!',
+        message: 'La zona común se ha eliminado correctamente.',
+        type: 'success',
+      });
+
+      await fetchZonas();
+    } catch (error) {
+      console.error(error);
+      setAlertConfig({
+        visible: true,
+        title: 'Error',
+        message: 'No se pudo eliminar la zona. Inténtalo de nuevo.',
+        type: 'error',
+      });
+    } finally {
+      setIsDeletingZone(false);
     }
   };
 
@@ -237,12 +278,13 @@ export default function Reservas() {
         />
 
         {/* NUEVO SELECTOR PARA VECINOS */}
-        <View className="mb-6 z-50">
-          <Text className="text-sm text-muted-foreground font-medium mb-2 px-1">Instalación:</Text>
+        <View className="z-50 mb-6">
+          <Text className="mb-2 px-1 text-sm font-medium text-muted-foreground">Instalación:</Text>
           <Select
-            value={zonaActiva ? { label: zonaActiva.name, value: zonaActiva.id.toString() } : undefined}
-            onValueChange={(option) => option && setZonaActivaId(Number(option.value))}
-          >
+            value={
+              zonaActiva ? { label: zonaActiva.name, value: zonaActiva.id.toString() } : undefined
+            }
+            onValueChange={(option) => option && setZonaActivaId(Number(option.value))}>
             <SelectTrigger>
               <SelectValue placeholder="Selecciona una instalación" />
             </SelectTrigger>
@@ -271,7 +313,7 @@ export default function Reservas() {
                 }>
                 <Text className="text-xs font-bold text-primary">Editar</Text>
               </Button>
-              <Button variant="destructive" size="sm">
+              <Button variant="destructive" size="sm" onPress={() => setDeleteDialogOpen(true)}>
                 <Text className="text-xs font-bold text-destructive-foreground">Eliminar</Text>
               </Button>
             </View>
@@ -328,7 +370,16 @@ export default function Reservas() {
         config={alertConfig}
         onConfirm={() => {}}
         onCancel={() => setAlertConfig((prev) => ({ ...prev, visible: false }))}
-        onAcknowledge={handleAlertConfirm}
+        onAcknowledge={lastActionWasDelete ? handleDeleteAlertConfirm : handleAlertConfirm}
+      />
+
+      <CustomAlertDeleteDialog
+        visible={deleteDialogOpen}
+        title="Eliminar Zona Común"
+        message={`¿Estás seguro de que deseas eliminar permanentemente "${zonaActiva?.name}"? Esta acción borrará el calendario y no se puede deshacer.`}
+        onCancel={() => setDeleteDialogOpen(false)}
+        onConfirm={handleDeleteZone}
+        isLoading={isDeletingZone}
       />
     </View>
   );
