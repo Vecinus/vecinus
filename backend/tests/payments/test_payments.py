@@ -67,6 +67,16 @@ USER_ID = "11111111-1111-1111-1111-111111111110"
 COMMUNITY_1 = "11111111-1111-1111-1111-111111111111"
 
 
+def expect_equal(actual, expected, message: str) -> None:
+    if actual != expected:
+        pytest.fail(f"{message} (actual={actual!r}, expected={expected!r})")
+
+
+def expect_true(condition: bool, message: str) -> None:
+    if not condition:
+        pytest.fail(message)
+
+
 class MockResponse:
     def __init__(self, data):
         self.data = data
@@ -321,15 +331,23 @@ def test_create_extra_community_order_uses_escalated_pricing(setup_overrides, mo
         },
     )
 
-    assert response.status_code == 201
+    expect_equal(response.status_code, 201, "Expected status code 201")
     data = response.json()
-    assert data["status"] == "redirect_created"
-    assert data["billing_request_id"] == "BR123"
-    assert data["billing_request_flow_id"] == "BRF123"
-    assert data["authorisation_url"] == "https://sandbox.gocardless.test/flow/abc"
-    assert data["unit_amount_cents"] == 3500
-    assert data["total_amount_cents"] == 6795
-    assert [item["price_cents"] for item in data["items"]] == [3500, 3295]
+    expect_equal(data["status"], "redirect_created", "Expected redirect status")
+    expect_equal(data["billing_request_id"], "BR123", "Expected billing request id")
+    expect_equal(data["billing_request_flow_id"], "BRF123", "Expected billing request flow id")
+    expect_equal(
+        data["authorisation_url"],
+        "https://sandbox.gocardless.test/flow/abc",
+        "Expected authorisation URL",
+    )
+    expect_equal(data["unit_amount_cents"], 3500, "Expected unit amount cents")
+    expect_equal(data["total_amount_cents"], 6795, "Expected total amount cents")
+    expect_equal(
+        [item["price_cents"] for item in data["items"]],
+        [3500, 3295],
+        "Expected item price cents list",
+    )
 
 
 def test_complete_extra_community_order_creates_communities_and_memberships(setup_overrides, monkeypatch):
@@ -396,15 +414,26 @@ def test_complete_extra_community_order_creates_communities_and_memberships(setu
 
     response = client.post(f"/payments/community-extras/orders/{order_id}/complete")
 
-    assert response.status_code == 200
+    expect_equal(response.status_code, 200, "Expected status code 200")
     data = response.json()
-    assert data["status"] == "paid"
-    assert data["mandate_id"] == "MD123"
-    assert data["payment_id"] == "PM123"
-    assert all(item["status"] == "created" for item in data["items"])
-    assert len(state["client"].storage["neighborhood_associations"]) == 2
+    expect_equal(data["status"], "paid", "Expected paid status")
+    expect_equal(data["mandate_id"], "MD123", "Expected mandate id")
+    expect_equal(data["payment_id"], "PM123", "Expected payment id")
+    expect_true(
+        all(item["status"] == "created" for item in data["items"]),
+        "Expected all items to be created",
+    )
+    expect_equal(
+        len(state["client"].storage["neighborhood_associations"]),
+        2,
+        "Expected two neighborhood associations",
+    )
     created_names = [item["name"] for item in state["client"].storage["neighborhood_associations"]]
-    assert created_names == ["Comunidad Sol", "Comunidad Luna"]
+    expect_equal(
+        created_names,
+        ["Comunidad Sol", "Comunidad Luna"],
+        "Expected created neighborhood names",
+    )
 
     admin_memberships = [m for m in state["client"].storage["memberships"] if m["role"] == 1]
-    assert len(admin_memberships) == 3
+    expect_equal(len(admin_memberships), 3, "Expected three admin memberships")
