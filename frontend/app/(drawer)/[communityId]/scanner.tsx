@@ -133,7 +133,7 @@ export default function ScannerScreen() {
       )}
       
       <View className="absolute bottom-10 bg-card rounded-xl">
-        <Button onPress={() => router.back()} variant="destructive">
+        <Button onPress={() => router.push(`/${communityId}/booking`)} variant="destructive">
           <Text className="text-destructive-foreground">Volver</Text>
         </Button>
       </View>

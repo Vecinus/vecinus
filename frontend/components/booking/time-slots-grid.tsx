@@ -17,7 +17,7 @@ export function TimeSlotsGrid({ slots, horaSeleccionada, onSelectTime }: TimeSlo
   return (
     <View className="mt-2">
       <Text className="text-xl font-bold text-foreground mb-4">Horarios disponibles</Text>
-      <View className="flex-row flex-wrap gap-2.5">
+      <View className="flex-row flex-wrap justify-center gap-2.5">
         {slots.map((slot, index) => (
           <TouchableOpacity
             key={index}

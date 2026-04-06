@@ -5,18 +5,27 @@ import { useRouter, useFocusEffect } from 'expo-router';
 
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
-
 import { CustomAlertDialog, AlertConfig } from '@/components/custom-alert';
 
 import { ReservasHeader } from '../../../components/booking/booking-header';
-import { ZoneSelector } from '../../../components/booking/zone-selector';
 import { TimeSlotsGrid } from '../../../components/booking/time-slots-grid';
+import { WorkerView } from '@/components/booking/worker-view';
+
 import { useRole } from '@/hooks/useRole';
 import { CommonSpace, commonSpaceApi } from '@/api/commonSpace';
 import { bookingApi } from '@/api/booking';
 import { useAuth } from '@/context/AuthContext';
 import { guestPassApi } from '@/api/guestPass';
-import { WorkerView } from '@/components/booking/worker-view';
+
+// IMPORTAMOS LOS COMPONENTES DEL SELECT
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 LocaleConfig.locales['es'] = {
   monthNames: [
@@ -214,7 +223,8 @@ export default function Reservas() {
   const isSelectedSlotBooked = slotsDisponibles.find((s) => s.time === horaSeleccionada)?.isBooked;
 
   if (isWorker) {
-    return <WorkerView />;
+    // Pasamos las zonas y la función de actualización al empleado
+    return <WorkerView zonas={zonas} zonaActivaId={zonaActivaId} onSelectZona={setZonaActivaId} />;
   }
 
   return (
@@ -226,7 +236,27 @@ export default function Reservas() {
           associationId={associationId}
         />
 
-        <ZoneSelector zonas={zonas} zonaActivaId={zonaActivaId} onSelectZona={setZonaActivaId} />
+        {/* NUEVO SELECTOR PARA VECINOS */}
+        <View className="mb-6 z-50">
+          <Text className="text-sm text-muted-foreground font-medium mb-2 px-1">Instalación:</Text>
+          <Select
+            value={zonaActiva ? { label: zonaActiva.name, value: zonaActiva.id.toString() } : undefined}
+            onValueChange={(option) => option && setZonaActivaId(Number(option.value))}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Selecciona una instalación" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {zonas.map((zona) => (
+                  <SelectItem key={zona.id} label={zona.name} value={zona.id.toString()}>
+                    {zona.name}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </View>
 
         {isAdminOrPresident && zonaActiva && (
           <View className="mb-4 flex-row items-center justify-between px-1">
