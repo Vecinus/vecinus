@@ -49,8 +49,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         id: selectedCommunity.community.id,
         name: selectedCommunity.community.name,
         role: selectedCommunity.role,
+        address: selectedCommunity.community.address ?? null,
       });
-
       if (pathname.endsWith('/actas')) {
         router.replace(`/${selectedCommunity.community.id}/actas`);
         return;
@@ -66,7 +66,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         return;
       }
 
-      router.replace(`/`);
+      router.replace('/');
+
     }
   };
 
