@@ -78,9 +78,7 @@ export default function DrawerLayout() {
         }}
       />
 
-          ),
-        }}
-      />
+
       <Drawer.Screen
         name="[communityId]/booking"
         initialParams={{ communityId: activeCommunity?.id }}

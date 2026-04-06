@@ -136,7 +136,12 @@ export default function CommunityChatScreen() {
     );
   }, [normalizedCommunityId, user]);
 
-  const roleId = membership?.role ? Number.parseInt(membership.role, 10) : null;
+  const roleId =
+    typeof membership?.role === 'number'
+      ? membership.role
+      : typeof membership?.role === 'string'
+        ? Number.parseInt(membership.role, 10)
+        : null;
   const isAdmin = roleId === ADMIN_ROLE_ID;
 
   const [state, setState] = React.useState<ScreenState>('loading');
