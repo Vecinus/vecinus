@@ -3,19 +3,10 @@ import { ScrollView, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useNavigation, ParamListBase } from '@react-navigation/native';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
-import {
-  FileText,
-  MessageSquare,
-  CalendarDays,
-  BellRing,
-  ChevronRight,
-  MoonStarIcon,
-  SunIcon,
-} from 'lucide-react-native';
+import { FileText, MessageSquare, CalendarDays, BellRing, ChevronRight } from 'lucide-react-native';
 
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import { Icon } from '@/components/ui/icon';
 import { Feature } from '@/components/feature';
 import { FeedbackSection } from '@/components/send-feedback';
 import {
@@ -28,29 +19,6 @@ import {
 } from '@/components/ui/dialog';
 
 import { apiClient } from '@/api/client';
-import { useColorScheme } from 'nativewind';
-
-const THEME_ICONS = {
-  light: SunIcon,
-  dark: MoonStarIcon,
-};
-
-function ThemeToggle() {
-  const { colorScheme, toggleColorScheme } = useColorScheme() as {
-    colorScheme: 'light' | 'dark' | null | undefined;
-    toggleColorScheme: () => void;
-  };
-
-  return (
-    <Button
-      onPressIn={toggleColorScheme}
-      size="icon"
-      variant="ghost"
-      className="ios:size-9 rounded-full web:mx-4">
-      <Icon as={THEME_ICONS[colorScheme ?? 'light']} className="size-5" />
-    </Button>
-  );
-}
 
 export default function HomeScreen() {
   const navigation = useNavigation<DrawerNavigationProp<ParamListBase>>();
@@ -87,10 +55,6 @@ export default function HomeScreen() {
 
   return (
     <ScrollView className="flex-1 bg-background">
-      <View className="absolute right-4 top-4 z-10">
-        <ThemeToggle />
-      </View>
-
       <View className="w-full max-w-3xl self-center px-5 pb-10 pt-16 md:px-10">
         <View className="mb-10 items-center">
           <Image
