@@ -205,67 +205,35 @@ def _create_payment(order_id: str, mandate_id: str, total_amount_cents: int, qua
     return data.get("payments", {})
 
 
-def _create_communities_for_order(
+def _finalize_order_transactionally(
     supabase_admin: Client,
     order_id: str,
     current_user_id: str,
-) -> list[dict[str, Any]]:
-    items_res = (
-        supabase_admin.table("extra_community_order_items").select("*").eq("payment_order_id", order_id).execute()
-    )
-    items = items_res.data or []
-    created_items: list[dict[str, Any]] = []
-
-    for item in items:
-        if item.get("status") == "created" and item.get("created_association_id"):
-            created_items.append(item)
-            continue
-
-        community_res = (
-            supabase_admin.table("neighborhood_associations")
-            .insert(
-                {
-                    "name": item["community_name"],
-                    "address": item["community_address"],
-                }
-            )
-            .execute()
-        )
-        if not community_res.data:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Could not create the paid community",
-            )
-
-        association_id = community_res.data[0]["id"]
-        existing_admin_res = (
-            supabase_admin.table("memberships")
-            .select("id")
-            .eq("profile_id", current_user_id)
-            .eq("association_id", association_id)
-            .eq("role", 1)
-            .limit(1)
-            .execute()
+    mandate_id: str,
+    payment_id: str,
+) -> None:
+    rpc_res = supabase_admin.rpc(
+        "finalize_extra_community_order",
+        {
+            "p_order_id": order_id,
+            "p_admin_profile_id": current_user_id,
+            "p_mandate_id": mandate_id,
+            "p_payment_id": payment_id,
+        },
+    ).execute()
+    data = rpc_res.data
+    if not data:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="The paid communities could not be finalized",
         )
 
-        if not existing_admin_res.data:
-            supabase_admin.table("memberships").insert(
-                {
-                    "profile_id": current_user_id,
-                    "association_id": association_id,
-                    "role": 1,
-                }
-            ).execute()
-
-        updated_item_res = (
-            supabase_admin.table("extra_community_order_items")
-            .update({"status": "created", "created_association_id": association_id})
-            .eq("id", item["id"])
-            .execute()
+    result = data[0] if isinstance(data, list) else data
+    if not result.get("ok", False):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result.get("error") or "The paid communities could not be finalized",
         )
-        created_items.append((updated_item_res.data or [item])[0])
-
-    return created_items
 
 
 def create_extra_community_order(
@@ -400,19 +368,7 @@ def complete_extra_community_order(
         payment = _create_payment(order_id, mandate_id, order["total_amount_cents"], order["quantity"])
         payment_id = payment.get("id")
 
-    created_items = _create_communities_for_order(supabase_admin, order_id, current_user_id)
+    _finalize_order_transactionally(supabase_admin, order_id, current_user_id, mandate_id, payment_id)
 
-    update_res = (
-        supabase_admin.table("extra_community_payment_orders")
-        .update(
-            {
-                "status": "paid",
-                "mandate_id": mandate_id,
-                "payment_id": payment_id,
-            }
-        )
-        .eq("id", order_id)
-        .execute()
-    )
-    updated_order = (update_res.data or [order])[0]
-    return _serialize_order(updated_order, created_items)
+    updated_order, updated_items = _load_order(supabase_admin, order_id, current_user_id)
+    return _serialize_order(updated_order, updated_items)

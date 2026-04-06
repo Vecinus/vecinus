@@ -205,6 +205,71 @@ class MockSupabasePaymentsClient:
             raise AssertionError(f"Unexpected table requested: {name}")
         return MockSupabaseTable(name, self.storage)
 
+    def rpc(self, name: str, params: dict[str, Any]):
+        if name != "finalize_extra_community_order":
+            raise AssertionError(f"Unexpected RPC requested: {name}")
+
+        class MockRpcCall:
+            def __init__(self, outer: MockSupabasePaymentsClient, rpc_params: dict[str, Any]):
+                self.outer = outer
+                self.rpc_params = rpc_params
+
+            def execute(self):
+                order_id = self.rpc_params["p_order_id"]
+                admin_profile_id = self.rpc_params["p_admin_profile_id"]
+                mandate_id = self.rpc_params["p_mandate_id"]
+                payment_id = self.rpc_params["p_payment_id"]
+
+                order = next(
+                    (
+                        row
+                        for row in self.outer.storage["extra_community_payment_orders"]
+                        if row["id"] == order_id and row["admin_profile_id"] == admin_profile_id
+                    ),
+                    None,
+                )
+                if order is None:
+                    return MockResponse([{"ok": False, "error": "Order not found"}])
+
+                items = [
+                    row
+                    for row in self.outer.storage["extra_community_order_items"]
+                    if row["payment_order_id"] == order_id
+                ]
+                for item in items:
+                    association_id = str(uuid4())
+                    self.outer.storage["neighborhood_associations"].append(
+                        {
+                            "id": association_id,
+                            "name": item["community_name"],
+                            "address": item["community_address"],
+                            "created_at": "2026-04-04T10:05:00+00:00",
+                            "updated_at": "2026-04-04T10:05:00+00:00",
+                        }
+                    )
+                    self.outer.storage["memberships"].append(
+                        {
+                            "id": str(uuid4()),
+                            "profile_id": admin_profile_id,
+                            "association_id": association_id,
+                            "role": 1,
+                            "created_at": "2026-04-04T10:05:00+00:00",
+                            "updated_at": "2026-04-04T10:05:00+00:00",
+                        }
+                    )
+                    item["status"] = "created"
+                    item["created_association_id"] = association_id
+                    item["updated_at"] = "2026-04-04T10:05:00+00:00"
+
+                order["status"] = "paid"
+                order["mandate_id"] = mandate_id
+                order["payment_id"] = payment_id
+                order["updated_at"] = "2026-04-04T10:05:00+00:00"
+
+                return MockResponse([{"ok": True, "created_count": len(items)}])
+
+        return MockRpcCall(self, params)
+
 
 @pytest.fixture(autouse=True)
 def setup_overrides(monkeypatch):
