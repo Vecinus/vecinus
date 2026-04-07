@@ -3,8 +3,8 @@ export interface User {
   name: string;
   email: string;
   CommunitiesAndRole: {
-    community: { id: string; name: string };
-    role: string;
+    community: { id: string; name: string; address?: string | null };
+    role: string | number;
   }[];
 }
 

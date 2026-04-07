@@ -1,7 +1,35 @@
 import { useMutation } from '@tanstack/react-query';
-import { apiClient } from './client'; 
+import { apiClient } from './client';
 import { useAuth } from '@/context/AuthContext';
 import { LoginCredentials, User } from '@/types/auth.types';
+
+export const fetchUserWithCommunities = async (jwtToken: string): Promise<User> => {
+  const [userResponse, communitiesResponse] = await Promise.all([
+    apiClient.get<any>('/users/me', {
+      headers: { Authorization: `Bearer ${jwtToken}` },
+    }),
+    apiClient.get<any[]>('/users/me/communities', {
+      headers: { Authorization: `Bearer ${jwtToken}` },
+    }),
+  ]);
+
+  const profile = userResponse.data;
+  const communitiesData = communitiesResponse.data;
+
+  return {
+    id: profile.id,
+    name: profile.username,
+    email: profile.email,
+    CommunitiesAndRole: communitiesData.map((membership: any) => ({
+      community: {
+        id: membership.neighborhood_associations.id,
+        name: membership.neighborhood_associations.name,
+        address: membership.neighborhood_associations.address ?? null,
+      },
+      role: membership.role,
+    })),
+  };
+};
 
 export const useLoginMutation = () => {
   const { loginContext } = useAuth();
@@ -34,6 +62,7 @@ export const useLoginMutation = () => {
           community: {
             id: membership.neighborhood_associations.id,
             name: membership.neighborhood_associations.name,
+            address: membership.neighborhood_associations.address ?? null,
           },
           role: membership.role,
         })),

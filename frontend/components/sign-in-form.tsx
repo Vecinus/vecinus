@@ -42,9 +42,16 @@ export function SignInForm() {
     try {
       await loginAPI({ email, password });
       router.replace('/'); 
-    } catch (error) {
-      console.error('Login error:', error);
-      setLocalError('Credenciales incorrectas o problema de red.');
+    } catch (error: any) {
+      const status = error?.response?.status;
+      const backendDetail = error?.response?.data?.detail;
+
+      if (status === 401) {
+        setLocalError(backendDetail || 'Credenciales incorrectas.');
+        return;
+      }
+
+      setLocalError(backendDetail || 'No se pudo iniciar sesion. Intentalo de nuevo.');
     }
   }
   return (
