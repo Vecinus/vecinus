@@ -205,8 +205,10 @@ packaging==26.0
     #   pytest
 pillow==12.2.0
     # via -r requirements.in
-pinecone-client==3.1.0
+pinecone-client==6.0.0
     # via -r requirements.in
+pinecone-plugin-interface==0.0.7
+    # via pinecone-client
 platformdirs==4.9.4
     # via
     #   python-discovery
@@ -286,6 +288,7 @@ pytest==9.0.2
 python-dateutil==2.9.0.post0
     # via
     #   -r requirements.in
+    #   pinecone-client
     #   strictyaml
 python-discovery==1.1.3
     # via virtualenv
@@ -374,8 +377,6 @@ tiktoken==0.12.0
     # via -r requirements.in
 tomlkit==0.14.0
     # via commitizen
-tqdm==4.67.3
-    # via pinecone-client
 typing-extensions==4.15.0
     # via
     #   -r requirements.in
