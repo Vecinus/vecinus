@@ -1,61 +1,117 @@
+import React, { useState } from 'react';
+import { ScrollView, View } from 'react-native';
+import { Image } from 'expo-image';
+import { useNavigation, ParamListBase } from '@react-navigation/native';
+import { DrawerNavigationProp } from '@react-navigation/drawer';
+import { FileText, MessageSquare, CalendarDays, BellRing, ChevronRight } from 'lucide-react-native';
+
 import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { Drawer } from 'expo-router/drawer';
-import { MoonStarIcon, SunIcon } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
-import * as React from 'react';
-import { Image, type ImageStyle, View } from 'react-native';
+import { Feature } from '@/components/feature';
+import { FeedbackSection } from '@/components/send-feedback';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
-const LOGO = {
-  light: require('@/assets/images/react-native-reusables-light.png'),
-  dark: require('@/assets/images/react-native-reusables-dark.png'),
-};
+import { apiClient } from '@/api/client';
 
-const SCREEN_OPTIONS = {
-  title: 'Inicio',
-  headerRight: () => <ThemeToggle />,
-};
+export default function HomeScreen() {
+  const navigation = useNavigation<DrawerNavigationProp<ParamListBase>>();
+  const [feedback, setFeedback] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogTitle, setDialogTitle] = useState('');
+  const [dialogMessage, setDialogMessage] = useState('');
 
-const IMAGE_STYLE: ImageStyle = {
-  height: 76,
-  width: 76,
-};
+  const showAlert = (title: string, message: string) => {
+    setDialogTitle(title);
+    setDialogMessage(message);
+    setDialogOpen(true);
+  };
 
-export default function Screen() {
-  const { colorScheme } = useColorScheme();
+  const handleFeedbackSubmit = async () => {
+    if (!feedback.trim()) {
+      showAlert('Aviso', 'Escribe un comentario antes de enviar.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await apiClient.post('/feedback', { feedback });
+      showAlert('¡Gracias!', 'Feedback enviado.');
+      setFeedback('');
+    } catch (error) {
+      showAlert('Error', 'No se pudo enviar.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
-    <>
-      <Drawer.Screen options={SCREEN_OPTIONS} />
-      <View className="flex-1 items-center justify-center gap-8 p-4 bg-background">
-        <Image source={LOGO[colorScheme ?? 'light']} style={IMAGE_STYLE} />
-        <Text className="text-center text-3xl font-extrabold text-foreground">
-          React Native Reusables
-        </Text>
-        <Text className="text-center text-lg text-muted-foreground px-4">
-          Un proyecto escalable con NativeWind, Expo Router y componentes reutilizables.
-        </Text>
+    <ScrollView className="flex-1 bg-background">
+      <View className="w-full max-w-3xl self-center px-5 pb-10 pt-16 md:px-10">
+        <View className="mb-10 items-center">
+          <Image
+            source={require('@/assets/logos/vecinusicon.png')}
+            style={{ width: 230, height: 230 }}
+            contentFit="contain"
+          />
+
+          <Text variant="lead" className="mt-2 text-center font-semibold text-blue-500">
+            Tu comunidad conectada
+          </Text>
+
+          <Text className="mt-2 text-center text-muted-foreground">
+            Gestiona tu comunidad desde un solo lugar.
+          </Text>
+        </View>
+
+        <FeedbackSection
+          feedback={feedback}
+          setFeedback={setFeedback}
+          isSubmitting={isSubmitting}
+          onSubmit={handleFeedbackSubmit}
+        />
+
+        <View className="mb-6 gap-4">
+          <Text className="text-center text-xl font-bold">Qué puedes hacer</Text>
+
+          <View className="flex-row flex-wrap justify-center gap-4">
+            <Feature Icon={FileText} title="Actas y votaciones" desc="Consulta y participa." />
+            <Feature Icon={MessageSquare} title="Asistente virtual" desc="Resuelve dudas rápido." />
+            <Feature Icon={CalendarDays} title="Reservas" desc="Gestiona espacios." />
+            <Feature Icon={BellRing} title="Avisos" desc="Mantente informado." />
+          </View>
+        </View>
       </View>
-    </>
-  );
-}
 
-const THEME_ICONS = {
-  light: SunIcon,
-  dark: MoonStarIcon,
-};
+      <View className="h-16" />
+      <Button className="self-center" onPress={() => navigation.openDrawer()} size={'lg'}>
+        <View className="flex-row items-center gap-2">
+          <Text>Explorar</Text>
+          <ChevronRight size={18} color="white" />
+        </View>
+      </Button>
 
-function ThemeToggle() {
-  const { colorScheme, toggleColorScheme } = useColorScheme();
-
-  return (
-    <Button
-      onPressIn={toggleColorScheme}
-      size="icon"
-      variant="ghost"
-      className="ios:size-9 rounded-full web:mx-4">
-      <Icon as={THEME_ICONS[colorScheme ?? 'light']} className="size-5" />
-    </Button>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{dialogTitle}</DialogTitle>
+          </DialogHeader>
+          <DialogDescription>{dialogMessage}</DialogDescription>
+          <DialogFooter>
+            <Button onPress={() => setDialogOpen(false)}>
+              <Text>Aceptar</Text>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </ScrollView>
   );
 }
