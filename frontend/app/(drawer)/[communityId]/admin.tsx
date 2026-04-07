@@ -112,13 +112,13 @@ export default function CommunityAdminScreen() {
   }, [members, currentUserId]);
 
   React.useEffect(() => {
-    if (isInvalidRouteCommunityId && activeCommunity?.id) {
+    if (activeCommunity?.id && String(activeCommunity.id) !== String(routeCommunityId)) {
       router.replace({
         pathname: '/[communityId]/admin',
         params: { communityId: activeCommunity.id },
       });
     }
-  }, [isInvalidRouteCommunityId, activeCommunity?.id, router]);
+  }, [routeCommunityId, activeCommunity?.id, router]);
 
   React.useEffect(() => {
     if (communityId && !isAdmin) {

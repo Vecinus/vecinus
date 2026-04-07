@@ -882,22 +882,23 @@ def test_post_incident_create_in_db_fails():
 
 
 @pytest.mark.parametrize(
-    "incident_id,new_status,expected_old_status,expected_new_status",
+    "user,incident_id,new_status,expected_old_status,expected_new_status",
     [
-        (mock_incident_3_id, "IN PROGRESS", "PENDING", "IN PROGRESS"),
-        (mock_incident_8_id, "SOLVED", "IN PROGRESS", "SOLVED"),
-        (mock_incident_4_id, "DISCARDED", "PENDING", "DISCARDED"),
-        (mock_incident_5_id, "SOLVED", "PENDING", "SOLVED"),
-        (mock_incident_8_id, "PENDING", "IN PROGRESS", "PENDING"),
+        (mock_admin, mock_incident_3_id, "IN PROGRESS", "PENDING", "IN PROGRESS"),
+        (mock_president, mock_incident_8_id, "SOLVED", "IN PROGRESS", "SOLVED"),
+        (mock_employee, mock_incident_4_id, "DISCARDED", "PENDING", "DISCARDED"),
+        (mock_admin, mock_incident_5_id, "SOLVED", "PENDING", "SOLVED"),
+        (mock_president, mock_incident_8_id, "PENDING", "IN PROGRESS", "PENDING"),
     ],
 )
 def test_post_state_status_correct(
+    user,
     incident_id,
     new_status,
     expected_old_status,
     expected_new_status,
 ):
-    app.dependency_overrides[get_current_user] = lambda: mock_admin
+    app.dependency_overrides[get_current_user] = lambda: user
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
     response = client.post(f"/incidents/{mock_association_id}/{incident_id}/status?status={new_status}")
     assert response.status_code == 201
@@ -920,7 +921,7 @@ def test_post_state_deadend_states(incident_id):
     app.dependency_overrides[get_current_user] = lambda: mock_admin
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
     response = client.post(f"/incidents/{mock_association_id}/{incident_id}/status?status=IN%20PROGRESS")
-    assert response.status_code == 400
+    assert response.status_code == 409
     data = response.json()
     assert data["detail"] == "Cannot update status of a resolved or discarded incident"
 
@@ -976,3 +977,71 @@ def test_post_state_incident_not_found():
     assert response.status_code == 404
     data = response.json()
     assert data["detail"] == "Incident not found"
+
+
+@pytest.mark.parametrize(
+    "user,incident_id",
+    [
+        (mock_president, mock_incident_7_id),
+        (mock_employee, mock_incident_5_id),
+    ],
+)
+def test_post_state_own_incident(user, incident_id):
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+    response = client.post(f"/incidents/{mock_association_id}/{incident_id}/status?status=IN PROGRESS")
+    assert response.status_code == 403
+    data = response.json()
+    assert data["detail"] == "Users cannot update the status of their own incidents"
+
+
+# ------------------- DELETE incidents/{association_id}/{incident_id} ------------------
+
+
+@pytest.mark.parametrize(
+    "user,incident_id",
+    [
+        (mock_neighbor, mock_incident_1_id),
+        (mock_tenant, mock_incident_2_id),
+    ],
+)
+def test_delete_incident_correct(user, incident_id):
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+    response = client.delete(f"/incidents/{mock_association_id}/{incident_id}")
+    assert response.status_code == 204
+    assert response.content == b""
+
+
+def test_delete_incident_not_incident_owner():
+    app.dependency_overrides[get_current_user] = lambda: mock_employee
+    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+    response = client.delete(f"/incidents/{mock_association_id}/{mock_incident_1_id}")
+    assert response.status_code == 403
+    data = response.json()
+    assert data["detail"] == "User does not own this incident"
+
+
+def test_delete_incident_wrong_association():
+    app.dependency_overrides[get_current_user] = lambda: mock_neighbor
+    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+    response = client.delete(f"/incidents/{mock_other_association_id}/{mock_incident_1_id}")
+    assert response.status_code == 404
+    data = response.json()
+    assert data["detail"] == "Membership not found in this association"
+
+
+@pytest.mark.parametrize(
+    "incident_id",
+    [
+        mock_incident_6_id,
+        mock_incident_8_id,
+    ],
+)
+def test_delete_incident_not_reviewed(incident_id):
+    app.dependency_overrides[get_current_user] = lambda: mock_tenant
+    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+    response = client.delete(f"/incidents/{mock_association_id}/{incident_id}")
+    assert response.status_code == 409
+    data = response.json()
+    assert data["detail"] == "Incident hasn't been reviewed"

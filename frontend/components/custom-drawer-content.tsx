@@ -1,7 +1,7 @@
 import {
   DrawerContentComponentProps,
   DrawerContentScrollView,
-  DrawerItem,
+  DrawerItemList,
 } from '@react-navigation/drawer';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -79,9 +79,9 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
 
   const currentOption = activeCommunity
     ? {
-        label: activeCommunity.name,
-        value: activeCommunity.id,
-      }
+      label: activeCommunity.name,
+      value: activeCommunity.id,
+    }
     : undefined;
 
   const isHomeActive = pathname === '/';
@@ -133,70 +133,10 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
           </View>
         </View>
 
-        <View className="gap-1 px-2">
-          <DrawerItem
-            label="Inicio"
-            focused={isHomeActive}
-            onPress={() => {
-              router.replace('/');
-            }}
-            icon={({ size }) => <Icon as={HomeIcon} size={size} className="text-foreground" />}
-            labelStyle={{
-              marginLeft: 0,
-              fontWeight: '500',
-              color:
-                props.descriptors[props.state.routes[0]?.key ?? '']?.options.drawerActiveTintColor,
-            }}
-          />
-
-          <DrawerItem
-            label="Actas"
-            focused={isActasActive}
-            onPress={() => {
-              if (!activeCommunity?.id) return;
-              router.replace(`/${activeCommunity.id}/actas`);
-            }}
-            icon={({ size }) => <Icon as={FileTextIcon} size={size} className="text-foreground" />}
-            labelStyle={{ marginLeft: 0, fontWeight: '500' }}
-          />
-
-          <DrawerItem
-            label="Chat vecinos"
-            focused={isChatActive}
-            onPress={() => {
-              if (!activeCommunity?.id) return;
-              router.replace(`/${activeCommunity.id}/chat`);
-            }}
-            icon={({ size }) => (
-              <Icon as={MessageSquareIcon} size={size} className="text-foreground" />
-            )}
-            labelStyle={{ marginLeft: 0, fontWeight: '500' }}
-          />
-
-          <DrawerItem
-            label="Chatbot"
-            focused={isChatbotActive}
-            onPress={() => {
-              if (!activeCommunity?.id) return;
-              router.replace(`/${activeCommunity.id}/chatbot`);
-            }}
-            icon={({ size }) => (
-              <Icon as={MessageSquareIcon} size={size} className="text-foreground" />
-            )}
-            labelStyle={{ marginLeft: 0, fontWeight: '500' }}
-          />
-
-          <DrawerItem
-            label="Reservas"
-            focused={isBookingActive}
-            onPress={() => {
-              if (!activeCommunity?.id) return;
-              router.replace(`/${activeCommunity.id}/booking`);
-            }}
-            icon={({ size }) => <Icon as={CalendarCheck} size={size} className="text-foreground" />}
-            labelStyle={{ marginLeft: 0, fontWeight: '500' }}
-          />
+        <View className="px-2">
+          <DrawerItemList {...props} />
         </View>
+
       </DrawerContentScrollView>
 
       <View className="border-t border-border p-4" style={{ paddingBottom: insets.bottom + 16 }}>

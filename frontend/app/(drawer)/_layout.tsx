@@ -12,7 +12,7 @@ import {
   MessageSquareIcon,
   Building2,
   MailIcon,
-  CalendarCheck,
+  AlertTriangle, CalendarCheck,
 } from 'lucide-react-native';
 
 import { useAuth } from '@/context/AuthContext';
@@ -112,6 +112,21 @@ export default function DrawerLayout() {
       />
 
       <Drawer.Screen
+        name="[communityId]/incidencias"
+        initialParams={{ communityId: activeCommunity?.id }}
+        options={{
+          title: 'Incidencias',
+          drawerLabel: 'Incidencias',
+          drawerIcon: ({ size, color }) => (
+            <Icon
+              as={AlertTriangle}
+              size={size}
+              className="text-foreground"
+            />
+          ),
+        }}
+      />
+      <Drawer.Screen
         name="[communityId]/booking"
         initialParams={{ communityId: activeCommunity?.id }}
         options={{
@@ -163,6 +178,13 @@ export default function DrawerLayout() {
             <Icon as={Building2} size={size} className="text-foreground" />
           ),
           drawerItemStyle: isAdmin ? undefined : { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/incidencia/[incidentId]"
+        options={{
+          headerTitle: 'Detalle de Incidencia',
+          drawerItemStyle: { display: 'none' },
         }}
       />
       <Drawer.Screen
