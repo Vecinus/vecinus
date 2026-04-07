@@ -10,6 +10,7 @@ import {
   MoonStarIcon,
   SunIcon,
   MessageSquareIcon,
+  Bot,
   Building2,
   MailIcon,
   AlertTriangle, CalendarCheck,
@@ -106,7 +107,7 @@ export default function DrawerLayout() {
           title: 'Chatbot',
           drawerLabel: 'Chatbot',
           drawerIcon: ({ size }) => (
-            <Icon as={MessageSquareIcon} size={size} className="text-foreground" />
+            <Icon as={Bot} size={size} className="text-foreground" />
           ),
         }}
       />
