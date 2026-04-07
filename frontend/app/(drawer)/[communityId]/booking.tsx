@@ -133,7 +133,7 @@ export default function Reservas() {
     }, [associationId, fetchZonas])
   );
 
-  const fetchSlots = async () => {
+  const fetchSlots = useCallback(async () => {
     if (!zonaActivaId || !fechaSeleccionada) return;
 
     try {
@@ -155,11 +155,11 @@ export default function Reservas() {
       console.error(error);
       setSlotsDisponibles(GENERATE_BASE_SLOTS().map((time) => ({ time, isBooked: false })));
     }
-  };
+  }, [fechaSeleccionada, zonaActivaId]);
 
   useEffect(() => {
-    fetchSlots();
-  }, [zonaActivaId, fechaSeleccionada]);
+    void fetchSlots();
+  }, [fetchSlots]);
 
   const zonaActiva = zonas.find((z) => z.id === zonaActivaId);
 

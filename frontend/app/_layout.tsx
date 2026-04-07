@@ -10,6 +10,7 @@ import { useColorScheme } from 'nativewind';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { ActivityIndicator, View } from 'react-native';
+import { setUnauthorizedHandler } from '@/lib/auth-events';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -19,7 +20,7 @@ export {
 const queryClient = new QueryClient();
 
 function RootLayoutNav() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, logoutContext } = useAuth();
   const segments = useSegments();
   const router = useRouter();
   const { colorScheme } = useColorScheme();
@@ -36,6 +37,17 @@ function RootLayoutNav() {
       router.replace('/');
     }
   }, [isAuthenticated, isLoading, segments, router]);
+
+  useEffect(() => {
+    setUnauthorizedHandler(async () => {
+      await logoutContext();
+      router.replace('/(auth)/sign-in');
+    });
+
+    return () => {
+      setUnauthorizedHandler(null);
+    };
+  }, [logoutContext, router]);
 
   if (isLoading) {
     return (

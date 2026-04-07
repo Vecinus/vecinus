@@ -66,7 +66,7 @@ export default function DetalleReservaOPase() {
             });
           }
         }
-      } catch (error) {
+      } catch {
         setAlertConfig({
           visible: true,
           title: 'Error',
@@ -108,7 +108,7 @@ export default function DetalleReservaOPase() {
           type: 'success',
         });
       }, 300);
-    } catch (error) {
+    } catch {
       setTimeout(() => {
         setAlertConfig({
           visible: true,

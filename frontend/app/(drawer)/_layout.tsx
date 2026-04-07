@@ -79,8 +79,7 @@ export default function DrawerLayout() {
         }}
       />
       <Drawer.Screen
-        name="[communityId]/actas"
-        initialParams={{ communityId: activeCommunity?.id }}
+        name="[communityId]/actas/index"
         options={{
           title: 'Actas',
           drawerLabel: 'Actas',
@@ -125,6 +124,14 @@ export default function DrawerLayout() {
               className="text-foreground"
             />
           ),
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/actas/[actaId]"
+        options={{
+          title: 'Detalle de Acta',
+          drawerItemStyle: { display: 'none' },
         }}
       />
       <Drawer.Screen

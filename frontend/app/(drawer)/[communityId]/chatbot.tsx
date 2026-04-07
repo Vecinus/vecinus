@@ -189,7 +189,7 @@ export default function CommunityChatbotScreen() {
   const { communityId } = useLocalSearchParams<{ communityId: string | string[] }>();
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
-  const { user, activeCommunity, setActiveCommunity } = useAuth();
+  const { user, activeCommunity } = useAuth();
   const flatListRef = React.useRef<FlatList<ChatMessage>>(null);
 
   const normalizedCommunityId = React.useMemo(() => {
@@ -221,22 +221,6 @@ export default function CommunityChatbotScreen() {
 
   const communityName = membership?.community.name ?? activeCommunity?.name ?? 'tu comunidad';
   const canManageDocuments = isAdministratorRole(membership?.role);
-
-  React.useEffect(() => {
-    if (!membership) {
-      return;
-    }
-
-    if (activeCommunity?.id === membership.community.id) {
-      return;
-    }
-
-    void setActiveCommunity({
-      id: membership.community.id,
-      name: membership.community.name,
-      role: membership.role,
-    });
-  }, [activeCommunity?.id, membership, setActiveCommunity]);
 
   React.useEffect(() => {
     if (!normalizedCommunityId) {

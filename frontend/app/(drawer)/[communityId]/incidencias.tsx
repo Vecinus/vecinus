@@ -2,11 +2,7 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
-  Platform,
-  ScrollView,
-  TouchableOpacity,
   useWindowDimensions,
   View,
   Modal
@@ -15,20 +11,11 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Drawer } from 'expo-router/drawer';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  AlertTriangle,
-  Building,
-  Plus,
-} from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { communityApi, type Member } from '@/api/community';
 import {
-  INCIDENT_STATUS_LABEL,
-  INCIDENT_TYPE_LABEL,
   type Incident,
   type IncidentStatus,
   type IncidentType,
@@ -36,21 +23,15 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import {
   useCreateIncident,
-  useDiscardIncident,
-  useIncidentDetail,
   useIncidentsList,
-  useUpdateIncidentStatus,
 } from '@/hooks/useIncidents';
 
-import { STATUS_TONE, STATUS_ICON, TYPE_META, formatDate, formatDateTime, getAllowedStatusTransitions } from '@/components/community/incidents/constants';
 import { IncidentCreateModal } from '@/components/community/incidents/IncidentCreateModal';
 import { IncidentFilters } from '@/components/community/incidents/IncidentFilters';
 import { IncidentCard } from '@/components/community/incidents/IncidentCard';
 import { normalizeRoleToBackendToken, getUserFacingErrorMessage } from '@/components/community/incidents/utils';
 
 export type FilterStatus = 'todas' | 'mis_incidencias' | IncidentStatus;
-
-type StatusTone = { text: string; bg: string; border: string };
 
 const SCREEN_OPTIONS = {
   title: 'Incidencias',
@@ -65,7 +46,7 @@ export default function IncidenciasScreen() {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const { communityId: routeCommunityIdRaw } = useLocalSearchParams<{ communityId?: string | string[] }>();
-  const { activeCommunity, currentRole, user, refreshUserContext } = useAuth();
+  const { activeCommunity, currentRole, user } = useAuth();
 
   const routeCommunityId = Array.isArray(routeCommunityIdRaw) ? routeCommunityIdRaw[0] : routeCommunityIdRaw;
   const isInvalidRouteCommunityId =
@@ -104,17 +85,6 @@ export default function IncidenciasScreen() {
       width: '100%' as const,
       maxWidth: isDesktop ? 860 : 560,
       alignSelf: 'center' as const,
-    }),
-    [isDesktop]
-  );
-
-  const detailImageStyle = useMemo(
-    () => ({
-      width: '100%' as const,
-      height: isDesktop ? 320 : 176,
-      borderRadius: 12,
-      marginBottom: 16,
-      backgroundColor: '#F1F5F9',
     }),
     [isDesktop]
   );
@@ -187,10 +157,7 @@ export default function IncidenciasScreen() {
 
   useEffect(() => {
     if (activeCommunity?.id && String(activeCommunity.id) !== String(routeCommunityId)) {
-      router.replace({
-        pathname: '/[communityId]/incidencias',
-        params: { communityId: activeCommunity.id },
-      });
+      router.replace(`/${activeCommunity.id}/incidencias`);
     }
   }, [activeCommunity?.id, routeCommunityId, router]);
 

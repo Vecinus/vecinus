@@ -2,11 +2,13 @@ import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from '@/types/auth.types';
 import { Platform } from 'react-native';
+import { MinutesReadResponse } from '@/types/minutes.types';
 
 
 const TOKEN_KEY = 'jwt_token';
 const USER_KEY = 'user_data';
 const COMMUNITY_KEY = 'community_data';
+const SELECTED_MINUTE_KEY = 'selected_minute_data';
 type StoredActiveCommunity = { id: string; name: string; role: string | number; address?: string | null };
 
 export const storageService = {
@@ -54,10 +56,22 @@ export const storageService = {
     await AsyncStorage.removeItem(COMMUNITY_KEY);
   },
 
+  saveSelectedMinute: async (minute: MinutesReadResponse): Promise<void> => {
+    await AsyncStorage.setItem(SELECTED_MINUTE_KEY, JSON.stringify(minute));
+  },
+  getSelectedMinute: async (): Promise<MinutesReadResponse | null> => {
+    const data = await AsyncStorage.getItem(SELECTED_MINUTE_KEY);
+    return data ? JSON.parse(data) : null;
+  },
+  removeSelectedMinute: async (): Promise<void> => {
+    await AsyncStorage.removeItem(SELECTED_MINUTE_KEY);
+  },
+
 
   clearAll: async (): Promise<void> => {
     await storageService.removeToken();
     await storageService.removeUser();
     await storageService.removeActiveCommunity();
+    await storageService.removeSelectedMinute();
   },
 };

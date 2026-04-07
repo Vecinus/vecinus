@@ -2,8 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ActivityIndicator,
-  Alert,
-  Platform,
   ScrollView,
   TouchableOpacity,
   useWindowDimensions,
@@ -66,7 +64,7 @@ export default function IncidentDetailScreen() {
 
   const handleGoBack = () => {
     if (communityId) {
-      router.push(`/(drawer)/${communityId}/incidencias`);
+      router.push(`/${communityId}/incidencias`);
     } else {
       router.back();
     }
@@ -109,8 +107,10 @@ export default function IncidentDetailScreen() {
   const detailQuery = useIncidentDetail(communityId, incidentId, !!communityId && !!incidentId, user?.id);
 
   const myIncidentsQuery = useIncidentsList(communityId, true, !!communityId, user?.id);
-  const myIncidents = myIncidentsQuery.data ?? [];
-  const myIncidentIds = useMemo(() => new Set(myIncidents.map((incident) => incident.id)), [myIncidents]);
+  const myIncidentIds = useMemo(
+    () => new Set((myIncidentsQuery.data ?? []).map((incident) => incident.id)),
+    [myIncidentsQuery.data]
+  );
 
   const updateStatusMutation = useUpdateIncidentStatus(communityId);
   const discardIncidentMutation = useDiscardIncident(communityId);

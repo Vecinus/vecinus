@@ -18,6 +18,7 @@ export function ReservasHeader({
 }: ReservasHeaderProps) {
   const navigation = useNavigation();
   const router = useRouter();
+
   useEffect(() => {
     navigation.setOptions({
       headerRight: () => (
@@ -43,7 +44,7 @@ export function ReservasHeader({
         </View>
       ),
     });
-  }, [navigation]);
+  }, [associationId, isAdminOrPresident, isWorker, navigation, router]);
 
   return <></>;
 }

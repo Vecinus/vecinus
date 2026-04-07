@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, FlatList, Modal, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import { Alert, FlatList, Modal, View, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';

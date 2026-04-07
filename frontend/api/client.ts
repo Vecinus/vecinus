@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { storageService } from './services/storage.service';
-import { Platform } from 'react-native';
+import { notifyUnauthorized } from '@/lib/auth-events';
 
 const getBackendUrl = () => {
   if (process.env.EXPO_PUBLIC_BACKEND_URL) {
@@ -39,9 +39,7 @@ apiClient.interceptors.response.use(
   },
   async (error) => {
     if (error.response?.status === 401) {
-      console.warn('El token ha expirado o es inválido.');
-      // 💡 AQUÍ: Es el lugar perfecto para meter tu lógica de Refresh Token
-      // o para limpiar el storageService y mandar al usuario al Login.
+      await notifyUnauthorized();
     }
     
     // Axios rechaza la promesa automáticamente, TanStack Query lo detectará como error

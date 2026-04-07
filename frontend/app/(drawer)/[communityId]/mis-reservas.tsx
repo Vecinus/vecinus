@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, ScrollView, RefreshControl, Modal } from 'react-native';
+import { View, ScrollView, RefreshControl } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,7 +30,7 @@ export default function MisReservas() {
     type: 'confirm',
   });
 
-  const fetchData = async (silent = false) => {
+  const fetchData = useCallback(async (silent = false) => {
     if (!associationId) return;
     if (!silent) setIsLoading(true);
     try {
@@ -61,7 +61,7 @@ export default function MisReservas() {
       const combined = [...mappedReservations, ...mappedGuestPasses];
       combined.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
       setItems(combined);
-    } catch (error) {
+    } catch {
       setAlertConfig({
         visible: true,
         title: 'Error',
@@ -72,16 +72,16 @@ export default function MisReservas() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  };
+  }, [associationId]);
 
   useEffect(() => {
-    fetchData();
-  }, [associationId]);
+    void fetchData();
+  }, [fetchData]);
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
-    fetchData(true);
-  }, [associationId]);
+    void fetchData(true);
+  }, [fetchData]);
 
   const handleCancelPress = (item: UnifiedBookingItem) => {
     setAlertConfig({
@@ -114,7 +114,7 @@ export default function MisReservas() {
           type: 'success',
         });
       }, 300);
-    } catch (error) {
+    } catch {
       setTimeout(() => {
         setAlertConfig({
           visible: true,
