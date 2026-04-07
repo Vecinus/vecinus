@@ -1,7 +1,6 @@
 import {
   DrawerContentComponentProps,
   DrawerContentScrollView,
-  DrawerItemList,
 } from '@react-navigation/drawer';
 import { View, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,10 +10,14 @@ import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import {
+  AlertTriangle,
+  Bot,
+  Building2,
   CalendarCheck,
   FileTextIcon,
   HomeIcon,
   LogOutIcon,
+  MailIcon,
   MessageSquareIcon,
   UserIcon,
 } from 'lucide-react-native';
@@ -28,9 +31,11 @@ import {
   SelectValue,
   type Option,
 } from '@/components/ui/select';
+import { useMemo } from 'react';
+import { isAdminRole } from '@/utils/community-role';
 
 export default function CustomDrawerContent(props: DrawerContentComponentProps) {
-  const { user, logoutContext, activeCommunity, setActiveCommunity } = useAuth();
+  const { user, currentRole, logoutContext, activeCommunity, setActiveCommunity } = useAuth();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
@@ -40,55 +45,73 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
     router.replace('/(auth)/sign-in');
   };
 
-  const handleCommunityChange = (option: Option | null) => {
+  const handleCommunityChange = async (option: Option | null) => {
     if (!option) return;
 
-    const selectedCommunity = user?.CommunitiesAndRole.find((c) => c.community.id === option.value);
+    if (String(option.value) === String(activeCommunity?.id)) return;
+
+    const selectedCommunity = user?.CommunitiesAndRole.find(
+      (c) => String(c.community.id) === String(option.value)
+    );
 
     if (selectedCommunity) {
-      setActiveCommunity({
+      await setActiveCommunity({
         id: selectedCommunity.community.id,
         name: selectedCommunity.community.name,
         role: selectedCommunity.role,
         address: selectedCommunity.community.address ?? null,
       });
-      if (pathname.endsWith('/actas')) {
-        router.replace(`/${selectedCommunity.community.id}/actas`);
-        return;
-      }
 
-      if (pathname.endsWith('/chatbot')) {
-        router.replace(`/${selectedCommunity.community.id}/chatbot`);
-        return;
+      if (pathname !== '/') {
+        router.replace('/');
       }
-
-      if (pathname.endsWith('/chat')) {
-        router.replace(`/${selectedCommunity.community.id}/chat`);
-        return;
-      }
-
-      router.replace('/');
     }
   };
 
-  const communityOptions: Option[] =
-    user?.CommunitiesAndRole.map((c) => ({
-      label: c.community.name,
-      value: c.community.id,
-    })) || [];
+  const communityOptions: Option[] = useMemo(
+    () =>
+      user?.CommunitiesAndRole.map((c) => ({
+        label: c.community.name,
+        value: c.community.id,
+      })) || [],
+    [user?.CommunitiesAndRole]
+  );
 
-  const currentOption = activeCommunity
-    ? {
-      label: activeCommunity.name,
-      value: activeCommunity.id,
-    }
-    : undefined;
+  const currentOption = useMemo(
+    () =>
+      activeCommunity
+        ? {
+            label: activeCommunity.name,
+            value: activeCommunity.id,
+          }
+        : undefined,
+    [activeCommunity]
+  );
+
+  const isAdmin = isAdminRole(currentRole);
+
+  const navigateToCommunityRoute = (
+    pathnameTemplate:
+      | '/[communityId]/actas'
+      | '/[communityId]/chat'
+      | '/[communityId]/chatbot'
+      | '/[communityId]/booking'
+      | '/[communityId]/admin'
+  ) => {
+    if (!activeCommunity?.id) return;
+    router.push({
+      pathname: pathnameTemplate,
+      params: { communityId: activeCommunity.id },
+    });
+  };
 
   const isHomeActive = pathname === '/';
-  const isActasActive = pathname.endsWith('/actas');
+  const isActasActive = pathname.endsWith('/actas') || pathname.includes('/actas/');
   const isChatActive = pathname.endsWith('/chat');
   const isChatbotActive = pathname.endsWith('/chatbot');
-  const isBookingActive = pathname.endsWith('/booking');
+  const isBookingActive = pathname.endsWith('/booking') || pathname.includes('/mis-reservas');
+  const isAdminActive = pathname.endsWith('/admin');
+  const isInvitationsActive = pathname.includes('/invitations');
 
   return (
     <View className="flex-1 bg-background">
@@ -134,17 +157,90 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         </View>
 
         <View className="px-2">
-          <DrawerItemList {...props} />
-            
-            {activeCommunity && (
+          <TouchableOpacity
+            onPress={() => router.push('/')}
+            className={`rounded-lg px-4 py-3 ${isHomeActive ? 'bg-muted' : 'active:bg-muted'}`}>
+            <View className="flex-row items-center gap-3">
+              <Icon as={HomeIcon} size={22} className="text-muted-foreground" />
+              <Text className="font-medium text-foreground">Inicio</Text>
+            </View>
+          </TouchableOpacity>
+
+          {activeCommunity ? (
+            <>
               <TouchableOpacity
-                onPress={() => router.push(`/(drawer)/${activeCommunity.id}/actas`)}
-                className="flex-row items-center gap-3 px-4 py-3 rounded-lg active:bg-muted"
-              >
-                <Icon as={FileTextIcon} size={24} className="text-muted-foreground" />
-                <Text className="text-foreground font-medium">Actas</Text>
+                onPress={() => navigateToCommunityRoute('/[communityId]/actas')}
+                className={`rounded-lg px-4 py-3 ${isActasActive ? 'bg-muted' : 'active:bg-muted'}`}>
+                <View className="flex-row items-center gap-3">
+                  <Icon as={FileTextIcon} size={22} className="text-muted-foreground" />
+                  <Text className="font-medium text-foreground">Actas</Text>
+                </View>
               </TouchableOpacity>
-            )}
+
+              <TouchableOpacity
+                onPress={() => navigateToCommunityRoute('/[communityId]/chat')}
+                className={`rounded-lg px-4 py-3 ${isChatActive ? 'bg-muted' : 'active:bg-muted'}`}>
+                <View className="flex-row items-center gap-3">
+                  <Icon as={MessageSquareIcon} size={22} className="text-muted-foreground" />
+                  <Text className="font-medium text-foreground">Chat vecinos</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => navigateToCommunityRoute('/[communityId]/chatbot')}
+                className={`rounded-lg px-4 py-3 ${isChatbotActive ? 'bg-muted' : 'active:bg-muted'}`}>
+                <View className="flex-row items-center gap-3">
+                  <Icon as={Bot} size={22} className="text-muted-foreground" />
+                  <Text className="font-medium text-foreground">Chatbot</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => navigateToCommunityRoute('/[communityId]/booking')}
+                className={`rounded-lg px-4 py-3 ${isBookingActive ? 'bg-muted' : 'active:bg-muted'}`}>
+                <View className="flex-row items-center gap-3">
+                  <Icon as={CalendarCheck} size={22} className="text-muted-foreground" />
+                  <Text className="font-medium text-foreground">Reservas</Text>
+                </View>
+              </TouchableOpacity>
+
+              {isAdmin ? (
+                <TouchableOpacity
+                  onPress={() => navigateToCommunityRoute('/[communityId]/admin')}
+                  className={`rounded-lg px-4 py-3 ${isAdminActive ? 'bg-muted' : 'active:bg-muted'}`}>
+                  <View className="flex-row items-center gap-3">
+                    <Icon as={Building2} size={22} className="text-muted-foreground" />
+                    <Text className="font-medium text-foreground">Comunidad</Text>
+                  </View>
+                </TouchableOpacity>
+              ) : null}
+            </>
+          ) : null}
+
+          <TouchableOpacity
+            onPress={() => router.push('/(drawer)/invitations')}
+            className={`rounded-lg px-4 py-3 ${isInvitationsActive ? 'bg-muted' : 'active:bg-muted'}`}>
+            <View className="flex-row items-center gap-3">
+              <Icon as={MailIcon} size={22} className="text-muted-foreground" />
+              <Text className="font-medium text-foreground">Invitaciones</Text>
+            </View>
+          </TouchableOpacity>
+
+          {activeCommunity ? (
+            <TouchableOpacity
+              onPress={() =>
+                router.push({
+                  pathname: '/[communityId]/incidencias',
+                  params: { communityId: activeCommunity.id },
+                })
+              }
+              className="rounded-lg px-4 py-3 active:bg-muted">
+              <View className="flex-row items-center gap-3">
+                <Icon as={AlertTriangle} size={22} className="text-muted-foreground" />
+                <Text className="font-medium text-foreground">Incidencias</Text>
+              </View>
+            </TouchableOpacity>
+          ) : null}
         </View>
 
       </DrawerContentScrollView>

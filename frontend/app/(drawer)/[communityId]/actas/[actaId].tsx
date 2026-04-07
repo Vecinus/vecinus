@@ -92,7 +92,7 @@ export default function ActaDetail() {
     return (
       <View className="flex-1 items-center justify-center bg-background p-6">
         <Text className="text-xl font-bold text-foreground">No se encontró el acta</Text>
-        <Button className="mt-4" onPress={() => router.push(`/(drawer)/${communityId}/actas`)}>
+        <Button className="mt-4" onPress={() => router.push(`/${communityId}/actas`)}>
           <Text>Volver</Text>
         </Button>
       </View>
@@ -309,7 +309,7 @@ export default function ActaDetail() {
           title: acta.title,
           headerLeft: () => (
             <TouchableOpacity
-              onPress={() => router.push(`/(drawer)/${communityId}/actas`)}
+              onPress={() => router.push(`/${communityId}/actas`)}
               className="ml-2 rounded-full p-2 active:bg-muted">
               <Icon as={ChevronLeft} size={24} className="text-foreground" />
             </TouchableOpacity>

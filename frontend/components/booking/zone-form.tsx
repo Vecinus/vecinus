@@ -50,7 +50,16 @@ export default function ZoneForm({
     setCapacity(defaultCapacity);
     setUsageMode(defaultUsageMode);
     setMaxGuests(defaultMaxGuests);
-  }, [initialData.id]);
+  }, [
+    defaultCapacity,
+    defaultEndTime,
+    defaultMaxGuests,
+    defaultName,
+    defaultRequiresQr,
+    defaultStartTime,
+    defaultUsageMode,
+    initialData.id,
+  ]);
 
   const hasChanges =
     name !== defaultName ||

@@ -46,7 +46,7 @@ export default function HomeScreen() {
       await apiClient.post('/feedback', { feedback });
       showAlert('¡Gracias!', 'Feedback enviado.');
       setFeedback('');
-    } catch (error) {
+    } catch {
       showAlert('Error', 'No se pudo enviar.');
     } finally {
       setIsSubmitting(false);

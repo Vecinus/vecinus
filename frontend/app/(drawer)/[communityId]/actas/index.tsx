@@ -48,7 +48,7 @@ export default function Actas() {
 
   const handlePressActa = async (acta: MinutesReadResponse) => {
     await storageService.saveSelectedMinute(acta);
-    router.push(`/(drawer)/${communityId}/actas/${acta.id}`);
+    router.push(`/${communityId}/actas/${acta.id}`);
   };
 
   const handleCreateSuccess = () => {

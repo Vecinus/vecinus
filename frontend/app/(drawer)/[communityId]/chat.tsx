@@ -117,7 +117,7 @@ function ChatBubble({
 
 export default function CommunityChatScreen() {
   const { communityId } = useLocalSearchParams<{ communityId: string | string[] }>();
-  const { user, activeCommunity, setActiveCommunity } = useAuth();
+  const { user } = useAuth();
   const flatListRef = React.useRef<FlatList<ChannelMessage>>(null);
 
   const normalizedCommunityId = React.useMemo(() => {
@@ -152,22 +152,6 @@ export default function CommunityChatScreen() {
   const [composerHeight, setComposerHeight] = React.useState(CHAT_COMPOSER_MIN_HEIGHT);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [isSending, setIsSending] = React.useState(false);
-
-  React.useEffect(() => {
-    if (!membership) {
-      return;
-    }
-
-    if (activeCommunity?.id === membership.community.id) {
-      return;
-    }
-
-    void setActiveCommunity({
-      id: membership.community.id,
-      name: membership.community.name,
-      role: membership.role,
-    });
-  }, [activeCommunity?.id, membership, setActiveCommunity]);
 
   const loadMessages = React.useCallback(async (channelId: string) => {
     const nextMessages = await fetchChannelMessages(channelId);

@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { MemberCard } from '@/components/community/MemberCard';
 import { PendingInvitationCard } from '@/components/community/PendingInvitationCard';
@@ -92,7 +91,7 @@ export default function CommunityAdminScreen() {
           refetchProperties();
         }
       }
-    }, [communityId, isAdmin])
+    }, [communityId, isAdmin, refetchInvitations, refetchMembers, refetchProperties])
   );
 
   // --- Mutations ---
