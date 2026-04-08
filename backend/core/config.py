@@ -27,6 +27,7 @@ class Settings:
     GOCARDLESS_SCHEME: str = os.getenv("GOCARDLESS_SCHEME", "sepa_core")
     GOCARDLESS_EXIT_URI: str = os.getenv("GOCARDLESS_EXIT_URI", "http://localhost:8081/payments/gocardless/cancel")
     MULTICOMMUNITY_CURRENCY: str = os.getenv("MULTICOMMUNITY_CURRENCY", "EUR")
+    REGISTRATION_PAYMENT_AMOUNT_CENTS: int = int(os.getenv("REGISTRATION_PAYMENT_AMOUNT_CENTS", "3000"))
 
 
 settings = Settings()
