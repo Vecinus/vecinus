@@ -1,9 +1,9 @@
 import { CustomAlertDialog, AlertConfig, DetailItem } from '@/components/custom-alert';
 
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, ActivityIndicator } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Calendar as CalendarIcon, Clock, Users } from 'lucide-react-native';
+import { View, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
+import { Calendar as CalendarIcon, ChevronLeft, Clock, Users } from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { Text } from '@/components/ui/text';
@@ -18,9 +18,23 @@ import { guestPassApi } from '@/api/guestPass';
 
 export default function DetalleReservaOPase() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { id, type } = useLocalSearchParams<{ id: string; type: 'reservation' | 'guest_pass' }>();
   const { activeCommunity } = useAuth();
   const associationId = activeCommunity ? activeCommunity.id : '';
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerLeft: () => (
+        <TouchableOpacity
+          onPress={() => router.push(`/${associationId}/mis-reservas`)}
+          className="ml-2 mr-4 p-1"
+        >
+          <ChevronLeft size={26} className="text-foreground" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, router, associationId]);
 
   const [item, setItem] = useState<DetailItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);

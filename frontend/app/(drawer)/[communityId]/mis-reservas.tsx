@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { View, ScrollView, RefreshControl } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -8,16 +8,31 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/context/AuthContext';
 import { bookingApi } from '@/api/booking';
 import { guestPassApi } from '@/api/guestPass';
-import { useRouter } from 'expo-router';
+import { useRouter, useNavigation } from 'expo-router';
 import { AlertConfig, CustomAlertDialog, UnifiedBookingItem } from '@/components/custom-alert';
+import { ChevronLeft } from 'lucide-react-native';
 
 
 
 
 export default function MisReservas() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { activeCommunity } = useAuth();
   const associationId = activeCommunity ? activeCommunity.id : '';
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerLeft: () => (
+        <TouchableOpacity
+          onPress={() => router.push(`/${associationId}/booking`)}
+          className="ml-2 mr-4 p-1"
+        >
+          <ChevronLeft size={26} className="text-foreground" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, router, associationId]);
 
   const [items, setItems] = useState<UnifiedBookingItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
