@@ -37,18 +37,12 @@ class PollService:
             "absentees_end_at": publish_data.absentees_end_at.isoformat(),
         }
 
-        poll_res = (
-            self.supabase.table("poll")
-            .update(update_data)
-            .eq("id", str(poll_id))
-            .select("association_id, title")
-            .execute()
-        )
+        update_res = self.supabase.table("poll").update(update_data).eq("id", str(poll_id)).execute()
 
-        if not poll_res.data:
+        if not update_res.data:
             raise HTTPException(status_code=404, detail="Votación no encontrada")
 
-        poll_info = poll_res.data[0]
+        poll_info = update_res.data[0]
         association_id = poll_info["association_id"]
         poll_title = poll_info["title"]
 
@@ -106,8 +100,10 @@ class PollService:
                 except Exception as e:
                     print(f"Error enviando correo a {data['email']}: {e}")
 
-        return poll_res.data[0]
+        return poll_info
 
     def close_poll_manually(self, poll_id: UUID):
         response = self.supabase.table("poll").update({"status": "MANUALLY_CLOSED"}).eq("id", str(poll_id)).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Votación no encontrada")
         return response.data[0]

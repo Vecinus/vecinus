@@ -27,23 +27,28 @@ class RoleService:
         Verifica que el usuario sea Administrador o Presidente de la comunidad.
         Si no lo es, lanza un Error 403 (Forbidden) automáticamente.
         """
-        response = (
+        member_check = (
             supabase_client.table("memberships")
-            .select("role, roles(role)")
+            .select("id")
             .eq("profile_id", str(user_id))
             .eq("association_id", str(association_id))
             .execute()
         )
 
-        if not response.data:
+        if not member_check.data:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No perteneces a esta comunidad.")
 
-        role_data = response.data[0].get("roles")
-        role_name = role_data.get("role").upper() if role_data else ""
+        # role: 1=ADMIN, 2=OWNER, 3=TENANT, 4=PRESIDENT, 5=EMPLOYEE
+        perm_check = (
+            supabase_client.table("memberships")
+            .select("id")
+            .eq("profile_id", str(user_id))
+            .eq("association_id", str(association_id))
+            .in_("role", [1, 4])
+            .execute()
+        )
 
-        ROLES_PERMITIDOS = ["ADMIN", "PRESIDENT"]
-
-        if role_name not in ROLES_PERMITIDOS:
+        if not perm_check.data:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="No tienes los permisos necesarios. Solo los administradores pueden gestionar votaciones.",
