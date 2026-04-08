@@ -1,5 +1,6 @@
 from api.associations.associations import router as associations_router
 from api.auth.login import router as auth_router
+from api.auth.registration import router as registration_router
 from api.chat.alerts import router as alerts_router
 from api.chat.chat import router as chat_router
 from api.chatBot.chatBot import router as chatBotRouter
@@ -39,6 +40,7 @@ app.include_router(reservations_router)
 app.include_router(associations_router)
 app.include_router(minutes_router)
 app.include_router(auth_router)
+app.include_router(registration_router)
 app.include_router(incidents_router)
 app.include_router(feedback_router)
 app.include_router(community_payments_router)
