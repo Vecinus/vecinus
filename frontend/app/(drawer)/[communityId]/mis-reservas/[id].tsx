@@ -123,7 +123,7 @@ export default function DetalleReservaOPase() {
   const handleAlertAcknowledge = () => {
     setAlertConfig(prev => ({ ...prev, visible: false }));
     if (alertConfig.type === 'success') {
-      router.back();
+      router.push(`/${activeCommunity?.id}/mis-reservas`);
     }
   };
 

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, ScrollView } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, ScrollView, TouchableOpacity } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useRouter, useFocusEffect } from 'expo-router';
 
@@ -83,13 +83,14 @@ export default function Reservas() {
     new Date().toISOString().split('T')[0]
   );
   const [horaSeleccionada, setHoraSeleccionada] = useState('10:00');
-  const [slotsDisponibles, setSlotsDisponibles] = useState<{ time: string; isBooked: boolean }[]>(
+  const [slotsDisponibles, setSlotsDisponibles] = useState<{ time: string; isBooked: boolean; isPast: boolean }[]>(
     []
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeletingZone, setIsDeletingZone] = useState(false);
   const [lastActionWasDelete, setLastActionWasDelete] = useState(false);
+  const [guestPassCount, setGuestPassCount] = useState(1);
 
   const [alertConfig, setAlertConfig] = useState<AlertConfig>({
     visible: false,
@@ -140,6 +141,11 @@ export default function Reservas() {
       const baseSlots = GENERATE_BASE_SLOTS();
       const occupiedSlots = await bookingApi.listOccupiedSlots(zonaActivaId, fechaSeleccionada);
 
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+      const isToday = fechaSeleccionada === todayStr;
+      const currentHour = now.getHours();
+
       const newSlots = baseSlots.map((time) => {
         const isBooked = occupiedSlots.some((slot) => {
           const slotStartDate = new Date(slot.start_at);
@@ -147,13 +153,16 @@ export default function Reservas() {
           return slotHourStr === time;
         });
 
-        return { time, isBooked };
+        const slotHour = parseInt(time.split(':')[0], 10);
+        const isPast = isToday && slotHour <= currentHour;
+
+        return { time, isBooked, isPast };
       });
 
       setSlotsDisponibles(newSlots);
     } catch (error) {
       console.error(error);
-      setSlotsDisponibles(GENERATE_BASE_SLOTS().map((time) => ({ time, isBooked: false })));
+      setSlotsDisponibles(GENERATE_BASE_SLOTS().map((time) => ({ time, isBooked: false, isPast: false })));
     }
   }, [fechaSeleccionada, zonaActivaId]);
 
@@ -162,7 +171,7 @@ export default function Reservas() {
   }, [fetchSlots]);
 
   const zonaActiva = zonas.find((z) => z.id === zonaActivaId);
-
+  console.log
   const handleReservar = async () => {
     if (!zonaActivaId || !fechaSeleccionada) return;
 
@@ -191,17 +200,23 @@ export default function Reservas() {
           type: 'success',
         });
       } else {
-        await guestPassApi.createGuestPass({
-          space_id: zonaActivaId,
-          valid_for_date: fechaSeleccionada,
-        });
+        const promises = Array.from({ length: guestPassCount }, () =>
+          guestPassApi.createGuestPass({
+            space_id: zonaActivaId,
+            valid_for_date: fechaSeleccionada,
+          })
+        );
+        await Promise.all(promises);
 
         setAlertConfig({
           visible: true,
-          title: '¡Pase Generado!',
-          message: 'El pase de invitado se ha generado correctamente.',
+          title: guestPassCount > 1 ? '¡Pases Generados!' : '¡Pase Generado!',
+          message: guestPassCount > 1
+            ? `Se han generado ${guestPassCount} pases de invitado correctamente.`
+            : 'El pase de invitado se ha generado correctamente.',
           type: 'success',
         });
+        setGuestPassCount(1);
       }
     } catch (error) {
       console.error(error);
@@ -261,7 +276,8 @@ export default function Reservas() {
     }
   };
 
-  const isSelectedSlotBooked = slotsDisponibles.find((s) => s.time === horaSeleccionada)?.isBooked;
+  const selectedSlot = slotsDisponibles.find((s) => s.time === horaSeleccionada);
+  const isSelectedSlotUnavailable = selectedSlot?.isBooked || selectedSlot?.isPast;
 
   if (isWorker) {
     // Pasamos las zonas y la función de actualización al empleado
@@ -321,19 +337,36 @@ export default function Reservas() {
         )}
 
         {zonaActiva && (
-          <View className="mb-6 overflow-hidden rounded-3xl border border-border bg-card p-3">
+          <View className="mb-6 overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
             <Calendar
               key={zonaActiva.id}
               theme={{
                 calendarBackground: 'transparent',
-                selectedDayBackgroundColor: '#0088CC',
-                todayTextColor: '#88CC00',
-                arrowColor: '#0088CC',
-                textDayHeaderFontWeight: '600',
+                selectedDayBackgroundColor: '#3b82f6',
+                selectedDayTextColor: '#ffffff',
+                todayTextColor: '#3b82f6',
+                todayBackgroundColor: 'rgba(59, 130, 246, 0.08)',
+                arrowColor: '#3b82f6',
+                dayTextColor: '#1f2937',
+                textDisabledColor: '#d1d5db',
+                textDayFontWeight: '500',
+                textDayHeaderFontWeight: '700',
+                textDayHeaderFontSize: 13,
+                textDayFontSize: 15,
+                textMonthFontWeight: '700',
+                textMonthFontSize: 17,
+                monthTextColor: '#111827',
               }}
               minDate={new Date().toISOString().split('T')[0]}
               onDayPress={(day: any) => setFechaSeleccionada(day.dateString)}
-              markedDates={{ [fechaSeleccionada]: { selected: true, selectedColor: '#0088CC' } }}
+              markedDates={{
+                [fechaSeleccionada]: {
+                  selected: true,
+                  selectedColor: '#3b82f6',
+                  selectedTextColor: '#ffffff',
+                },
+              }}
+              enableSwipeMonths={true}
             />
           </View>
         )}
@@ -347,20 +380,70 @@ export default function Reservas() {
               onSelectTime={setHoraSeleccionada}
             />
           )}
+
+        {Boolean(fechaSeleccionada) && zonaActiva && !esModoExclusivo(zonaActiva) && (() => {
+          const maxPases = zonaActiva.max_guests_per_reservation ?? 1;
+          return (
+            <View className="mt-2 mb-4">
+              <Text className="text-base font-semibold text-foreground mb-1">Cantidad de pases</Text>
+              <Text className="text-xs text-muted-foreground mb-3">
+                Máximo {maxPases} {maxPases === 1 ? 'invitado' : 'invitados'} por día en esta zona
+              </Text>
+              <View className="flex-row items-center justify-center gap-4">
+                <TouchableOpacity
+                  onPress={() => setGuestPassCount(Math.max(1, guestPassCount - 1))}
+                  disabled={guestPassCount <= 1}
+                  className={`w-12 h-12 rounded-full items-center justify-center border ${guestPassCount <= 1
+                    ? 'border-border bg-muted'
+                    : 'border-primary bg-primary/10'
+                    }`}
+                >
+                  <Text
+                    style={{ lineHeight: 28, textAlign: 'center', includeFontPadding: false }}
+                    className={`text-2xl font-bold ${guestPassCount <= 1 ? 'text-muted-foreground' : 'text-primary'
+                      }`}>−</Text>
+                </TouchableOpacity>
+
+                <View className="w-16 items-center">
+                  <Text className="text-3xl font-bold text-foreground">{guestPassCount}</Text>
+                  <Text className="text-xs text-muted-foreground">
+                    {guestPassCount === 1 ? 'pase' : 'pases'}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  onPress={() => setGuestPassCount(Math.min(maxPases, guestPassCount + 1))}
+                  disabled={guestPassCount >= maxPases}
+                  className={`w-12 h-12 rounded-full items-center justify-center border ${guestPassCount >= maxPases
+                    ? 'border-border bg-muted'
+                    : 'border-primary bg-primary/10'
+                    }`}
+                >
+                  <Text
+                    style={{ lineHeight: 28, textAlign: 'center', includeFontPadding: false }}
+                    className={`text-2xl font-bold ${guestPassCount >= maxPases ? 'text-muted-foreground' : 'text-primary'
+                      }`}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          );
+        })()}
       </ScrollView>
 
       <View className="absolute bottom-0 left-0 right-0 border-t border-border bg-background/90 p-5">
         <Button
-          className="h-14 rounded-2xl bg-green-500"
+          className="h-14 rounded-2xl"
           onPress={handleReservar}
           disabled={
-            isSubmitting || (esModoExclusivo(zonaActiva) && isSelectedSlotBooked) || !zonaActivaId
+            isSubmitting || (esModoExclusivo(zonaActiva) && isSelectedSlotUnavailable) || !zonaActivaId
           }>
-          <Text className="text-lg font-bold text-white">
+          <Text className="text-lg font-bold text-primary-foreground">
             {isSubmitting
               ? 'Procesando...'
               : !esModoExclusivo(zonaActiva)
-                ? 'Generar Pase de Invitado'
+                ? guestPassCount > 1
+                  ? `Generar ${guestPassCount} Pases de Invitado`
+                  : 'Generar Pase de Invitado'
                 : `Reservar (${horaSeleccionada})`}
           </Text>
         </Button>
@@ -368,7 +451,7 @@ export default function Reservas() {
 
       <CustomAlertDialog
         config={alertConfig}
-        onConfirm={() => {}}
+        onConfirm={() => { }}
         onCancel={() => setAlertConfig((prev) => ({ ...prev, visible: false }))}
         onAcknowledge={lastActionWasDelete ? handleDeleteAlertConfirm : handleAlertConfirm}
       />

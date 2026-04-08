@@ -27,7 +27,7 @@ export function ReservasHeader({
             <Button
               variant="outline"
               size="sm"
-              className="mb-4 border-primary bg-green-50/50"
+              className="mb-4 border-primary"
               onPress={() => router.push(`/${associationId}/crear-zona`)}>
               <Text className="font-bold text-primary">+ Zona</Text>
             </Button>
