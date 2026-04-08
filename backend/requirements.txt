@@ -59,7 +59,7 @@ colorama==0.4.6
     #   commitizen
 commitizen==4.13.9
     # via -r requirements.in
-cryptography==46.0.6
+cryptography==46.0.7
     # via
     #   -r requirements.in
     #   google-auth
@@ -283,7 +283,7 @@ pyroaring==1.0.4
     # via
     #   -r requirements.in
     #   pyiceberg
-pytest==9.0.2
+pytest==9.0.3
     # via -r requirements.in
 python-dateutil==2.9.0.post0
     # via
@@ -406,7 +406,7 @@ uuid-utils==0.14.1
     # via
     #   langchain-core
     #   langsmith
-uvicorn==0.43.0
+uvicorn==0.44.0
     # via -r requirements.in
 virtualenv==21.2.0
     # via pre-commit
