@@ -400,6 +400,8 @@ typing-inspection==0.4.2
     #   fastapi
     #   pydantic
     #   pydantic-settings
+tzdata==2026.1
+    # via -r backend/requirements.in
 urllib3==2.6.3
     # via
     #   -r backend/requirements.in
