@@ -1,0 +1,89 @@
+name: Limitador de PRs por Etiqueta
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - labeled
+      - unlabeled
+      - ready_for_review
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  enforce-label-limit:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Validate open PR label limits
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const trackedLabels = ["backend", "frontend"];
+            const maxOpenPRsPerLabel = 2;
+
+            async function listOpenPRs() {
+              const all = [];
+              let page = 1;
+
+              while (true) {
+                const { data } = await github.rest.pulls.list({
+                  owner,
+                  repo,
+                  state: "open",
+                  per_page: 100,
+                  page,
+                });
+
+                all.push(...data);
+                if (data.length < 100) break;
+                page += 1;
+              }
+
+              return all;
+            }
+
+            const openPRs = await listOpenPRs();
+            const countByLabel = Object.fromEntries(trackedLabels.map((label) => [label, 0]));
+
+            for (const pr of openPRs) {
+              const prLabels = (pr.labels || []).map((l) => l.name);
+              for (const label of trackedLabels) {
+                if (prLabels.includes(label)) {
+                  countByLabel[label] += 1;
+                }
+              }
+            }
+
+            core.info(`Open PR count by label: ${JSON.stringify(countByLabel)}`);
+
+            const currentPRLabels = (context.payload.pull_request?.labels || []).map((l) => l.name);
+            const labelsToValidate = trackedLabels.filter((label) => currentPRLabels.includes(label));
+
+            if (labelsToValidate.length === 0) {
+              core.info("Current PR does not have backend/frontend labels. Skipping limit enforcement.");
+              return;
+            }
+
+            const violations = labelsToValidate.filter(
+              (label) => (countByLabel[label] || 0) > maxOpenPRsPerLabel
+            );
+
+            if (violations.length > 0) {
+              const details = violations
+                .map((label) => `${label}: ${countByLabel[label]} abiertas (max ${maxOpenPRsPerLabel})`)
+                .join(" | ");
+
+              core.setFailed(
+                `Se excedió el limite de PR con etiqueta: ${details}.`
+              );
+              return;
+            }
+
+            core.info("Label limit check passed.");

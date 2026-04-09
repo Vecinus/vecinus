@@ -1,67 +1,52 @@
-import * as React from 'react';
-import { View, Text, Pressable, type ViewProps, type PressableProps } from 'react-native';
+import { Text, TextClassContext } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
+import { View, type ViewProps } from 'react-native';
 
-interface CardProps extends ViewProps {
-  onPress?: () => void;
+function Card({ className, ...props }: ViewProps & React.RefAttributes<View>) {
+  return (
+    <TextClassContext.Provider value="text-card-foreground">
+      <View
+        className={cn(
+          'bg-card border-border flex flex-col gap-6 rounded-xl border py-6 shadow-sm shadow-black/5',
+          className
+        )}
+        {...props}
+      />
+    </TextClassContext.Provider>
+  );
 }
 
-const Card = React.forwardRef<View, CardProps>(
-  ({ className, children, onPress, ...props }, ref) => {
-    if (onPress) {
-      return (
-        <Pressable
-          onPress={onPress}
-          className={cn('rounded-lg border border-border bg-card shadow-sm', className)}
-          {...(props as PressableProps)}>
-          {children}
-        </Pressable>
-      );
-    }
+function CardHeader({ className, ...props }: ViewProps & React.RefAttributes<View>) {
+  return <View className={cn('flex flex-col gap-1.5 px-6', className)} {...props} />;
+}
 
-    return (
-      <View
-        ref={ref}
-        className={cn('rounded-lg border border-border bg-card shadow-sm', className)}
-        {...props}>
-        {children}
-      </View>
-    );
-  }
-);
-Card.displayName = 'Card';
-
-const CardHeader = React.forwardRef<View, ViewProps>(({ className, ...props }, ref) => (
-  <View ref={ref} className={cn('flex flex-col gap-1.5 p-6', className)} {...props} />
-));
-CardHeader.displayName = 'CardHeader';
-
-const CardTitle = React.forwardRef<Text, React.ComponentProps<typeof Text>>(
-  ({ className, ...props }, ref) => (
+function CardTitle({
+  className,
+  ...props
+}: React.ComponentProps<typeof Text> & React.RefAttributes<Text>) {
+  return (
     <Text
-      ref={ref}
-      className={cn('text-2xl font-semibold leading-none tracking-tight text-card-foreground', className)}
+      role="heading"
+      aria-level={3}
+      className={cn('font-semibold leading-none', className)}
       {...props}
     />
-  )
-);
-CardTitle.displayName = 'CardTitle';
+  );
+}
 
-const CardDescription = React.forwardRef<Text, React.ComponentProps<typeof Text>>(
-  ({ className, ...props }, ref) => (
-    <Text ref={ref} className={cn('text-sm text-muted-foreground', className)} {...props} />
-  )
-);
-CardDescription.displayName = 'CardDescription';
+function CardDescription({
+  className,
+  ...props
+}: React.ComponentProps<typeof Text> & React.RefAttributes<Text>) {
+  return <Text className={cn('text-muted-foreground text-sm', className)} {...props} />;
+}
 
-const CardContent = React.forwardRef<View, ViewProps>(({ className, ...props }, ref) => (
-  <View ref={ref} className={cn('p-6 pt-0', className)} {...props} />
-));
-CardContent.displayName = 'CardContent';
+function CardContent({ className, ...props }: ViewProps & React.RefAttributes<View>) {
+  return <View className={cn('px-6', className)} {...props} />;
+}
 
-const CardFooter = React.forwardRef<View, ViewProps>(({ className, ...props }, ref) => (
-  <View ref={ref} className={cn('flex flex-row items-center p-6 pt-0', className)} {...props} />
-));
-CardFooter.displayName = 'CardFooter';
+function CardFooter({ className, ...props }: ViewProps & React.RefAttributes<View>) {
+  return <View className={cn('flex flex-row items-center px-6', className)} {...props} />;
+}
 
-export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent };
+export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle };

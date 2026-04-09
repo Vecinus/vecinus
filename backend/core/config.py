@@ -21,6 +21,12 @@ class Settings:
     APP_BASE_URL: str = os.getenv("APP_BASE_URL", "http://localhost:8081")
     SUPABASE_SCHEMA: str = os.getenv("SUPABASE_SCHEMA", "dev_s2")
     CLOUDINARY_URL: str = os.getenv("CLOUDINARY_URL", "")
+    GOCARDLESS_ACCESS_TOKEN: str = os.getenv("GOCARDLESS_ACCESS_TOKEN", "")
+    GOCARDLESS_BASE_URL: str = os.getenv("GOCARDLESS_BASE_URL", "https://api-sandbox.gocardless.com")
+    GOCARDLESS_VERSION: str = os.getenv("GOCARDLESS_VERSION", "2015-07-06")
+    GOCARDLESS_SCHEME: str = os.getenv("GOCARDLESS_SCHEME", "sepa_core")
+    GOCARDLESS_EXIT_URI: str = os.getenv("GOCARDLESS_EXIT_URI", "http://localhost:8081/payments/gocardless/cancel")
+    MULTICOMMUNITY_CURRENCY: str = os.getenv("MULTICOMMUNITY_CURRENCY", "EUR")
 
 
 settings = Settings()

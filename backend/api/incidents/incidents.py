@@ -45,19 +45,27 @@ def verify_own_incident(association_id: str, incident_id: str, user_id: str, sup
     membership_res = (
         supabase.table("memberships")
         .select("id")
-        .eq("association_id", association_id)
-        .eq("profile_id", user_id)
+        .eq("association_id", str(association_id))
+        .eq("profile_id", str(user_id))
         .execute()
     )
     if not membership_res.data:
-        raise HTTPException(status_code=404, detail="Membership not found in this community")
+        raise HTTPException(status_code=404, detail="Membership not found in this association")
     membership_id = membership_res.data[0].get("id")
 
     incident_res = (
-        supabase.table("incidents").select("id").eq("id", incident_id).eq("membership_id", membership_id).execute()
+        supabase.table("incidents")
+        .select("id")
+        .eq("id", str(incident_id))
+        .eq("membership_id", str(membership_id))
+        .execute()
     )
+
     if not incident_res.data:
-        raise HTTPException(status_code=403, detail="User does not own this incident")
+        return False
+    elif len(incident_res.data) > 1:
+        raise HTTPException(status_code=500, detail="Multiple incidents found with the same ID and membership")
+    return True
 
 
 @router.get("/{association_id}", response_model=list[Incident])
@@ -71,12 +79,19 @@ def get_incidents(
     user_id = current_user["id"]
     verify_association_membership(association_id, user_id, supabase)
     is_admin = (
-        supabase.table("memberships")
-        .select("role")
-        .eq("association_id", str(association_id))
-        .eq("profile_id", str(user_id))
-        .execute()
-    ).data[0].get("role") == "1"
+        str(
+            (
+                supabase.table("memberships")
+                .select("role")
+                .eq("association_id", str(association_id))
+                .eq("profile_id", str(user_id))
+                .execute()
+            )
+            .data[0]
+            .get("role")
+        )
+        == "1"
+    )
     if status == "DISCARDED" and not is_admin:
         raise HTTPException(status_code=403, detail="Admin access required for this action")
 
@@ -87,7 +102,7 @@ def get_incidents(
                 created_at,
                 image_url,
                 membership_id,
-                memberships(association_id, role)
+                memberships!inner(association_id, role, profiles(username))
                 """).eq("memberships.association_id", association_id).execute()
 
     raw_incidents = incidents_res.data or []
@@ -168,7 +183,7 @@ def create_incident(
 
     if not membership_res.data:
         raise HTTPException(status_code=403, detail="User has no access to this association")
-    elif membership_res.data[0].get("role") == "1":
+    elif str(membership_res.data[0].get("role")) == "1":
         raise HTTPException(status_code=403, detail="Admins cannot create incidents")
 
     membership_id = membership_res.data[0].get("id")
@@ -226,15 +241,17 @@ def update_incident_status(
 ):
     check_status(status)
     user_id = current_user["id"]
-    if get_user_role(supabase, association_id, user_id) not in {"1", "4", "5"}:
+    if str(get_user_role(supabase, association_id, user_id)) not in {"1", "4", "5"}:
         raise HTTPException(status_code=403, detail="Admin, president or employee access required for this action")
+    elif verify_own_incident(association_id, incident_id, user_id, supabase):
+        raise HTTPException(status_code=403, detail="Users cannot update the status of their own incidents")
 
     latest_state = get_latest_state(supabase, incident_id)
 
     if not latest_state:
         raise HTTPException(status_code=404, detail="Incident not found")
     elif latest_state.get("status") not in {"PENDING", "IN PROGRESS"}:
-        raise HTTPException(status_code=400, detail="Cannot update status of a resolved or discarded incident")
+        raise HTTPException(status_code=409, detail="Cannot update status of a resolved or discarded incident")
     elif latest_state.get("status") == status:
         raise HTTPException(status_code=400, detail=f"Incident is already in {status} status")
 
@@ -247,7 +264,7 @@ def update_incident_status(
     }
 
 
-@router.post("/{association_id}/{incident_id}/discard", status_code=201)
+@router.delete("/{association_id}/{incident_id}", status_code=204)
 def discard_incident(
     association_id: str,
     incident_id: str,
@@ -255,18 +272,16 @@ def discard_incident(
     supabase: Client = Depends(get_supabase),
 ):
     user_id = current_user["id"]
-    verify_own_incident(association_id, incident_id, user_id, supabase)
+    if not verify_own_incident(association_id, incident_id, user_id, supabase):
+        raise HTTPException(status_code=403, detail="User does not own this incident")
 
     latest_state = get_latest_state(supabase, incident_id)
 
-    if not latest_state:
-        raise HTTPException(status_code=404, detail="Incident not found")
-    elif latest_state.get("status") not in {"DISCARDED", "SOLVED"}:
-        raise HTTPException(status_code=400, detail="Incident hasn't been reviewed")
+    if latest_state.get("status") not in {"DISCARDED", "SOLVED"}:
+        raise HTTPException(status_code=409, detail="Incident hasn't been reviewed")
 
     try:
         supabase.table("incident_states").delete().eq("incident_id", incident_id).execute()
         supabase.table("incidents").delete().eq("id", incident_id).execute()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to discard incident: {str(e)}")
-    return {"message": "Incident discarded successfully", "incident_id": incident_id}
