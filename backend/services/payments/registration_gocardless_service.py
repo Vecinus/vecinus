@@ -80,7 +80,7 @@ def _create_registration_billing_request(order_id: str, amount_cents: int) -> di
     return data.get("billing_requests", {})
 
 
-def _sign_in_after_registration(
+def _get_token_after_registration(
     supabase_anon: Client,
     email: str,
     password: str,
@@ -158,7 +158,7 @@ def complete_registration_order(
         )
 
     if order.get("status") == "completed" and order.get("created_profile_id"):
-        token = _sign_in_after_registration(supabase_anon, payload.email, payload.password)
+        token = _get_token_after_registration(supabase_anon, payload.email, payload.password)
         return _serialize_registration_order(order, token=token)
 
     billing_request_id = order.get("billing_request_id")
@@ -234,5 +234,5 @@ def complete_registration_order(
     )
     updated_order = (update_res.data or [order])[0]
 
-    token = _sign_in_after_registration(supabase_anon, payload.email, payload.password)
+    token = _get_token_after_registration(supabase_anon, payload.email, payload.password)
     return _serialize_registration_order(updated_order, token=token)
