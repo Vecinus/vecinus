@@ -1,4 +1,5 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time, timezone
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
 from schemas.common_space import QRValidateRequest, ReservationCreate
@@ -13,12 +14,16 @@ EMPLOYEE_ROLE_ID = "5"
 ACTIVE_STATUS_IDS = {PENDING_STATUS_ID, CHECKED_IN_STATUS_ID}
 MAX_RESERVATIONS_PER_DAY = 3
 EXCLUSIVE_RESERVATION_MODE = "exclusive_reservation"
+LOCAL_TIMEZONE = ZoneInfo("Europe/Madrid")
 
 
 def _get_common_space(supabase: Client, space_id: int) -> dict:
     response = (
         supabase.table(COMMON_SPACE_TABLE)
-        .select("id, association_id, name, max_capacity, max_guests_per_reservation, requires_qr, usage_mode")
+        .select(
+            "id, association_id, name, capacity, max_guests_per_reservation, "
+            "requires_qr, usage_mode, start_time, end_time"
+        )
         .eq("id", space_id)
         .limit(1)
         .execute()
@@ -36,6 +41,36 @@ def _ensure_guest_limit(space: dict, guests_count: int) -> None:
         raise HTTPException(
             status_code=400,
             detail="El numero de invitados supera el maximo permitido para esta reserva",
+        )
+
+
+def _ensure_within_opening_hours(space: dict, start_at: datetime, end_at: datetime) -> None:
+    opening_time = space.get("start_time")
+    closing_time = space.get("end_time")
+    if not opening_time or not closing_time:
+        return
+
+    if isinstance(opening_time, str):
+        opening_time = time.fromisoformat(opening_time)
+    if isinstance(closing_time, str):
+        closing_time = time.fromisoformat(closing_time)
+
+    localized_start = start_at.astimezone(LOCAL_TIMEZONE)
+    localized_end = end_at.astimezone(LOCAL_TIMEZONE)
+
+    if localized_start.date() != localized_end.date():
+        raise HTTPException(
+            status_code=400,
+            detail="La reserva debe empezar y terminar el mismo dia dentro del horario de la zona comun",
+        )
+
+    start_time = localized_start.time().replace(tzinfo=None)
+    end_time = localized_end.time().replace(tzinfo=None)
+
+    if start_time < opening_time or end_time > closing_time:
+        raise HTTPException(
+            status_code=400,
+            detail="La reserva debe estar comprendida entre la hora de apertura y la de cierre de la zona comun",
         )
 
 
@@ -117,6 +152,7 @@ def create_reservation(supabase: Client, user_id: str, payload: ReservationCreat
         )
 
     _ensure_guest_limit(space, payload.guests_count)
+    _ensure_within_opening_hours(space, payload.start_at, payload.end_at)
 
     reservation_date = payload.start_at.date()
     user_daily_reservations = _count_user_daily_reservations(supabase, user_id, payload.space_id, reservation_date)
