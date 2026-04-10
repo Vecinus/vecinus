@@ -11,6 +11,7 @@ from api.common_space.reservations import router as reservations_router
 from api.feedback.feedback import router as feedback_router
 from api.incidents.incidents import router as incidents_router
 from api.payments.payments import router as community_payments_router
+from api.polls.polls import router as polls_router
 from api.transcription.minutes import router as minutes_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -44,6 +45,7 @@ app.include_router(registration_router)
 app.include_router(incidents_router)
 app.include_router(feedback_router)
 app.include_router(community_payments_router)
+app.include_router(polls_router)
 
 
 @app.get("/health")
