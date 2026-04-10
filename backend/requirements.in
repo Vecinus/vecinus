@@ -80,7 +80,7 @@ google-genai==1.71.0
 python-docx==1.2.0
 # AI / RAG
 langchain
-pypdf==6.9.2
+pypdf==6.10.0
 pillow==12.2.0
 tiktoken
 pinecone-client==6.0.0

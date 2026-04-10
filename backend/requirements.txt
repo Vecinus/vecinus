@@ -277,7 +277,7 @@ pyparsing==3.3.2
     # via
     #   -r requirements.in
     #   pyiceberg
-pypdf==6.9.2
+pypdf==6.10.0
     # via -r requirements.in
 pyroaring==1.0.4
     # via
