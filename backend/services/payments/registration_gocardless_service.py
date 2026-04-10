@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Set
 
 from core.config import settings
 from fastapi import HTTPException, status
@@ -49,14 +49,22 @@ def _load_registration_order(supabase_admin: Client, order_id: str) -> dict[str,
     return order_res.data[0]
 
 
-def _ensure_registration_email_available(supabase_admin: Client, email: str) -> None:
-    auth_users = supabase_admin.auth.admin.list_users()
-    registered_emails = {user.email for user in auth_users if getattr(user, "email", None)}
-    if email in registered_emails:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="There is already a registered user with that email",
-        )
+def _ensure_registration_email_available(supabase_admin: Client, email: str, exented: Set[str] = []) -> None:
+    existing_order_res = supabase_admin.table("registration_payment_orders").select("id").eq("email", email).execute()
+    if existing_order_res.data:
+        if len(exented) > 0:
+            existing_order_ids = {str(order["id"]) for order in existing_order_res.data}
+            other_order_ids = existing_order_ids - exented
+            if len(other_order_ids) > 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="There is already a registered user with that email",
+                )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="There is already a registered user with that email",
+            )
 
 
 def _create_registration_billing_request(order_id: str, amount_cents: int) -> dict[str, Any]:
@@ -161,6 +169,8 @@ def complete_registration_order(
         token = _get_token_after_registration(supabase_anon, payload.email, payload.password)
         return _serialize_registration_order(order, token=token)
 
+    _ensure_registration_email_available(supabase_admin, payload.email, {order_id})
+
     billing_request_id = order.get("billing_request_id")
     if not billing_request_id:
         raise HTTPException(
@@ -187,8 +197,6 @@ def complete_registration_order(
     if not payment_id:
         payment = _create_payment(order_id, mandate_id, order["amount_cents"], 1)
         payment_id = payment.get("id")
-
-    _ensure_registration_email_available(supabase_admin, payload.email)
 
     created_user = supabase_admin.auth.admin.create_user(
         {"email": payload.email, "password": payload.password, "email_confirm": True}
