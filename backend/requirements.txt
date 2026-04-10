@@ -93,7 +93,7 @@ fsspec==2026.3.0
     #   pyiceberg
 google-auth[requests]==2.49.1
     # via google-genai
-google-genai==1.71.0
+google-genai==1.72.0
     # via -r requirements.in
 h11==0.16.0
     # via
