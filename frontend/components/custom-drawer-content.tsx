@@ -1,7 +1,4 @@
-import {
-  DrawerContentComponentProps,
-  DrawerContentScrollView,
-} from '@react-navigation/drawer';
+import { DrawerContentComponentProps, DrawerContentScrollView } from '@react-navigation/drawer';
 import { View, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePathname, useRouter } from 'expo-router';
@@ -18,6 +15,7 @@ import {
   HomeIcon,
   LogOutIcon,
   MailIcon,
+  MailOpenIcon,
   MessageSquareIcon,
   UserIcon,
 } from 'lucide-react-native';
@@ -230,6 +228,22 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
             <TouchableOpacity
               onPress={() =>
                 router.push({
+                  pathname: '/[communityId]/polls',
+                  params: { communityId: activeCommunity.id },
+                })
+              }
+              className="rounded-lg px-4 py-3 active:bg-muted">
+              <View className="flex-row items-center gap-3">
+                <Icon as={MailOpenIcon} size={22} className="text-muted-foreground" />
+                <Text className="font-medium text-foreground">Votaciones</Text>
+              </View>
+            </TouchableOpacity>
+          ) : null}
+
+          {activeCommunity ? (
+            <TouchableOpacity
+              onPress={() =>
+                router.push({
                   pathname: '/[communityId]/incidencias',
                   params: { communityId: activeCommunity.id },
                 })
@@ -242,7 +256,6 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
             </TouchableOpacity>
           ) : null}
         </View>
-
       </DrawerContentScrollView>
 
       <View className="border-t border-border p-4" style={{ paddingBottom: insets.bottom + 16 }}>

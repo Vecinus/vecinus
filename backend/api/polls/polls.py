@@ -99,3 +99,29 @@ def get_poll_by_id(poll_id: UUID, supabase: Client = Depends(get_supabase)):
     """Obtiene los detalles de una votación por su ID."""
     service = PollService(supabase)
     return service.get_poll_by_id(poll_id)
+
+
+@router.patch("/{poll_id}", response_model=PollResponse)
+def edit_poll(
+    poll_id: UUID,
+    poll_data: PollCreate,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_admin),
+):
+    """Edita una votación en estado DRAFT (Solo Admins)."""
+    user_id = current_user["id"]
+
+    poll_res = supabase.table("poll").select("association_id, status").eq("id", str(poll_id)).execute()
+    if not poll_res.data:
+        raise HTTPException(status_code=404, detail="Votación no encontrada")
+
+    poll = poll_res.data[0]
+    association_id = poll["association_id"]
+
+    if poll["status"] != "DRAFT":
+        raise HTTPException(status_code=400, detail="Solo puedes editar votaciones en estado DRAFT")
+
+    RoleService.verify_admin_or_president_permissions(supabase, user_id, association_id)
+
+    service = PollService(supabase)
+    return service.edit_poll(poll_id, poll_data)

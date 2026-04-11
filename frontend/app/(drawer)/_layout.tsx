@@ -13,7 +13,9 @@ import {
   Bot,
   Building2,
   MailIcon,
-  AlertTriangle, CalendarCheck,
+  AlertTriangle,
+  CalendarCheck,
+  Vote,
 } from 'lucide-react-native';
 
 import { useAuth } from '@/context/AuthContext';
@@ -105,9 +107,7 @@ export default function DrawerLayout() {
         options={{
           title: 'Chatbot',
           drawerLabel: 'Chatbot',
-          drawerIcon: ({ size }) => (
-            <Icon as={Bot} size={size} className="text-foreground" />
-          ),
+          drawerIcon: ({ size }) => <Icon as={Bot} size={size} className="text-foreground" />,
         }}
       />
 
@@ -118,11 +118,7 @@ export default function DrawerLayout() {
           title: 'Incidencias',
           drawerLabel: 'Incidencias',
           drawerIcon: ({ size, color }) => (
-            <Icon
-              as={AlertTriangle}
-              size={size}
-              className="text-foreground"
-            />
+            <Icon as={AlertTriangle} size={size} className="text-foreground" />
           ),
           drawerItemStyle: { display: 'none' },
         }}
@@ -186,6 +182,24 @@ export default function DrawerLayout() {
             <Icon as={Building2} size={size} className="text-foreground" />
           ),
           drawerItemStyle: isAdmin ? undefined : { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/polls"
+        initialParams={{ communityId: activeCommunity?.id }}
+        options={{
+          title: 'Votaciones',
+          drawerLabel: 'Votaciones',
+          drawerIcon: ({ size, color }) => (
+            <Icon as={Vote} size={size} className="text-foreground" />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/polls/[poll_id]"
+        options={{
+          headerTitle: 'Nueva Votación',
+          drawerItemStyle: { display: 'none' },
         }}
       />
       <Drawer.Screen
