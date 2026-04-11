@@ -1,27 +1,51 @@
-import { SocialConnections } from '@/components/social-connections';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { Text } from '@/components/ui/text';
 import * as React from 'react';
 import { useState } from 'react';
 import { Pressable, type TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
-import { useLoginMutation } from '@/api/auth'; // Importamos el nuevo hook
+import { useLoginMutation } from '@/api/auth';
+
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function extractErrorMessage(detail: unknown): string {
+  if (typeof detail === 'string') {
+    return detail.trim();
+  }
+
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item) => {
+        if (typeof item === 'string') return item.trim();
+        if (item && typeof item === 'object' && 'msg' in item) {
+          const msg = (item as { msg?: unknown }).msg;
+          return typeof msg === 'string' ? msg.trim() : '';
+        }
+        return '';
+      })
+      .filter(Boolean);
+
+    return messages.join(' ');
+  }
+
+  if (detail && typeof detail === 'object' && 'msg' in detail) {
+    const msg = (detail as { msg?: unknown }).msg;
+    return typeof msg === 'string' ? msg.trim() : '';
+  }
+
+  return '';
+}
 
 export function SignInForm() {
   const router = useRouter();
   const passwordInputRef = React.useRef<TextInput>(null);
-  
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [localError, setLocalError] = useState('');
@@ -39,35 +63,39 @@ export function SignInForm() {
       return;
     }
 
+    if (!isValidEmail(email.trim())) {
+      setLocalError('Introduce un correo electronico valido.');
+      return;
+    }
+
     try {
       await loginAPI({ email, password });
-      router.replace('/'); 
+      router.replace('/');
     } catch (error: any) {
       const status = error?.response?.status;
-      const backendDetail = error?.response?.data?.detail;
+      const normalizedDetail = extractErrorMessage(error?.response?.data?.detail);
 
       if (status === 401) {
-        setLocalError(backendDetail || 'Credenciales incorrectas.');
+        setLocalError(normalizedDetail || 'Credenciales incorrectas.');
         return;
       }
 
-      setLocalError(backendDetail || 'No se pudo iniciar sesion. Intentalo de nuevo.');
+      setLocalError(normalizedDetail || 'No se pudo iniciar sesion. Intentalo de nuevo.');
     }
   }
   return (
     <View className="gap-6">
-      <Card className="border-border/0 sm:border-border shadow-none sm:shadow-sm sm:shadow-black/5">
+      <Card className="border-border/0 shadow-none sm:border-border sm:shadow-sm sm:shadow-black/5">
         <CardHeader>
-          <CardTitle className="text-center text-xl sm:text-left">Sign in to your app</CardTitle>
+          <CardTitle className="text-center text-xl sm:text-left">Inicie sesión</CardTitle>
           <CardDescription className="text-center sm:text-left">
-            Welcome back! Please sign in to continue
+            Bienvenido de nuevo! Por favor, ingresa tus credenciales para acceder a tu cuenta.
           </CardDescription>
         </CardHeader>
         <CardContent className="gap-6">
           <View className="gap-6">
-            
             {localError ? (
-              <Text className="text-destructive text-center font-medium">{localError}</Text>
+              <Text className="text-center font-medium text-destructive">{localError}</Text>
             ) : null}
 
             <View className="gap-1.5">
@@ -85,7 +113,7 @@ export function SignInForm() {
               />
             </View>
             <View className="gap-1.5">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Contraseña</Label>
               <Input
                 ref={passwordInputRef}
                 id="password"
@@ -98,24 +126,18 @@ export function SignInForm() {
               />
             </View>
             <Button className="w-full" onPress={onSubmit} disabled={isPending}>
-              <Text>{isPending ? 'Cargando...' : 'Continue'}</Text>
+              <Text>{isPending ? 'Cargando...' : 'Continuar'}</Text>
             </Button>
           </View>
           <Text className="text-center text-sm">
-            Don&apos;t have an account?{' '}
+            No tienes una cuenta?{' '}
             <Pressable
               onPress={() => {
                 // TODO: Navigate to sign up screen
               }}>
-              <Text className="text-sm underline underline-offset-4">Sign up</Text>
+              <Text className="text-sm underline underline-offset-4">Registrate</Text>
             </Pressable>
           </Text>
-          <View className="flex-row items-center">
-            <Separator className="flex-1" />
-            <Text className="text-muted-foreground px-4 text-sm">or</Text>
-            <Separator className="flex-1" />
-          </View>
-          <SocialConnections />
         </CardContent>
       </Card>
     </View>

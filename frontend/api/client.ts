@@ -22,7 +22,7 @@ export const apiClient = axios.create({
 apiClient.interceptors.request.use(
   async (config) => {
     const token = await storageService.getToken();
-    
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -38,10 +38,13 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error) => {
-    if (error.response?.status === 401) {
+    const status = error?.response?.status;
+    const requestUrl = String(error?.config?.url ?? '').toLowerCase();
+    const isAuthPublicEndpoint = requestUrl.includes('/login') || requestUrl.includes('/logout');
+    if (status === 401 && !isAuthPublicEndpoint) {
       await notifyUnauthorized();
     }
-    
+
     // Axios rechaza la promesa automáticamente, TanStack Query lo detectará como error
     return Promise.reject(error);
   }
