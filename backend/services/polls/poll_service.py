@@ -25,6 +25,24 @@ class PollService:
             raise HTTPException(status_code=400, detail="Error al crear la votación")
         return response.data[0]
 
+    def edit_poll(self, poll_id: UUID, poll_data: PollCreate):
+        update_data = {
+            "title": poll_data.title,
+            "description": poll_data.description,
+            "options": poll_data.options,
+        }
+
+        response = self.supabase.table("poll").update(update_data).eq("id", str(poll_id)).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Votación no encontrada")
+        return response.data[0]
+
+    def get_poll_by_id(self, poll_id: UUID):
+        response = self.supabase.table("poll").select("*").eq("id", str(poll_id)).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Votación no encontrada")
+        return response.data[0]
+
     def get_polls_by_community(self, association_id: UUID):
         response = self.supabase.table("poll").select("*").eq("association_id", str(association_id)).execute()
         return response.data

@@ -93,3 +93,9 @@ def get_poll_results(association_id: UUID, poll_id: UUID, supabase: Client = Dep
     """Genera el escrutinio de la votación (Doble mayoría: Personas y Cuotas)."""
     service = EscrutinioService(supabase)
     return service.calculate_results(poll_id, association_id)
+
+@router.get("/{poll_id}", response_model=PollResponse)
+def get_poll_by_id(poll_id: UUID, supabase: Client = Depends(get_supabase)):
+    """Obtiene los detalles de una votación por su ID."""
+    service = PollService(supabase)
+    return service.get_poll_by_id(poll_id)
