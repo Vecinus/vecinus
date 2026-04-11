@@ -49,7 +49,9 @@ def _load_registration_order(supabase_admin: Client, order_id: str) -> dict[str,
     return order_res.data[0]
 
 
-def _ensure_registration_email_available(supabase_admin: Client, email: str, exented: Set[str] = []) -> None:
+def _ensure_registration_email_available(supabase_admin: Client, email: str, exented: Set[str] = None) -> None:
+    if exented is None:
+        exented = set()
     existing_order_res = supabase_admin.table("registration_payment_orders").select("id").eq("email", email).execute()
     if existing_order_res.data:
         if len(exented) > 0:
