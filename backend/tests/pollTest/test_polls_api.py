@@ -3,15 +3,15 @@ from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
+from core.deps import get_current_user, get_supabase, get_supabase_admin
 from fastapi.testclient import TestClient
+from main import app
 
 os.environ["SUPABASE_URL"] = "http://localhost:8000"
 os.environ["SUPABASE_KEY"] = "dummy"
 os.environ["SUPABASE_SERVICE_KEY"] = "dummy"
 os.environ["SUPABASE_SCHEMA"] = "public"
 
-from core.deps import get_current_user, get_supabase, get_supabase_admin
-from main import app
 
 client = TestClient(app)
 
@@ -111,4 +111,5 @@ def test_api_cast_vote(mock_vote_service_class):
     assert data["selected_option"] == "Sí"
     assert data["coefficient_snapshot"] == 15.5
 
+    mock_service.cast_vote.assert_called_once()
     mock_service.cast_vote.assert_called_once()
