@@ -75,11 +75,11 @@ export const useEditPollMutation = (communityId: string, pollId: string) => {
   });
 };
 
-export const useDeletePollMutation = (communityId: string, pollId: string) => {
+export const useDeletePollMutation = (communityId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => pollsApi.deletePoll(pollId),
-    onSuccess: () => {
+    mutationFn: (pollId: string) => pollsApi.deletePoll(pollId),
+    onSuccess: (_, pollId) => {
       queryClient.invalidateQueries({ queryKey: ['polls', communityId] });
       queryClient.removeQueries({ queryKey: ['poll', pollId] });
     },

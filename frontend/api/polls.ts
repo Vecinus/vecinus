@@ -68,6 +68,11 @@ export const pollsApi = {
     return data;
   },
 
+  deletePoll: async (pollId: string): Promise<any> => {
+    const { data } = await apiClient.delete(`/polls/${pollId}`);
+    return data;
+  },
+
   publishPoll: async (pollId: string, dates: PollPublish): Promise<Poll> => {
     const { data } = await apiClient.put(`/polls/${pollId}/publish`, dates);
     return data;

@@ -125,3 +125,7 @@ class PollService:
         if not response.data:
             raise HTTPException(status_code=404, detail="Votación no encontrada")
         return response.data[0]
+
+    def delete_poll(self, poll_id: UUID):
+        response = self.supabase.table("poll").delete().eq("id", str(poll_id)).execute()
+        return {"message": "Votación eliminada correctamente"}

@@ -1,14 +1,52 @@
 import React, { useState, useCallback } from 'react';
-import { View, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, FlatList, TouchableOpacity, RefreshControl, Modal } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { useRole } from '@/hooks/useRole';
 import { usePolls, useDeletePollMutation } from '@/hooks/usePolls';
 import { Text } from '@/components/ui/text';
+import { Button } from '@/components/ui/button';
 import { PollCard } from '@/components/polls/PollCard';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Poll } from '@/types/polls.types';
-import { CircleAlertIcon } from 'lucide-react-native';
+import { AlertCircle } from 'lucide-react-native';
+
+function CustomAlertDeleteDialog({
+  visible,
+  title,
+  message,
+  onCancel,
+  onConfirm,
+  isLoading,
+}: {
+  visible: boolean;
+  title: string;
+  message: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+  isLoading: boolean;
+}) {
+  return (
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={onCancel}>
+      <View className="flex-1 items-center justify-center bg-black/50 p-6">
+        <View className="w-full max-w-sm rounded-2xl border border-border bg-background p-6 shadow-xl">
+          <Text className="mb-2 text-lg font-bold text-foreground">{title}</Text>
+          <Text className="mb-6 text-muted-foreground">{message}</Text>
+          <View className="flex-row justify-end gap-3">
+            <Button variant="outline" onPress={onCancel} disabled={isLoading}>
+              <Text>Cancelar</Text>
+            </Button>
+            <Button variant="destructive" onPress={onConfirm} disabled={isLoading}>
+              <Text className="text-destructive-foreground">
+                {isLoading ? 'Eliminando...' : 'Eliminar'}
+              </Text>
+            </Button>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
 
 export default function PollsScreen() {
   const router = useRouter();
@@ -17,13 +55,12 @@ export default function PollsScreen() {
   const associationId = activeCommunity ? activeCommunity.id : '';
 
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedPoll, setSelectedPoll] = useState<Poll | null>(null);
+  const [pollToDelete, setPollToDelete] = useState<Poll | null>(null);
 
   const isAdmin = role === 1 || role === 4;
 
-  const { data: polls = [], isLoading, error, refetch } = usePolls(associationId);
-
-  const deletePolMutation = useDeletePollMutation(associationId, selectedPoll?.id || '');
+  const { data: polls = [], isLoading: isListLoading, error, refetch } = usePolls(associationId);
+  const deletePolMutation = useDeletePollMutation(associationId);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -31,29 +68,15 @@ export default function PollsScreen() {
     setRefreshing(false);
   }, [refetch]);
 
-  const handleVotePoll = (poll: Poll) => {
-    router.push(`/${associationId}/polls/${poll.id}`);
-  };
-
-  const handleEditPoll = (poll: Poll) => {
-    router.push(`/${associationId}/polls/${poll.id}/edit`);
-  };
-
-  const handleDeletePoll = async (poll: Poll) => {
+  const handleDeletePoll = async () => {
+    if (!pollToDelete) return;
     try {
-      await deletePolMutation.mutateAsync();
-      setSelectedPoll(null);
+      await deletePolMutation.mutateAsync(pollToDelete.id);
+      setPollToDelete(null);
+      await refetch();
     } catch (err) {
-      console.error('Error deleting poll:', err);
+      console.error(err);
     }
-  };
-
-  const handleViewResults = (poll: Poll) => {
-    router.push(`/${associationId}/polls/results/${poll.id}`);
-  };
-
-  const handleMarkAbsent = (poll: Poll) => {
-    router.push(`/${associationId}/polls/${poll.id}/mark-absent`);
   };
 
   const renderEmptyState = () => (
@@ -85,13 +108,22 @@ export default function PollsScreen() {
       />
 
       <View className="flex-1 bg-background">
+        <CustomAlertDeleteDialog
+          visible={!!pollToDelete}
+          title="Eliminar votación"
+          message={`¿Estás seguro de que deseas eliminar "${pollToDelete?.title}"? Esta acción no se puede deshacer.`}
+          onCancel={() => setPollToDelete(null)}
+          onConfirm={handleDeletePoll}
+          isLoading={deletePolMutation.isPending}
+        />
+
         {error && (
-          <Alert icon={CircleAlertIcon} className="mx-4 mt-4 border-red-500 bg-red-50">
-            <AlertTitle className="font-bold text-red-800">Error</AlertTitle>
-            <AlertDescription className="mt-1 text-sm text-red-700">
-              No se pudieron cargar las votaciones
-            </AlertDescription>
-          </Alert>
+          <View className="p-4">
+            <Alert icon={AlertCircle} variant="destructive">
+              <AlertTitle className="font-bold">Error</AlertTitle>
+              <AlertDescription>No se pudieron cargar las votaciones</AlertDescription>
+            </Alert>
+          </View>
         )}
 
         <FlatList
@@ -101,11 +133,13 @@ export default function PollsScreen() {
               <PollCard
                 poll={item}
                 isAdmin={isAdmin}
-                onPress={() => handleVotePoll(item)}
-                onEditPress={() => handleEditPoll(item)}
-                onDeletePress={() => handleDeletePoll(item)}
-                onResultsPress={() => handleViewResults(item)}
-                onMarkAbsentPress={() => handleMarkAbsent(item)}
+                onPress={() => router.push(`/${associationId}/polls/${item.id}`)}
+                onEditPress={() => router.push(`/${associationId}/polls/${item.id}/edit`)}
+                onDeletePress={() => setPollToDelete(item)}
+                onResultsPress={() => router.push(`/${associationId}/polls/results/${item.id}`)}
+                onMarkAbsentPress={() =>
+                  router.push(`/${associationId}/polls/${item.id}/mark-absent`)
+                }
               />
             </View>
           )}

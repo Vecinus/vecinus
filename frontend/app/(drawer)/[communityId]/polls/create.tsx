@@ -98,12 +98,11 @@ export default function CreatePollScreen() {
 
       await createPoll(payload);
 
-      RNAlert.alert('Éxito', 'Votación creada correctamente', [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
-      ]);
+      router.push({
+        pathname: '/[communityId]/polls',
+        params: { communityId: associationId },
+      });
+      setStep('basic');
     } catch (error: any) {
       RNAlert.alert('Error', error.response?.data?.detail || 'No se pudo crear la votación');
     }
