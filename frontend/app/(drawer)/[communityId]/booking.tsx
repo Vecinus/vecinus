@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, ScrollView, TouchableOpacity } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -83,9 +83,9 @@ export default function Reservas() {
     new Date().toISOString().split('T')[0]
   );
   const [horaSeleccionada, setHoraSeleccionada] = useState('10:00');
-  const [slotsDisponibles, setSlotsDisponibles] = useState<{ time: string; isBooked: boolean; isPast: boolean }[]>(
-    []
-  );
+  const [slotsDisponibles, setSlotsDisponibles] = useState<
+    { time: string; isBooked: boolean; isPast: boolean }[]
+  >([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeletingZone, setIsDeletingZone] = useState(false);
@@ -162,7 +162,9 @@ export default function Reservas() {
       setSlotsDisponibles(newSlots);
     } catch (error) {
       console.error(error);
-      setSlotsDisponibles(GENERATE_BASE_SLOTS().map((time) => ({ time, isBooked: false, isPast: false })));
+      setSlotsDisponibles(
+        GENERATE_BASE_SLOTS().map((time) => ({ time, isBooked: false, isPast: false }))
+      );
     }
   }, [fechaSeleccionada, zonaActivaId]);
 
@@ -171,7 +173,6 @@ export default function Reservas() {
   }, [fetchSlots]);
 
   const zonaActiva = zonas.find((z) => z.id === zonaActivaId);
-  console.log
   const handleReservar = async () => {
     if (!zonaActivaId || !fechaSeleccionada) return;
 
@@ -211,9 +212,10 @@ export default function Reservas() {
         setAlertConfig({
           visible: true,
           title: guestPassCount > 1 ? '¡Pases Generados!' : '¡Pase Generado!',
-          message: guestPassCount > 1
-            ? `Se han generado ${guestPassCount} pases de invitado correctamente.`
-            : 'El pase de invitado se ha generado correctamente.',
+          message:
+            guestPassCount > 1
+              ? `Se han generado ${guestPassCount} pases de invitado correctamente.`
+              : 'El pase de invitado se ha generado correctamente.',
           type: 'success',
         });
         setGuestPassCount(1);
@@ -381,53 +383,64 @@ export default function Reservas() {
             />
           )}
 
-        {Boolean(fechaSeleccionada) && zonaActiva && !esModoExclusivo(zonaActiva) && (() => {
-          const maxPases = zonaActiva.max_guests_per_reservation ?? 1;
-          return (
-            <View className="mt-2 mb-4">
-              <Text className="text-base font-semibold text-foreground mb-1">Cantidad de pases</Text>
-              <Text className="text-xs text-muted-foreground mb-3">
-                Máximo {maxPases} {maxPases === 1 ? 'invitado' : 'invitados'} por día en esta zona
-              </Text>
-              <View className="flex-row items-center justify-center gap-4">
-                <TouchableOpacity
-                  onPress={() => setGuestPassCount(Math.max(1, guestPassCount - 1))}
-                  disabled={guestPassCount <= 1}
-                  className={`w-12 h-12 rounded-full items-center justify-center border ${guestPassCount <= 1
-                    ? 'border-border bg-muted'
-                    : 'border-primary bg-primary/10'
-                    }`}
-                >
-                  <Text
-                    style={{ lineHeight: 28, textAlign: 'center', includeFontPadding: false }}
-                    className={`text-2xl font-bold ${guestPassCount <= 1 ? 'text-muted-foreground' : 'text-primary'
-                      }`}>−</Text>
-                </TouchableOpacity>
+        {Boolean(fechaSeleccionada) &&
+          zonaActiva &&
+          !esModoExclusivo(zonaActiva) &&
+          (() => {
+            const maxPases = zonaActiva.max_guests_per_reservation ?? 1;
+            return (
+              <View className="mb-4 mt-2">
+                <Text className="mb-1 text-base font-semibold text-foreground">
+                  Cantidad de pases
+                </Text>
+                <Text className="mb-3 text-xs text-muted-foreground">
+                  Máximo {maxPases} {maxPases === 1 ? 'invitado' : 'invitados'} por día en esta zona
+                </Text>
+                <View className="flex-row items-center justify-center gap-4">
+                  <TouchableOpacity
+                    onPress={() => setGuestPassCount(Math.max(1, guestPassCount - 1))}
+                    disabled={guestPassCount <= 1}
+                    className={`h-12 w-12 items-center justify-center rounded-full border ${
+                      guestPassCount <= 1
+                        ? 'border-border bg-muted'
+                        : 'border-primary bg-primary/10'
+                    }`}>
+                    <Text
+                      style={{ lineHeight: 28, textAlign: 'center', includeFontPadding: false }}
+                      className={`text-2xl font-bold ${
+                        guestPassCount <= 1 ? 'text-muted-foreground' : 'text-primary'
+                      }`}>
+                      −
+                    </Text>
+                  </TouchableOpacity>
 
-                <View className="w-16 items-center">
-                  <Text className="text-3xl font-bold text-foreground">{guestPassCount}</Text>
-                  <Text className="text-xs text-muted-foreground">
-                    {guestPassCount === 1 ? 'pase' : 'pases'}
-                  </Text>
+                  <View className="w-16 items-center">
+                    <Text className="text-3xl font-bold text-foreground">{guestPassCount}</Text>
+                    <Text className="text-xs text-muted-foreground">
+                      {guestPassCount === 1 ? 'pase' : 'pases'}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    onPress={() => setGuestPassCount(Math.min(maxPases, guestPassCount + 1))}
+                    disabled={guestPassCount >= maxPases}
+                    className={`h-12 w-12 items-center justify-center rounded-full border ${
+                      guestPassCount >= maxPases
+                        ? 'border-border bg-muted'
+                        : 'border-primary bg-primary/10'
+                    }`}>
+                    <Text
+                      style={{ lineHeight: 28, textAlign: 'center', includeFontPadding: false }}
+                      className={`text-2xl font-bold ${
+                        guestPassCount >= maxPases ? 'text-muted-foreground' : 'text-primary'
+                      }`}>
+                      +
+                    </Text>
+                  </TouchableOpacity>
                 </View>
-
-                <TouchableOpacity
-                  onPress={() => setGuestPassCount(Math.min(maxPases, guestPassCount + 1))}
-                  disabled={guestPassCount >= maxPases}
-                  className={`w-12 h-12 rounded-full items-center justify-center border ${guestPassCount >= maxPases
-                    ? 'border-border bg-muted'
-                    : 'border-primary bg-primary/10'
-                    }`}
-                >
-                  <Text
-                    style={{ lineHeight: 28, textAlign: 'center', includeFontPadding: false }}
-                    className={`text-2xl font-bold ${guestPassCount >= maxPases ? 'text-muted-foreground' : 'text-primary'
-                      }`}>+</Text>
-                </TouchableOpacity>
               </View>
-            </View>
-          );
-        })()}
+            );
+          })()}
       </ScrollView>
 
       <View className="absolute bottom-0 left-0 right-0 border-t border-border bg-background/90 p-5">
@@ -435,7 +448,9 @@ export default function Reservas() {
           className="h-14 rounded-2xl"
           onPress={handleReservar}
           disabled={
-            isSubmitting || (esModoExclusivo(zonaActiva) && isSelectedSlotUnavailable) || !zonaActivaId
+            isSubmitting ||
+            (esModoExclusivo(zonaActiva) && isSelectedSlotUnavailable) ||
+            !zonaActivaId
           }>
           <Text className="text-lg font-bold text-primary-foreground">
             {isSubmitting
@@ -451,7 +466,7 @@ export default function Reservas() {
 
       <CustomAlertDialog
         config={alertConfig}
-        onConfirm={() => { }}
+        onConfirm={() => {}}
         onCancel={() => setAlertConfig((prev) => ({ ...prev, visible: false }))}
         onAcknowledge={lastActionWasDelete ? handleDeleteAlertConfirm : handleAlertConfirm}
       />
