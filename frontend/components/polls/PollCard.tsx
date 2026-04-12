@@ -10,9 +10,7 @@ interface PollCardProps {
   onPress?: () => void;
   isAdmin?: boolean;
   onEditPress?: () => void;
-  onDeletePress?: () => void;
   onResultsPress?: () => void;
-  onMarkAbsentPress?: () => void;
 }
 
 const getStatusColor = (status: PollCurrentStatus): string => {
@@ -54,9 +52,7 @@ export const PollCard: React.FC<PollCardProps> = ({
   onPress,
   isAdmin,
   onEditPress,
-  onDeletePress,
   onResultsPress,
-  onMarkAbsentPress,
 }) => {
   const currentStatus = poll.current_status || 'UNKNOWN';
   const statusColor = getStatusColor(currentStatus as PollCurrentStatus);
@@ -71,15 +67,24 @@ export const PollCard: React.FC<PollCardProps> = ({
     : 'N/A';
 
   const handleCardPress = () => {
-    if (isAdmin) return;
-
-    if (currentStatus === 'ACTIVE' && onPress) {
-      onPress();
-    } else if (
-      (currentStatus === 'FINISHED' || currentStatus === 'WAITING_ABSENTEES') &&
-      onResultsPress
-    ) {
-      onResultsPress();
+    if (isAdmin) {
+      if (currentStatus === 'DRAFT' && onEditPress) {
+        onEditPress();
+      } else if (
+        (currentStatus === 'FINISHED' || currentStatus === 'WAITING_ABSENTEES') &&
+        onResultsPress
+      ) {
+        onResultsPress();
+      }
+    } else {
+      if (currentStatus === 'ACTIVE' && onPress) {
+        onPress();
+      } else if (
+        (currentStatus === 'FINISHED' || currentStatus === 'WAITING_ABSENTEES') &&
+        onResultsPress
+      ) {
+        onResultsPress();
+      }
     }
   };
 
@@ -110,39 +115,6 @@ export const PollCard: React.FC<PollCardProps> = ({
               {poll.options?.length || 0} opciones
             </Text>
           </View>
-
-          {isAdmin ? (
-            <View className="mt-4 flex-row justify-end gap-2">
-              {currentStatus === 'DRAFT' ? (
-                <>
-                  <TouchableOpacity onPress={onEditPress} className="rounded bg-blue-500 px-3 py-2">
-                    <Text className="text-xs font-semibold text-white">Editar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={onDeletePress}
-                    className="rounded bg-red-500 px-3 py-2">
-                    <Text className="text-xs font-semibold text-white">Borrar</Text>
-                  </TouchableOpacity>
-                </>
-              ) : null}
-
-              {currentStatus === 'WAITING_ABSENTEES' ? (
-                <TouchableOpacity
-                  onPress={onMarkAbsentPress}
-                  className="rounded bg-orange-500 px-3 py-2">
-                  <Text className="text-xs font-semibold text-white">Marcar Ausentes</Text>
-                </TouchableOpacity>
-              ) : null}
-
-              {currentStatus === 'FINISHED' || currentStatus === 'WAITING_ABSENTEES' ? (
-                <TouchableOpacity
-                  onPress={onResultsPress}
-                  className="rounded bg-green-500 px-3 py-2">
-                  <Text className="text-xs font-semibold text-white">Resultados</Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-          ) : null}
         </CardContent>
       </Card>
     </TouchableOpacity>
