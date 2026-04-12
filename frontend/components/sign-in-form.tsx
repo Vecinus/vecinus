@@ -89,7 +89,7 @@ export function SignInForm() {
         <CardHeader>
           <CardTitle className="text-center text-xl sm:text-left">Inicie sesión</CardTitle>
           <CardDescription className="text-center sm:text-left">
-            Bienvenido de nuevo! Por favor, ingresa tus credenciales para acceder a tu cuenta.
+            !Bienvenido de nuevo! Por favor, ingrese sus credenciales para acceder a su cuenta.
           </CardDescription>
         </CardHeader>
         <CardContent className="gap-6">
@@ -130,12 +130,12 @@ export function SignInForm() {
             </Button>
           </View>
           <Text className="text-center text-sm">
-            No tienes una cuenta?{' '}
+            ¿No tienes una cuenta?{' '}
             <Pressable
               onPress={() => {
                 // TODO: Navigate to sign up screen
               }}>
-              <Text className="text-sm underline underline-offset-4">Registrate</Text>
+              <Text className="text-sm underline underline-offset-4">Regístrate</Text>
             </Pressable>
           </Text>
         </CardContent>
