@@ -149,10 +149,12 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle className="text-base">Lista Nominal de Votantes</CardTitle>
-            <Text className="mt-1 text-xs text-muted-foreground">
-              Registro transparente según LPH Art. 17
-            </Text>
+            <View>
+              <CardTitle className="text-base">Lista Nominal de Votantes</CardTitle>
+              <Text className="mt-1 text-xs text-muted-foreground">
+                Registro transparente según LPH Art. 17
+              </Text>
+            </View>
           </CardHeader>
           <CardContent>
             {results.voters_list && results.voters_list.length > 0 ? (

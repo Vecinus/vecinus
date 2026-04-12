@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertOctagon } from 'lucide-react-native';
 
 interface NonVoter {
   membership_id: string;
@@ -64,9 +65,7 @@ export const PresumpedVotesModal: React.FC<PresumpedVotesModalProps> = ({
         onCheckedChange={() => handleToggleVoter(voter.membership_id)}
       />
       <View className="flex-1">
-        <Text className="text-sm font-semibold text-foreground">
-          Puerta {voter.property_number}
-        </Text>
+        <Text className="text-sm font-semibold text-foreground">{voter.property_number}</Text>
         {voter.username && (
           <Text className="mt-1 text-xs text-muted-foreground">{voter.username}</Text>
         )}
@@ -88,7 +87,7 @@ export const PresumpedVotesModal: React.FC<PresumpedVotesModalProps> = ({
 
           <CardContent className="pt-4">
             {nonVoters.length === 0 ? (
-              <Alert className="border-green-200 bg-green-50">
+              <Alert icon={AlertOctagon} className="border-green-200 bg-green-50">
                 <AlertTitle className="font-semibold text-green-800">✓ Todos han votado</AlertTitle>
                 <AlertDescription className="mt-1 text-sm text-green-700">
                   No hay propietarios ausentes para marcar como presumidos
@@ -96,7 +95,7 @@ export const PresumpedVotesModal: React.FC<PresumpedVotesModalProps> = ({
               </Alert>
             ) : (
               <>
-                <Alert className="mb-4 border-orange-200 bg-orange-50">
+                <Alert icon={AlertOctagon} className="mb-4 border-orange-200 bg-orange-50">
                   <AlertTitle className="font-semibold text-orange-800">
                     Seleccionados: {selectedCount}
                   </AlertTitle>

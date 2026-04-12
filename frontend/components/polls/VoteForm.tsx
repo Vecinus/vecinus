@@ -12,7 +12,7 @@ import { AlertCircle, CircleAlertIcon } from 'lucide-react-native';
 interface VoteFormProps {
   poll: Poll;
   coefficient: number;
-  onSubmit: (selectedOption: string) => Promise<void>;
+  onSubmit: (selectedOption: string, optionIndex: number) => Promise<void>;
   isLoading?: boolean;
   error?: string | null;
   isDefaulter?: boolean;
@@ -27,11 +27,12 @@ export const VoteForm: React.FC<VoteFormProps> = ({
   isDefaulter = false,
 }) => {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [rgpdAccepted, setRgpdAccepted] = useState(false);
 
   const handleSubmit = async () => {
-    if (!selectedOption || !rgpdAccepted) return;
-    await onSubmit(selectedOption);
+    if (!selectedOption || selectedIndex === null || !rgpdAccepted) return;
+    await onSubmit(selectedOption, selectedIndex);
   };
 
   const isFormValid = selectedOption && rgpdAccepted && !isLoading;
@@ -39,7 +40,8 @@ export const VoteForm: React.FC<VoteFormProps> = ({
   return (
     <ScrollView className="flex-1 bg-background">
       <View className="px-4 py-6">
-        {isDefaulter && (
+        {/* Cambiado a operador ternario para evitar el renderizado de strings vacíos */}
+        {isDefaulter ? (
           <Alert icon={AlertCircle} className="mb-6 border-red-500 bg-red-50">
             <AlertTitle className="text-base font-bold text-red-800">
               No tienes derecho a voto
@@ -50,35 +52,44 @@ export const VoteForm: React.FC<VoteFormProps> = ({
               finales.
             </AlertDescription>
           </Alert>
-        )}
+        ) : null}
 
-        {error && (
+        {/* Cambiado a operador ternario */}
+        {error ? (
           <Alert icon={CircleAlertIcon} className="mb-6 border-red-500 bg-red-50">
             <AlertTitle className="font-bold text-red-800">Error</AlertTitle>
             <AlertDescription className="mt-1 text-sm text-red-700">{error}</AlertDescription>
           </Alert>
-        )}
+        ) : null}
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle className="text-lg">{poll.title}</CardTitle>
-            {poll.description && (
-              <CardDescription className="mt-1 text-sm text-muted-foreground">
-                {poll.description}
-              </CardDescription>
-            )}
+            <View>
+              <CardTitle className="text-lg">{poll.title}</CardTitle>
+
+              {/* Cambiado a operador ternario */}
+              {poll.description ? (
+                <CardDescription className="mt-1 text-sm text-muted-foreground">
+                  {poll.description}
+                </CardDescription>
+              ) : null}
+            </View>
           </CardHeader>
         </Card>
 
         <Card className="mb-6 border-blue-200 bg-blue-50">
           <CardHeader className="pb-2">
-            <Text className="text-sm font-semibold text-blue-900">Tu Cuota de Participación</Text>
+            <View>
+              <Text className="text-sm font-semibold text-blue-900">Tu Cuota de Participación</Text>
+            </View>
           </CardHeader>
           <CardContent>
-            <Text className="text-2xl font-bold text-blue-600">{coefficient.toFixed(2)}%</Text>
-            <Text className="mt-1 text-xs text-blue-700">
-              Este porcentaje es tu peso en la votación según la Ley de Propiedad Horizontal
-            </Text>
+            <View>
+              <Text className="text-2xl font-bold text-blue-600">{coefficient.toFixed(2)}%</Text>
+              <Text className="mt-1 text-xs text-blue-700">
+                Este porcentaje es tu peso en la votación según la Ley de Propiedad Horizontal
+              </Text>
+            </View>
           </CardContent>
         </Card>
 
@@ -87,12 +98,18 @@ export const VoteForm: React.FC<VoteFormProps> = ({
             <CardTitle className="text-base">Selecciona tu opción</CardTitle>
           </CardHeader>
           <CardContent>
-            <RadioGroup value={selectedOption || ''} onValueChange={setSelectedOption}>
+            <RadioGroup
+              value={selectedIndex !== null ? `${selectedIndex}` : ''}
+              onValueChange={(value) => {
+                const index = parseInt(value);
+                setSelectedIndex(index);
+                setSelectedOption(poll.options[index]);
+              }}>
               {poll.options.map((option, index) => (
                 <View
-                  key={index}
+                  key={`option-${index}`}
                   className="mb-3 flex-row items-center border-b border-border pb-3">
-                  <RadioGroupItem value={option} id={`option-${index}`} />
+                  <RadioGroupItem value={`${index}`} id={`option-${index}`} />
                   <Text className="ml-3 flex-1 text-base text-foreground">{option}</Text>
                 </View>
               ))}
@@ -120,19 +137,23 @@ export const VoteForm: React.FC<VoteFormProps> = ({
           </CardContent>
         </Card>
 
-        <Button
-          size="lg"
-          disabled={!isFormValid}
-          onPress={handleSubmit}
-          className={!isFormValid ? 'opacity-50' : ''}>
-          <Text className="text-base font-semibold text-white">
-            {isLoading ? 'Registrando voto...' : 'Confirmar voto'}
-          </Text>
-        </Button>
+        <View>
+          <Button
+            size="lg"
+            disabled={!isFormValid}
+            onPress={handleSubmit}
+            className={!isFormValid ? 'opacity-50' : ''}>
+            <Text className="text-base font-semibold text-white">
+              {isLoading ? 'Registrando voto...' : 'Confirmar voto'}
+            </Text>
+          </Button>
+        </View>
 
-        <Text className="mt-4 text-center text-xs text-muted-foreground">
-          Una vez confirmado, tu voto no podrá ser modificado
-        </Text>
+        <View>
+          <Text className="mt-4 text-center text-xs text-muted-foreground">
+            Una vez confirmado, tu voto no podrá ser modificado
+          </Text>
+        </View>
       </View>
     </ScrollView>
   );

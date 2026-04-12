@@ -94,7 +94,7 @@ export const PollCard: React.FC<PollCardProps> = ({
         <CardHeader className="pb-3">
           <View className="flex-row items-center justify-between">
             <CardTitle className="flex-1 pr-2 text-lg font-semibold text-foreground">
-              <Text>{poll.title}</Text>
+              {poll.title}
             </CardTitle>
             <Badge className={`${statusColor} rounded-full px-3 py-1`}>
               <Text className="text-xs font-medium text-white">{statusLabel}</Text>

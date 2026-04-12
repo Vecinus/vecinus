@@ -57,10 +57,10 @@ export const DefaultersModal: React.FC<DefaultersModalProps> = ({
   const renderPropertyItem = (property: PropertyToggle) => (
     <View className="flex-row items-center justify-between border-b border-border px-4 py-4">
       <View className="flex-1">
-        <Text className="text-base font-semibold text-foreground">Puerta {property.number}</Text>
-        {property.coefficient && (
+        <Text className="text-base font-semibold text-foreground">{property.number}</Text>
+        {property.coefficient !== undefined && property.coefficient !== null && (
           <Text className="mt-1 text-sm text-muted-foreground">
-            Coeficiente: {property.coefficient.toFixed(2)}%
+            Coeficiente: {Number(property.coefficient).toFixed(2)}%
           </Text>
         )}
       </View>
@@ -77,9 +77,9 @@ export const DefaultersModal: React.FC<DefaultersModalProps> = ({
       <View className="flex flex-1 items-center justify-center bg-black bg-opacity-50 p-4">
         <Card className="max-h-[90vh] w-full bg-card">
           <CardHeader className="border-b border-border">
-            <CardTitle className="text-lg">Marcar Propiedades Morosas</CardTitle>
+            <CardTitle className="text-lg">Marcar Propiedades Excluidas</CardTitle>
             <Text className="mt-2 text-sm text-muted-foreground">
-              Las propiedades con mora no podrán votar (Art. 15.2 LPH)
+              Las propiedades excluidas no podrán votar (Art. 15.2 LPH)
             </Text>
           </CardHeader>
 

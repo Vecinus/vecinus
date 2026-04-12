@@ -28,7 +28,7 @@ export const useDeepLink = (): DeepLinkData => {
         if (token && poll) {
           setVoteToken(token);
           setPollId(poll);
-        } else {
+        } else if (token || poll) {
           setError('Invalid magic link format: missing token or poll_id');
         }
       } catch (err) {
@@ -46,6 +46,8 @@ export const useDeepLink = (): DeepLinkData => {
 
         if (initialUrl) {
           handleDeepLink(initialUrl);
+        } else {
+          setIsLoading(false);
         }
 
         subscription = Linking.addEventListener('url', ({ url }) => {
