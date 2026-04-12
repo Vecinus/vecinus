@@ -1,5 +1,4 @@
 from pydantic import BaseModel, EmailStr, field_validator
-from typing import Optional
 
 
 class UserLogin(BaseModel):
@@ -11,7 +10,7 @@ class UserRegister(BaseModel):
     email: EmailStr
     password: str
     password_confirm: str
-    username: Optional[str] = None
+    username: str
 
     @field_validator("password")
     @classmethod

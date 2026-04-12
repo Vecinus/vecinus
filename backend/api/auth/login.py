@@ -1,17 +1,22 @@
-from core.deps import get_supabase_anon, get_supabase_admin
+from datetime import datetime
+
+from core.deps import get_supabase_admin, get_supabase_anon
 from fastapi import APIRouter, Depends, HTTPException, status
 from schemas.auth.auth import UserLogin, UserRegister
 from supabase import Client
 from supabase_auth.errors import AuthApiError
-from datetime import datetime
 
 router = APIRouter()
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
-def register(user: UserRegister, supabase_anon: Client = Depends(get_supabase_anon), supabase_admin: Client = Depends(get_supabase_admin)):
+def register(
+    user: UserRegister,
+    supabase_anon: Client = Depends(get_supabase_anon),
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
+    user_id = None
     try:
-        # 1. Crear usuario en Supabase Auth
         response = supabase_anon.auth.sign_up({"email": user.email, "password": user.password})
 
         if not response.user:
@@ -19,13 +24,11 @@ def register(user: UserRegister, supabase_anon: Client = Depends(get_supabase_an
 
         user_id = response.user.id
 
-        # 2. Crear perfil en la tabla 'profiles'
         profile_data = {
             "id": str(user_id),
             "email": user.email,
-            "username": user.username or user.email.split("@")[0],  # Por defecto, usar parte del email
+            "username": user.username,
             "avatar_url": None,
-            "status": "active",
             "created_at": datetime.utcnow().isoformat(),
         }
 
@@ -41,20 +44,28 @@ def register(user: UserRegister, supabase_anon: Client = Depends(get_supabase_an
             "username": profile_data["username"],
             "needs_email_confirmation": response.user.email_confirmed_at is None,
         }
-    except HTTPException:
-        raise
-    except AuthApiError as aae:
-        if aae.code == "user_already_exists":
-            raise HTTPException(status_code=409, detail="El email ya está registrado")
-        if aae.code == "weak_password":
-            raise HTTPException(status_code=400, detail="La contraseña es muy débil")
-        raise HTTPException(
-            status_code=400, detail=f"Error al registrar: {str(aae)}"
-        )
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error interno al registrar: {str(e)}"
-        )
+        # Rollback: si se creó en auth pero falló el perfil, eliminamos el usuario
+        if user_id:
+            try:
+                supabase_admin.auth.admin.delete_user(str(user_id))
+            except Exception:
+                pass
+
+        if isinstance(e, HTTPException):
+            raise
+
+        if isinstance(e, AuthApiError):
+            if e.code == "user_already_exists":
+                raise HTTPException(status_code=409, detail="El email ya está registrado")
+            if e.code == "weak_password":
+                raise HTTPException(status_code=400, detail="La contraseña es muy débil")
+            raise HTTPException(status_code=400, detail=f"Error al registrar: {str(e)}")
+
+        error_msg = str(e)
+        if "profiles_username_key" in error_msg or "23505" in error_msg:
+            raise HTTPException(status_code=409, detail="El nombre de usuario ya está en uso")
+        raise HTTPException(status_code=500, detail=f"Error interno al registrar: {error_msg}")
 
 
 @router.post("/login")
