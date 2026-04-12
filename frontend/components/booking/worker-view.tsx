@@ -21,13 +21,32 @@ interface WorkerViewProps {
 
 export function WorkerView({ zonas, zonaActivaId, onSelectZona }: WorkerViewProps) {
   const router = useRouter();
-  
+
+  // 1. CONDICIÓN DE ESTADO VACÍO: Si no hay zonas, mostramos el mensaje informativo
+  if (!zonas || zonas.length === 0) {
+    return (
+      <View className="flex-1 bg-background">
+        <View className="flex-1 justify-center items-center p-5">
+          <View className="bg-card p-8 rounded-3xl w-full border border-border shadow-sm items-center">
+            <Text className="text-2xl font-bold text-foreground mb-4 text-center">
+              Sin zonas asignadas
+            </Text>
+            <Text className="text-base text-muted-foreground text-center leading-6">
+              Actualmente no tienes ningún puesto de control o instalación asociada a tu cuenta. Por favor, contacta con un administrador.
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  // 2. ESTADO NORMAL: Si hay zonas, mostramos el selector y el botón del escáner
   const zonaActiva = zonas.find(z => z.id === zonaActivaId);
 
   return (
     <View className="flex-1 bg-background">
       <ScrollView contentContainerClassName="p-5 pt-16 pb-24">
-        
+
         <View className="flex-1 justify-center items-center mt-10">
           <View className="bg-card p-8 rounded-3xl w-full border border-border shadow-sm">
             <Text className="text-2xl font-bold text-foreground mb-4 text-center">Validación de QR</Text>
@@ -56,7 +75,7 @@ export function WorkerView({ zonas, zonaActivaId, onSelectZona }: WorkerViewProp
               </Select>
             </View>
 
-            <Button 
+            <Button
               className="w-full h-14 rounded-2xl"
               // Pasamos el zoneId por parámetros para que el escáner sepa dónde estamos
               onPress={() => router.push({ pathname: './scanner', params: { zoneId: zonaActivaId } })}
