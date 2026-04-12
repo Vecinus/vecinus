@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { View, ScrollView, Share, Alert as RNAlert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, ScrollView, Share, Alert as RNAlert, TouchableOpacity } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { Stack } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { usePollResults, useDownloadPollPDF } from '@/hooks/usePolls';
@@ -10,7 +10,7 @@ import { ResultsView } from '@/components/polls/ResultsView';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { CircleAlertIcon } from 'lucide-react-native';
+import { ChevronLeft, CircleAlertIcon } from 'lucide-react-native';
 
 export default function PollResultsScreen() {
   const params = useLocalSearchParams();
@@ -23,6 +23,19 @@ export default function PollResultsScreen() {
 
   const { data: results, isLoading, error } = usePollResults(associationId, poll_id);
   const { mutateAsync: downloadPDF } = useDownloadPollPDF();
+  const navigation = useNavigation();
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerLeft: () => (
+        <TouchableOpacity
+          onPress={() => router.push(`/${associationId}/polls`)}
+          className="ml-2 mr-4 p-1">
+          <ChevronLeft size={26} className="text-foreground" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, router, associationId]);
 
   const handleDownloadPDF = async () => {
     try {

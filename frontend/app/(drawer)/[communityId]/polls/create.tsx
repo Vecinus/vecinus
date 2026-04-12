@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, ScrollView, Alert as RNAlert } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { Stack } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { useAvailableProperties, useCreatePollMutation } from '@/hooks/usePolls';
@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DefaultersModal } from '@/components/polls/DefaultersModal';
 import { TouchableOpacity } from 'react-native';
 import { CreatePollPayload } from '@/types/polls.types';
+import { ChevronLeft } from 'lucide-react-native';
 
 type Step = 'basic' | 'defaulters' | 'dates';
 
@@ -34,6 +35,7 @@ export default function CreatePollScreen() {
 
   const { data: properties = [] } = useAvailableProperties(associationId);
   const { mutateAsync: createPoll, isPending: isCreating } = useCreatePollMutation(associationId);
+  const navigation = useNavigation();
 
   const propertiesWithCoefficient = properties.map((p) => ({
     ...p,
@@ -107,6 +109,18 @@ export default function CreatePollScreen() {
       RNAlert.alert('Error', error.response?.data?.detail || 'No se pudo crear la votación');
     }
   };
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerLeft: () => (
+        <TouchableOpacity
+          onPress={() => router.push(`/${associationId}/polls`)}
+          className="ml-2 mr-4 p-1">
+          <ChevronLeft size={26} className="text-foreground" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, router, associationId]);
 
   const renderBasicStep = () => (
     <ScrollView className="px-4 py-6">
