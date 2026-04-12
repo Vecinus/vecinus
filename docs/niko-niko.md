@@ -25,7 +25,7 @@ Muy insatisfecho | Insatisfecho | Neutral | Satisfecho | Muy satisfecho
 | Jesús O. | | | |
 | Héctor G. | | | |
 | Rares P. | | | |
-| Juan R. | | | |
+| Juan R. |😐|😄| |
 | Manuel Z. | | | |
 
 ---
