@@ -19,7 +19,7 @@ Muy insatisfecho | Insatisfecho | Neutral | Satisfecho | Muy satisfecho
 | José Ángel P. | | | |
 | Jesús P. | | | |
 | Fernando C. | | | |
-| Ángel F. | | | |
+| Ángel F. |😐|😄| |
 | Adrián D. | | | |
 | Kevin A. | | | |
 | Jesús O. | | | |
