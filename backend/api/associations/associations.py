@@ -61,8 +61,6 @@ def create_community(
         community_data = {
             "name": body.name,
             "address": body.address,
-            "description": body.description,
-            "created_by": str(current_user["id"]),
             "created_at": datetime.utcnow().isoformat(),
         }
 
@@ -91,9 +89,7 @@ def create_community(
             "id": community["id"],
             "name": community["name"],
             "address": community["address"],
-            "description": community.get("description"),
             "created_at": community["created_at"],
-            "created_by": community["created_by"],
         }
 
     except HTTPException:

@@ -70,13 +70,10 @@ class PropertyUpdate(BaseModel):
 class CreateCommunityRequest(BaseModel):
     name: str
     address: str
-    description: Optional[str] = None
 
 
 class CommunityResponse(BaseModel):
     id: UUID
     name: str
     address: str
-    description: Optional[str] = None
     created_at: datetime
-    created_by: UUID
