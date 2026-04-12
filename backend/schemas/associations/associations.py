@@ -65,3 +65,18 @@ class UserMeResponse(BaseModel):
 class PropertyUpdate(BaseModel):
     coefficient: Optional[float] = None
     is_defaulter: Optional[bool] = None
+
+
+class CreateCommunityRequest(BaseModel):
+    name: str
+    address: str
+    description: Optional[str] = None
+
+
+class CommunityResponse(BaseModel):
+    id: UUID
+    name: str
+    address: str
+    description: Optional[str] = None
+    created_at: datetime
+    created_by: UUID
