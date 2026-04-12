@@ -1,4 +1,4 @@
-# Nicko Nicko de Satisfacción - SPRINT 3 y Producto Final
+# Niko Niko de Satisfacción
 
 ## Caritas de Satisfacción (Ejemplo)
 
