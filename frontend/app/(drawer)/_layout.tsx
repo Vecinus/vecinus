@@ -198,7 +198,7 @@ export default function DrawerLayout() {
       <Drawer.Screen
         name="[communityId]/polls/[poll_id]"
         options={{
-          headerTitle: 'Nueva Votación',
+          headerTitle: 'Votación',
           drawerItemStyle: { display: 'none' },
         }}
       />

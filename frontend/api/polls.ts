@@ -35,12 +35,24 @@ export const pollsApi = {
   // ya que asumen que la API base incluye el prefix del main.py si lo configuraste.
   // (Si en main.py está app.include_router(associations_router) SIN prefix, esto debe llevar /associations)
   fetchAvailableProperties: async (communityId: string): Promise<AvailableProperty[]> => {
-    const { data } = await apiClient.get(`${communityId}/properties/available`);
+    const { data } = await apiClient.get(`/${communityId}/properties/available`);
+    return data;
+  },
+
+  fetchMembershipInfo: async (
+    pollId: string
+  ): Promise<{ coefficient: number; is_defaulter: boolean }> => {
+    const { data } = await apiClient.get(`/polls/${pollId}/membership-info`);
+    return data;
+  },
+
+  checkUserHasVoted: async (pollId: string): Promise<{ has_voted: boolean }> => {
+    const { data } = await apiClient.get(`/polls/${pollId}/has-voted`);
     return data;
   },
 
   fetchAllProperties: async (communityId: string): Promise<PollProperty[]> => {
-    const { data } = await apiClient.get(`/associations/${communityId}/properties`);
+    const { data } = await apiClient.get(`/${communityId}/properties`);
     return data;
   },
 
@@ -85,6 +97,11 @@ export const pollsApi = {
 
   castVote: async (pollId: string, voteData: VoteCreate): Promise<any> => {
     const { data } = await apiClient.post(`/polls/${pollId}/vote`, voteData);
+    return data;
+  },
+
+  requestAuthToken: async (pollId: string): Promise<{ message: string; email: string }> => {
+    const { data } = await apiClient.post(`/polls/${pollId}/request-auth-token`, {});
     return data;
   },
 

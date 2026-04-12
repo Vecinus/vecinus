@@ -199,7 +199,7 @@ export default function CreatePollScreen() {
     <View className="flex-1 px-4 py-6">
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle className="text-base">Propiedades Morosas</CardTitle>
+          <CardTitle className="text-base">Propiedades excluidas</CardTitle>
           <Text className="mt-1 text-xs text-muted-foreground">
             Selecciona las propiedades que, por impago, no podrán votar (Art. 15.2 LPH)
           </Text>

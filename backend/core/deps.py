@@ -10,6 +10,7 @@ from .config import settings
 
 # Authentication scheme
 security = HTTPBearer()
+security_optional = HTTPBearer(auto_error=False)
 
 
 def _normalize_supabase_key(value: str) -> str:
@@ -142,3 +143,39 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Authentication failed: {str(e)}",
         )
+
+
+def get_current_user_optional(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security_optional),
+) -> dict | None:
+    """Extrae datos del usuario si está autenticado, sino retorna None."""
+    if not credentials:
+        return None
+    
+    token = credentials.credentials
+    try:
+        payload = _extract_jwt_payload(token)
+        if not payload:
+            return None
+
+        user_id = payload.get("sub")
+        user_role = payload.get("role")
+        user_email = payload.get("email")
+        exp = payload.get("exp")
+
+        if not user_id or user_role != "authenticated":
+            return None
+
+        if exp is not None:
+            expiration = datetime.fromtimestamp(int(exp), tz=timezone.utc)
+            if expiration <= datetime.now(timezone.utc):
+                return None
+
+        return {
+            "id": str(user_id),
+            "role": str(user_role),
+            "email": user_email,
+        }
+
+    except Exception:
+        return None
