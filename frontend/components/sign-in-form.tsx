@@ -64,7 +64,7 @@ export function SignInForm() {
     }
 
     if (!isValidEmail(email.trim())) {
-      setLocalError('Introduce un correo electronico valido.');
+      setLocalError('Introduce un correo electrónico válido.');
       return;
     }
 
@@ -80,7 +80,7 @@ export function SignInForm() {
         return;
       }
 
-      setLocalError(normalizedDetail || 'No se pudo iniciar sesion. Intentalo de nuevo.');
+      setLocalError(normalizedDetail || 'No se pudo iniciar sesión. Inténtalo de nuevo.');
     }
   }
   return (
@@ -89,7 +89,7 @@ export function SignInForm() {
         <CardHeader>
           <CardTitle className="text-center text-xl sm:text-left">Inicie sesión</CardTitle>
           <CardDescription className="text-center sm:text-left">
-            !Bienvenido de nuevo! Por favor, ingrese sus credenciales para acceder a su cuenta.
+            ¡Bienvenido de nuevo! Por favor, ingrese sus credenciales para acceder a su cuenta.
           </CardDescription>
         </CardHeader>
         <CardContent className="gap-6">
