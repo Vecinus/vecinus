@@ -12,7 +12,7 @@ Muy insatisfecho | Insatisfecho | Neutral | Satisfecho | Muy satisfecho
 
 | Persona | 3-9 Abril | 10-16 Abril |
 |---------|-----------|-----------|
-| Esteban L. | | |
+| Esteban L. |😕|😄|
 | Joaquín B. | | |
 | Ariel E. | | |
 | Alejandro M. | | |
