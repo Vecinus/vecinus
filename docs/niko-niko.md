@@ -22,7 +22,7 @@ Muy insatisfecho | Insatisfecho | Neutral | Satisfecho | Muy satisfecho
 | Ángel F. |😐|😄|
 | Adrián D. |😕|🙂|
 | Kevin A. |😕|🙂|
-| Jesús O. | | |
+| Jesús O. |😐|😕|
 | Héctor G. |😐|😄|
 | Rares P. |😕|😐|
 | Juan R. |😐|😄|
