@@ -31,6 +31,33 @@ export const fetchUserWithCommunities = async (jwtToken: string): Promise<User> 
   };
 };
 
+
+export const useAcceptInvitationMutation = () => {
+  const { loginContext } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ invitation_token, password }: { invitation_token: string; password: string }) => {
+      const response = await apiClient.post<any>('/auth/accept-invitation', {
+        invitation_token,
+        password,
+      });
+
+      const token = response.data.token;
+
+      if (!token) {
+        throw new Error("No se recibió un token de acceso tras aceptar la invitación.");
+      }
+
+      const fullUser = await fetchUserWithCommunities(token);
+
+      return { user: fullUser, token };
+    },
+    onSuccess: (data) => {
+      loginContext(data.user, data.token);
+    },
+  });
+};
+
 export const useLoginMutation = () => {
   const { loginContext } = useAuth();
 
