@@ -3,6 +3,9 @@ from schemas.payments.payments import (
     CommunityOrderItemResponse,
     CommunityPaymentOrderCreate,
     CommunityPaymentOrderResponse,
+    RegistrationOrderComplete,
+    RegistrationOrderCreate,
+    RegistrationPaymentOrderResponse,
 )
 
 __all__ = [
@@ -10,4 +13,7 @@ __all__ = [
     "CommunityOrderItemResponse",
     "CommunityPaymentOrderCreate",
     "CommunityPaymentOrderResponse",
+    "RegistrationOrderComplete",
+    "RegistrationOrderCreate",
+    "RegistrationPaymentOrderResponse",
 ]
