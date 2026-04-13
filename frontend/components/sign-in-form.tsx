@@ -133,7 +133,7 @@ export function SignInForm() {
             ¿No tienes una cuenta?{' '}
             <Pressable
               onPress={() => {
-                // TODO: Navigate to sign up screen
+                router.replace('/sign-up');
               }}>
               <Text className="text-sm underline underline-offset-4">Regístrate</Text>
             </Pressable>
