@@ -8,7 +8,12 @@
     "ios": "expo start -c --ios",
     "web": "expo start -c --web",
     "clean": "rm -rf .expo node_modules",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:headed": "playwright test --headed",
+    "record:test": "playwright codegen http://localhost:8081"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -78,6 +83,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",
+    "@playwright/test": "^1.59.1",
     "@types/node": "^25.5.0",
     "@types/react": "~19.2.10",
     "eslint": "^9.25.0",
