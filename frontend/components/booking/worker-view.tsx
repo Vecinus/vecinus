@@ -23,7 +23,7 @@ export function WorkerView({ zonas, zonaActivaId, onSelectZona }: WorkerViewProp
   const router = useRouter();
 
   // 1. CONDICIÓN DE ESTADO VACÍO: Si no hay zonas, mostramos el mensaje informativo
-  if (!zonas || zonas.length === 0) {
+  if (zonas.length === 0) {
     return (
       <View className="flex-1 bg-background">
         <View className="flex-1 justify-center items-center p-5">
