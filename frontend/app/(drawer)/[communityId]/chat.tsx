@@ -322,12 +322,6 @@ export default function CommunityChatScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View className="flex-1 bg-background p-4">
         <Card className="min-h-0 flex-1 gap-0 overflow-hidden py-0">
-          <CardHeader className="border-b border-border px-4 py-4">
-            <View className="flex-row items-center gap-2">
-              <Icon as={MessageSquareIcon} size={16} className="text-primary" />
-              <Text className="text-base font-semibold text-foreground">Chat vecinal</Text>
-            </View>
-          </CardHeader>
 
           <View className="flex-1 bg-muted/30">
             {state === 'loading' ? (
