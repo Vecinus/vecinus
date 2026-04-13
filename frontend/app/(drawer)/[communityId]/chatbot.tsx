@@ -510,9 +510,9 @@ export default function CommunityChatbotScreen() {
             value={question}
             onChangeText={setQuestion}
             onContentSizeChange={handleComposerSizeChange}
-            onKeyPress={(e: any) => {
+            onKeyPress={(e: { key?: string; shiftKey?: boolean; preventDefault?: () => void }) => {
               if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
+                e.preventDefault?.();
                 void handleSend();
               }
             }}
