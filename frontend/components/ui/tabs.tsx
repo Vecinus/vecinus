@@ -1,153 +1,68 @@
-import * as React from "react";
-import { View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
-import { cn } from "@/lib/utils";
-
-interface TabsContextValue {
-  value: string;
-  onValueChange: (value: string) => void;
-}
-
-const TabsContext = React.createContext<TabsContextValue>({
-  value: "",
-  onValueChange: () => {},
-});
-
-interface TabsProps {
-  defaultValue?: string;
-  value?: string;
-  onValueChange?: (value: string) => void;
-  children: React.ReactNode;
-  className?: string;
-}
+import { TextClassContext } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
+import * as TabsPrimitive from '@rn-primitives/tabs';
+import { Platform } from 'react-native';
 
 function Tabs({
-  defaultValue,
-  value: controlledValue,
-  onValueChange,
-  children,
   className,
-}: TabsProps) {
-  const [uncontrolledValue, setUncontrolledValue] = React.useState(
-    defaultValue || "",
-  );
-  const value = controlledValue ?? uncontrolledValue;
+  ...props
+}: TabsPrimitive.RootProps & React.RefAttributes<TabsPrimitive.RootRef>) {
+  return <TabsPrimitive.Root className={cn('flex flex-col gap-2', className)} {...props} />;
+}
 
-  const handleValueChange = React.useCallback(
-    (newValue: string) => {
-      if (controlledValue === undefined) {
-        setUncontrolledValue(newValue);
-      }
-      onValueChange?.(newValue);
-    },
-    [controlledValue, onValueChange],
-  );
-
+function TabsList({
+  className,
+  ...props
+}: TabsPrimitive.ListProps & React.RefAttributes<TabsPrimitive.ListRef>) {
   return (
-    <TabsContext.Provider value={{ value, onValueChange: handleValueChange }}>
-      <View className={cn("w-full", className)}>{children}</View>
-    </TabsContext.Provider>
+    <TabsPrimitive.List
+      className={cn(
+        'bg-muted flex h-9 flex-row items-center justify-center rounded-lg p-[3px]',
+        Platform.select({ web: 'inline-flex w-fit', native: 'mr-auto' }),
+        className
+      )}
+      {...props}
+    />
   );
 }
 
-interface TabsListProps {
-  className?: string;
-  children: React.ReactNode;
-}
-
-function TabsList({ className, children }: TabsListProps) {
+function TabsTrigger({
+  className,
+  ...props
+}: TabsPrimitive.TriggerProps & React.RefAttributes<TabsPrimitive.TriggerRef>) {
+  const { value } = TabsPrimitive.useRootContext();
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      className={cn("rounded-md bg-muted p-1", className)}
-      contentContainerStyle={styles.listContent}
-    >
-      {children}
-    </ScrollView>
+    <TextClassContext.Provider
+      value={cn(
+        'text-foreground dark:text-muted-foreground text-sm font-medium',
+        value === props.value && 'dark:text-foreground'
+      )}>
+      <TabsPrimitive.Trigger
+        className={cn(
+          'flex h-[calc(100%-1px)] flex-row items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 shadow-none shadow-black/5',
+          Platform.select({
+            web: 'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring inline-flex cursor-default whitespace-nowrap transition-[color,box-shadow] focus-visible:outline-1 focus-visible:ring-[3px] disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0',
+          }),
+          props.disabled && 'opacity-50',
+          props.value === value && 'bg-background dark:border-foreground/10 dark:bg-input/30',
+          className
+        )}
+        {...props}
+      />
+    </TextClassContext.Provider>
   );
 }
 
-interface TabsTriggerProps {
-  value: string;
-  className?: string;
-  children: React.ReactNode;
-}
-
-function TabsTrigger({ value, className, children }: TabsTriggerProps) {
-  const { value: selectedValue, onValueChange } = React.useContext(TabsContext);
-  const isSelected = selectedValue === value;
-
+function TabsContent({
+  className,
+  ...props
+}: TabsPrimitive.ContentProps & React.RefAttributes<TabsPrimitive.ContentRef>) {
   return (
-    <Pressable
-      style={[styles.trigger, isSelected && styles.triggerSelected]}
-      onPress={() => {
-        onValueChange(value);
-      }}
-    >
-      <Text
-        style={[
-          styles.triggerText,
-          isSelected
-            ? styles.triggerTextSelected
-            : styles.triggerTextUnselected,
-        ]}
-      >
-        {children}
-      </Text>
-    </Pressable>
+    <TabsPrimitive.Content
+      className={cn(Platform.select({ web: 'flex-1 outline-none' }), className)}
+      {...props}
+    />
   );
 }
 
-const styles = StyleSheet.create({
-  listContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexGrow: 1,
-    gap: 2,
-  },
-  trigger: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    height: 32,
-  },
-  triggerSelected: {
-    backgroundColor: "white",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  triggerText: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  triggerTextSelected: {
-    color: "#09090b",
-  },
-  triggerTextUnselected: {
-    color: "#71717a",
-  },
-});
-
-interface TabsContentProps {
-  value: string;
-  className?: string;
-  children: React.ReactNode;
-}
-
-function TabsContent({ value, className, children }: TabsContentProps) {
-  const { value: selectedValue } = React.useContext(TabsContext);
-
-  if (selectedValue !== value) {
-    return null;
-  }
-
-  return <View className={cn("mt-2", className)}>{children}</View>;
-}
-
-export { Tabs, TabsList, TabsTrigger, TabsContent };
+export { Tabs, TabsContent, TabsList, TabsTrigger };

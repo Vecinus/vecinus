@@ -1,13 +1,54 @@
 import os
+import sys
+import types
+from importlib import metadata
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
-
-from fastapi.testclient import TestClient
 
 # Set dummy env vars for pydantic settings before importing app
 os.environ["SUPABASE_URL"] = "http://localhost:8000"
 os.environ["SUPABASE_KEY"] = "dummy"
 os.environ["SUPABASE_SERVICE_KEY"] = "dummy-service"
+
+# Stub email_validator to avoid incompatible version issues
+email_validator_stub = types.ModuleType("email_validator")
+
+
+class EmailNotValidError(ValueError):
+    pass
+
+
+def validate_email(email, *args, **kwargs):
+    local = email.split("@")[0] if "@" in email else email
+    domain = email.split("@")[1] if "@" in email else ""
+    return types.SimpleNamespace(
+        email=email,
+        normalized=email,
+        local_part=local,
+        domain=domain,
+        ascii_email=email,
+        ascii_local_part=local,
+        ascii_domain=domain,
+    )
+
+
+email_validator_stub.EmailNotValidError = EmailNotValidError
+email_validator_stub.validate_email = validate_email
+sys.modules["email_validator"] = email_validator_stub
+
+import pydantic.networks  # noqa: E402
+
+original_version = metadata.version
+
+
+def patched_version(distribution_name: str) -> str:
+    if distribution_name == "email-validator":
+        return "2.0.0"
+    return original_version(distribution_name)
+
+
+metadata.version = patched_version
+pydantic.networks.version = patched_version
 
 from core.deps import (  # noqa: E402
     get_current_user,
@@ -15,6 +56,7 @@ from core.deps import (  # noqa: E402
     get_supabase_admin,
     get_supabase_anon,
 )
+from fastapi.testclient import TestClient  # noqa: E402
 from main import app  # noqa: E402
 
 client = TestClient(app)
@@ -71,6 +113,9 @@ class MockSupabaseTable:
 
     def eq(self, column, value, **kwargs):
         self._data = [item for item in self._data if str(item.get(column)) == str(value)]
+        return self
+
+    def limit(self, *args, **kwargs):
         return self
 
     def update(self, data, *args, **kwargs):
@@ -218,6 +263,51 @@ def test_get_my_communities():
         app.dependency_overrides.clear()
 
 
+def test_get_current_user_profile_with_profile_data():
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase(
+        extra={
+            "profiles": [
+                {
+                    "id": mock_user_id,
+                    "username": "admin_test",
+                    "avatar_url": "https://example.com/avatar.png",
+                    "created_at": "2026-02-22T00:00:00Z",
+                }
+            ]
+        }
+    )
+    try:
+        response = client.get("/users/me")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == mock_user_id
+        assert data["email"] == mock_user_email
+        assert data["role"] == "authenticated"
+        assert data["username"] == "admin_test"
+        assert data["avatar_url"] == "https://example.com/avatar.png"
+        assert data["created_at"] == "2026-02-22T00:00:00Z"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_get_current_user_profile_without_profile_data():
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase(extra={"profiles": []})
+    try:
+        response = client.get("/users/me")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == mock_user_id
+        assert data["email"] == mock_user_email
+        assert data["role"] == "authenticated"
+        assert data["username"] is None
+        assert data["avatar_url"] is None
+        assert data["created_at"] is None
+    finally:
+        app.dependency_overrides.clear()
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Test: POST /invite/admin
 # ──────────────────────────────────────────────────────────────────────────────
@@ -254,6 +344,7 @@ def test_invite_admin_success():
 def test_invite_admin_cannot_grant_admin_role():
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
     try:
         response = client.post(
             "/invite/admin",
@@ -274,6 +365,7 @@ def test_invite_admin_non_admin_fails():
     # RLS blocks INSERT on invitations because non_owner is not ADMIN
     blocked_mock = make_mock_supabase(rls_blocked={"invitations": {"insert"}})
     app.dependency_overrides[get_supabase] = lambda: blocked_mock
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
     try:
         response = client.post(
             "/invite/admin",
@@ -329,6 +421,7 @@ def test_invite_tenant_not_owner_fails():
         rls_blocked={"invitations": {"insert"}},
     )
     app.dependency_overrides[get_supabase] = lambda: blocked_mock
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
     try:
         response = client.post(
             "/invite/tenant",
@@ -400,6 +493,7 @@ def test_accept_invitation_not_found():
     anon_mock.auth = MagicMock()
 
     app.dependency_overrides[get_supabase_anon] = lambda: anon_mock
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
     try:
         response = client.post(
             "/auth/accept-invitation",
@@ -438,6 +532,7 @@ def test_remove_member_not_admin_fails():
     # RLS blocks DELETE on memberships because non_owner is not ADMIN
     blocked_mock = make_mock_supabase(rls_blocked={"memberships": {"delete"}})
     app.dependency_overrides[get_supabase] = lambda: blocked_mock
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
     try:
         response = client.delete(f"/members/{mock_membership_id}")
         assert response.status_code == 403  # nosec B101
@@ -453,6 +548,7 @@ def test_remove_member_different_association_fails():
     # Empty memberships: RLS hides mock_membership2_id (different association)
     hidden_mock = make_mock_supabase(extra={"memberships": []})
     app.dependency_overrides[get_supabase] = lambda: hidden_mock
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
     try:
         response = client.delete(f"/members/{mock_membership2_id}")
         assert response.status_code == 404  # nosec B101
@@ -464,6 +560,7 @@ def test_remove_member_different_association_fails():
 def test_remove_member_not_found():
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
     wrong_membership_id = "33"
     try:
         response = client.delete(f"/members/{wrong_membership_id}")
@@ -534,6 +631,7 @@ def test_create_property_non_admin_fails():
     """Usuario sin rol admin/presidente (role=3, TENANT) recibe 403."""
     app.dependency_overrides[get_current_user] = lambda: mock_non_owner
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
     try:
         response = client.post(
             f"/{mock_association_id}/properties",
@@ -556,6 +654,7 @@ def test_create_property_already_exists():
 
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_supabase] = lambda: mock_supabase
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
     try:
         response = client.post(
             f"/{mock_association_id}/properties",
