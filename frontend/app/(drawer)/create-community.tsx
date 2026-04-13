@@ -71,7 +71,7 @@ export default function CrearComunidadScreen() {
             setAlertConfig({
                 visible: true,
                 title: 'Error',
-                message: err?.response?.data?.detail || 'Hubo un problema al crear la comunidad.',
+                message: err.response?.data?.detail || 'Hubo un problema al crear la comunidad.',
                 type: 'error'
             });
         } finally {

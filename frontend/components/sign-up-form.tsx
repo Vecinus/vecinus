@@ -115,8 +115,8 @@ export function SignUpForm() {
       router.replace('/sign-in');
     } catch (error: unknown) {
       const err = error as { response?: { status?: number; data?: { detail?: unknown } } };
-      const status = err?.response?.status;
-      const normalizedDetail = extractErrorMessage(err?.response?.data?.detail);
+      const status = err.response?.status;
+      const normalizedDetail = extractErrorMessage(err.response?.data?.detail);
 
       if (status === 409) {
         setLocalError(normalizedDetail || 'El email o nombre de usuario ya está en uso.');
