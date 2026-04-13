@@ -60,13 +60,21 @@ export const PollCard: React.FC<PollCardProps> = ({
 
   const endDate = poll.end_at
     ? new Date(poll.end_at).toLocaleDateString('es-ES', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      })
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    })
     : 'N/A';
 
+  const isClickable = isAdmin
+    ? (currentStatus === 'DRAFT' && !!onEditPress) ||
+    ((currentStatus === 'FINISHED' || currentStatus === 'WAITING_ABSENTEES') && !!onResultsPress)
+    : (currentStatus === 'ACTIVE' && !!onPress) ||
+    ((currentStatus === 'FINISHED' || currentStatus === 'WAITING_ABSENTEES') && !!onResultsPress);
+
   const handleCardPress = () => {
+    if (!isClickable) return;
+
     if (isAdmin) {
       if (currentStatus === 'DRAFT' && onEditPress) {
         onEditPress();
@@ -89,7 +97,12 @@ export const PollCard: React.FC<PollCardProps> = ({
   };
 
   return (
-    <TouchableOpacity onPress={handleCardPress} activeOpacity={0.7} className="mb-4">
+    <TouchableOpacity
+      onPress={handleCardPress}
+      activeOpacity={isClickable ? 0.7 : 1}
+      disabled={!isClickable}
+      className={`mb-4 ${!isClickable ? 'cursor-default' : ''}`}
+    >
       <Card className="rounded-lg border border-border bg-card shadow-sm">
         <CardHeader className="pb-3">
           <View className="flex-row items-center justify-between">

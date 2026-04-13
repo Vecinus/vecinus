@@ -1,16 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, ScrollView, Alert as RNAlert } from 'react-native';
-import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
-import { Stack } from 'expo-router';
+import { View, ScrollView, Alert as RNAlert, TouchableOpacity } from 'react-native';
+import { useNavigation, useRouter, Stack } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
-import { useAvailableProperties, useCreatePollMutation } from '@/hooks/usePolls';
+import { pollsApi } from '@/api/polls';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DefaultersModal } from '@/components/polls/DefaultersModal';
-import { TouchableOpacity } from 'react-native';
-import { CreatePollPayload } from '@/types/polls.types';
+import { CreatePollPayload, AvailableProperty } from '@/types/polls.types';
 import { ChevronLeft } from 'lucide-react-native';
 
 type Step = 'basic' | 'defaulters' | 'dates';
@@ -26,18 +24,32 @@ export default function CreatePollScreen() {
   const [options, setOptions] = useState<string[]>(['', '']);
   const [newOption, setNewOption] = useState('');
 
-  const [startDate, setStartDate] = useState<Date>(new Date());
+  const [startDate] = useState<Date>(new Date());
   const [endDate, setEndDate] = useState<Date>(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
   const [customDuration, setCustomDuration] = useState<number>(7);
 
   const [selectedDefaulters, setSelectedDefaulters] = useState<string[]>([]);
   const [showDefaultersModal, setShowDefaultersModal] = useState(false);
 
-  const { data: properties = [] } = useAvailableProperties(associationId);
-  const { mutateAsync: createPoll, isPending: isCreating } = useCreatePollMutation(associationId);
+  const [properties, setProperties] = useState<AvailableProperty[]>([]);
+  const [isCreating, setIsCreating] = useState(false);
+
   const navigation = useNavigation();
 
-  const propertiesWithCoefficient = properties.map((p) => ({
+  useEffect(() => {
+    const fetchProperties = async () => {
+      if (!associationId) return;
+      try {
+        const data = await pollsApi.fetchAvailableProperties(associationId);
+        setProperties(data || []);
+      } catch (error) {
+        console.error('Error fetching available properties:', error);
+      }
+    };
+    fetchProperties();
+  }, [associationId]);
+
+  const propertiesWithCoefficient = properties.map((p: any) => ({
     ...p,
     coefficient: p.coefficient || 0,
     is_defaulter: p.is_defaulter || false,
@@ -88,6 +100,7 @@ export default function CreatePollScreen() {
 
   const handleCreatePoll = async () => {
     try {
+      setIsCreating(true);
       const payload: CreatePollPayload = {
         title: title.trim(),
         description: description.trim(),
@@ -98,15 +111,13 @@ export default function CreatePollScreen() {
         absentees_end_at: getAbsenceDate().toISOString(),
       };
 
-      await createPoll(payload);
-
-      router.push({
-        pathname: '/[communityId]/polls',
-        params: { communityId: associationId },
-      });
+      await pollsApi.createPoll(associationId, payload);
+      router.push(`/${associationId}/polls` as any);
       setStep('basic');
     } catch (error: any) {
       RNAlert.alert('Error', error.response?.data?.detail || 'No se pudo crear la votación');
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -114,7 +125,7 @@ export default function CreatePollScreen() {
     navigation.setOptions({
       headerLeft: () => (
         <TouchableOpacity
-          onPress={() => router.push(`/${associationId}/polls`)}
+          onPress={() => router.push(`/${associationId}/polls` as any)}
           className="ml-2 mr-4 p-1">
           <ChevronLeft size={26} className="text-foreground" />
         </TouchableOpacity>

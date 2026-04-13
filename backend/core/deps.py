@@ -151,7 +151,7 @@ def get_current_user_optional(
     """Extrae datos del usuario si está autenticado, sino retorna None."""
     if not credentials:
         return None
-    
+
     token = credentials.credentials
     try:
         payload = _extract_jwt_payload(token)

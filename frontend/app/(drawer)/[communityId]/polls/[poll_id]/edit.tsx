@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   ScrollView,
@@ -6,21 +6,17 @@ import {
   Modal,
   TouchableOpacity,
   ActivityIndicator,
-  Picker,
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { useLocalSearchParams, useRouter, Stack, useNavigation } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
-import {
-  usePollById,
-  useDeletePollMutation,
-  useEditPollMutation,
-  usePublishPollMutation,
-} from '@/hooks/usePolls';
+import { pollsApi } from '@/api/polls';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronLeft } from 'lucide-react-native';
+import { Poll } from '@/types/polls.types';
 
 export default function EditPollScreen() {
   const router = useRouter();
@@ -29,44 +25,72 @@ export default function EditPollScreen() {
   const associationId = activeCommunity ? activeCommunity.id : '';
   const poll_id = params?.poll_id as string;
 
+  const [poll, setPoll] = useState<Poll | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [options, setOptions] = useState<string[]>([]);
   const [newOption, setNewOption] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
+
   const [startDate, setStartDate] = useState<Date>(new Date());
-  const [endDate, setEndDate] = useState<Date>(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+  const [dateInput, setDateInput] = useState<string>('');
   const [selectedDuration, setSelectedDuration] = useState<number>(7);
   const [startHour, setStartHour] = useState<string>('00');
   const [startMinute, setStartMinute] = useState<string>('00');
 
+  const exactStartDate = new Date(startDate);
+  const parsedHour = parseInt(startHour, 10);
+  const parsedMinute = parseInt(startMinute, 10);
+  exactStartDate.setHours(
+    isNaN(parsedHour) ? 0 : parsedHour,
+    isNaN(parsedMinute) ? 0 : parsedMinute,
+    0,
+    0
+  );
+
+  const exactEndDate = new Date(exactStartDate);
+  exactEndDate.setDate(exactEndDate.getDate() + selectedDuration);
+
   const isPollValid = title.trim().length > 0 && options.filter((o) => o.trim()).length >= 2;
 
-  const { data: poll, isLoading } = usePollById(poll_id);
-  const deletePolMutation = useDeletePollMutation(associationId);
-  const editPollMutation = useEditPollMutation(associationId, poll_id);
-  const publishPollMutation = usePublishPollMutation(associationId);
   const navigation = useNavigation();
 
-  useEffect(() => {
-    if (poll) {
-      if (poll.status !== 'DRAFT') {
+  const fetchPoll = useCallback(async () => {
+    if (!poll_id) return;
+    try {
+      setIsLoading(true);
+      const data = await pollsApi.fetchPollById(poll_id);
+      setPoll(data);
+      if (data.status !== 'DRAFT') {
         RNAlert.alert('Error', 'Solo puedes editar votaciones en estado DRAFT');
         router.back();
+      } else {
+        setTitle(data.title || '');
+        setDescription(data.description || '');
+        setOptions(data.options || []);
       }
-      setTitle(poll.title || '');
-      setDescription(poll.description || '');
-      setOptions(poll.options || []);
+    } catch (error) {
+      RNAlert.alert('Error', 'No se pudo cargar la votación');
+      router.back();
+    } finally {
+      setIsLoading(false);
     }
-  }, [poll, router]);
+  }, [poll_id, router]);
+
+  useEffect(() => {
+    fetchPoll();
+  }, [fetchPoll]);
 
   useEffect(() => {
     navigation.setOptions({
       headerLeft: () => (
         <TouchableOpacity
-          onPress={() => router.push(`/${associationId}/polls`)}
+          onPress={() => router.push(`/${associationId}/polls` as any)}
           className="ml-2 mr-4 p-1">
           <ChevronLeft size={26} className="text-foreground" />
         </TouchableOpacity>
@@ -78,12 +102,12 @@ export default function EditPollScreen() {
     if (showPublishModal) {
       const today = new Date();
       setStartDate(today);
-      setStartHour('00');
-      setStartMinute('00');
+      setDateInput(
+        `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`
+      );
+      setStartHour(today.getHours().toString().padStart(2, '0'));
+      setStartMinute(today.getMinutes().toString().padStart(2, '0'));
       setSelectedDuration(7);
-      const endDateDefault = new Date(today);
-      endDateDefault.setDate(endDateDefault.getDate() + 7);
-      setEndDate(endDateDefault);
     }
   }, [showPublishModal]);
 
@@ -103,7 +127,7 @@ export default function EditPollScreen() {
   const handleSaveChanges = async () => {
     try {
       setIsSubmitting(true);
-      await editPollMutation.mutateAsync({
+      await pollsApi.editPoll(poll_id, {
         title: title.trim(),
         description: description.trim(),
         options: options.filter((o) => o.trim()),
@@ -111,7 +135,7 @@ export default function EditPollScreen() {
       router.push({
         pathname: '/[communityId]/polls',
         params: { communityId: associationId },
-      });
+      } as any);
     } catch (error: any) {
       RNAlert.alert('Error', error.response?.data?.detail || 'No se pudo actualizar la votación');
     } finally {
@@ -121,40 +145,43 @@ export default function EditPollScreen() {
 
   const handleDeletePoll = async () => {
     try {
-      await deletePolMutation.mutateAsync(poll_id);
+      setIsDeleting(true);
+      await pollsApi.deletePoll(poll_id);
       router.push({
         pathname: '/[communityId]/polls',
         params: { communityId: associationId },
-      });
+      } as any);
       setShowDeleteModal(false);
     } catch (error: any) {
       RNAlert.alert('Error', error.response?.data?.detail || 'No se pudo eliminar la votación');
       setShowDeleteModal(false);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const handlePublishPoll = async () => {
     try {
-      const absenceDate = new Date(endDate);
+      setIsPublishing(true);
+      const absenceDate = new Date(exactEndDate);
       absenceDate.setDate(absenceDate.getDate() + 30);
 
-      await publishPollMutation.mutateAsync({
-        pollId: poll_id,
-        dates: {
-          start_at: startDate.toISOString(),
-          end_at: endDate.toISOString(),
-          absentees_end_at: absenceDate.toISOString(),
-        },
+      await pollsApi.publishPoll(poll_id, {
+        start_at: exactStartDate.toISOString(),
+        end_at: exactEndDate.toISOString(),
+        absentees_end_at: absenceDate.toISOString(),
       });
 
       RNAlert.alert('Éxito', 'Votación publicada correctamente');
       router.push({
         pathname: '/[communityId]/polls',
         params: { communityId: associationId },
-      });
+      } as any);
       setShowPublishModal(false);
     } catch (error: any) {
       RNAlert.alert('Error', error.response?.data?.detail || 'No se pudo publicar la votación');
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -192,21 +219,21 @@ export default function EditPollScreen() {
         <View className="w-full max-w-sm rounded-2xl border border-border bg-background p-6 shadow-xl">
           <Text className="mb-2 text-lg font-bold text-foreground">Eliminar Votación</Text>
           <Text className="mb-6 text-muted-foreground">
-            ¿Estás seguro de que deseas eliminar "{title}"? Esta acción no se puede deshacer.
+            ¿Estás seguro de que deseas eliminar &quot;{title}&quot;? Esta acción no se puede deshacer.
           </Text>
           <View className="flex-row justify-end gap-3">
             <Button
               variant="outline"
               onPress={() => setShowDeleteModal(false)}
-              disabled={deletePolMutation.isPending}>
+              disabled={isDeleting}>
               <Text>Cancelar</Text>
             </Button>
             <Button
               variant="destructive"
               onPress={handleDeletePoll}
-              disabled={deletePolMutation.isPending}>
+              disabled={isDeleting}>
               <Text className="text-destructive-foreground">
-                {deletePolMutation.isPending ? 'Eliminando...' : 'Eliminar'}
+                {isDeleting ? 'Eliminando...' : 'Eliminar'}
               </Text>
             </Button>
           </View>
@@ -227,21 +254,18 @@ export default function EditPollScreen() {
             <View>
               <Text className="mb-2 text-sm font-semibold text-foreground">Inicio de Votación</Text>
               <Input
-                placeholder="Fecha de inicio"
-                value={startDate.toLocaleDateString('es-ES', {
-                  weekday: 'narrow',
-                  year: 'numeric',
-                  month: 'numeric',
-                  day: 'numeric',
-                })}
+                placeholder="DD/MM/YYYY"
+                value={dateInput}
                 onChangeText={(value) => {
+                  setDateInput(value);
                   const parts = value.split('/');
                   if (parts.length === 3) {
-                    const day = parseInt(parts[0], 10);
-                    const month = parseInt(parts[1], 10) - 1;
-                    const year = parseInt(parts[2], 10);
-                    if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
-                      const newDate = new Date(year, month, day, parseInt(startHour), parseInt(startMinute));
+                    const d = parseInt(parts[0], 10);
+                    const m = parseInt(parts[1], 10) - 1;
+                    const y = parseInt(parts[2], 10);
+                    if (!isNaN(d) && !isNaN(m) && !isNaN(y) && y > 2000) {
+                      const newDate = new Date(startDate);
+                      newDate.setFullYear(y, m, d);
                       setStartDate(newDate);
                     }
                   }
@@ -254,15 +278,10 @@ export default function EditPollScreen() {
                   <Text className="mb-1 text-xs font-semibold text-foreground">HH</Text>
                   <Input
                     placeholder="00"
-                    value={startHour.padStart(2, '0')}
+                    value={startHour}
                     onChangeText={(value) => {
-                      const num = parseInt(value, 10);
-                      if (!isNaN(num) && num >= 0 && num <= 23) {
-                        setStartHour(value);
-                        const newDate = new Date(startDate);
-                        newDate.setHours(num, parseInt(startMinute));
-                        setStartDate(newDate);
-                      }
+                      const clean = value.replace(/[^0-9]/g, '');
+                      setStartHour(clean);
                     }}
                     maxLength={2}
                     keyboardType="number-pad"
@@ -273,15 +292,10 @@ export default function EditPollScreen() {
                   <Text className="mb-1 text-xs font-semibold text-foreground">MM</Text>
                   <Input
                     placeholder="00"
-                    value={startMinute.padStart(2, '0')}
+                    value={startMinute}
                     onChangeText={(value) => {
-                      const num = parseInt(value, 10);
-                      if (!isNaN(num) && num >= 0 && num <= 59) {
-                        setStartMinute(value);
-                        const newDate = new Date(startDate);
-                        newDate.setHours(parseInt(startHour), num);
-                        setStartDate(newDate);
-                      }
+                      const clean = value.replace(/[^0-9]/g, '');
+                      setStartMinute(clean);
                     }}
                     maxLength={2}
                     keyboardType="number-pad"
@@ -296,12 +310,7 @@ export default function EditPollScreen() {
               <View className="overflow-hidden rounded-lg border border-border">
                 <Picker
                   selectedValue={selectedDuration}
-                  onValueChange={(value) => {
-                    setSelectedDuration(value);
-                    const newEnd = new Date(startDate);
-                    newEnd.setDate(newEnd.getDate() + value);
-                    setEndDate(newEnd);
-                  }}
+                  onValueChange={(value) => setSelectedDuration(Number(value))}
                   style={{
                     backgroundColor: '#fff',
                     color: '#000',
@@ -317,12 +326,14 @@ export default function EditPollScreen() {
               <Text className="mb-2 text-sm font-semibold text-foreground">Fin de Votación</Text>
               <Input
                 placeholder="Fecha de fin"
-                value={endDate.toLocaleDateString('es-ES', {
-                  weekday: 'narrow',
+                value={`${exactEndDate.toLocaleDateString('es-ES', {
+                  day: '2-digit',
+                  month: '2-digit',
                   year: 'numeric',
-                  month: 'numeric',
-                  day: 'numeric',
-                })}
+                })} a las ${exactEndDate.toLocaleTimeString('es-ES', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}`}
                 editable={false}
                 className="text-sm text-muted-foreground"
               />
@@ -341,12 +352,12 @@ export default function EditPollScreen() {
             <Button
               variant="outline"
               onPress={() => setShowPublishModal(false)}
-              disabled={publishPollMutation.isPending}>
+              disabled={isPublishing}>
               <Text>Cancelar</Text>
             </Button>
-            <Button onPress={handlePublishPoll} disabled={publishPollMutation.isPending}>
+            <Button onPress={handlePublishPoll} disabled={isPublishing}>
               <Text className="text-white">
-                {publishPollMutation.isPending ? 'Publicando...' : 'Publicar'}
+                {isPublishing ? 'Publicando...' : 'Publicar'}
               </Text>
             </Button>
           </View>
@@ -471,7 +482,7 @@ export default function EditPollScreen() {
               variant="destructive"
               size="lg"
               onPress={() => setShowDeleteModal(true)}
-              disabled={isSubmitting || deletePolMutation.isPending}
+              disabled={isSubmitting || isDeleting}
               className="flex-1">
               <Text className="font-semibold text-destructive-foreground">Eliminar</Text>
             </Button>
@@ -479,10 +490,10 @@ export default function EditPollScreen() {
             <Button
               size="lg"
               onPress={() => setShowPublishModal(true)}
-              disabled={isSubmitting || publishPollMutation.isPending}
+              disabled={isSubmitting || isPublishing}
               className="flex-1 bg-green-600">
               <Text className="font-semibold text-white">
-                {publishPollMutation.isPending ? 'Publicando...' : 'Publicar'}
+                {isPublishing ? 'Publicando...' : 'Publicar'}
               </Text>
             </Button>
           </View>

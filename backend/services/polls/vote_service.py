@@ -17,13 +17,16 @@ class VoteService:
             poll_res = self.supabase.table("poll").select("options, association_id").eq("id", str(poll_id)).execute()
             if not poll_res.data:
                 raise HTTPException(status_code=404, detail="Votación no encontrada")
-            
+
             poll_info = poll_res.data[0]
-            association_id = poll_info["association_id"]
+            poll_info["association_id"]
             valid_options = poll_info["options"]
 
             if vote_data.selected_option not in valid_options:
-                raise HTTPException(status_code=400, detail=f"La opción seleccionada no es válida para esta votación. Opciones válidas: {valid_options}")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"La opción seleccionada no es válida para esta votación. Opciones válidas: {valid_options}",
+                )
         except HTTPException:
             raise
         except Exception as e:
@@ -56,10 +59,12 @@ class VoteService:
                 raise HTTPException(status_code=404, detail="Membresía no encontrada")
             property_id = member_res.data[0]["property_id"]
 
-            prop_res = self.supabase.table("properties").select("coefficient, is_defaulter").eq("id", property_id).execute()
+            prop_res = (
+                self.supabase.table("properties").select("coefficient, is_defaulter").eq("id", property_id).execute()
+            )
             if not prop_res.data:
                 raise HTTPException(status_code=404, detail="Propiedad no encontrada")
-                
+
             property_info = prop_res.data[0]
 
             if property_info["is_defaulter"]:
@@ -87,11 +92,10 @@ class VoteService:
             error_str = str(e).lower()
             if "unique" in error_str or "already" in error_str or "duplicate" in error_str:
                 raise HTTPException(
-                    status_code=400, detail="Ya has votado en esta votación. No se puede cambiar el voto una vez registrado."
+                    status_code=400,
+                    detail="Ya has votado en esta votación. No se puede cambiar el voto una vez registrado.",
                 )
-            raise HTTPException(
-                status_code=400, detail=f"Error al registrar el voto: {str(e)}"
-            )
+            raise HTTPException(status_code=400, detail=f"Error al registrar el voto: {str(e)}")
 
         try:
             self.supabase.table("voting_tokens").update({"is_used": True}).eq(

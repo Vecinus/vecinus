@@ -1,16 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { View, ScrollView, Share, Alert as RNAlert, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Alert as RNAlert, TouchableOpacity, ActivityIndicator } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { router, useLocalSearchParams, useNavigation } from 'expo-router';
-import { Stack } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation, Stack } from 'expo-router';
+
 import { useAuth } from '@/context/AuthContext';
-import { usePollResults, useDownloadPollPDF } from '@/hooks/usePolls';
+import { pollsApi } from '@/api/polls';
 import { ResultsView } from '@/components/polls/ResultsView';
-import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ChevronLeft, CircleAlertIcon } from 'lucide-react-native';
+import { PollResults } from '@/types/polls.types';
 
 export default function PollResultsScreen() {
   const params = useLocalSearchParams();
@@ -19,11 +19,30 @@ export default function PollResultsScreen() {
 
   const poll_id = params?.poll_id as string;
 
+  const [results, setResults] = useState<PollResults | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
-  const { data: results, isLoading, error } = usePollResults(associationId, poll_id);
-  const { mutateAsync: downloadPDF } = useDownloadPollPDF();
   const navigation = useNavigation();
+
+  const fetchResults = useCallback(async () => {
+    if (!associationId || !poll_id) return;
+    try {
+      setIsLoading(true);
+      setError(false);
+      const data = await pollsApi.fetchPollResults(associationId, poll_id);
+      setResults(data);
+    } catch (err) {
+      setError(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [associationId, poll_id]);
+
+  useEffect(() => {
+    fetchResults();
+  }, [fetchResults]);
 
   useEffect(() => {
     navigation.setOptions({
@@ -37,53 +56,12 @@ export default function PollResultsScreen() {
     });
   }, [navigation, router, associationId]);
 
-  const handleDownloadPDF = async () => {
-    try {
-      setIsDownloading(true);
-      const blob = await downloadPDF(poll_id);
-
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const dataUrl = reader.result as string;
-          const base64Data = dataUrl.split(',')[1];
-          resolve(base64Data);
-        };
-        reader.onerror = () => {
-          reject(new Error('Error al leer el Blob del PDF'));
-        };
-        reader.readAsDataURL(blob);
-      });
-
-      const uri = FileSystem.documentDirectory + `votacion_${poll_id}.pdf`;
-
-      await FileSystem.writeAsStringAsync(uri, base64, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(uri, {
-          mimeType: 'application/pdf',
-          dialogTitle: `Descargar o compartir Acta ${poll_id}`,
-          UTI: 'com.adobe.pdf',
-        });
-      } else {
-        RNAlert.alert('Aviso', 'Tu dispositivo no soporta la función de compartir archivos.');
-      }
-    } catch (err: any) {
-      console.error('Error downloading PDF:', err);
-      RNAlert.alert('Error', 'No se pudo descargar el PDF');
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
   if (isLoading) {
     return (
       <>
         <Stack.Screen options={{ title: 'Resultados' }} />
         <View className="flex-1 items-center justify-center bg-background">
+          <ActivityIndicator size="large" className="mb-4 text-primary" />
           <Text className="text-muted-foreground">Cargando resultados...</Text>
         </View>
       </>
@@ -117,8 +95,6 @@ export default function PollResultsScreen() {
       <View className="flex-1 bg-background">
         <ResultsView
           results={results}
-          onDownloadPDF={handleDownloadPDF}
-          isDownloadingPDF={isDownloading}
         />
       </View>
     </>

@@ -127,5 +127,5 @@ class PollService:
         return response.data[0]
 
     def delete_poll(self, poll_id: UUID):
-        response = self.supabase.table("poll").delete().eq("id", str(poll_id)).execute()
+        self.supabase.table("poll").delete().eq("id", str(poll_id)).execute()
         return {"message": "Votación eliminada correctamente"}

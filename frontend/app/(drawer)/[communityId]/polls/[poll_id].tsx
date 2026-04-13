@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { View, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, ScrollView, TouchableOpacity, Pressable, ActivityIndicator } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter, useFocusEffect, useNavigation } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
-import { usePollById, useCastVoteMutation } from '@/hooks/usePolls';
+import { pollsApi } from '@/api/polls';
 import { VoteForm } from '@/components/polls/VoteForm';
 import { PollEmailAuth } from '@/components/polls/PollEmailAuth';
 import { Text } from '@/components/ui/text';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, ChevronLeft } from 'lucide-react-native';
-import { pollsApi } from '@/api/polls';
+import { Poll } from '@/types/polls.types';
 
 export default function VoteScreen() {
   const params = useLocalSearchParams();
@@ -23,47 +23,33 @@ export default function VoteScreen() {
   const [hasVoted, setHasVoted] = useState(false);
   const [votingToken, setVotingToken] = useState<string | null>(null);
   const [voteError, setVoteError] = useState<string | null>(null);
-  const [isLoadingMembership, setIsLoadingMembership] = useState(true);
 
-  const { data: poll, isLoading: isPollLoading, error: pollError } = usePollById(poll_id);
-  const { mutateAsync: castVote, isPending: isVoting } = useCastVoteMutation(poll_id);
+  const [poll, setPoll] = useState<Poll | null>(null);
+  const [isPollLoading, setIsPollLoading] = useState(true);
+  const [pollError, setPollError] = useState<boolean>(false);
+  const [isVoting, setIsVoting] = useState(false);
+
   const associationId = activeCommunity ? activeCommunity.id : '';
   const navigation = useNavigation();
 
-  useEffect(() => {
-    if (poll_id && user?.id) {
-      fetchMembershipData();
-    }
-  }, [user?.id, poll_id]);
+  const fetchData = useCallback(async () => {
+    if (!poll_id || !user?.id) return;
 
-  useFocusEffect(
-    React.useCallback(() => {
-      if (poll_id && user?.id) {
-        fetchMembershipData();
-      }
-    }, [poll_id, user?.id])
-  );
-
-  useEffect(() => {
-    navigation.setOptions({
-      headerLeft: () => (
-        <TouchableOpacity
-          onPress={() => router.push(`/${associationId}/polls`)}
-          className="ml-2 mr-4 p-1">
-          <ChevronLeft size={26} className="text-foreground" />
-        </TouchableOpacity>
-      ),
-    });
-  }, [navigation, router, associationId]);
-
-  const fetchMembershipData = async () => {
     try {
-      setIsLoadingMembership(true);
-      const [membershipData, voteCheckData] = await Promise.all([
-        pollsApi.fetchMembershipInfo(poll_id),
-        pollsApi.checkUserHasVoted(poll_id),
+      setIsPollLoading(true);
+      setPollError(false);
+      setVoteError(null);
+
+      const [pollData, membershipData, voteCheckData] = await Promise.all([
+        pollsApi.fetchPollById(poll_id),
+        pollsApi.fetchMembershipInfo(poll_id).catch((e) => {
+          if (e.response?.status === 403) return { is_defaulter: true, coefficient: 0 };
+          throw e;
+        }),
+        pollsApi.checkUserHasVoted(poll_id)
       ]);
 
+      setPoll(pollData);
       setCoefficient(membershipData.coefficient || 0);
       setIsDefaulter(membershipData.is_defaulter || false);
       setHasVoted(voteCheckData.has_voted || false);
@@ -76,17 +62,34 @@ export default function VoteScreen() {
         setAuthStep('auth');
       }
     } catch (err: any) {
-      console.error('Error fetching membership:', err);
-      if (err.response?.status === 403) {
-        setIsDefaulter(true);
-        setAuthStep('vote');
-      } else {
-        setVoteError('No se pudo cargar tu información de membresía');
-      }
+      console.error('Error fetching data:', err);
+      setPollError(true);
     } finally {
-      setIsLoadingMembership(false);
+      setIsPollLoading(false);
     }
-  };
+  }, [poll_id, user?.id]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [fetchData])
+  );
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerLeft: () => (
+        <TouchableOpacity
+          onPress={() => router.push(`/${associationId}/polls` as any)}
+          className="ml-2 mr-4 p-1">
+          <ChevronLeft size={26} className="text-foreground" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, router, associationId]);
 
   const handleTokenObtained = (token: string) => {
     setVotingToken(token);
@@ -105,19 +108,21 @@ export default function VoteScreen() {
     }
 
     try {
+      setIsVoting(true);
       setVoteError(null);
+
       const voteData: any = {
         selected_option: selectedOption,
         voting_token: votingToken,
         rgpd_accepted: true,
       };
 
-      await castVote(voteData);
+      await pollsApi.castVote(poll_id, voteData);
 
       setHasVoted(true);
 
       setTimeout(() => {
-        router.push(`/${activeCommunity?.id}/polls/results/${poll_id}`);
+        router.push(`/${activeCommunity?.id}/polls/results/${poll_id}` as any);
       }, 1500);
     } catch (error: any) {
       if (error.response?.status === 403) {
@@ -131,10 +136,10 @@ export default function VoteScreen() {
       } else {
         setVoteError('Error al registrar el voto. Intenta de nuevo.');
       }
+    } finally {
+      setIsVoting(false);
     }
   };
-
-  const isLoading = isPollLoading || isLoadingMembership;
 
   if (pollError) {
     return (
@@ -157,11 +162,12 @@ export default function VoteScreen() {
     );
   }
 
-  if (isLoading) {
+  if (isPollLoading) {
     return (
       <>
         <Stack.Screen options={{ title: 'Cargando...' }} />
         <View className="flex-1 items-center justify-center bg-background">
+          <ActivityIndicator size="large" className="mb-4 text-primary" />
           <Text className="text-muted-foreground">Cargando votación...</Text>
         </View>
       </>
@@ -206,7 +212,7 @@ export default function VoteScreen() {
               </Alert>
             </View>
             <Pressable
-              onPress={() => router.push(`/${activeCommunity?.id}/polls/results/${poll_id}`)}
+              onPress={() => router.push(`/${activeCommunity?.id}/polls/results/${poll_id}` as any)}
               className="items-center rounded-lg bg-blue-600 p-4">
               <Text className="font-semibold text-white">Ver resultados</Text>
             </Pressable>
@@ -232,7 +238,7 @@ export default function VoteScreen() {
             pollId={poll_id}
             userEmail={user?.email || ''}
             onTokenObtained={handleTokenObtained}
-            onCancel={() => router.push(`/${associationId}/polls`)}
+            onCancel={() => router.push(`/${associationId}/polls` as any)}
           />
         ) : (
           <VoteForm

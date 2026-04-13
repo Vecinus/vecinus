@@ -9,8 +9,6 @@ import { PollResults, OptionResult, VoterDetail } from '@/types/polls.types';
 
 interface ResultsViewProps {
   results: PollResults;
-  onDownloadPDF?: () => Promise<void>;
-  isDownloadingPDF?: boolean;
 }
 
 const renderVoterRow = (voter: VoterDetail) => (
@@ -36,8 +34,6 @@ const renderVoterRow = (voter: VoterDetail) => (
 
 export const ResultsView: React.FC<ResultsViewProps> = ({
   results,
-  onDownloadPDF,
-  isDownloadingPDF = false,
 }) => {
   const totalVoters = results.census_eligible_voters;
   const totalCoefficient = results.census_eligible_coefficient;
@@ -171,14 +167,6 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
             )}
           </CardContent>
         </Card>
-
-        {onDownloadPDF && (
-          <Button size="lg" onPress={onDownloadPDF} disabled={isDownloadingPDF} className="mb-6">
-            <Text className="font-semibold text-white">
-              {isDownloadingPDF ? 'Descargando...' : 'Descargar Acta PDF'}
-            </Text>
-          </Button>
-        )}
       </View>
     </ScrollView>
   );

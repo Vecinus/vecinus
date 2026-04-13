@@ -1,11 +1,10 @@
-import React, { useState, useCallback } from 'react';
-import { View, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { useRole } from '@/hooks/useRole';
-import { usePolls } from '@/hooks/usePolls';
+import { pollsApi } from '@/api/polls';
 import { Text } from '@/components/ui/text';
-import { Button } from '@/components/ui/button';
 import { PollCard } from '@/components/polls/PollCard';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Poll } from '@/types/polls.types';
@@ -17,19 +16,43 @@ export default function PollsScreen() {
   const { activeCommunity } = useAuth();
   const associationId = activeCommunity ? activeCommunity.id : '';
 
+  // 1. Añadimos los estados necesarios para la data, carga y errores
+  const [polls, setPolls] = useState<Poll[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const isAdmin = role === 1 || role === 4;
 
-  const { data: polls = [], isLoading: isListLoading, error, refetch } = usePolls(associationId);
+  // 2. Creamos la función asíncrona para obtener los datos
+  const fetchPollsData = useCallback(async () => {
+    if (!associationId) return;
 
-  const filteredPolls = isAdmin ? polls : polls.filter((poll) => poll.status !== 'DRAFT');
+    try {
+      setError(false);
+      const data = await pollsApi.fetchPolls(associationId);
+      setPolls(data);
+    } catch (err) {
+      console.error("Error al obtener votaciones:", err);
+      setError(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [associationId]);
 
+  // 3. Ejecutamos la función cuando el componente se monta o cambia el associationId
+  useEffect(() => {
+    fetchPollsData();
+  }, [fetchPollsData]);
+
+  // 4. Arreglamos la función de refresco
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refetch();
+    await fetchPollsData();
     setRefreshing(false);
-  }, [refetch]);
+  }, [fetchPollsData]);
+
+  const filteredPolls = isAdmin ? polls : polls.filter((poll: Poll) => poll.status !== 'DRAFT');
 
   const renderEmptyState = () => (
     <View className="flex-1 items-center justify-center px-4">
@@ -49,12 +72,12 @@ export default function PollsScreen() {
           title: 'Votaciones',
           headerRight: isAdmin
             ? () => (
-                <TouchableOpacity
-                  onPress={() => router.push(`/${associationId}/polls/create`)}
-                  className="mr-4 rounded bg-primary px-3 py-2">
-                  <Text className="text-sm font-semibold text-white">+ Nueva</Text>
-                </TouchableOpacity>
-              )
+              <TouchableOpacity
+                onPress={() => router.push(`/${associationId}/polls/create` as any)}
+                className="mr-4 rounded bg-primary px-3 py-2">
+                <Text className="text-sm font-semibold text-white">+ Nueva</Text>
+              </TouchableOpacity>
+            )
             : undefined,
         }}
       />
@@ -69,24 +92,31 @@ export default function PollsScreen() {
           </View>
         )}
 
-        <FlatList
-          data={filteredPolls}
-          renderItem={({ item }) => (
-            <View className="mt-4 px-4">
-              <PollCard
-                poll={item}
-                isAdmin={isAdmin}
-                onPress={() => router.push(`/${associationId}/polls/${item.id}`)}
-                onEditPress={() => router.push(`/${associationId}/polls/${item.id}/edit`)}
-                onResultsPress={() => router.push(`/${associationId}/polls/results/${item.id}`)}
-              />
-            </View>
-          )}
-          keyExtractor={(item) => item.id}
-          ListEmptyComponent={renderEmptyState}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-          contentContainerStyle={{ paddingBottom: 20 }}
-        />
+        {/* Opcional: Mostrar un indicador de carga inicial */}
+        {isLoading && !refreshing ? (
+          <View className="flex-1 items-center justify-center">
+            <ActivityIndicator size="large" color="#0000ff" />
+          </View>
+        ) : (
+          <FlatList
+            data={filteredPolls}
+            renderItem={({ item }) => (
+              <View className="mt-4 px-4">
+                <PollCard
+                  poll={item}
+                  isAdmin={isAdmin}
+                  onPress={() => router.push(`/${associationId}/polls/${item.id}` as any)}
+                  onEditPress={() => router.push(`/${associationId}/polls/${item.id}/edit` as any)}
+                  onResultsPress={() => router.push(`/${associationId}/polls/results/${item.id}` as any)}
+                />
+              </View>
+            )}
+            keyExtractor={(item) => item.id}
+            ListEmptyComponent={renderEmptyState}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+            contentContainerStyle={{ paddingBottom: 20 }}
+          />
+        )}
       </View>
     </>
   );
