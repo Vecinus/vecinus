@@ -7,7 +7,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel  # <-- NUEVO IMPORT
 from schemas.associations import (
     AcceptInvitationRequest,
+    CommunityResponse,
     CommunityUser,
+    CreateCommunityRequest,
     InvitationResponse,
     InviteAdminRequest,
     InviteTenantRequest,
@@ -42,6 +44,58 @@ def get_my_communities(
         .execute()
     )
     return response.data
+
+
+@router.post("/communities", response_model=CommunityResponse, status_code=status.HTTP_201_CREATED)
+def create_community(
+    body: CreateCommunityRequest,
+    current_user: dict = Depends(get_current_user),
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
+    """
+    Crea una nueva comunidad (asociación de vecinos).
+    El usuario que la crea se convierte automáticamente en el Administrador (rol 1).
+    """
+    try:
+        # 1. Crear la comunidad en la tabla neighborhood_associations
+        community_data = {
+            "name": body.name,
+            "address": body.address,
+            "created_at": datetime.utcnow().isoformat(),
+        }
+
+        community_result = supabase_admin.table("neighborhood_associations").insert(community_data).execute()
+
+        if not community_result.data:
+            raise HTTPException(status_code=500, detail="Error al crear la comunidad")
+
+        community = community_result.data[0]
+        community_id = community["id"]
+
+        # 2. Crear la membresía del creador como Administrador (rol = 1)
+        membership_data = {
+            "profile_id": str(current_user["id"]),
+            "association_id": community_id,
+            "role": 1,  # ADMIN
+            "joined_at": datetime.utcnow().isoformat(),
+        }
+
+        membership_result = supabase_admin.table("memberships").insert(membership_data).execute()
+
+        if not membership_result.data:
+            raise HTTPException(status_code=500, detail="Error al crear la membresía del administrador")
+
+        return {
+            "id": community["id"],
+            "name": community["name"],
+            "address": community["address"],
+            "created_at": community["created_at"],
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno al crear la comunidad: {str(e)}")
 
 
 @router.get("/users/me", response_model=UserMeResponse)
@@ -435,13 +489,13 @@ def delete_member(
         .execute()
     )
 
-    is_admin = admin_check.data and admin_check.data[0].get("role") == 1
+    is_admin = admin_check.data and int(admin_check.data[0].get("role", 0)) in [1, 4]
 
     # Opcional: Permitir que un usuario se borre a sí mismo de la comunidad
     is_self = membership_to_delete["profile_id"] == current_user["id"]
 
     if not is_admin and not is_self:
-        raise HTTPException(status_code=403, detail="Admin access required for this action")
+        raise HTTPException(status_code=403, detail="Admin or Presidente access required for this action")
 
     try:
         delete_res = supabase_admin.table("memberships").delete().eq("id", membership_id).execute()
