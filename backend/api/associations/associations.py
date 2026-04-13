@@ -435,13 +435,13 @@ def delete_member(
         .execute()
     )
 
-    is_admin = admin_check.data and admin_check.data[0].get("role") == 1
+    is_admin = admin_check.data and int(admin_check.data[0].get("role", 0)) in [1, 4]
 
     # Opcional: Permitir que un usuario se borre a sí mismo de la comunidad
     is_self = membership_to_delete["profile_id"] == current_user["id"]
 
     if not is_admin and not is_self:
-        raise HTTPException(status_code=403, detail="Admin access required for this action")
+        raise HTTPException(status_code=403, detail="Admin or Presidente access required for this action")
 
     try:
         delete_res = supabase_admin.table("memberships").delete().eq("id", membership_id).execute()
