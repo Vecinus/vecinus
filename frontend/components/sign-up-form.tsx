@@ -15,6 +15,17 @@ function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
+}
+
 function extractErrorMessage(detail: unknown): string {
   if (typeof detail === 'string') {
     return detail.trim();
@@ -87,7 +98,7 @@ export function SignUpForm() {
       return;
     }
 
-    if (password !== passwordConfirm) {
+    if (!timingSafeEqual(password, passwordConfirm)) {
       setLocalError('Las contraseñas no coinciden.');
       return;
     }
@@ -102,9 +113,10 @@ export function SignUpForm() {
       
       // Redirigimos al login tras el registro exitoso
       router.replace('/sign-in');
-    } catch (error: any) {
-      const status = error?.response?.status;
-      const normalizedDetail = extractErrorMessage(error?.response?.data?.detail);
+    } catch (error: unknown) {
+      const err = error as { response?: { status?: number; data?: { detail?: unknown } } };
+      const status = err?.response?.status;
+      const normalizedDetail = extractErrorMessage(err?.response?.data?.detail);
 
       if (status === 409) {
         setLocalError(normalizedDetail || 'El email o nombre de usuario ya está en uso.');

@@ -49,8 +49,8 @@ def register(
         if user_id:
             try:
                 supabase_admin.auth.admin.delete_user(str(user_id))
-            except Exception:
-                pass
+            except Exception as rollback_error:
+                print(f"Failed to delete user on rollback: {rollback_error}")
 
         if isinstance(e, HTTPException):
             raise

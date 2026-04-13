@@ -86,7 +86,7 @@ export const useLoginMutation = () => {
 export const useRegisterMutation = () => {
   return useMutation({
     mutationFn: async (credentials: RegisterCredentials) => {
-      const response = await apiClient.post<any>('/register', credentials);
+      const response = await apiClient.post<unknown>('/register', credentials);
       return response.data;
     },
   });

@@ -19,7 +19,7 @@ export default function CrearComunidadScreen() {
     const [address, setAddress] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
-    const [createdCommunity, setCreatedCommunity] = useState<any>(null);
+    const [createdCommunity, setCreatedCommunity] = useState<unknown>(null);
 
     const [alertConfig, setAlertConfig] = useState<AlertConfig>({
         visible: false,
@@ -66,11 +66,12 @@ export default function CrearComunidadScreen() {
                 message: `La comunidad "${newCommunity.name}" ha sido creada.`,
                 type: 'success'
             });
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { detail?: string } } };
             setAlertConfig({
                 visible: true,
                 title: 'Error',
-                message: error?.response?.data?.detail || 'Hubo un problema al crear la comunidad.',
+                message: err?.response?.data?.detail || 'Hubo un problema al crear la comunidad.',
                 type: 'error'
             });
         } finally {
@@ -142,7 +143,7 @@ export default function CrearComunidadScreen() {
             <CustomAlertDialog
                 config={alertConfig}
                 onConfirm={() => { }}
-                onCancel={() => setAlertConfig(prev => ({ ...prev, visible: false }))}
+                onCancel={() => { setAlertConfig(prev => ({ ...prev, visible: false })); }}
                 onAcknowledge={handleAcknowledgeAlert}
             />
         </KeyboardAvoidingView>
