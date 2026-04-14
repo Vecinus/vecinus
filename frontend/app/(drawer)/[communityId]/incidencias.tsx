@@ -97,11 +97,11 @@ export default function IncidenciasScreen() {
   const [descriptionDraft, setDescriptionDraft] = useState('');
   const [pickedImage, setPickedImage] = useState<
     | {
-        uri: string;
-        name?: string | null;
-        mimeType?: string | null;
-        file?: unknown;
-      }
+      uri: string;
+      name?: string | null;
+      mimeType?: string | null;
+      file?: unknown;
+    }
     | null
   >(null);
   const [formError, setFormError] = useState('');
@@ -182,7 +182,7 @@ export default function IncidenciasScreen() {
   const filteredIncidents = useMemo(() => {
     if (activeFilter === 'mis_incidencias') return myIncidents;
     if (activeFilter === 'todas') return allIncidents;
-    return allIncidents.filter((incident) => incident.status === activeFilter); 
+    return allIncidents.filter((incident) => incident.status === activeFilter);
   }, [activeFilter, allIncidents, myIncidents]);
 
   const getReporterText = (incident: Incident): string => {
@@ -317,7 +317,7 @@ export default function IncidenciasScreen() {
         reporterText={getReporterText(item)}
         canManageStatus={canManageStatus}
         showDelete={canDeleteThis}
-        onDelete={() => handleDeleteConfirm(item.id)}
+        onDelete={() => { handleDeleteConfirm(item.id); }}
         onPress={() => onOpenDetail(item.id)}
       />
     );
@@ -390,7 +390,7 @@ export default function IncidenciasScreen() {
 
       {/* --- INFO MODAL --- */}
       <Modal visible={infoModal.visible} transparent animationType="fade" onRequestClose={() => {
-          setInfoModal(prev => ({ ...prev, visible: false }));
+        setInfoModal(prev => ({ ...prev, visible: false }));
       }}>
         <View className="flex-1 bg-black/50 items-center justify-center p-6">
           <View className="bg-background rounded-2xl p-6 w-full max-w-sm border border-border shadow-xl">
@@ -399,10 +399,10 @@ export default function IncidenciasScreen() {
             <View className="flex-row justify-end gap-3">
               {infoModal.onConfirm ? (
                 <>
-                  <Button variant="outline" onPress={() => setInfoModal(prev => ({ ...prev, visible: false }))}>
+                  <Button variant="outline" onPress={() => { setInfoModal(prev => ({ ...prev, visible: false })); }}>
                     <Text>Cancelar</Text>
                   </Button>
-                  <Button 
+                  <Button
                     onPress={() => {
                       setInfoModal(prev => ({ ...prev, visible: false }));
                       setTimeout(() => infoModal.onConfirm!(), 50);
@@ -412,8 +412,8 @@ export default function IncidenciasScreen() {
                   </Button>
                 </>
               ) : (
-                <Button 
-                  onPress={() => setInfoModal(prev => ({ ...prev, visible: false }))}
+                <Button
+                  onPress={() => { setInfoModal(prev => ({ ...prev, visible: false })); }}
                 >
                   <Text>Aceptar</Text>
                 </Button>
