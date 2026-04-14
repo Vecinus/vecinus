@@ -60,3 +60,20 @@ class UserMeResponse(BaseModel):
     username: Optional[str] = None
     avatar_url: Optional[str] = None
     created_at: Optional[datetime] = None
+
+
+class PropertyUpdate(BaseModel):
+    coefficient: Optional[float] = None
+    is_defaulter: Optional[bool] = None
+
+
+class CreateCommunityRequest(BaseModel):
+    name: str
+    address: str
+
+
+class CommunityResponse(BaseModel):
+    id: UUID
+    name: str
+    address: str
+    created_at: datetime

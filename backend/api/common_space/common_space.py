@@ -5,14 +5,12 @@ from api.chat.chat_helpers import verify_association_membership
 from core.deps import get_current_user, get_supabase, get_supabase_admin
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
 from schemas.common_space import CommonSpace, CommonSpaceCreate, CommonSpaceUpdate
-from services.common_space.common_space_service import (
-    create_common_space as create_common_space_service,
-    delete_common_space as delete_common_space_service,
-    get_common_space_by_id as get_common_space_by_id_service,
-    list_common_spaces as list_common_spaces_service,
-    update_common_space as update_common_space_service,
-    upload_common_space_photo as upload_common_space_photo_service,
-)
+from services.common_space.common_space_service import create_common_space as create_common_space_service
+from services.common_space.common_space_service import delete_common_space as delete_common_space_service
+from services.common_space.common_space_service import get_common_space_by_id as get_common_space_by_id_service
+from services.common_space.common_space_service import list_common_spaces as list_common_spaces_service
+from services.common_space.common_space_service import update_common_space as update_common_space_service
+from services.common_space.common_space_service import upload_common_space_photo as upload_common_space_photo_service
 from supabase import Client
 
 router = APIRouter(prefix="/common-spaces", tags=["common_spaces"])
@@ -20,19 +18,12 @@ router = APIRouter(prefix="/common-spaces", tags=["common_spaces"])
 
 def verify_association_admin_or_president(association_id: UUID, user_id: str, supabase: Client) -> dict:
     membership_res = (
-        supabase.table("memberships")
-        .select("association_id, role")
-        .eq("profile_id", str(user_id))
-        .execute()
+        supabase.table("memberships").select("association_id, role").eq("profile_id", str(user_id)).execute()
     )
 
     target_association_id = str(association_id)
     membership = next(
-        (
-            item
-            for item in (membership_res.data or [])
-            if str(item.get("association_id")) == target_association_id
-        ),
+        (item for item in (membership_res.data or []) if str(item.get("association_id")) == target_association_id),
         None,
     )
 

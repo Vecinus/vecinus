@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta, timezone
 from importlib import metadata
 from typing import Any, Dict, List
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 import pydantic.networks
 import pytest
@@ -56,10 +57,10 @@ def patched_version(distribution_name: str) -> str:
 metadata.version = patched_version
 pydantic.networks.version = patched_version
 
+import api.common_space.common_space as common_space_api  # noqa: E402
 from api.common_space.common_space import router as common_space_router  # noqa: E402
 from api.common_space.guest_passes import router as guest_passes_router  # noqa: E402
 from api.common_space.reservations import router as reservations_router  # noqa: E402
-import api.common_space.common_space as common_space_api  # noqa: E402
 from core.deps import get_current_user, get_supabase, get_supabase_admin  # noqa: E402
 
 app = FastAPI()
@@ -71,6 +72,7 @@ client = TestClient(app)
 ASSOCIATION_ID = "11111111-1111-1111-1111-111111111111"
 USER_ID = "11111111-1111-1111-1111-111111111110"
 EMPLOYEE_ID = "11111111-1111-1111-1111-111111111115"
+MADRID_TZ = ZoneInfo("Europe/Madrid")
 
 
 class MockResponse:
@@ -211,9 +213,11 @@ class MockSupabaseReservationClient:
                     "association_id": ASSOCIATION_ID,
                     "name": "Piscina",
                     "requires_qr": True,
-                    "max_capacity": None,
+                    "capacity": None,
                     "max_guests_per_reservation": 2,
                     "photo_url": None,
+                    "start_time": "09:00:00",
+                    "end_time": "23:00:00",
                     "usage_mode": "guest_pass",
                 },
                 {
@@ -221,9 +225,11 @@ class MockSupabaseReservationClient:
                     "association_id": ASSOCIATION_ID,
                     "name": "Pista de padel",
                     "requires_qr": True,
-                    "max_capacity": 1,
+                    "capacity": 1,
                     "max_guests_per_reservation": 3,
                     "photo_url": None,
+                    "start_time": "09:00:00",
+                    "end_time": "23:00:00",
                     "usage_mode": "exclusive_reservation",
                 },
                 {
@@ -231,9 +237,11 @@ class MockSupabaseReservationClient:
                     "association_id": ASSOCIATION_ID,
                     "name": "Sala multiusos",
                     "requires_qr": False,
-                    "max_capacity": 10,
+                    "capacity": 10,
                     "max_guests_per_reservation": 6,
                     "photo_url": None,
+                    "start_time": "09:00:00",
+                    "end_time": "23:00:00",
                     "usage_mode": "exclusive_reservation",
                 },
             ],
@@ -400,6 +408,65 @@ def test_create_reservation_rejects_overlap_for_multiuse_room_too(setup_override
     assert response.json()["detail"] == "La franja horaria seleccionada ya no esta disponible"
 
 
+def test_create_reservation_rejects_slot_before_opening_time(setup_overrides):
+    local_start = datetime.now(MADRID_TZ).replace(hour=8, minute=0, second=0, microsecond=0)
+    local_end = local_start + timedelta(hours=1)
+
+    response = client.post(
+        "/reservations/",
+        json={
+            "space_id": 3,
+            "start_at": local_start.astimezone(timezone.utc).isoformat(),
+            "end_at": local_end.astimezone(timezone.utc).isoformat(),
+            "guests_count": 1,
+        },
+    )
+
+    assert response.status_code == 400
+    assert (
+        response.json()["detail"]
+        == "La reserva debe estar comprendida entre la hora de apertura y la de cierre de la zona comun"
+    )
+
+
+def test_create_reservation_rejects_slot_ending_after_closing_time(setup_overrides):
+    local_start = datetime.now(MADRID_TZ).replace(hour=22, minute=0, second=0, microsecond=0)
+    local_end = local_start + timedelta(hours=1, minutes=30)
+
+    response = client.post(
+        "/reservations/",
+        json={
+            "space_id": 3,
+            "start_at": local_start.astimezone(timezone.utc).isoformat(),
+            "end_at": local_end.astimezone(timezone.utc).isoformat(),
+            "guests_count": 1,
+        },
+    )
+
+    assert response.status_code == 400
+    assert (
+        response.json()["detail"]
+        == "La reserva debe estar comprendida entre la hora de apertura y la de cierre de la zona comun"
+    )
+
+
+def test_create_reservation_allows_slot_starting_exactly_at_opening_time(setup_overrides):
+    local_start = datetime.now(MADRID_TZ).replace(hour=9, minute=0, second=0, microsecond=0)
+    local_end = local_start + timedelta(hours=1)
+
+    response = client.post(
+        "/reservations/",
+        json={
+            "space_id": 3,
+            "start_at": local_start.astimezone(timezone.utc).isoformat(),
+            "end_at": local_end.astimezone(timezone.utc).isoformat(),
+            "guests_count": 1,
+        },
+    )
+
+    assert response.status_code == 201
+
+
 def test_create_reservation_rejects_guest_pass_spaces(setup_overrides):
     now = datetime.now(timezone.utc)
     response = client.post(
@@ -496,9 +563,7 @@ def test_list_occupied_slots_returns_active_slots_for_day(setup_overrides):
         }
     )
 
-    response = client.get(
-        f"/reservations/occupied-slots?space_id=3&reservation_date={now.date().isoformat()}"
-    )
+    response = client.get(f"/reservations/occupied-slots?space_id=3&reservation_date={now.date().isoformat()}")
 
     assert response.status_code == 200
     assert len(response.json()) == 1
@@ -574,7 +639,11 @@ def test_validate_qr_checks_in_pending_reservation_for_today(setup_overrides):
     )
 
     assert response.status_code == 200
-    assert response.json() == {"guests_count": 0, "status": "checked_in"}
+    data = response.json()
+    assert data["guests_count"] == 0
+    assert data["status"] == "checked_in"
+    assert data["space_name"] == "Pista de padel"
+    assert data["type"] == "reservation"
     assert reservation["status_id"] == 2
 
 
@@ -591,7 +660,11 @@ def test_validate_qr_checks_in_pending_guest_pass_for_today(setup_overrides):
     )
 
     assert response.status_code == 200
-    assert response.json() == {"guests_count": 1, "status": "checked_in"}
+    data = response.json()
+    assert data["guests_count"] == 1
+    assert data["status"] == "checked_in"
+    assert data["space_name"] == "Piscina"
+    assert data["type"] == "guest_pass"
     assert guest_pass["status_id"] == 2
 
 

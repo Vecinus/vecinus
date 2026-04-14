@@ -4,8 +4,8 @@ import types
 from importlib import metadata
 from typing import Any, Dict, List
 
-import pytest
 import pydantic.networks
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -119,7 +119,9 @@ class MockSupabaseTable:
     def execute(self):
         if self._operation == "insert":
             current = self._storage[self._table_name]
-            next_id = (max((row["id"] for row in current), default=0) + 1) if self._table_name == "common_space" else None
+            next_id = (
+                (max((row["id"] for row in current), default=0) + 1) if self._table_name == "common_space" else None
+            )
             new_row = dict(self._payload)
             if self._table_name == "common_space":
                 new_row["id"] = next_id
@@ -159,6 +161,8 @@ class MockSupabaseClientCommonSpace:
                     "association_id": ASSOCIATION_ID,
                     "name": "Piscina",
                     "requires_qr": True,
+                    "start_time": "09:00:00",
+                    "end_time": "21:00:00",
                     "created_at": "2026-03-15T09:00:00",
                 },
                 {
@@ -166,6 +170,8 @@ class MockSupabaseClientCommonSpace:
                     "association_id": ASSOCIATION_ID,
                     "name": "Gimnasio",
                     "requires_qr": False,
+                    "start_time": "08:00:00",
+                    "end_time": "22:00:00",
                     "created_at": "2026-03-16T09:00:00",
                 },
                 {
@@ -173,6 +179,8 @@ class MockSupabaseClientCommonSpace:
                     "association_id": OTHER_ASSOCIATION_ID,
                     "name": "Trastero",
                     "requires_qr": False,
+                    "start_time": "10:00:00",
+                    "end_time": "20:00:00",
                     "created_at": "2026-03-16T10:00:00",
                 },
             ],
@@ -240,6 +248,8 @@ def test_create_common_space_as_admin(setup_overrides):
         json={
             "name": "Sala comun",
             "requires_qr": True,
+            "start_time": "09:30:00",
+            "end_time": "20:30:00",
         },
     )
 
@@ -248,6 +258,8 @@ def test_create_common_space_as_admin(setup_overrides):
     assert data["id"] == 4
     assert data["name"] == "Sala comun"
     assert data["requires_qr"] is True
+    assert data["start_time"] == "09:30:00"
+    assert data["end_time"] == "20:30:00"
     assert data["association_id"] == ASSOCIATION_ID
 
 
@@ -287,6 +299,8 @@ def test_update_common_space(setup_overrides):
         json={
             "name": "Gimnasio renovado",
             "requires_qr": True,
+            "start_time": "07:00:00",
+            "end_time": "23:00:00",
         },
     )
 
@@ -295,6 +309,8 @@ def test_update_common_space(setup_overrides):
     assert data["id"] == 2
     assert data["name"] == "Gimnasio renovado"
     assert data["requires_qr"] is True
+    assert data["start_time"] == "07:00:00"
+    assert data["end_time"] == "23:00:00"
 
 
 def test_delete_common_space_forbidden_for_regular_member(setup_overrides):

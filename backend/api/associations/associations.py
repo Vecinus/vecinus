@@ -1,16 +1,20 @@
 from datetime import datetime, timedelta, timezone
 from typing import List
+from uuid import UUID
 
 from core.deps import get_current_user, get_supabase, get_supabase_admin, get_supabase_anon
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel  # <-- NUEVO IMPORT
 from schemas.associations import (
     AcceptInvitationRequest,
+    CommunityResponse,
     CommunityUser,
+    CreateCommunityRequest,
     InvitationResponse,
     InviteAdminRequest,
     InviteTenantRequest,
     MembershipWithCommunity,
+    PropertyUpdate,
     UserMeResponse,
 )
 from services.email_service import ROLE_LABELS, send_invitation_email
@@ -40,6 +44,58 @@ def get_my_communities(
         .execute()
     )
     return response.data
+
+
+@router.post("/communities", response_model=CommunityResponse, status_code=status.HTTP_201_CREATED)
+def create_community(
+    body: CreateCommunityRequest,
+    current_user: dict = Depends(get_current_user),
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
+    """
+    Crea una nueva comunidad (asociación de vecinos).
+    El usuario que la crea se convierte automáticamente en el Administrador (rol 1).
+    """
+    try:
+        # 1. Crear la comunidad en la tabla neighborhood_associations
+        community_data = {
+            "name": body.name,
+            "address": body.address,
+            "created_at": datetime.utcnow().isoformat(),
+        }
+
+        community_result = supabase_admin.table("neighborhood_associations").insert(community_data).execute()
+
+        if not community_result.data:
+            raise HTTPException(status_code=500, detail="Error al crear la comunidad")
+
+        community = community_result.data[0]
+        community_id = community["id"]
+
+        # 2. Crear la membresía del creador como Administrador (rol = 1)
+        membership_data = {
+            "profile_id": str(current_user["id"]),
+            "association_id": community_id,
+            "role": 1,  # ADMIN
+            "joined_at": datetime.utcnow().isoformat(),
+        }
+
+        membership_result = supabase_admin.table("memberships").insert(membership_data).execute()
+
+        if not membership_result.data:
+            raise HTTPException(status_code=500, detail="Error al crear la membresía del administrador")
+
+        return {
+            "id": community["id"],
+            "name": community["name"],
+            "address": community["address"],
+            "created_at": community["created_at"],
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno al crear la comunidad: {str(e)}")
 
 
 @router.get("/users/me", response_model=UserMeResponse)
@@ -433,13 +489,13 @@ def delete_member(
         .execute()
     )
 
-    is_admin = admin_check.data and admin_check.data[0].get("role") == 1
+    is_admin = admin_check.data and int(admin_check.data[0].get("role", 0)) in [1, 4]
 
     # Opcional: Permitir que un usuario se borre a sí mismo de la comunidad
     is_self = membership_to_delete["profile_id"] == current_user["id"]
 
     if not is_admin and not is_self:
-        raise HTTPException(status_code=403, detail="Admin access required for this action")
+        raise HTTPException(status_code=403, detail="Admin or Presidente access required for this action")
 
     try:
         delete_res = supabase_admin.table("memberships").delete().eq("id", membership_id).execute()
@@ -598,3 +654,52 @@ def get_pending_community_invitations(
     )
 
     return response.data
+
+
+@router.patch("/properties/{property_id}")
+def update_property(
+    property_id: UUID,
+    property_data: PropertyUpdate,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
+    """
+    Actualiza el coeficiente (cuota) o el estado de morosidad de una propiedad.
+    Solo accesible para Administradores o Presidentes (Roles 1 y 4).
+    """
+    prop_res = supabase_admin.table("properties").select("association_id").eq("id", str(property_id)).execute()
+
+    if not prop_res.data:
+        raise HTTPException(status_code=404, detail="Propiedad no encontrada")
+
+    association_id = prop_res.data[0]["association_id"]
+
+    admin_check = (
+        supabase.table("memberships")
+        .select("role")
+        .eq("profile_id", current_user["id"])
+        .eq("association_id", association_id)
+        .execute()
+    )
+
+    is_admin = admin_check.data and admin_check.data[0].get("role") in [1, 4]
+
+    if not is_admin:
+        raise HTTPException(
+            status_code=403, detail="Acceso denegado. Solo un administrador puede modificar las cuotas y morosidad."
+        )
+
+    update_data = property_data.model_dump(exclude_unset=True)
+
+    if not update_data:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No se enviaron datos para actualizar")
+
+    response = supabase_admin.table("properties").update(update_data).eq("id", str(property_id)).execute()
+
+    if not response.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Propiedad no encontrada o no se pudo actualizar"
+        )
+
+    return response.data[0]
