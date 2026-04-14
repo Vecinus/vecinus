@@ -24,6 +24,7 @@ import { useAuth } from '@/context/AuthContext';
 import {
   useCreateIncident,
   useIncidentsList,
+  useDiscardIncident,
 } from '@/hooks/useIncidents';
 
 import { IncidentCreateModal } from '@/components/community/incidents/IncidentCreateModal';
@@ -134,6 +135,7 @@ export default function IncidenciasScreen() {
   );
 
   const createIncidentMutation = useCreateIncident(communityId);
+  const discardIncidentMutation = useDiscardIncident(communityId);
 
   const filterTabs = useMemo<{ key: FilterStatus; label: string }[]>(() => {
     const baseTabs: { key: FilterStatus; label: string }[] = [
@@ -275,6 +277,22 @@ export default function IncidenciasScreen() {
     router.push(`/${communityId}/incidencia/${incidentId}` as any);
   };
 
+  const handleDeleteConfirm = (incidentId: string) => {
+    showAlert('Eliminar Incidencia', '¿Estás seguro de que deseas eliminar permanentemente esta incidencia?', () => {
+      discardIncidentMutation.mutate(
+        { incidentId },
+        {
+          onSuccess: () => {
+            // Refech already handled by invalidateQueries in the hook
+          },
+          onError: (err) => {
+            showAlert('Error', getUserFacingErrorMessage(err, 'No se pudo eliminar la incidencia.'));
+          },
+        }
+      );
+    });
+  };
+
   if (!communityId) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
@@ -285,11 +303,21 @@ export default function IncidenciasScreen() {
   }
 
   const renderIncidentItem = ({ item }: { item: Incident }) => {
+    const isOwner =
+      myIncidentIds.has(item.id) ||
+      !!(myMembershipId && String(item.membershipId) === String(myMembershipId));
+    const isAdminOrPresident = roleToken === '1' || roleToken === '4';
+    const canDeleteThis =
+      (isAdminOrPresident || isOwner) &&
+      ['PENDING', 'SOLVED', 'DISCARDED'].includes(item.status);
+
     return (
       <IncidentCard
         incident={item}
         reporterText={getReporterText(item)}
         canManageStatus={canManageStatus}
+        showDelete={canDeleteThis}
+        onDelete={() => handleDeleteConfirm(item.id)}
         onPress={() => onOpenDetail(item.id)}
       />
     );
@@ -363,23 +391,33 @@ export default function IncidenciasScreen() {
       {/* --- INFO MODAL --- */}
       <Modal visible={infoModal.visible} transparent animationType="fade" onRequestClose={() => {
           setInfoModal(prev => ({ ...prev, visible: false }));
-          infoModal.onConfirm?.();
       }}>
         <View className="flex-1 bg-black/50 items-center justify-center p-6">
           <View className="bg-background rounded-2xl p-6 w-full max-w-sm border border-border shadow-xl">
             <Text className="text-lg font-bold text-foreground mb-2">{infoModal.title}</Text>
             <Text className="text-muted-foreground mb-6">{infoModal.message}</Text>
             <View className="flex-row justify-end gap-3">
-              <Button 
-                onPress={() => {
-                  setInfoModal(prev => ({ ...prev, visible: false }));
-                  if (infoModal.onConfirm) {
-                    setTimeout(() => infoModal.onConfirm!(), 50);
-                  }
-                }}
-              >
-                <Text>Aceptar</Text>
-              </Button>
+              {infoModal.onConfirm ? (
+                <>
+                  <Button variant="outline" onPress={() => setInfoModal(prev => ({ ...prev, visible: false }))}>
+                    <Text>Cancelar</Text>
+                  </Button>
+                  <Button 
+                    onPress={() => {
+                      setInfoModal(prev => ({ ...prev, visible: false }));
+                      setTimeout(() => infoModal.onConfirm!(), 50);
+                    }}
+                  >
+                    <Text>Eliminar</Text>
+                  </Button>
+                </>
+              ) : (
+                <Button 
+                  onPress={() => setInfoModal(prev => ({ ...prev, visible: false }))}
+                >
+                  <Text>Aceptar</Text>
+                </Button>
+              )}
             </View>
           </View>
         </View>
