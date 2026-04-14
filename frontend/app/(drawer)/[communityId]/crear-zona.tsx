@@ -19,7 +19,7 @@ export default function CrearZona() {
     start_time: '09:00',
     end_time: '21:00',
     requires_qr: false,
-    max_capacity: 1,
+    capacity: 1,
     usage_mode: 'exclusive_reservation',
   };
 
@@ -60,7 +60,7 @@ export default function CrearZona() {
     }
 
     // 4. Validar capacidad
-    const maxCapacity = Number(data.max_capacity);
+    const maxCapacity = Number(data.capacity);
     if (isNaN(maxCapacity) || maxCapacity < 1 || !Number.isInteger(maxCapacity)) {
       return 'La capacidad máxima debe ser un número entero de al menos 1 persona.';
     }
@@ -81,7 +81,7 @@ export default function CrearZona() {
     }
 
     // 6. Validar modo de uso
-    if (data.usage_mode !== 'exclusive_reservation' && data.usage_mode !== 'shared_reservation') {
+    if (data.usage_mode !== 'exclusive_reservation' && data.usage_mode !== 'guest_pass') {
       return 'Modo de uso inválido.';
     }
 
@@ -108,7 +108,7 @@ export default function CrearZona() {
         start_time: data.start_time,
         end_time: data.end_time,
         requires_qr: !!data.requires_qr, // Forzamos booleano por seguridad
-        max_capacity: Number(data.max_capacity),
+        capacity: Number(data.capacity),
         usage_mode: data.usage_mode,
         max_guests_per_reservation: data.max_guests_per_reservation !== undefined
           ? Number(data.max_guests_per_reservation)

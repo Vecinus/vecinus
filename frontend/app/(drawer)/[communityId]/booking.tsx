@@ -238,12 +238,16 @@ export default function Reservas() {
         });
         setGuestPassCount(1);
       }
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+
+      const errorMessage = error?.response?.data?.detail
+        || error?.message
+        || 'No se pudo completar la acción. Inténtalo de nuevo.';
+
       setAlertConfig({
         visible: true,
-        title: 'Error',
-        message: 'No se pudo completar la acción. Inténtalo de nuevo.',
+        title: 'Error al generar pases',
+        message: errorMessage,
         type: 'error',
       });
     } finally {

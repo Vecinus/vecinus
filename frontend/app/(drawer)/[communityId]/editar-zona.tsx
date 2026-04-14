@@ -35,8 +35,8 @@ const validateData = (data: any): string | null => {
     return 'La hora de fin debe ser posterior a la hora de inicio.';
   }
 
-  const maxCapacity = Number(data.max_capacity);
-  if (isNaN(maxCapacity) || maxCapacity < 1 || !Number.isInteger(maxCapacity)) {
+  const capacity = Number(data.capacity);
+  if (isNaN(capacity) || capacity < 1 || !Number.isInteger(capacity)) {
     return 'La capacidad máxima debe ser un número entero de al menos 1 persona.';
   }
 
@@ -49,12 +49,12 @@ const validateData = (data: any): string | null => {
     if (isNaN(guests) || guests < 0 || !Number.isInteger(guests)) {
       return 'El número de invitados debe ser un número entero positivo o cero.';
     }
-    if (guests > maxCapacity) {
+    if (guests > capacity) {
       return 'El máximo de invitados por reserva no puede superar la capacidad total de la zona.';
     }
   }
 
-  if (data.usage_mode !== 'exclusive_reservation' && data.usage_mode !== 'shared_reservation') {
+  if (data.usage_mode !== 'exclusive_reservation' && data.usage_mode !== 'guest_pass') {
     return 'Modo de uso inválido.';
   }
 
@@ -119,7 +119,7 @@ export default function EditarZona() {
       ...data,
       name: data.name.trim(),
       requires_qr: !!data.requires_qr,
-      max_capacity: Number(data.max_capacity),
+      capacity: Number(data.capacity),
       max_guests_per_reservation: data.max_guests_per_reservation !== undefined && data.max_guests_per_reservation !== ''
         ? Number(data.max_guests_per_reservation)
         : undefined,
