@@ -35,11 +35,13 @@ export function CustomAlertDialog({
   onConfirm,
   onCancel,
   onAcknowledge,
+  isLoading = false,
 }: {
   config: AlertConfig;
   onConfirm: () => void;
   onCancel: () => void;
   onAcknowledge: () => void;
+  isLoading?: boolean;
 }) {
   return (
     <Modal transparent visible={config.visible} animationType="fade" onRequestClose={onCancel}>
@@ -50,11 +52,13 @@ export function CustomAlertDialog({
           <View className="flex-row justify-end gap-3">
             {config.type === 'confirm' ? (
               <>
-                <Button variant="outline" onPress={onCancel}>
-                  <Text>No</Text>
+                <Button variant="outline" onPress={onCancel} disabled={isLoading}>
+                  <Text>Cancelar</Text>
                 </Button>
-                <Button variant="destructive" onPress={onConfirm}>
-                  <Text className="text-destructive-foreground">Sí, cancelar</Text>
+                <Button variant="destructive" onPress={onConfirm} disabled={isLoading}>
+                  <Text className="text-destructive-foreground">
+                    {isLoading ? 'Confirmando...' : 'Confirmar'}
+                  </Text>
                 </Button>
               </>
             ) : (
