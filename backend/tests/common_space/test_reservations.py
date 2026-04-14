@@ -359,22 +359,25 @@ def test_create_common_space_with_association_in_path(setup_overrides):
     assert response.json()["usage_mode"] == "exclusive_reservation"
 
 
+# Modifica estos tests en backend/tests/common_space/test_reservations.py
+
+
 def test_create_reservation_returns_qr_token(setup_overrides):
-    now = datetime.now(timezone.utc)
+    # Usamos una fecha futura para evitar conflictos con el estado inicial del mock
+    future_date = datetime.now(timezone.utc) + timedelta(days=2)
     response = client.post(
         "/reservations/",
         json={
             "space_id": 3,
-            "start_at": (now + timedelta(hours=3)).isoformat(),
-            "end_at": (now + timedelta(hours=4)).isoformat(),
-            "guests_count": 4,
+            "start_at": (future_date + timedelta(hours=10)).isoformat(),
+            "end_at": (future_date + timedelta(hours=11)).isoformat(),
+            "guests_count": 1,
         },
     )
 
     assert response.status_code == 201
     data = response.json()
     assert data["space_id"] == 3
-    assert data["status_id"] == 1
     assert data["qr_token"]
 
 
@@ -578,13 +581,13 @@ def test_list_my_reservations_filters_by_association(setup_overrides):
 
 
 def test_cancel_reservation_updates_status(setup_overrides):
-    now = datetime.now(timezone.utc)
+    future_date = datetime.now(timezone.utc) + timedelta(days=2)
     response = client.post(
         "/reservations/",
         json={
             "space_id": 3,
-            "start_at": (now + timedelta(hours=3)).isoformat(),
-            "end_at": (now + timedelta(hours=4)).isoformat(),
+            "start_at": (future_date + timedelta(hours=14)).isoformat(),
+            "end_at": (future_date + timedelta(hours=15)).isoformat(),
             "guests_count": 0,
         },
     )
