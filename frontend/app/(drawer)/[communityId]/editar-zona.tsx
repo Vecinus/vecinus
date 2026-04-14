@@ -146,10 +146,12 @@ export default function EditarZona() {
     } catch (error: unknown) {
       setZona(prev);
       const err = error as { response?: { data?: { detail?: string } }; message?: string };
+
       const errorMsg =
-        err?.response?.data?.detail ||
-        err?.message ||
+        err.response?.data?.detail ||
+        err.message ||
         'No se pudieron guardar los cambios. Intenta de nuevo.';
+
       setErrorMessage(errorMsg);
     }
   };

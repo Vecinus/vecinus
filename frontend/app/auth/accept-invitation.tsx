@@ -77,7 +77,13 @@ export default function AcceptInvitationScreen() {
 
         } catch (error: unknown) {
             const err = error as { response?: { data?: { detail?: string } }; message?: string };
-            setErrorMessage(err?.response?.data?.detail || err?.message || 'Error desconocido');
+
+            const errorMessage =
+                err.response?.data?.detail ||
+                err.message ||
+                'Ocurrió un error al aceptar la invitación.';
+
+            setErrorMessage(errorMessage);
         }
     };
 

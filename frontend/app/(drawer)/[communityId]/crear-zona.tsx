@@ -23,7 +23,6 @@ export default function CrearZona() {
     usage_mode: 'exclusive_reservation',
   };
 
-  // --- Helpers de Validación ---
   const isValidTimeFormat = (time: string) => {
     const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
     return timeRegex.test(time);
@@ -34,7 +33,6 @@ export default function CrearZona() {
     return hours * 60 + minutes;
   };
 
-  // Usamos un tipo extendido para evitar "any" y permitir que el formulario envíe strings
   const validateData = (data: Partial<CommonSpace> & Record<string, unknown>): string | null => {
     const nameStr = String(data.name || '');
     if (!data.name || nameStr.trim().length < 3) {
@@ -112,9 +110,10 @@ export default function CrearZona() {
     } catch (error: unknown) {
       const err = error as { response?: { data?: { detail?: string } }; message?: string };
       const errorMsg =
-        err?.response?.data?.detail ||
-        err?.message ||
+        err.response?.data?.detail ||
+        err.message ||
         'No se pudo crear la zona. Intenta de nuevo.';
+
       setErrorMessage(errorMsg);
     } finally {
       setLoading(false);
