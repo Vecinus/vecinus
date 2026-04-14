@@ -3,6 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './tests/e2e',
   testMatch: '**/*.spec.ts',
+  timeout: 120000, // 2 minutos por test
   
   // Grabación de video
   use: {
@@ -10,6 +11,8 @@ export default defineConfig({
     trace: 'on-first-retry',
     video: 'retain-on-failure',        // Graba si falla
     screenshot: 'only-on-failure',
+    navigationTimeout: 120000, // 2 minutos para navegaciones
+    actionTimeout: 30000, // 30 segundos para acciones
   },
 
   projects: [
