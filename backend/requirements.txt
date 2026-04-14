@@ -93,7 +93,7 @@ fsspec==2026.3.0
     #   pyiceberg
 google-auth[requests]==2.49.1
     # via google-genai
-google-genai==1.72.0
+google-genai==1.73.0
     # via -r requirements.in
 h11==0.16.0
     # via
@@ -326,7 +326,7 @@ requests==2.33.1
     #   tiktoken
 requests-toolbelt==1.0.0
     # via langsmith
-resend==2.27.0
+resend==2.28.0
     # via -r requirements.in
 rich==14.3.3
     # via
