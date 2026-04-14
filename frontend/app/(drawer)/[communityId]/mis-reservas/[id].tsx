@@ -64,6 +64,7 @@ export default function DetalleReservaOPase() {
               statusId: found.status_id,
               qrToken: found.qr_token,
               guestsCount: found.guests_count,
+              requiresQr: found.requires_qr, // <-- AÑADIDO
             });
           }
         } else {
@@ -77,6 +78,7 @@ export default function DetalleReservaOPase() {
               startDate: found.valid_for_date,
               statusId: found.status_id,
               qrToken: found.qr_token,
+              requiresQr: found.requires_qr, // <-- AÑADIDO
             });
           }
         }
@@ -197,21 +199,23 @@ export default function DetalleReservaOPase() {
         </View>
 
         <Card className="mb-6 border-border">
-          <CardHeader className="items-center bg-secondary/20 pb-8 pt-8 rounded-t-xl">
-            <View className="bg-white p-4 rounded-xl shadow-sm border border-border">
-              <QRCode
-                value={item.qrToken || 'N/A'}
-                size={180}
-                color={isActive ? '#000000' : '#cccccc'}
-                quietZone={10}
-              />
-            </View>
-            <Text className="text-sm text-muted-foreground mt-4 font-mono">
-              {item.qrToken}
-            </Text>
-          </CardHeader>
+          {item.requiresQr && (
+            <CardHeader className="items-center bg-secondary/20 pb-8 pt-8 rounded-t-xl">
+              <View className="bg-white p-4 rounded-xl shadow-sm border border-border">
+                <QRCode
+                  value={item.qrToken || 'N/A'}
+                  size={180}
+                  color={isActive ? '#000000' : '#cccccc'}
+                  quietZone={10}
+                />
+              </View>
+              <Text className="text-sm text-muted-foreground mt-4 font-mono">
+                {item.qrToken}
+              </Text>
+            </CardHeader>
+          )}
 
-          <CardContent className="pt-6">
+          <CardContent className={item.requiresQr ? "pt-6" : "pt-6 mt-4"}>
             <CardTitle className="text-2xl text-center mb-6">{item.spaceName}</CardTitle>
             <View className="space-y-4">
               <View className="flex-row items-center gap-3">
@@ -265,7 +269,7 @@ export default function DetalleReservaOPase() {
                 <Text>Cancelar {item.type === 'reservation' ? 'Reserva' : 'Pase'}</Text>
               </Button>
             ) : null}
-            <Button variant="outline" className="w-full" onPress={() => router.back()}>
+            <Button variant="outline" className="w-full" onPress={() => router.push(`/${activeCommunity?.id}/mis-reservas`)}>
               <Text>Volver a la lista</Text>
             </Button>
           </CardFooter>

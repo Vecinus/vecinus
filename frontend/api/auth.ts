@@ -38,18 +38,45 @@ export const fetchUserWithCommunities = async (jwtToken: string): Promise<User> 
   };
 };
 
+
+export const useAcceptInvitationMutation = () => {
+  const { loginContext } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ invitation_token, password }: { invitation_token: string; password: string }) => {
+      const response = await apiClient.post<any>('/auth/accept-invitation', {
+        invitation_token,
+        password,
+      });
+
+      const token = response.data.token;
+
+      if (!token) {
+        throw new Error("No se recibió un token de acceso tras aceptar la invitación.");
+      }
+
+      const fullUser = await fetchUserWithCommunities(token);
+
+      return { user: fullUser, token };
+    },
+    onSuccess: (data) => {
+      loginContext(data.user, data.token);
+    },
+  });
+};
+
 export const useLoginMutation = () => {
   const { loginContext } = useAuth();
 
   return useMutation({
     mutationFn: async (credentials: LoginCredentials) => {
       // 1. Login to get session
-      const loginResponse = await apiClient.post<any>('/login', credentials);
+      const loginResponse = await apiClient.post<{ session: { access_token: string } }>('/login', credentials);
       const { session } = loginResponse.data;
       const token = session.access_token;
 
       // 2. Fetch user profile
-      const userResponse = await apiClient.get<any>('/users/me', {
+      const userResponse = await apiClient.get<{ id: string; username: string; email: string }>('/users/me', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const profile = userResponse.data;
