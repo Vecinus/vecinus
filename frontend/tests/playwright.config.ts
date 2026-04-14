@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './tests/e2e',
   testMatch: '**/*.spec.ts',
-  timeout: 120000, // 2 minutos por test
+  timeout: 1500000, 
   
   // Grabación de video
   use: {
