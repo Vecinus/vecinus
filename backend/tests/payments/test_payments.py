@@ -22,7 +22,7 @@ class EmailNotValidError(ValueError):
 
 
 def validate_email(email, *args, **kwargs):
-    return types.SimpleNamespace(email=email, normalized=email)
+    return types.SimpleNamespace(email=email, normalized=email, local_part=email.split("@")[0])
 
 
 email_validator_stub.EmailNotValidError = EmailNotValidError

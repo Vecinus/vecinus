@@ -510,8 +510,16 @@ export default function CommunityChatbotScreen() {
             value={question}
             onChangeText={setQuestion}
             onContentSizeChange={handleComposerSizeChange}
+            onKeyPress={(e: { key?: string; shiftKey?: boolean; preventDefault?: () => void }) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault?.();
+                void handleSend();
+              }
+            }}
             placeholder="Haz una pregunta sobre la comunidad..."
             numberOfLines={1}
+            returnKeyType="send"
+            enablesReturnKeyAutomatically
             scrollEnabled={composerHeight >= CHAT_COMPOSER_MAX_HEIGHT}
             style={{ height: composerHeight, maxHeight: CHAT_COMPOSER_MAX_HEIGHT }}
             className="min-h-0 flex-1 border-0 bg-transparent px-0 py-1 shadow-none"

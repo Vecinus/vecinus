@@ -3,6 +3,13 @@ import { apiClient } from './client';
 import { useAuth } from '@/context/AuthContext';
 import { LoginCredentials, User } from '@/types/auth.types';
 
+export interface RegisterCredentials {
+  email: string;
+  password: string;
+  password_confirm: string;
+  username: string;
+}
+
 export const fetchUserWithCommunities = async (jwtToken: string): Promise<User> => {
   const [userResponse, communitiesResponse] = await Promise.all([
     apiClient.get<any>('/users/me', {
@@ -72,6 +79,15 @@ export const useLoginMutation = () => {
     },
     onSuccess: (data) => {
       loginContext(data.user, data.token);
+    },
+  });
+};
+
+export const useRegisterMutation = () => {
+  return useMutation({
+    mutationFn: async (credentials: RegisterCredentials) => {
+      const response = await apiClient.post<unknown>('/register', credentials);
+      return response.data;
     },
   });
 };
