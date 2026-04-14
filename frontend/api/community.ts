@@ -30,12 +30,29 @@ export interface UserInvitation {
   date: string;
 }
 
+export interface CreateCommunityRequest {
+  name: string;
+  address: string;
+  description?: string;
+}
+
+export interface CommunityResponse {
+  id: string;
+  name: string;
+  address: string;
+  description?: string;
+  created_at: string;
+  created_by: string;
+}
+
 export const communityApi = {
+  createCommunity: async (community: CreateCommunityRequest): Promise<CommunityResponse> => {
+    const response = await apiClient.post<CommunityResponse>("/communities", community);
+    return response.data;
+  },
   getMembers: async (communityId: string): Promise<Member[]> => {
-    // El frontend antiguo llamaba a: `${API_URL}/${communityId}/users`
     const { data } = await apiClient.get(`/${communityId}/users`);
 
-    // Mapeo defensivo para evitar fallos si el backend devuelve ids raros
     const formattedMembers: Member[] = data.map((item: any) => {
       const roleId = typeof item.role === 'number' ? item.role : parseInt(item.role, 10) || 3;
       return {
@@ -51,13 +68,11 @@ export const communityApi = {
   },
 
   getPendingInvitations: async (communityId: string): Promise<PendingInvitation[]> => {
-    // El frontend antiguo llamaba a: `${API_URL}/${communityId}/invitations/pending`
     const { data } = await apiClient.get(`/${communityId}/invitations/pending`);
     return data;
   },
 
   deleteMember: async (membershipId: string): Promise<void> => {
-    // El frontend antiguo llamaba a: `${API_URL}/members/${membershipId}`
     await apiClient.delete(`/members/${membershipId}`);
   },
 
@@ -72,7 +87,6 @@ export const communityApi = {
     communityId: string;
     propertyId?: string;
   }): Promise<void> => {
-    // El frontend antiguo llamaba a: `${API_URL}/invite/admin`
     const body: Record<string, any> = {
       target_email: email,
       role_to_grant: roleToGrant,
@@ -86,14 +100,12 @@ export const communityApi = {
   },
 
   getAvailableProperties: async (communityId: string): Promise<Property[]> => {
-    // El frontend antiguo llamaba a: `${API_URL}/${communityId}/properties/available`
     const safeCommunityId = encodeURIComponent(communityId);
     const { data } = await apiClient.get(`/${safeCommunityId}/properties/available`);
     return Array.isArray(data) ? data : [];
   },
 
   addProperty: async (communityId: string, number: string): Promise<void> => {
-    // El frontend antiguo llamaba a: `${API_URL}/${communityId}/properties`
     const safeCommunityId = encodeURIComponent(communityId);
     await apiClient.post(`/${safeCommunityId}/properties`, { number });
   },

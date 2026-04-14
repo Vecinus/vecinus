@@ -1,7 +1,9 @@
 from schemas.associations.associations import (
     AcceptInvitationRequest,
     AssociationInfo,
+    CommunityResponse,
     CommunityUser,
+    CreateCommunityRequest,
     InvitationResponse,
     InviteAdminRequest,
     InviteTenantRequest,
@@ -20,4 +22,6 @@ __all__ = [
     "MembershipWithCommunity",
     "UserMeResponse",
     "PropertyUpdate",
+    "CreateCommunityRequest",
+    "CommunityResponse",
 ]
