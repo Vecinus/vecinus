@@ -3,7 +3,6 @@ import { View, ScrollView, FlatList } from 'react-native';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Text } from '@/components/ui/text';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PollResults, OptionResult, VoterDetail } from '@/types/polls.types';
 
@@ -16,7 +15,7 @@ const renderVoterRow = (voter: VoterDetail) => (
     key={`${voter.property_number}-${voter.coefficient}`}
     className="flex-row items-center gap-2 border-b border-border px-4 py-3">
     <View className="flex-1">
-      <Text className="text-sm font-semibold text-foreground">Puerta {voter.property_number}</Text>
+      <Text className="text-sm font-semibold text-foreground">{voter.property_number}</Text>
       <Text className="text-xs text-muted-foreground">
         Votó por: <Text className="font-semibold">{voter.voted_for}</Text>
       </Text>
@@ -32,9 +31,7 @@ const renderVoterRow = (voter: VoterDetail) => (
   </View>
 );
 
-export const ResultsView: React.FC<ResultsViewProps> = ({
-  results,
-}) => {
+export const ResultsView: React.FC<ResultsViewProps> = ({ results }) => {
   const totalVoters = results.census_eligible_voters;
   const totalCoefficient = results.census_eligible_coefficient;
 

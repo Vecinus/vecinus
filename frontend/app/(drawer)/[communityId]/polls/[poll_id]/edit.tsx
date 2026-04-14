@@ -219,7 +219,8 @@ export default function EditPollScreen() {
         <View className="w-full max-w-sm rounded-2xl border border-border bg-background p-6 shadow-xl">
           <Text className="mb-2 text-lg font-bold text-foreground">Eliminar Votación</Text>
           <Text className="mb-6 text-muted-foreground">
-            ¿Estás seguro de que deseas eliminar &quot;{title}&quot;? Esta acción no se puede deshacer.
+            ¿Estás seguro de que deseas eliminar &quot;{title}&quot;? Esta acción no se puede
+            deshacer.
           </Text>
           <View className="flex-row justify-end gap-3">
             <Button
@@ -228,10 +229,7 @@ export default function EditPollScreen() {
               disabled={isDeleting}>
               <Text>Cancelar</Text>
             </Button>
-            <Button
-              variant="destructive"
-              onPress={handleDeletePoll}
-              disabled={isDeleting}>
+            <Button variant="destructive" onPress={handleDeletePoll} disabled={isDeleting}>
               <Text className="text-destructive-foreground">
                 {isDeleting ? 'Eliminando...' : 'Eliminar'}
               </Text>
@@ -272,7 +270,7 @@ export default function EditPollScreen() {
                 }}
                 className="text-sm"
               />
-              <Text className="mt-2 text-xs text-muted-foreground mb-2">Hora de inicio</Text>
+              <Text className="mb-2 mt-2 text-xs text-muted-foreground">Hora de inicio</Text>
               <View className="flex-row gap-2">
                 <View className="flex-1">
                   <Text className="mb-1 text-xs font-semibold text-foreground">HH</Text>
@@ -356,9 +354,7 @@ export default function EditPollScreen() {
               <Text>Cancelar</Text>
             </Button>
             <Button onPress={handlePublishPoll} disabled={isPublishing}>
-              <Text className="text-white">
-                {isPublishing ? 'Publicando...' : 'Publicar'}
-              </Text>
+              <Text className="text-white">{isPublishing ? 'Publicando...' : 'Publicar'}</Text>
             </Button>
           </View>
         </View>

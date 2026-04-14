@@ -16,12 +16,13 @@ export default function VoteScreen() {
   const { user, activeCommunity } = useAuth();
 
   const poll_id = params?.poll_id as string;
+  const tokenFromUrl = params?.token as string;
 
   const [authStep, setAuthStep] = useState<'check' | 'auth' | 'vote'>('check');
   const [coefficient, setCoefficient] = useState<number>(0);
   const [isDefaulter, setIsDefaulter] = useState(false);
   const [hasVoted, setHasVoted] = useState(false);
-  const [votingToken, setVotingToken] = useState<string | null>(null);
+  const [votingToken, setVotingToken] = useState<string | null>(tokenFromUrl || null);
   const [voteError, setVoteError] = useState<string | null>(null);
 
   const [poll, setPoll] = useState<Poll | null>(null);
@@ -46,7 +47,7 @@ export default function VoteScreen() {
           if (e.response?.status === 403) return { is_defaulter: true, coefficient: 0 };
           throw e;
         }),
-        pollsApi.checkUserHasVoted(poll_id)
+        pollsApi.checkUserHasVoted(poll_id),
       ]);
 
       setPoll(pollData);
@@ -58,6 +59,8 @@ export default function VoteScreen() {
         setAuthStep('vote');
       } else if (membershipData.is_defaulter) {
         setAuthStep('vote');
+      } else if (tokenFromUrl) {
+        setAuthStep('vote');
       } else {
         setAuthStep('auth');
       }
@@ -67,7 +70,7 @@ export default function VoteScreen() {
     } finally {
       setIsPollLoading(false);
     }
-  }, [poll_id, user?.id]);
+  }, [poll_id, user?.id, tokenFromUrl]);
 
   useEffect(() => {
     fetchData();
@@ -90,11 +93,6 @@ export default function VoteScreen() {
       ),
     });
   }, [navigation, router, associationId]);
-
-  const handleTokenObtained = (token: string) => {
-    setVotingToken(token);
-    setAuthStep('vote');
-  };
 
   const handleVoteSubmit = async (selectedOption: string, optionIndex: number) => {
     if (!poll_id) {
@@ -237,8 +235,7 @@ export default function VoteScreen() {
           <PollEmailAuth
             pollId={poll_id}
             userEmail={user?.email || ''}
-            onTokenObtained={handleTokenObtained}
-            onCancel={() => router.push(`/${associationId}/polls` as any)}
+            onCancel={() => router.back()}
           />
         ) : (
           <VoteForm

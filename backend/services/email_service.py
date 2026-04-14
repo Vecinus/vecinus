@@ -165,37 +165,45 @@ ROLE_LABELS = {
 }
 
 
-def send_voting_email(to_email: str, association_name: str, poll_title: str, token: str) -> None:
+def send_voting_email(
+    to_email: str, association_name: str, poll_title: str, token: str, poll_id: str, association_id: str
+) -> None:
     resend.api_key = settings.RESEND_API_KEY
-    voting_link = f"{settings.APP_BASE_URL}/votar?token={token}"
+    voting_link = f"{settings.APP_BASE_URL}/votar?token={token}&poll_id={poll_id}&association_id={association_id}"
 
     html_content = f"""
         <html>
-            <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+            <body style="font-family: Arial, sans-serif; color: #333;
+                         line-height: 1.6;">
                 <div style="max-width: 600px; margin: 0 auto; padding: 20px;
-                 border: 1px solid #eaeaea; border-radius: 8px;">
+                            border: 1px solid #eaeaea; border-radius: 8px;">
                     <h2 style="color: #2c3e50;">¡Hola!</h2>
-                    <p>Se ha publicado una nueva votación vinculante en tu comunidad
-                     <strong>{association_name}</strong> a través de Vecinus.</p>
+                    <p>Se ha publicado una nueva votación vinculante en tu
+                     comunidad <strong>{association_name}</strong> a través de
+                     Vecinus.</p>
 
                     <div style="background-color: #f8f9fa; padding: 15px;
-                      border-left: 4px solid #0056b3; margin: 20px 0;">
+                                border-left: 4px solid #0056b3; margin: 20px 0;">
                         <strong>Asunto a votar:</strong><br>
                         {poll_title}
                     </div>
 
-                    <p>Para ejercer tu derecho a voto, haz clic en el siguiente enlace personal e intransferible:</p>
+                    <p>Para ejercer tu derecho a voto, haz clic en el siguiente
+                     enlace personal e intransferible:</p>
 
                     <div style="text-align: center; margin: 30px 0;">
-                        <a href="{voting_link}" style="background-color: #0056b3; color: white; padding: 12px 25px;
-                          text-decoration: none; border-radius: 5px; font-weight: bold;">
+                        <a href="{voting_link}"
+                           style="background-color: #0056b3; color: white;
+                                  padding: 12px 25px; text-decoration: none;
+                                  border-radius: 5px; font-weight: bold;">
                             Votar Ahora
                         </a>
                     </div>
 
                     <p style="font-size: 0.9em; color: #666;">
                         <em>* Nota legal: Este enlace es de un único uso.
-                         Al emitir tu voto, tu cuota de participación quedará registrada de forma inmutable.</em>
+                         Al emitir tu voto, tu cuota de participación quedará
+                         registrada de forma inmutable.</em>
                     </p>
                     <br>
                     <p>Saludos,<br>El equipo de Vecinus</p>
@@ -222,63 +230,131 @@ def send_voting_auth_email(to_email: str, association_name: str, poll_title: str
 
     html_content = f"""
         <html>
-            <body style="font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #11181C; line-height: 1.6; background-color: #eef4f7; margin: 0; padding: 0;">
-                <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #eef4f7; padding: 40px 16px;">
+            <body style="font-family: system-ui, -apple-system, 'Segoe UI',
+                         Roboto, Helvetica, Arial, sans-serif; color: #11181C;
+                         line-height: 1.6; background-color: #eef4f7;
+                         margin: 0; padding: 0;">
+                <table width="100%" cellpadding="0" cellspacing="0"
+                       role="presentation"
+                       style="background-color: #eef4f7; padding: 40px 16px;">
                     <tr>
                         <td align="center">
-                            <table width="480" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #ffffff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); overflow: hidden; max-width: 480px; width: 100%;">
+                            <table width="480" cellpadding="0" cellspacing="0"
+                                   role="presentation"
+                                   style="background-color: #ffffff;
+                                           border-radius: 16px;
+                                           box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+                                           overflow: hidden; max-width: 480px;
+                                           width: 100%;">
                                 <tr>
-                                    <td style="background: linear-gradient(135deg, #0a7ea4 0%, #086a8a 100%); padding: 32px 40px 28px; text-align: center;">
-                                        <span style="font-size: 26px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">VecinUs</span>
+                                    <td style="background: linear-gradient(135deg,
+                                                #0a7ea4 0%, #086a8a 100%);
+                                               padding: 32px 40px 28px;
+                                               text-align: center;">
+                                        <span style="font-size: 26px;
+                                                     font-weight: 700;
+                                                     color: #ffffff;
+                                                     letter-spacing: -0.5px;">
+                                            VecinUs
+                                        </span>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td style="padding: 36px 40px 20px;">
-                                        <h1 style="margin: 0 0 12px; font-size: 22px; font-weight: 700; color: #11181C; line-height: 1.3;">
-                                            Código de Autenticación para Votación
+                                        <h1 style="margin: 0 0 12px;
+                                                   font-size: 22px;
+                                                   font-weight: 700;
+                                                   color: #11181C;
+                                                   line-height: 1.3;">
+                                            Código de Autenticación para
+                                            Votación
                                         </h1>
-                                        <p style="margin: 0 0 8px; font-size: 15px; color: #687076; line-height: 1.6;">
-                                            Se ha iniciado el proceso de autenticación para participar en la votación de tu comunidad.
+                                        <p style="margin: 0 0 8px;
+                                                  font-size: 15px;
+                                                  color: #687076;
+                                                  line-height: 1.6;">
+                                            Se ha iniciado el proceso de
+                                            autenticación para participar en la
+                                            votación de tu comunidad.
                                         </p>
 
-                                        <div style="background-color: #eef4f7; padding: 15px; border-left: 4px solid #0a7ea4; margin: 20px 0; border-radius: 6px;">
-                                            <strong style="font-size: 16px; color: #0a7ea4;">Votación:</strong><br>
-                                            <span style="font-size: 15px; color: #11181C;">{poll_title}</span>
+                                        <div style="background-color: #eef4f7;
+                                                    padding: 15px;
+                                                    border-left: 4px solid #0a7ea4;
+                                                    margin: 20px 0;
+                                                    border-radius: 6px;">
+                                            <strong style="font-size: 16px;
+                                                          color: #0a7ea4;">
+                                                Votación:
+                                            </strong><br>
+                                            <span style="font-size: 15px;
+                                                         color: #11181C;">
+                                                {poll_title}
+                                            </span>
                                         </div>
 
-                                        <p style="margin: 0 0 20px; font-size: 15px; color: #687076; line-height: 1.6;">
-                                            Usa el siguiente código en la app de {association_name} para autenticarte:
+                                        <p style="margin: 0 0 20px;
+                                                  font-size: 15px;
+                                                  color: #687076;
+                                                  line-height: 1.6;">
+                                            Usa el siguiente código en la app de
+                                            {association_name} para autenticarte:
                                         </p>
 
-                                        <div style="text-align: center; margin: 30px 0;">
-                                            <div style="background-color: #f0f7ff; border: 2px dashed #0a7ea4; border-radius: 10px; padding: 20px;">
-                                                <span style="font-size: 32px; font-weight: 700; color: #0a7ea4; font-family: 'Courier New', monospace; letter-spacing: 3px;">
+                                        <div style="text-align: center;
+                                                    margin: 30px 0;">
+                                            <div style="background-color: #f0f7ff;
+                                                        border: 2px dashed #0a7ea4;
+                                                        border-radius: 10px;
+                                                        padding: 20px;">
+                                                <span style="font-size: 32px;
+                                                             font-weight: 700;
+                                                             color: #0a7ea4;
+                                                             font-family: 'Courier New',
+                                                                          monospace;
+                                                             letter-spacing: 3px;">
                                                     {auth_token[:8].upper()}
                                                 </span>
                                             </div>
                                         </div>
 
-                                        <p style="margin: 0; font-size: 12px; color: #687076; text-align: center;">
+                                        <p style="margin: 0; font-size: 12px;
+                                                  color: #687076;
+                                                  text-align: center;">
                                             Este código expira en 1 hora
                                         </p>
 
-                                        <p style="font-size: 0.9em; color: #687076; margin: 20px 0 0;">
-                                            <em>* Este código es personal e intransferible. No lo compartas con nadie.</em>
+                                        <p style="font-size: 0.9em;
+                                                  color: #687076;
+                                                  margin: 20px 0 0;">
+                                            <em>* Este código es personal e
+                                            intransferible. No lo compartas con
+                                            nadie.</em>
                                         </p>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td style="padding: 0 40px;">
-                                        <hr style="border: none; border-top: 1px solid #e8edf0; margin: 0;" />
+                                        <hr style="border: none;
+                                                   border-top: 1px solid #e8edf0;
+                                                   margin: 0;" />
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td style="padding: 20px 40px 32px; text-align: center;">
-                                        <p style="margin: 0; font-size: 12px; color: #687076; line-height: 1.6;">
-                                            Si no solicitaste votar en esta comunidad, puedes ignorar este email con total seguridad.
+                                    <td style="padding: 20px 40px 32px;
+                                               text-align: center;">
+                                        <p style="margin: 0; font-size: 12px;
+                                                  color: #687076;
+                                                  line-height: 1.6;">
+                                            Si no solicitaste votar en esta
+                                            comunidad, puedes ignorar este email
+                                            con total seguridad.
                                         </p>
-                                        <p style="margin: 12px 0 0; font-size: 11px; color: #9BA1A6;">
-                                            © VecinUs — Gestión de comunidades de vecinos
+                                        <p style="margin: 12px 0 0;
+                                                  font-size: 11px;
+                                                  color: #9BA1A6;">
+                                            © VecinUs — Gestión de comunidades
+                                            de vecinos
                                         </p>
                                     </td>
                                 </tr>

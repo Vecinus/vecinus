@@ -114,6 +114,8 @@ class PollService:
                         association_name=association_name,
                         poll_title=poll_title,
                         token=data["token"],
+                        poll_id=str(poll_id),
+                        association_id=association_id,
                     )
                 except Exception as e:
                     print(f"Error enviando correo a {data['email']}: {e}")
