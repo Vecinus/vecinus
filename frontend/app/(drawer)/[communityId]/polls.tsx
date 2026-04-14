@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
-import { useRouter, Stack } from 'expo-router';
+import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { useRole } from '@/hooks/useRole';
 import { pollsApi } from '@/api/polls';
@@ -33,7 +33,7 @@ export default function PollsScreen() {
       const data = await pollsApi.fetchPolls(associationId);
       setPolls(data);
     } catch (err) {
-      console.error("Error al obtener votaciones:", err);
+      console.error('Error al obtener votaciones:', err);
       setError(true);
     } finally {
       setIsLoading(false);
@@ -41,9 +41,12 @@ export default function PollsScreen() {
   }, [associationId]);
 
   // 3. Ejecutamos la función cuando el componente se monta o cambia el associationId
-  useEffect(() => {
-    fetchPollsData();
-  }, [fetchPollsData]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchPollsData();
+    }, [fetchPollsData])
+  );
 
   // 4. Arreglamos la función de refresco
   const handleRefresh = useCallback(async () => {
@@ -72,12 +75,12 @@ export default function PollsScreen() {
           title: 'Votaciones',
           headerRight: isAdmin
             ? () => (
-              <TouchableOpacity
-                onPress={() => router.push(`/${associationId}/polls/create` as any)}
-                className="mr-4 rounded bg-primary px-3 py-2">
-                <Text className="text-sm font-semibold text-white">+ Nueva</Text>
-              </TouchableOpacity>
-            )
+                <TouchableOpacity
+                  onPress={() => router.push(`/${associationId}/polls/create` as any)}
+                  className="mr-4 rounded bg-primary px-3 py-2">
+                  <Text className="text-sm font-semibold text-white">+ Nueva</Text>
+                </TouchableOpacity>
+              )
             : undefined,
         }}
       />
@@ -107,7 +110,9 @@ export default function PollsScreen() {
                   isAdmin={isAdmin}
                   onPress={() => router.push(`/${associationId}/polls/${item.id}` as any)}
                   onEditPress={() => router.push(`/${associationId}/polls/${item.id}/edit` as any)}
-                  onResultsPress={() => router.push(`/${associationId}/polls/results/${item.id}` as any)}
+                  onResultsPress={() =>
+                    router.push(`/${associationId}/polls/results/${item.id}` as any)
+                  }
                 />
               </View>
             )}
