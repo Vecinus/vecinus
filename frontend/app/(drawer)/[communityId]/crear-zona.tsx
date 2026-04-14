@@ -25,51 +25,48 @@ export default function CrearZona() {
 
   // --- Helpers de Validación ---
   const isValidTimeFormat = (time: string) => {
-    // Valida formato estricto HH:MM (ej. 09:00, 23:59)
     const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
     return timeRegex.test(time);
   };
 
   const timeToMinutes = (time: string) => {
-    // Convierte HH:MM a minutos totales para comparar qué hora es mayor
     const [hours, minutes] = time.split(':').map(Number);
     return hours * 60 + minutes;
   };
 
-  // Función validadora principal
-  const validateData = (data: any): string | null => {
-    // 1. Validar Nombre
-    if (!data.name || typeof data.name !== 'string' || data.name.trim().length < 3) {
+  // Usamos un tipo extendido para evitar "any" y permitir que el formulario envíe strings
+  const validateData = (data: Partial<CommonSpace> & Record<string, unknown>): string | null => {
+    const nameStr = String(data.name || '');
+    if (!data.name || nameStr.trim().length < 3) {
       return 'El nombre de la zona debe tener al menos 3 caracteres.';
     }
-    if (data.name.length > 50) {
+    if (nameStr.length > 50) {
       return 'El nombre de la zona es demasiado largo (máximo 50 caracteres).';
     }
 
-    // 2. Validar formato de horas
-    if (!data.start_time || !isValidTimeFormat(data.start_time)) {
+    const startTime = data.start_time as string;
+    const endTime = data.end_time as string;
+
+    if (!startTime || !isValidTimeFormat(startTime)) {
       return 'Formato de hora de inicio inválido (Usa HH:MM).';
     }
-    if (!data.end_time || !isValidTimeFormat(data.end_time)) {
+    if (!endTime || !isValidTimeFormat(endTime)) {
       return 'Formato de hora de fin inválido (Usa HH:MM).';
     }
 
-    // 3. Lógica de horas (Fin debe ser posterior a Inicio)
-    if (timeToMinutes(data.end_time) <= timeToMinutes(data.start_time)) {
+    if (timeToMinutes(endTime) <= timeToMinutes(startTime)) {
       return 'La hora de fin debe ser posterior a la hora de inicio.';
     }
 
-    // 4. Validar capacidad
     const maxCapacity = Number(data.capacity);
     if (isNaN(maxCapacity) || maxCapacity < 1 || !Number.isInteger(maxCapacity)) {
       return 'La capacidad máxima debe ser un número entero de al menos 1 persona.';
     }
 
-    // 5. Validar invitados (Opcional, pero si existe debe ser lógico)
     if (
       data.max_guests_per_reservation !== undefined &&
       data.max_guests_per_reservation !== null &&
-      data.max_guests_per_reservation !== ''
+      String(data.max_guests_per_reservation) !== ''
     ) {
       const guests = Number(data.max_guests_per_reservation);
       if (isNaN(guests) || guests < 0 || !Number.isInteger(guests)) {
@@ -80,21 +77,17 @@ export default function CrearZona() {
       }
     }
 
-    // 6. Validar modo de uso
     if (data.usage_mode !== 'exclusive_reservation' && data.usage_mode !== 'guest_pass') {
       return 'Modo de uso inválido.';
     }
 
-    return null; // Si pasa todo, retorna null (sin error)
+    return null;
   };
 
-  const handleSave = async (data: any) => {
+  const handleSave = async (data: Partial<CommonSpace>) => {
     setErrorMessage('');
 
-    // Ejecutamos la validación
     const validationError = validateData(data);
-
-    // Si hay un error, lo mostramos y detenemos la ejecución
     if (validationError) {
       setErrorMessage(validationError);
       return;
@@ -104,22 +97,23 @@ export default function CrearZona() {
 
     try {
       await commonSpaceApi.createCommonSpace(communityId as string, {
-        name: data.name.trim(),
+        name: data.name?.trim() || '',
         start_time: data.start_time,
         end_time: data.end_time,
-        requires_qr: !!data.requires_qr, // Forzamos booleano por seguridad
+        requires_qr: !!data.requires_qr,
         capacity: Number(data.capacity),
-        usage_mode: data.usage_mode,
+        usage_mode: data.usage_mode as "exclusive_reservation" | "guest_pass",
         max_guests_per_reservation: data.max_guests_per_reservation !== undefined
           ? Number(data.max_guests_per_reservation)
           : undefined,
       });
 
       router.push(`/${communityId}/booking`);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { detail?: string } }; message?: string };
       const errorMsg =
-        error?.response?.data?.detail ||
-        error?.message ||
+        err?.response?.data?.detail ||
+        err?.message ||
         'No se pudo crear la zona. Intenta de nuevo.';
       setErrorMessage(errorMsg);
     } finally {

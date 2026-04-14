@@ -75,10 +75,9 @@ export default function AcceptInvitationScreen() {
             // Si llega hasta aquí, onSuccess (en api/auth.ts) ya actualizó el AuthContext
             router.replace('/(drawer)');
 
-        } catch (error: any) {
-            // Manejamos errores (axios suele empaquetar el error del backend en error.response.data)
-            const serverError = error?.response?.data?.detail || error.message || 'Error desconocido';
-            setErrorMessage(serverError);
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { detail?: string } }; message?: string };
+            setErrorMessage(err?.response?.data?.detail || err?.message || 'Error desconocido');
         }
     };
 

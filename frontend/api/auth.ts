@@ -71,12 +71,12 @@ export const useLoginMutation = () => {
   return useMutation({
     mutationFn: async (credentials: LoginCredentials) => {
       // 1. Login to get session
-      const loginResponse = await apiClient.post<any>('/login', credentials);
+      const loginResponse = await apiClient.post<{ session: { access_token: string } }>('/login', credentials);
       const { session } = loginResponse.data;
       const token = session.access_token;
 
       // 2. Fetch user profile
-      const userResponse = await apiClient.get<any>('/users/me', {
+      const userResponse = await apiClient.get<{ id: string; username: string; email: string }>('/users/me', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const profile = userResponse.data;

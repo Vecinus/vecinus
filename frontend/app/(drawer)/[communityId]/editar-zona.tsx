@@ -5,7 +5,6 @@ import { Text } from '@/components/ui/text';
 import { commonSpaceApi, CommonSpace } from '@/api/commonSpace';
 import ZoneForm from '@/components/booking/zone-form';
 
-// --- Helpers de Validación (fuera del componente para optimizar rendimiento) ---
 const isValidTimeFormat = (time: string) => {
   const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
   return timeRegex.test(time);
@@ -16,22 +15,26 @@ const timeToMinutes = (time: string) => {
   return hours * 60 + minutes;
 };
 
-const validateData = (data: any): string | null => {
-  if (!data.name || typeof data.name !== 'string' || data.name.trim().length < 3) {
+const validateData = (data: Partial<CommonSpace> & Record<string, unknown>): string | null => {
+  const nameStr = String(data.name || '');
+  if (!data.name || nameStr.trim().length < 3) {
     return 'El nombre de la zona debe tener al menos 3 caracteres.';
   }
-  if (data.name.length > 50) {
+  if (nameStr.length > 50) {
     return 'El nombre de la zona es demasiado largo (máximo 50 caracteres).';
   }
 
-  if (!data.start_time || !isValidTimeFormat(data.start_time)) {
+  const startTime = data.start_time as string;
+  const endTime = data.end_time as string;
+
+  if (!startTime || !isValidTimeFormat(startTime)) {
     return 'Formato de hora de inicio inválido (Usa HH:MM).';
   }
-  if (!data.end_time || !isValidTimeFormat(data.end_time)) {
+  if (!endTime || !isValidTimeFormat(endTime)) {
     return 'Formato de hora de fin inválido (Usa HH:MM).';
   }
 
-  if (timeToMinutes(data.end_time) <= timeToMinutes(data.start_time)) {
+  if (timeToMinutes(endTime) <= timeToMinutes(startTime)) {
     return 'La hora de fin debe ser posterior a la hora de inicio.';
   }
 
@@ -43,7 +46,7 @@ const validateData = (data: any): string | null => {
   if (
     data.max_guests_per_reservation !== undefined &&
     data.max_guests_per_reservation !== null &&
-    data.max_guests_per_reservation !== ''
+    String(data.max_guests_per_reservation) !== ''
   ) {
     const guests = Number(data.max_guests_per_reservation);
     if (isNaN(guests) || guests < 0 || !Number.isInteger(guests)) {
@@ -98,15 +101,13 @@ export default function EditarZona() {
     }, [communityId, zona_id, loadZona])
   );
 
-  const handleSave = async (data: any) => {
+  const handleSave = async (data: Partial<CommonSpace>) => {
     if (!zona) return;
 
-    setErrorMessage(''); // Limpiar errores previos
+    setErrorMessage('');
 
-    // 1. Ejecutamos la validación
     const validationError = validateData(data);
 
-    // Si hay un error, lo mostramos y detenemos la ejecución antes de tocar el estado
     if (validationError) {
       setErrorMessage(validationError);
       return;
@@ -114,24 +115,24 @@ export default function EditarZona() {
 
     const prev = zona;
 
-    // 2. Formateamos los datos para asegurar los tipos correctos antes de enviar
     const formattedData = {
       ...data,
-      name: data.name.trim(),
+      name: data.name?.trim() || '',
       requires_qr: !!data.requires_qr,
       capacity: Number(data.capacity),
-      max_guests_per_reservation: data.max_guests_per_reservation !== undefined && data.max_guests_per_reservation !== ''
-        ? Number(data.max_guests_per_reservation)
-        : undefined,
+      usage_mode: data.usage_mode as "exclusive_reservation" | "guest_pass" | undefined,
+      max_guests_per_reservation:
+        data.max_guests_per_reservation !== undefined && String(data.max_guests_per_reservation) !== ''
+          ? Number(data.max_guests_per_reservation)
+          : undefined,
     };
 
-    // 3. Actualización optimista con los datos formateados
     const optimistic = {
       ...zona,
       ...formattedData,
     };
 
-    setZona(optimistic);
+    setZona(optimistic as CommonSpace);
 
     try {
       const updated = await commonSpaceApi.updateCommonSpace(
@@ -142,12 +143,12 @@ export default function EditarZona() {
 
       setZona(updated);
       router.push(`/${communityId}/booking`);
-    } catch (error: any) {
-      // Si falla, revertimos al estado anterior (prev)
+    } catch (error: unknown) {
       setZona(prev);
+      const err = error as { response?: { data?: { detail?: string } }; message?: string };
       const errorMsg =
-        error?.response?.data?.detail ||
-        error?.message ||
+        err?.response?.data?.detail ||
+        err?.message ||
         'No se pudieron guardar los cambios. Intenta de nuevo.';
       setErrorMessage(errorMsg);
     }

@@ -238,10 +238,12 @@ export default function Reservas() {
         });
         setGuestPassCount(1);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      // Le decimos a TypeScript qué estructura tiene el error (tipo Axios)
+      const err = error as { response?: { data?: { detail?: string } }; message?: string };
 
-      const errorMessage = error?.response?.data?.detail
-        || error?.message
+      const errorMessage = err?.response?.data?.detail
+        || err?.message
         || 'No se pudo completar la acción. Inténtalo de nuevo.';
 
       setAlertConfig({
@@ -380,7 +382,7 @@ export default function Reservas() {
                 monthTextColor: '#111827',
               }}
               minDate={new Date().toISOString().split('T')[0]}
-              onDayPress={(day: any) => setFechaSeleccionada(day.dateString)}
+              onDayPress={(day: { dateString: string }) => setFechaSeleccionada(day.dateString)}
               markedDates={{
                 [fechaSeleccionada]: {
                   selected: true,
