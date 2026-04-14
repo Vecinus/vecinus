@@ -6,7 +6,7 @@ export interface CommonSpace {
   created_at?: string;
   name: string;
   requires_qr?: boolean;
-  max_capacity?: number;
+  capacity?: number;
   max_guests_per_reservation?: number;
   photo_url?: string | null;
   usage_mode?: string | 'exclusive_reservation';
@@ -21,7 +21,6 @@ export interface CommonSpaceUpdate {
   start_time?: string;
   end_time?: string;
   usage_mode?: 'exclusive_reservation' | 'guest_pass';
-  max_capacity?: number;
   max_guests_per_reservation?: number;
 }
 

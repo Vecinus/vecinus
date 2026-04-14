@@ -83,7 +83,12 @@ async function uploadCommunityDocument(
 
     const response = await apiClient.post<UploadDocumentResponse>(
       `/comunities/${communityId}/documents`,
-      formData
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
     );
     return response.data;
   }

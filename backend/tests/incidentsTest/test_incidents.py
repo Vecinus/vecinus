@@ -979,22 +979,6 @@ def test_post_state_incident_not_found():
     assert data["detail"] == "Incident not found"
 
 
-@pytest.mark.parametrize(
-    "user,incident_id",
-    [
-        (mock_president, mock_incident_7_id),
-        (mock_employee, mock_incident_5_id),
-    ],
-)
-def test_post_state_own_incident(user, incident_id):
-    app.dependency_overrides[get_current_user] = lambda: user
-    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
-    response = client.post(f"/incidents/{mock_association_id}/{incident_id}/status?status=IN PROGRESS")
-    assert response.status_code == 403
-    data = response.json()
-    assert data["detail"] == "Users cannot update the status of their own incidents"
-
-
 # ------------------- DELETE incidents/{association_id}/{incident_id} ------------------
 
 

@@ -243,8 +243,6 @@ def update_incident_status(
     user_id = current_user["id"]
     if str(get_user_role(supabase, association_id, user_id)) not in {"1", "4", "5"}:
         raise HTTPException(status_code=403, detail="Admin, president or employee access required for this action")
-    elif verify_own_incident(association_id, incident_id, user_id, supabase):
-        raise HTTPException(status_code=403, detail="Users cannot update the status of their own incidents")
 
     latest_state = get_latest_state(supabase, incident_id)
 
