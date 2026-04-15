@@ -13,21 +13,6 @@ GUEST_PASS_MODE = "guest_pass"
 EMPLOYEE_ROLE_ID = "5"
 
 
-def _get_common_space(supabase: Client, space_id: int) -> dict:
-    response = (
-        supabase.table(COMMON_SPACE_TABLE)
-        .select("id, association_id, name, requires_qr, usage_mode")
-        .eq("id", space_id)
-        .limit(1)
-        .execute()
-    )
-
-    if not response.data:
-        raise HTTPException(status_code=404, detail="No se ha encontrado la zona comun")
-
-    return response.data[0]
-
-
 def _verify_employee_membership(supabase_admin: Client, association_id: str, user_id: str) -> None:
     membership_response = (
         supabase_admin.table("memberships")
@@ -45,10 +30,70 @@ def _verify_employee_membership(supabase_admin: Client, association_id: str, use
         raise HTTPException(status_code=403, detail="Se requiere rol de empleado para validar el QR")
 
 
+def _get_common_space(supabase: Client, space_id: int) -> dict:
+    response = (
+        supabase.table(COMMON_SPACE_TABLE)
+        # Añadimos "capacity" al select para conocer el aforo total
+        .select("id, association_id, name, requires_qr, usage_mode, max_guests_per_reservation, capacity")
+        .eq("id", space_id)
+        .limit(1)
+        .execute()
+    )
+
+    if not response.data:
+        raise HTTPException(status_code=404, detail="No se ha encontrado la zona comun")
+
+    return response.data[0]
+
+
 def create_guest_pass(supabase: Client, user_id: str, payload: GuestPassCreate) -> dict:
     space = _get_common_space(supabase, payload.space_id)
     if space.get("usage_mode") != GUEST_PASS_MODE:
         raise HTTPException(status_code=400, detail="Esta zona comun no admite pases de invitado")
+
+    # 1. Validar la CAPACIDAD TOTAL (Aforo de la zona para ese día)
+    capacity = space.get("capacity")
+    if capacity is not None:
+        # Contamos TODOS los pases de CUALQUIER usuario para esta zona y fecha
+        total_passes_response = (
+            supabase.table(GUEST_PASS_TABLE)
+            .select("id")
+            .eq("space_id", payload.space_id)
+            .eq("valid_for_date", payload.valid_for_date.isoformat())
+            .neq("status_id", CANCELLED_STATUS_ID)  # Ignoramos los cancelados
+            .execute()
+        )
+
+        current_total_passes = len(total_passes_response.data or []) + 1
+
+        if current_total_passes >= capacity:
+            raise HTTPException(
+                status_code=400,
+                detail=f"No hay aforo suficiente. La zona ha alcanzado su capacidad máxima de {capacity} "
+                + "personas para este día.",
+            )
+
+    # 2. Validar el límite POR USUARIO (El que añadimos anteriormente)
+    max_guests = space.get("max_guests_per_reservation")
+    if max_guests is not None:
+        # Obtenemos solo los pases de ESTE usuario
+        existing_user_passes_response = (
+            supabase.table(GUEST_PASS_TABLE)
+            .select("id")
+            .eq("user_id", user_id)
+            .eq("space_id", payload.space_id)
+            .eq("valid_for_date", payload.valid_for_date.isoformat())
+            .neq("status_id", CANCELLED_STATUS_ID)
+            .execute()
+        )
+
+        current_user_passes = len(existing_user_passes_response.data or [])
+
+        if current_user_passes >= max_guests:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Has alcanzado tu límite personal de {max_guests} pases permitidos para esta zona.",
+            )
 
     insert_data = {
         "user_id": user_id,

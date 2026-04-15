@@ -40,8 +40,8 @@ repos:
     hooks:
       - id: frontend-eslint
         name: ESLint (Frontend)
-        # Usamos npm --prefix para entrar a la carpeta de forma multiplataforma
-        entry: npm --prefix frontend run lint -- --fix
+        entry: bash -c 'cd frontend && node node_modules/eslint/bin/eslint.js
+          --fix app components'
         language: system
         files: ^frontend/.*\.(ts|tsx|js|jsx)$
         stages: [pre-commit]

@@ -1,20 +1,16 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, Alert } from "react-native";
-import {
-  useAudioPlayer,
-  useAudioPlayerStatus,
-  setAudioModeAsync,
-} from "expo-audio";
-import { Play, Pause, SkipBack, SkipForward } from "lucide-react-native";
-import Slider from "@react-native-community/slider";
-import { formatSeconds } from "@/lib/utils";
-import { COLORS } from "@/lib/colors";
-import { AudioPlayerLoading, AudioPlayerError } from "./audio-player-states";
+import React, { useState, useEffect } from 'react';
+import { View, TouchableOpacity, useColorScheme } from 'react-native';
+import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
+import { Play, Pause, SkipBack, SkipForward } from 'lucide-react-native';
+import Slider from '@react-native-community/slider';
+import { formatSeconds } from '@/lib/utils';
+import { THEME } from '@/lib/theme';
+import { Text } from '@/components/ui/text';
+import { Icon } from '@/components/ui/icon';
 
 interface AudioPlayerProps {
   uri: string;
-  /** Ignorado en nativo: expo-audio obtiene la duracion directamente del archivo */
-  durationHint?: number;
+  initialDuration?: number;
 }
 
 const LOAD_TIMEOUT_MS = 10_000;
@@ -23,134 +19,122 @@ function isValidDuration(d: number) {
   return d > 0 && isFinite(d) && !isNaN(d);
 }
 
-export function AudioPlayer({ uri }: AudioPlayerProps) {
+export function AudioPlayer({ uri, initialDuration }: AudioPlayerProps) {
+  const colorScheme = useColorScheme() ?? 'light';
+  const colors = THEME[colorScheme as keyof typeof THEME];
+
   const [retryKey, setRetryKey] = useState(0);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
 
   const player = useAudioPlayer(uri);
   const status = useAudioPlayerStatus(player);
 
+  const effectiveDuration = isValidDuration(status.duration)
+    ? status.duration
+    : initialDuration
+      ? initialDuration / 1000
+      : 0;
+
   useEffect(() => {
-    setAudioModeAsync({ playsInSilentMode: true }).catch(console.error);
+    setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
   }, []);
 
   useEffect(() => {
     if (retryKey > 0) player.replace(uri);
   }, [retryKey, player, uri]);
 
-  // Rebobinar al final
   useEffect(() => {
     const ended =
       !status.playing &&
       status.currentTime > 0 &&
-      status.duration > 0 &&
-      Math.abs(status.currentTime - status.duration) < 0.5;
+      effectiveDuration > 0 &&
+      Math.abs(status.currentTime - effectiveDuration) < 0.5;
     if (ended) player.seekTo(0);
-  }, [status.playing, status.currentTime, status.duration, player]);
+  }, [status.playing, status.currentTime, effectiveDuration, player]);
 
-  // Timeout de carga
   useEffect(() => {
-    if (isValidDuration(status.duration)) {
+    if (isValidDuration(status.duration) || (initialDuration && initialDuration > 0)) {
       setLoadingTimeout(false);
       return;
     }
     const id = setTimeout(() => {
       setLoadingTimeout(true);
     }, LOAD_TIMEOUT_MS);
+
     return () => {
       clearTimeout(id);
     };
-  }, [status.duration, retryKey]);
+  }, [status.duration, retryKey, initialDuration]);
 
   const handleRetry = () => {
     setLoadingTimeout(false);
     setRetryKey((k) => k + 1);
   };
 
-  const handleError = () => {
-    Alert.alert(
-      "Error de audio",
-      "El audio no se pudo cargar correctamente. Borra el audio y vuelve a grabar o subir otro.",
-    );
-  };
+  const isLoaded = isValidDuration(status.duration) || (initialDuration && initialDuration > 0);
 
-  if (!loadingTimeout && !isValidDuration(status.duration)) {
-    return <AudioPlayerLoading />;
+  if (!loadingTimeout && !isLoaded) {
+    return (
+      <View className="items-center justify-center rounded-lg bg-muted/50 p-4">
+        <Text className="italic text-muted-foreground">Cargando audio...</Text>
+      </View>
+    );
   }
 
   if (loadingTimeout) {
-    return <AudioPlayerError onRetry={handleRetry} onDelete={handleError} />;
+    return (
+      <View className="items-center justify-center gap-2 rounded-lg bg-muted/50 p-4">
+        <Text className="font-medium text-destructive">No se pudo cargar el audio</Text>
+        <TouchableOpacity onPress={handleRetry}>
+          <Text className="font-semibold text-primary">Reintentar</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   const skip = (seconds: number) => {
-    const pos = Math.max(
-      0,
-      Math.min(status.currentTime + seconds, status.duration),
-    );
+    const pos = Math.max(0, Math.min(status.currentTime + seconds, effectiveDuration));
     player.seekTo(pos);
   };
 
   return (
-    <View className="bg-muted/50 rounded-lg p-4 gap-3">
+    <View className="gap-3 rounded-xl border border-border bg-muted/50 p-4">
       {/* Barra de progreso */}
       <View className="gap-1">
         <Slider
-          style={{ width: "100%", height: 40 }}
+          style={{ width: '100%', height: 40 }}
           minimumValue={0}
-          maximumValue={status.duration}
+          maximumValue={effectiveDuration}
           value={status.currentTime}
           onSlidingComplete={(v) => player.seekTo(v)}
-          minimumTrackTintColor={COLORS.primary}
-          maximumTrackTintColor={COLORS.mutedForeground}
-          thumbTintColor={COLORS.primary}
+          minimumTrackTintColor={colors.primary}
+          maximumTrackTintColor={colors.mutedForeground}
+          thumbTintColor={colors.primary}
         />
         <View className="flex-row justify-between px-1">
-          <Text className="text-xs text-muted-foreground">
-            {formatSeconds(status.currentTime)}
-          </Text>
-          <Text className="text-xs text-muted-foreground">
-            {formatSeconds(status.duration)}
-          </Text>
+          <Text className="text-xs text-muted-foreground">{formatSeconds(status.currentTime)}</Text>
+          <Text className="text-xs text-muted-foreground">{formatSeconds(effectiveDuration)}</Text>
         </View>
       </View>
 
       {/* Controles */}
-      <View className="flex-row items-center justify-center gap-4">
-        <TouchableOpacity
-          onPress={() => {
-            skip(-10);
-          }}
-          className="p-2"
-        >
-          <SkipBack size={24} color={COLORS.foreground} />
+      <View className="flex-row items-center justify-center gap-6">
+        <TouchableOpacity onPress={() => skip(-10)} className="p-2 active:opacity-60">
+          <Icon as={SkipBack} size={24} className="text-foreground" />
         </TouchableOpacity>
 
         <TouchableOpacity
           onPress={() => (status.playing ? player.pause() : player.play())}
-          className="bg-primary rounded-full p-3 items-center justify-center"
-        >
+          className="items-center justify-center rounded-full bg-primary p-4 shadow-sm active:opacity-80">
           {status.playing ? (
-            <Pause
-              size={28}
-              color={COLORS.primaryForeground}
-              fill={COLORS.primaryForeground}
-            />
+            <Icon as={Pause} size={28} className="text-primary-foreground" />
           ) : (
-            <Play
-              size={28}
-              color={COLORS.primaryForeground}
-              fill={COLORS.primaryForeground}
-            />
+            <Icon as={Play} size={28} className="text-primary-foreground" />
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={() => {
-            skip(10);
-          }}
-          className="p-2"
-        >
-          <SkipForward size={24} color={COLORS.foreground} />
+        <TouchableOpacity onPress={() => skip(10)} className="p-2 active:opacity-60">
+          <Icon as={SkipForward} size={24} className="text-foreground" />
         </TouchableOpacity>
       </View>
     </View>

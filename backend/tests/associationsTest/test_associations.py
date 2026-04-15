@@ -536,7 +536,7 @@ def test_remove_member_not_admin_fails():
     try:
         response = client.delete(f"/members/{mock_membership_id}")
         assert response.status_code == 403  # nosec B101
-        assert response.json()["detail"] == "Admin access required for this action"  # nosec B101
+        assert response.json()["detail"] == "Admin or Presidente access required for this action"  # nosec B101
     finally:
         app.dependency_overrides.clear()
 

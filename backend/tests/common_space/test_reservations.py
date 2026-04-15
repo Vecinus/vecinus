@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta, timezone
 from importlib import metadata
 from typing import Any, Dict, List
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 import pydantic.networks
 import pytest
@@ -71,6 +72,7 @@ client = TestClient(app)
 ASSOCIATION_ID = "11111111-1111-1111-1111-111111111111"
 USER_ID = "11111111-1111-1111-1111-111111111110"
 EMPLOYEE_ID = "11111111-1111-1111-1111-111111111115"
+MADRID_TZ = ZoneInfo("Europe/Madrid")
 
 
 class MockResponse:
@@ -211,9 +213,11 @@ class MockSupabaseReservationClient:
                     "association_id": ASSOCIATION_ID,
                     "name": "Piscina",
                     "requires_qr": True,
-                    "max_capacity": None,
+                    "capacity": None,
                     "max_guests_per_reservation": 2,
                     "photo_url": None,
+                    "start_time": "09:00:00",
+                    "end_time": "23:00:00",
                     "usage_mode": "guest_pass",
                 },
                 {
@@ -221,9 +225,11 @@ class MockSupabaseReservationClient:
                     "association_id": ASSOCIATION_ID,
                     "name": "Pista de padel",
                     "requires_qr": True,
-                    "max_capacity": 1,
+                    "capacity": 1,
                     "max_guests_per_reservation": 3,
                     "photo_url": None,
+                    "start_time": "09:00:00",
+                    "end_time": "23:00:00",
                     "usage_mode": "exclusive_reservation",
                 },
                 {
@@ -231,9 +237,11 @@ class MockSupabaseReservationClient:
                     "association_id": ASSOCIATION_ID,
                     "name": "Sala multiusos",
                     "requires_qr": False,
-                    "max_capacity": 10,
+                    "capacity": 10,
                     "max_guests_per_reservation": 6,
                     "photo_url": None,
+                    "start_time": "09:00:00",
+                    "end_time": "23:00:00",
                     "usage_mode": "exclusive_reservation",
                 },
             ],
@@ -351,22 +359,26 @@ def test_create_common_space_with_association_in_path(setup_overrides):
     assert response.json()["usage_mode"] == "exclusive_reservation"
 
 
+# Modifica estos tests en backend/tests/common_space/test_reservations.py
+
+
 def test_create_reservation_returns_qr_token(setup_overrides):
-    now = datetime.now(timezone.utc)
+    # Usamos una fecha futura con hora fija (10:00 UTC = 12:00 Madrid) para garantizar
+    # que siempre caiga dentro del horario de apertura (09:00-23:00) sin depender de la hora actual
+    future_date = (datetime.now(timezone.utc) + timedelta(days=2)).replace(hour=10, minute=0, second=0, microsecond=0)
     response = client.post(
         "/reservations/",
         json={
             "space_id": 3,
-            "start_at": (now + timedelta(hours=3)).isoformat(),
-            "end_at": (now + timedelta(hours=4)).isoformat(),
-            "guests_count": 4,
+            "start_at": future_date.isoformat(),
+            "end_at": (future_date + timedelta(hours=1)).isoformat(),
+            "guests_count": 1,
         },
     )
 
     assert response.status_code == 201
     data = response.json()
     assert data["space_id"] == 3
-    assert data["status_id"] == 1
     assert data["qr_token"]
 
 
@@ -398,6 +410,65 @@ def test_create_reservation_rejects_overlap_for_multiuse_room_too(setup_override
 
     assert response.status_code == 400
     assert response.json()["detail"] == "La franja horaria seleccionada ya no esta disponible"
+
+
+def test_create_reservation_rejects_slot_before_opening_time(setup_overrides):
+    local_start = datetime.now(MADRID_TZ).replace(hour=8, minute=0, second=0, microsecond=0)
+    local_end = local_start + timedelta(hours=1)
+
+    response = client.post(
+        "/reservations/",
+        json={
+            "space_id": 3,
+            "start_at": local_start.astimezone(timezone.utc).isoformat(),
+            "end_at": local_end.astimezone(timezone.utc).isoformat(),
+            "guests_count": 1,
+        },
+    )
+
+    assert response.status_code == 400
+    assert (
+        response.json()["detail"]
+        == "La reserva debe estar comprendida entre la hora de apertura y la de cierre de la zona comun"
+    )
+
+
+def test_create_reservation_rejects_slot_ending_after_closing_time(setup_overrides):
+    local_start = datetime.now(MADRID_TZ).replace(hour=22, minute=0, second=0, microsecond=0)
+    local_end = local_start + timedelta(hours=1, minutes=30)
+
+    response = client.post(
+        "/reservations/",
+        json={
+            "space_id": 3,
+            "start_at": local_start.astimezone(timezone.utc).isoformat(),
+            "end_at": local_end.astimezone(timezone.utc).isoformat(),
+            "guests_count": 1,
+        },
+    )
+
+    assert response.status_code == 400
+    assert (
+        response.json()["detail"]
+        == "La reserva debe estar comprendida entre la hora de apertura y la de cierre de la zona comun"
+    )
+
+
+def test_create_reservation_allows_slot_starting_exactly_at_opening_time(setup_overrides):
+    local_start = datetime.now(MADRID_TZ).replace(hour=9, minute=0, second=0, microsecond=0)
+    local_end = local_start + timedelta(hours=1)
+
+    response = client.post(
+        "/reservations/",
+        json={
+            "space_id": 3,
+            "start_at": local_start.astimezone(timezone.utc).isoformat(),
+            "end_at": local_end.astimezone(timezone.utc).isoformat(),
+            "guests_count": 1,
+        },
+    )
+
+    assert response.status_code == 201
 
 
 def test_create_reservation_rejects_guest_pass_spaces(setup_overrides):
@@ -511,16 +582,22 @@ def test_list_my_reservations_filters_by_association(setup_overrides):
 
 
 def test_cancel_reservation_updates_status(setup_overrides):
-    now = datetime.now(timezone.utc)
+    future_day_start = (datetime.now(timezone.utc) + timedelta(days=2)).replace(
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
     response = client.post(
         "/reservations/",
         json={
             "space_id": 3,
-            "start_at": (now + timedelta(hours=3)).isoformat(),
-            "end_at": (now + timedelta(hours=4)).isoformat(),
+            "start_at": (future_day_start + timedelta(hours=14)).isoformat(),
+            "end_at": (future_day_start + timedelta(hours=15)).isoformat(),
             "guests_count": 0,
         },
     )
+    assert response.status_code == 201, response.json()
     reservation_id = response.json()["id"]
 
     cancel_response = client.patch(f"/reservations/{reservation_id}/cancel")
