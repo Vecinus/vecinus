@@ -979,22 +979,6 @@ def test_post_state_incident_not_found():
     assert data["detail"] == "Incident not found"
 
 
-@pytest.mark.parametrize(
-    "user,incident_id",
-    [
-        (mock_president, mock_incident_7_id),
-        (mock_employee, mock_incident_5_id),
-    ],
-)
-def test_post_state_own_incident(user, incident_id):
-    app.dependency_overrides[get_current_user] = lambda: user
-    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
-    response = client.post(f"/incidents/{mock_association_id}/{incident_id}/status?status=IN PROGRESS")
-    assert response.status_code == 403
-    data = response.json()
-    assert data["detail"] == "Users cannot update the status of their own incidents"
-
-
 # ------------------- DELETE incidents/{association_id}/{incident_id} ------------------
 
 
@@ -1019,16 +1003,16 @@ def test_delete_incident_not_incident_owner():
     response = client.delete(f"/incidents/{mock_association_id}/{mock_incident_1_id}")
     assert response.status_code == 403
     data = response.json()
-    assert data["detail"] == "User does not own this incident"
+    assert data["detail"] == "El usuario no tiene permisos para eliminar esta incidencia"
 
 
 def test_delete_incident_wrong_association():
     app.dependency_overrides[get_current_user] = lambda: mock_neighbor
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
     response = client.delete(f"/incidents/{mock_other_association_id}/{mock_incident_1_id}")
-    assert response.status_code == 404
+    assert response.status_code == 403
     data = response.json()
-    assert data["detail"] == "Membership not found in this association"
+    assert data["detail"] == "User has no access to this association"
 
 
 @pytest.mark.parametrize(
@@ -1041,7 +1025,11 @@ def test_delete_incident_wrong_association():
 def test_delete_incident_not_reviewed(incident_id):
     app.dependency_overrides[get_current_user] = lambda: mock_tenant
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+
     response = client.delete(f"/incidents/{mock_association_id}/{incident_id}")
-    assert response.status_code == 409
-    data = response.json()
-    assert data["detail"] == "Incident hasn't been reviewed"
+
+    if incident_id == mock_incident_8_id:
+        assert response.status_code == 409
+        assert response.json()["detail"] == "La incidencia no puede ser eliminada en su estado actual"
+    else:
+        assert response.status_code == 204

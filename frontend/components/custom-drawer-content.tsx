@@ -20,6 +20,7 @@ import {
   MailIcon,
   MessageSquareIcon,
   UserIcon,
+  PlusCircle
 } from 'lucide-react-native';
 import {
   Select,
@@ -81,9 +82,9 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
     () =>
       activeCommunity
         ? {
-            label: activeCommunity.name,
-            value: activeCommunity.id,
-          }
+          label: activeCommunity.name,
+          value: activeCommunity.id,
+        }
         : undefined,
     [activeCommunity]
   );
@@ -145,9 +146,9 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
               <SelectContent className="w-[250px]">
                 <SelectGroup>
                   <SelectLabel>Tus Comunidades</SelectLabel>
-                  {communityOptions.map((option) => (
-                    <SelectItem key={option!.value} label={option!.label} value={option!.value}>
-                      {option!.label}
+                  {communityOptions.map((option) => !option ? null : (
+                    <SelectItem key={option.value} label={option.label} value={option.value}>
+                      {option.label}
                     </SelectItem>
                   ))}
                 </SelectGroup>
@@ -241,8 +242,15 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
               </View>
             </TouchableOpacity>
           ) : null}
+          <TouchableOpacity
+            onPress={() => router.push('/(drawer)/create-community')}
+            className="rounded-lg px-4 py-3 active:bg-muted">
+            <View className="flex-row items-center gap-3">
+              <Icon as={PlusCircle} size={22} className="text-muted-foreground" />
+              <Text className="font-medium text-foreground">Añadir Comunidad</Text>
+            </View>
+          </TouchableOpacity>
         </View>
-
       </DrawerContentScrollView>
 
       <View className="border-t border-border p-4" style={{ paddingBottom: insets.bottom + 16 }}>

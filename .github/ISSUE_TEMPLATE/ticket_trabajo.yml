@@ -1,0 +1,45 @@
+name: 📝 Ticket de Trabajo
+description: Crea una tarea, reporta un error o pide una mejora.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ **¡AVISO IMPORTANTE!** No te olvides de configurar correctamente la issue:
+        1. **Asignees:** `Personas encargadas de esta tarea`.
+        2. **Label:** `Tipo de tarea`.
+        3. **Type:** `Equipo encargado de esta tarea (en caso de involucrar a varios, seleccionar Task)`.
+        4. **Milestone:** `Sprint al que pertenece esta tarea`.
+        5. **Estimate:** `Puntos de historia estimados`.
+        6. **Relationship:** `Relación de esta tarea con otras issues, si fuese necesario`.
+        7. **Development:** `Rama en la que se desarrollará esta tarea, si fuese necesario`.
+        
+        ❌ **NO** añadas ningún prefijo al título.
+
+  - type: textarea
+    id: descripcion
+    attributes:
+      label: 🎯 Descripción
+      description: Explica qué hay que desarrollar, investigar o arreglar. Ve al grano.
+      placeholder: "Ej: Migrar el sistema de login a..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: criterios
+    attributes:
+      label: ✅ Criterios de Aceptación (Definition of Done)
+      description: ¿Qué debe cumplirse para dar esta tarea por terminada y validada?
+      placeholder: "- [ ] Cada criterio debe empezar con un checkbox."
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks_calidad
+    attributes:
+      label: 🚀 CI/CD & Calidad
+      description: Recordatorio para no romper los flujos automáticos al hacer push.
+      options:
+        - label: He comprobado que el código está bien formateado localmente.
+          required: false
+        - label: He comprobado que los tests locales pasan correctamente.
+          required: false

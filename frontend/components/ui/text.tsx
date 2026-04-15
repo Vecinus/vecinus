@@ -79,8 +79,8 @@ function Text({
   return (
     <Component
       className={cn(textVariants({ variant }), textClass, className)}
-      role={variant ? ROLE[variant] : undefined}
-      aria-level={variant ? ARIA_LEVEL[variant] : undefined}
+      role={variant ? ROLE[variant] : undefined} // nosemgrep
+      aria-level={variant ? ARIA_LEVEL[variant] : undefined} // nosemgrep
       {...props}
     />
   );

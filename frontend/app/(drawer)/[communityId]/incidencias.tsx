@@ -24,6 +24,7 @@ import { useAuth } from '@/context/AuthContext';
 import {
   useCreateIncident,
   useIncidentsList,
+  useDiscardIncident,
 } from '@/hooks/useIncidents';
 
 import { IncidentCreateModal } from '@/components/community/incidents/IncidentCreateModal';
@@ -96,11 +97,11 @@ export default function IncidenciasScreen() {
   const [descriptionDraft, setDescriptionDraft] = useState('');
   const [pickedImage, setPickedImage] = useState<
     | {
-        uri: string;
-        name?: string | null;
-        mimeType?: string | null;
-        file?: unknown;
-      }
+      uri: string;
+      name?: string | null;
+      mimeType?: string | null;
+      file?: unknown;
+    }
     | null
   >(null);
   const [formError, setFormError] = useState('');
@@ -134,6 +135,7 @@ export default function IncidenciasScreen() {
   );
 
   const createIncidentMutation = useCreateIncident(communityId);
+  const discardIncidentMutation = useDiscardIncident(communityId);
 
   const filterTabs = useMemo<{ key: FilterStatus; label: string }[]>(() => {
     const baseTabs: { key: FilterStatus; label: string }[] = [
@@ -180,7 +182,7 @@ export default function IncidenciasScreen() {
   const filteredIncidents = useMemo(() => {
     if (activeFilter === 'mis_incidencias') return myIncidents;
     if (activeFilter === 'todas') return allIncidents;
-    return allIncidents.filter((incident) => incident.status === activeFilter); 
+    return allIncidents.filter((incident) => incident.status === activeFilter);
   }, [activeFilter, allIncidents, myIncidents]);
 
   const getReporterText = (incident: Incident): string => {
@@ -265,14 +267,30 @@ export default function IncidenciasScreen() {
 
       resetCreateForm();
       showAlert('Incidencia creada', 'El reporte se ha registrado correctamente.');
-    } catch (error: any) {
+    } catch (error: unknown) {
       setFormError(getUserFacingErrorMessage(error, 'No se pudo crear la incidencia.'));
     }
   };
 
   const onOpenDetail = (incidentId: string) => {
     if (!communityId) return;
-    router.push(`/${communityId}/incidencia/${incidentId}` as any);
+    router.push({ pathname: '/[communityId]/incidencia/[incidentId]', params: { communityId, incidentId } });
+  };
+
+  const handleDeleteConfirm = (incidentId: string) => {
+    showAlert('Eliminar Incidencia', '¿Estás seguro de que deseas eliminar permanentemente esta incidencia?', () => {
+      discardIncidentMutation.mutate(
+        { incidentId },
+        {
+          onSuccess: () => {
+            // Refech already handled by invalidateQueries in the hook
+          },
+          onError: (err) => {
+            showAlert('Error', getUserFacingErrorMessage(err, 'No se pudo eliminar la incidencia.'));
+          },
+        }
+      );
+    });
   };
 
   if (!communityId) {
@@ -285,11 +303,21 @@ export default function IncidenciasScreen() {
   }
 
   const renderIncidentItem = ({ item }: { item: Incident }) => {
+    const isOwner =
+      myIncidentIds.has(item.id) ||
+      !!(myMembershipId && String(item.membershipId) === String(myMembershipId));
+    const isAdminOrPresident = roleToken === '1' || roleToken === '4';
+    const canDeleteThis =
+      (isAdminOrPresident || isOwner) &&
+      ['PENDING', 'SOLVED', 'DISCARDED'].includes(item.status);
+
     return (
       <IncidentCard
         incident={item}
         reporterText={getReporterText(item)}
         canManageStatus={canManageStatus}
+        showDelete={canDeleteThis}
+        onDelete={() => { handleDeleteConfirm(item.id); }}
         onPress={() => onOpenDetail(item.id)}
       />
     );
@@ -302,7 +330,7 @@ export default function IncidenciasScreen() {
       <IncidentFilters
         filterTabs={filterTabs}
         activeFilter={activeFilter}
-        setActiveFilter={setActiveFilter as any}
+        setActiveFilter={(filter) => setActiveFilter(filter)}
         filteredCount={filteredIncidents.length}
         canCreateIncident={canCreateIncident}
         hasCompactActions={hasCompactActions}
@@ -362,24 +390,34 @@ export default function IncidenciasScreen() {
 
       {/* --- INFO MODAL --- */}
       <Modal visible={infoModal.visible} transparent animationType="fade" onRequestClose={() => {
-          setInfoModal(prev => ({ ...prev, visible: false }));
-          infoModal.onConfirm?.();
+        setInfoModal(prev => ({ ...prev, visible: false }));
       }}>
         <View className="flex-1 bg-black/50 items-center justify-center p-6">
           <View className="bg-background rounded-2xl p-6 w-full max-w-sm border border-border shadow-xl">
             <Text className="text-lg font-bold text-foreground mb-2">{infoModal.title}</Text>
             <Text className="text-muted-foreground mb-6">{infoModal.message}</Text>
             <View className="flex-row justify-end gap-3">
-              <Button 
-                onPress={() => {
-                  setInfoModal(prev => ({ ...prev, visible: false }));
-                  if (infoModal.onConfirm) {
-                    setTimeout(() => infoModal.onConfirm!(), 50);
-                  }
-                }}
-              >
-                <Text>Aceptar</Text>
-              </Button>
+              {infoModal.onConfirm ? (
+                <>
+                  <Button variant="outline" onPress={() => { setInfoModal(prev => ({ ...prev, visible: false })); }}>
+                    <Text>Cancelar</Text>
+                  </Button>
+                  <Button
+                    onPress={() => {
+                      setInfoModal(prev => ({ ...prev, visible: false }));
+                      setTimeout(() => infoModal.onConfirm?.(), 50);
+                    }}
+                  >
+                    <Text>Eliminar</Text>
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  onPress={() => { setInfoModal(prev => ({ ...prev, visible: false })); }}
+                >
+                  <Text>Aceptar</Text>
+                </Button>
+              )}
             </View>
           </View>
         </View>

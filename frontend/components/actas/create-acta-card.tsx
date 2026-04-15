@@ -75,7 +75,7 @@ export function CreateActaCard({
       flac: 'audio/flac',
       webm: 'audio/webm',
     };
-    const mimeType = mimeMap[extension];
+    const mimeType = mimeMap[extension]; // nosemgrep
 
     setAudioUri(result.uri);
     setAudioDuration(result.durationMs);

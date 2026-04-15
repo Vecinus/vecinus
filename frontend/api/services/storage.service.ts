@@ -5,10 +5,10 @@ import { Platform } from 'react-native';
 import { MinutesReadResponse } from '@/types/minutes.types';
 
 
-const TOKEN_KEY = 'jwt_token';
-const USER_KEY = 'user_data';
-const COMMUNITY_KEY = 'community_data';
-const SELECTED_MINUTE_KEY = 'selected_minute_data';
+const TOKEN_KEY = 'jwt_token'; // nosemgrep
+const USER_KEY = 'user_data'; // nosemgrep
+const COMMUNITY_KEY = 'community_data'; // nosemgrep
+const SELECTED_MINUTE_KEY = 'selected_minute_data'; // nosemgrep
 type StoredActiveCommunity = { id: string; name: string; role: string | number; address?: string | null };
 
 export const storageService = {

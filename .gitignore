@@ -4,3 +4,9 @@ CLAUDE.md
 .mcp.json
 .vscode
 pyrightconfig.json
+
+# Playwright test results
+frontend/tests-results/
+frontend/playwright-report/
+frontend/.auth/
+frontend/test-results/

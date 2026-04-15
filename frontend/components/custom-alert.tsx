@@ -18,6 +18,7 @@ export interface DetailItem {
   statusId: number;
   qrToken: string;
   guestsCount?: number;
+  requiresQr: boolean;
 }
 
 export type UnifiedBookingItem = {

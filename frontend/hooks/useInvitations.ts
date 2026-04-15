@@ -20,7 +20,7 @@ export const useAcceptInvitation = () => {
   return useMutation<void, Error, string>({
     mutationFn: (invitationId: string) => communityApi.acceptInvitation(invitationId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: invitationQueryKeys.mine() });
+      void queryClient.invalidateQueries({ queryKey: invitationQueryKeys.mine() });
     },
   });
 };
@@ -31,7 +31,7 @@ export const useRejectInvitation = () => {
   return useMutation<void, Error, string>({
     mutationFn: (invitationId: string) => communityApi.rejectInvitation(invitationId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: invitationQueryKeys.mine() });
+      void queryClient.invalidateQueries({ queryKey: invitationQueryKeys.mine() });
     },
   });
 };

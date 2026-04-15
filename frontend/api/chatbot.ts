@@ -27,7 +27,7 @@ interface ErrorPayload {
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError<ErrorPayload>(error)) {
-    return error.response?.data?.detail ?? error.response?.data?.message ?? error.message;
+    return error.response?.data.detail ?? error.response?.data?.message ?? error.message;
   }
 
   if (error instanceof Error) {
@@ -83,7 +83,12 @@ async function uploadCommunityDocument(
 
     const response = await apiClient.post<UploadDocumentResponse>(
       `/comunities/${communityId}/documents`,
-      formData
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
     );
     return response.data;
   }

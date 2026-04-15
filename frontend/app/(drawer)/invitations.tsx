@@ -59,19 +59,22 @@ export default function InvitationsScreen() {
     router.replace('/(auth)/sign-in');
   };
 
+  type ApiError = { response?: { status?: number; data?: { detail?: string } } };
+
   const handleAccept = async (invitationId: string) => {
     try {
       setAcceptingId(invitationId);
       await acceptInvitation.mutateAsync(invitationId);
       await refreshUserContext();
       Alert.alert('Invitacion aceptada', 'Te has unido a la comunidad correctamente.');
-    } catch (error: any) {
-      if (error?.response?.status === 401) {
+    } catch (error: unknown) {
+      const err = error as ApiError;
+      if (err?.response?.status === 401) {
         Alert.alert('Sesion expirada', 'Vuelve a iniciar sesion para continuar.');
         await handleSessionExpired();
         return;
       }
-      Alert.alert('Error', error?.response?.data?.detail || 'No se pudo aceptar la invitacion.');
+      Alert.alert('Error', err?.response?.data?.detail || 'No se pudo aceptar la invitacion.');
     } finally {
       setAcceptingId(null);
     }
@@ -84,13 +87,14 @@ export default function InvitationsScreen() {
       setRejectingId(invitationToReject);
       setInvitationToReject(null);
       await rejectInvitation.mutateAsync(invitationToReject);
-    } catch (error: any) {
-      if (error?.response?.status === 401) {
+    } catch (error: unknown) {
+      const err = error as ApiError;
+      if (err?.response?.status === 401) {
         Alert.alert('Sesion expirada', 'Vuelve a iniciar sesion para continuar.');
         await handleSessionExpired();
         return;
       }
-      Alert.alert('Error', error?.response?.data?.detail || 'No se pudo rechazar la invitacion.');
+      Alert.alert('Error', err?.response?.data?.detail || 'No se pudo rechazar la invitacion.');
     } finally {
       setRejectingId(null);
     }
@@ -185,11 +189,11 @@ export default function InvitationsScreen() {
         <View className="flex-1 items-center justify-center px-6">
           <Text className="text-lg font-bold text-foreground mb-2 text-center">No pudimos cargar tus invitaciones</Text>
           <Text className="text-muted-foreground text-center mb-5">
-            {error && (error as any)?.response?.status === 401
+            {error && (error as ApiError)?.response?.status === 401
               ? 'Tu sesion ha expirado. Inicia sesion de nuevo.'
               : 'Ha ocurrido un error de red. Intentalo en unos segundos.'}
           </Text>
-          {(error as any)?.response?.status === 401 ? (
+          {(error as ApiError)?.response?.status === 401 ? (
             <Button className="h-11 px-5 bg-indigo-600" onPress={() => { void handleSessionExpired(); }}>
               <Text className="text-white font-semibold">Ir a iniciar sesion</Text>
             </Button>
