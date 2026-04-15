@@ -270,16 +270,20 @@ def discard_incident(
     supabase: Client = Depends(get_supabase),
 ):
     user_id = current_user["id"]
-    if not verify_own_incident(association_id, incident_id, user_id, supabase):
-        raise HTTPException(status_code=403, detail="User does not own this incident")
+    role = str(get_user_role(supabase, association_id, user_id))
+
+    is_owner = verify_own_incident(association_id, incident_id, user_id, supabase)
+
+    if role not in {"1", "4"} and not is_owner:
+        raise HTTPException(status_code=403, detail="El usuario no tiene permisos para eliminar esta incidencia")
 
     latest_state = get_latest_state(supabase, incident_id)
 
-    if latest_state.get("status") not in {"DISCARDED", "SOLVED"}:
-        raise HTTPException(status_code=409, detail="Incident hasn't been reviewed")
+    if latest_state.get("status") not in {"PENDING", "DISCARDED", "SOLVED"}:
+        raise HTTPException(status_code=409, detail="La incidencia no puede ser eliminada en su estado actual")
 
     try:
         supabase.table("incident_states").delete().eq("incident_id", incident_id).execute()
         supabase.table("incidents").delete().eq("id", incident_id).execute()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to discard incident: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al eliminar la incidencia: {str(e)}")

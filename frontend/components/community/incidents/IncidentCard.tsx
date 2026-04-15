@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity } from 'react-native';
+import { Trash2 } from 'lucide-react-native';
 import { Text } from '@/components/ui/text';
 import { INCIDENT_STATUS_LABEL, INCIDENT_TYPE_LABEL, type Incident } from '@/api/incidents';
 import { STATUS_TONE, STATUS_ICON, TYPE_META, formatDate } from '@/components/community/incidents/constants';
@@ -8,10 +9,12 @@ interface IncidentCardProps {
   incident: Incident;
   reporterText: string;
   canManageStatus: boolean;
+  showDelete?: boolean;
+  onDelete?: () => void;
   onPress: () => void;
 }
 
-export function IncidentCard({ incident, reporterText, canManageStatus, onPress }: IncidentCardProps) {
+export function IncidentCard({ incident, reporterText, canManageStatus, showDelete, onDelete, onPress }: IncidentCardProps) {
   const tone = STATUS_TONE[incident.status];
   const StatusIcon = STATUS_ICON[incident.status];
   const typeMeta = TYPE_META[incident.type];
@@ -42,14 +45,21 @@ export function IncidentCard({ incident, reporterText, canManageStatus, onPress 
           </View>
         </View>
 
-        <View
-          className="px-2.5 py-1 rounded-full border flex-row items-center"
-          style={{ backgroundColor: tone.bg, borderColor: tone.border }}
-        >
-          <StatusIcon size={12} color={tone.text} />
-          <Text className="ml-1 text-xs font-semibold" style={{ color: tone.text }}>
-            {INCIDENT_STATUS_LABEL[incident.status]}
-          </Text>
+        <View className="flex-row items-center gap-2">
+          {showDelete && (
+            <TouchableOpacity onPress={onDelete} hitSlop={10} className="mr-1">
+              <Trash2 size={18} color="#ef4444" />
+            </TouchableOpacity>
+          )}
+          <View
+            className="px-2.5 py-1 rounded-full border flex-row items-center"
+            style={{ backgroundColor: tone.bg, borderColor: tone.border }}
+          >
+            <StatusIcon size={12} color={tone.text} />
+            <Text className="ml-1 text-xs font-semibold" style={{ color: tone.text }}>
+              {INCIDENT_STATUS_LABEL[incident.status]}
+            </Text>
+          </View>
         </View>
       </View>
 
