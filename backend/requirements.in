@@ -76,11 +76,11 @@ zstandard==0.25.0
 pre-commit==4.5.1
 commitizen==4.13.10
 autoflake==2.3.3
-google-genai==1.73.0
+google-genai==1.73.1
 python-docx==1.2.0
 # AI / RAG
 langchain
-pypdf==6.10.0
+pypdf==6.10.1
 pillow==12.2.0
 tiktoken
 pinecone-client==6.0.0
