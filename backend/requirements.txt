@@ -93,7 +93,7 @@ fsspec==2026.3.0
     #   pyiceberg
 google-auth[requests]==2.49.1
     # via google-genai
-google-genai==1.73.0
+google-genai==1.73.1
     # via -r requirements.in
 h11==0.16.0
     # via
@@ -195,7 +195,7 @@ orjson==3.11.7
     #   langsmith
 ormsgpack==1.12.2
     # via langgraph-checkpoint
-packaging==26.0
+packaging==26.1
     # via
     #   -r requirements.in
     #   commitizen
@@ -277,7 +277,7 @@ pyparsing==3.3.2
     # via
     #   -r requirements.in
     #   pyiceberg
-pypdf==6.10.0
+pypdf==6.10.1
     # via -r requirements.in
 pyroaring==1.0.4
     # via
