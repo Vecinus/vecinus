@@ -30,7 +30,7 @@ interface ErrorPayload {
 
 export function getChatErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError<ErrorPayload>(error)) {
-    return error.response?.data?.detail ?? error.response?.data?.message ?? error.message;
+    return error.response?.data.detail ?? error.response?.data?.message ?? error.message;
   }
 
   if (error instanceof Error) {

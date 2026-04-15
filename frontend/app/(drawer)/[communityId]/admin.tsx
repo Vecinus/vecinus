@@ -161,8 +161,9 @@ export default function CommunityAdminScreen() {
       { email, roleToGrant: parseInt(roleToGrant, 10), propertyId: propertyId || undefined },
       {
         onSuccess: resetInviteForm,
-        onError: (error: any) => {
-          setInviteError(error?.response?.data?.detail || 'Error al invitar vecino. Comprueba los datos o tu conexión.');
+        onError: (error: unknown) => {
+          const err = error as { response?: { data?: { detail?: string } } };
+          setInviteError(err?.response?.data?.detail || 'Error al invitar vecino. Comprueba los datos o tu conexión.');
         }
       }
     );
@@ -215,8 +216,10 @@ export default function CommunityAdminScreen() {
   }
 
   if (isError || !members) {
-    const status = (membersError as any)?.response?.status as number | undefined;
-    const detail = (membersError as any)?.response?.data?.detail as string | undefined;
+    type ErrorShape = { response?: { status?: number; data?: { detail?: string } } };
+    const errShape = membersError as ErrorShape;
+    const status = errShape?.response?.status;
+    const detail = errShape?.response?.data?.detail;
     const message =
       status === 401
         ? 'Tu sesion ha expirado. Cierra sesion y vuelve a entrar para recargar el token.'

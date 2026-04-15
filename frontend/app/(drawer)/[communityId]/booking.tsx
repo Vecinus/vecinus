@@ -112,7 +112,7 @@ export default function Reservas() {
 
   useEffect(() => {
     if (associationId) {
-      fetchZonas();
+      void fetchZonas();
     }
   }, [associationId, fetchZonas]);
 

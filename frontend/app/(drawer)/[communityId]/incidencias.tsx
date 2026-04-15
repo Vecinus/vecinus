@@ -267,14 +267,14 @@ export default function IncidenciasScreen() {
 
       resetCreateForm();
       showAlert('Incidencia creada', 'El reporte se ha registrado correctamente.');
-    } catch (error: any) {
+    } catch (error: unknown) {
       setFormError(getUserFacingErrorMessage(error, 'No se pudo crear la incidencia.'));
     }
   };
 
   const onOpenDetail = (incidentId: string) => {
     if (!communityId) return;
-    router.push(`/${communityId}/incidencia/${incidentId}` as any);
+    router.push({ pathname: '/[communityId]/incidencia/[incidentId]', params: { communityId, incidentId } });
   };
 
   const handleDeleteConfirm = (incidentId: string) => {
@@ -330,7 +330,7 @@ export default function IncidenciasScreen() {
       <IncidentFilters
         filterTabs={filterTabs}
         activeFilter={activeFilter}
-        setActiveFilter={setActiveFilter as any}
+        setActiveFilter={(filter) => setActiveFilter(filter)}
         filteredCount={filteredIncidents.length}
         canCreateIncident={canCreateIncident}
         hasCompactActions={hasCompactActions}
@@ -405,7 +405,7 @@ export default function IncidenciasScreen() {
                   <Button
                     onPress={() => {
                       setInfoModal(prev => ({ ...prev, visible: false }));
-                      setTimeout(() => infoModal.onConfirm!(), 50);
+                      setTimeout(() => infoModal.onConfirm?.(), 50);
                     }}
                   >
                     <Text>Eliminar</Text>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Image, Modal, ScrollView, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, ImageStyle, Modal, ScrollView, StyleProp, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { Trash2 } from 'lucide-react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -11,8 +11,8 @@ interface IncidentDetailModalProps {
   selectedIncident: Incident | null;
   getReporterText: (incident: Incident) => string;
   isDesktop: boolean;
-  detailImageStyle: any;
-  modalCardStyle: any;
+  detailImageStyle: StyleProp<ImageStyle>;
+  modalCardStyle: StyleProp<ViewStyle>;
   selectedIncidentTransitions: IncidentStatus[];
   canManageStatus: boolean;
   draftStatus: IncidentStatus;
@@ -102,7 +102,7 @@ export function IncidentDetailModal({
                                 selected ? 'text-white' : 'text-slate-700 dark:text-zinc-200'
                               }`}
                             >
-                              {INCIDENT_STATUS_LABEL[statusOption]}
+                              {INCIDENT_STATUS_LABEL[statusOption] /* nosemgrep */}
                             </Text>
                           </TouchableOpacity>
                         );

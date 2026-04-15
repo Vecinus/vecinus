@@ -47,13 +47,15 @@ export default function ScannerScreen() {
         type: 'success'
       });
       
-    } catch(error: any) {
+    } catch(error: unknown) {
       setIsValidating(false);
-      
+
       let errorMessage = 'El código QR no es válido o está caducado.';
-      
-      if (error.response?.data) {
-        const errorData = error.response.data;
+
+      type ApiError = { response?: { data?: { detail?: unknown; message?: string } }; message?: string };
+      const err = error as ApiError;
+      if (err.response?.data) {
+        const errorData = err.response.data;
         if (typeof errorData.detail === 'string') {
           errorMessage = errorData.detail;
         } else if (typeof errorData.message === 'string') {
@@ -61,8 +63,8 @@ export default function ScannerScreen() {
         } else if (typeof errorData.detail === 'object') {
           errorMessage = JSON.stringify(errorData.detail);
         }
-      } else if (error.message) {
-        errorMessage = error.message;
+      } else if (err.message) {
+        errorMessage = err.message;
       }
       
       setAlertConfig({

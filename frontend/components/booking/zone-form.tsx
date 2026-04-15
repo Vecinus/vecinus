@@ -22,8 +22,8 @@ export default function ZoneForm({
   const defaultEndTime = initialData.end_time?.substring(0, 5) ?? '21:00';
   const defaultRequiresQr = Boolean(initialData.requires_qr);
   const defaultCapacity = String(initialData.capacity ?? '1');
-  const defaultUsageMode = (initialData as any).usage_mode ?? 'exclusive_reservation';
-  const defaultMaxGuests = String((initialData as any).max_guests_per_reservation ?? '1');
+  const defaultUsageMode = (initialData.usage_mode ?? 'exclusive_reservation') as 'exclusive_reservation' | 'guest_pass';
+  const defaultMaxGuests = String(initialData.max_guests_per_reservation ?? '1');
 
   const [name, setName] = useState(defaultName);
   const [startTime, setStartTime] = useState(defaultStartTime);

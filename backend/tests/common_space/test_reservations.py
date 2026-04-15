@@ -363,14 +363,15 @@ def test_create_common_space_with_association_in_path(setup_overrides):
 
 
 def test_create_reservation_returns_qr_token(setup_overrides):
-    # Usamos una fecha futura para evitar conflictos con el estado inicial del mock
-    future_date = datetime.now(timezone.utc) + timedelta(days=2)
+    # Usamos una fecha futura con hora fija (10:00 UTC = 12:00 Madrid) para garantizar
+    # que siempre caiga dentro del horario de apertura (09:00-23:00) sin depender de la hora actual
+    future_date = (datetime.now(timezone.utc) + timedelta(days=2)).replace(hour=10, minute=0, second=0, microsecond=0)
     response = client.post(
         "/reservations/",
         json={
             "space_id": 3,
-            "start_at": (future_date + timedelta(hours=10)).isoformat(),
-            "end_at": (future_date + timedelta(hours=11)).isoformat(),
+            "start_at": future_date.isoformat(),
+            "end_at": (future_date + timedelta(hours=1)).isoformat(),
             "guests_count": 1,
         },
     )

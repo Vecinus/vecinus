@@ -10,12 +10,27 @@ export interface RegisterCredentials {
   username: string;
 }
 
+interface UserProfile {
+  id: string;
+  username: string;
+  email: string;
+}
+
+interface MembershipItem {
+  role: string | number;
+  neighborhood_associations: {
+    id: string;
+    name: string;
+    address?: string | null;
+  };
+}
+
 export const fetchUserWithCommunities = async (jwtToken: string): Promise<User> => {
   const [userResponse, communitiesResponse] = await Promise.all([
-    apiClient.get<any>('/users/me', {
+    apiClient.get<UserProfile>('/users/me', {
       headers: { Authorization: `Bearer ${jwtToken}` },
     }),
-    apiClient.get<any[]>('/users/me/communities', {
+    apiClient.get<MembershipItem[]>('/users/me/communities', {
       headers: { Authorization: `Bearer ${jwtToken}` },
     }),
   ]);
@@ -27,7 +42,7 @@ export const fetchUserWithCommunities = async (jwtToken: string): Promise<User> 
     id: profile.id,
     name: profile.username,
     email: profile.email,
-    CommunitiesAndRole: communitiesData.map((membership: any) => ({
+    CommunitiesAndRole: communitiesData.map((membership: MembershipItem) => ({
       community: {
         id: membership.neighborhood_associations.id,
         name: membership.neighborhood_associations.name,
@@ -44,7 +59,7 @@ export const useAcceptInvitationMutation = () => {
 
   return useMutation({
     mutationFn: async ({ invitation_token, password }: { invitation_token: string; password: string }) => {
-      const response = await apiClient.post<any>('/auth/accept-invitation', {
+      const response = await apiClient.post<{ token: string }>('/auth/accept-invitation', {
         invitation_token,
         password,
       });
@@ -82,7 +97,7 @@ export const useLoginMutation = () => {
       const profile = userResponse.data;
 
       // 3. Fetch user communities
-      const communitiesResponse = await apiClient.get<any[]>('/users/me/communities', {
+      const communitiesResponse = await apiClient.get<MembershipItem[]>('/users/me/communities', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const communitiesData = communitiesResponse.data;

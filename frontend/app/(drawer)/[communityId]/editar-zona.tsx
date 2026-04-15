@@ -89,7 +89,7 @@ export default function EditarZona() {
 
   useEffect(() => {
     if (communityId && zona_id) {
-      loadZona();
+      void loadZona();
     }
   }, [communityId, zona_id, loadZona]);
 
