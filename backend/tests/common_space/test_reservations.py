@@ -581,16 +581,22 @@ def test_list_my_reservations_filters_by_association(setup_overrides):
 
 
 def test_cancel_reservation_updates_status(setup_overrides):
-    future_date = datetime.now(timezone.utc) + timedelta(days=2)
+    future_day_start = (datetime.now(timezone.utc) + timedelta(days=2)).replace(
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
     response = client.post(
         "/reservations/",
         json={
             "space_id": 3,
-            "start_at": (future_date + timedelta(hours=14)).isoformat(),
-            "end_at": (future_date + timedelta(hours=15)).isoformat(),
+            "start_at": (future_day_start + timedelta(hours=14)).isoformat(),
+            "end_at": (future_day_start + timedelta(hours=15)).isoformat(),
             "guests_count": 0,
         },
     )
+    assert response.status_code == 201, response.json()
     reservation_id = response.json()["id"]
 
     cancel_response = client.patch(f"/reservations/{reservation_id}/cancel")
