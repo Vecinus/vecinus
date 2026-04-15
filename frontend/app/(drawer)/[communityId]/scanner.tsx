@@ -108,7 +108,7 @@ export default function ScannerScreen() {
       <View className="w-72 h-72 rounded-2xl overflow-hidden border-2 border-primary relative">
         {isFocused && (
           <CameraView
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
             facing="back"
             onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
             barcodeScannerSettings={{
