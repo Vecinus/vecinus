@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from api.associations.associations import router as associations_router
 from api.auth.login import router as auth_router
 from api.auth.registration import router as registration_router
@@ -15,11 +17,20 @@ from api.polls.polls import router as polls_router
 from api.transcription.minutes import router as minutes_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from services.transcription.transcription_service import get_genai_client
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    get_genai_client()
+    yield
+
 
 app = FastAPI(
     title="Vecinus API",
     description="Backend API for community management (Chat & Alerts)",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Set up CORS
