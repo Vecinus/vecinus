@@ -70,10 +70,16 @@ MINUTES_SCHEMA = {
 }
 
 
-def get_genai_client():
-    load_dotenv()
-    api_key = os.environ.get("GEMINI_API_KEY")
-    return genai.Client(api_key=api_key)
+_genai_client: genai.Client | None = None
+
+
+def get_genai_client() -> genai.Client:
+    global _genai_client
+    if _genai_client is None:
+        load_dotenv()
+        api_key = os.environ.get("GEMINI_API_KEY")
+        _genai_client = genai.Client(api_key=api_key)
+    return _genai_client
 
 
 def _extract_json_block(raw_text: str) -> str:
