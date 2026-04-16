@@ -193,6 +193,7 @@ orjson==3.11.7
     # via
     #   langgraph-sdk
     #   langsmith
+    #   pinecone
 ormsgpack==1.12.2
     # via langgraph-checkpoint
 packaging==26.1
@@ -205,8 +206,10 @@ packaging==26.1
     #   pytest
 pillow==12.2.0
     # via -r requirements.in
-pinecone==6.0.0
+pinecone==8.1.2
     # via -r requirements.in
+pinecone-plugin-assistant==3.0.3
+    # via pinecone
 pinecone-plugin-interface==0.0.7
     # via pinecone
 platformdirs==4.9.4
@@ -320,6 +323,7 @@ requests==2.33.1
     #   google-auth
     #   google-genai
     #   langsmith
+    #   pinecone-plugin-assistant
     #   pyiceberg
     #   requests-toolbelt
     #   resend
@@ -397,7 +401,7 @@ typing-inspection==0.4.2
     #   pydantic
     #   pydantic-settings
 tzdata==2026.1
-    # via -r backend/requirements.in
+    # via -r requirements.in
 urllib3==2.6.3
     # via
     #   -r requirements.in

@@ -84,7 +84,7 @@ langchain
 pypdf==6.10.1
 pillow==12.2.0
 tiktoken
-pinecone==6.0.0
+pinecone==8.1.2
 email-validator
 resend
 cloudinary
