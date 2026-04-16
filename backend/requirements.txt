@@ -165,7 +165,7 @@ langgraph-prebuilt==1.0.9
     # via langgraph
 langgraph-sdk==0.3.11
     # via langgraph
-langsmith==0.7.20
+langsmith==0.7.31
     # via langchain-core
 lxml==6.0.2
     # via python-docx
@@ -397,7 +397,7 @@ typing-inspection==0.4.2
     #   pydantic
     #   pydantic-settings
 tzdata==2026.1
-    # via -r backend/requirements.in
+    # via -r requirements.in
 urllib3==2.6.3
     # via
     #   -r requirements.in
