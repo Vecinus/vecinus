@@ -277,7 +277,7 @@ pyparsing==3.3.2
     # via
     #   -r requirements.in
     #   pyiceberg
-pypdf==6.10.1
+pypdf==6.10.2
     # via -r requirements.in
 pyroaring==1.0.4
     # via
@@ -326,7 +326,7 @@ requests==2.33.1
     #   tiktoken
 requests-toolbelt==1.0.0
     # via langsmith
-resend==2.28.0
+resend==2.28.1
     # via -r requirements.in
 rich==14.3.4
     # via
@@ -397,7 +397,7 @@ typing-inspection==0.4.2
     #   pydantic
     #   pydantic-settings
 tzdata==2026.1
-    # via -r backend/requirements.in
+    # via -r requirements.in
 urllib3==2.6.3
     # via
     #   -r requirements.in
