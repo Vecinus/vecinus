@@ -118,7 +118,7 @@
     "babel-plugin-transform-import-meta": "^2.3.3",
     "eslint": "^9.39.4",
     "eslint-config-expo": "~55.0.0",
-    "typescript": "~6.0.2"
+    "typescript": "~6.0.3"
   },
   "private": true
 }
