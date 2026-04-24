@@ -111,19 +111,19 @@ def remove_account(
             raise HTTPException(status_code=401, detail="No authenticated user found")
 
         if confirmation.email.lower() != current_email:
-            raise HTTPException(status_code=403, detail="El email no coincide con el usuario autenticado")
+            raise HTTPException(status_code=403, detail="You can only delete your own account")
 
         auth_check = supabase_anon.auth.sign_in_with_password(
             {"email": current_email, "password": confirmation.password}
         )
 
         if not getattr(auth_check, "user", None) or str(auth_check.user.id) != str(current_id):
-            raise HTTPException(status_code=401, detail="Credenciales incorrectas")
+            raise HTTPException(status_code=401, detail="Wrong password")
 
         profile = supabase_admin.table("profiles").select("*").eq("id", str(current_id)).single().execute()
         profile_data = profile.data
         if not profile_data or len(profile_data) == 0:
-            raise HTTPException(status_code=404, detail="Perfil de usuario no encontrado")
+            raise HTTPException(status_code=404, detail="User profile not found")
         updated_profile = (
             supabase_admin.table("profiles")
             .update(
@@ -144,7 +144,7 @@ def remove_account(
             or updated_profile.data[0].get("email") != f"deleted_{current_id}@deleted.com"
             or not updated_profile.data[0].get("deleted_at")
         ):
-            raise HTTPException(status_code=500, detail="Error al anonimizar el perfil del usuario")
+            raise HTTPException(status_code=500, detail="Error anonimizing user profile")
         supabase_admin.auth.admin.update_user_by_id(str(current_id), {"email": f"deleted_{current_id}@deleted.com"})
 
         return {"id": str(current_id)}
