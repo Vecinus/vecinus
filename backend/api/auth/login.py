@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from core.deps import get_current_user, get_supabase_admin, get_supabase_anon
 from fastapi import APIRouter, Depends, HTTPException, status
-from schemas.auth.auth import UserLogin, UserRegister
+from schemas.auth.auth import UserLogin, UserRecover, UserRegister
 from supabase import Client
 from supabase_auth.errors import AuthApiError
 
@@ -152,7 +152,79 @@ def remove_account(
         raise
     except AuthApiError as aae:
         if aae.code == "invalid_credentials":
-            raise HTTPException(status_code=401, detail="Credenciales incorrectas")
-        raise HTTPException(status_code=500, detail=f"Error de autenticacion con Supabase: {str(aae)}")
+            raise HTTPException(status_code=401, detail="Wrong supabase credentials")
+        raise HTTPException(status_code=500, detail=f"Supabase authentication error: {str(aae)}")
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Database error at account removal: {str(exc)}")
+
+
+@router.post("/recover")
+def recover_account(
+    id: str,
+    password: str,
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
+    try:
+        account = supabase_admin.auth.admin.get_user_by_id(id).execute()
+        if not account.data or len(account.data) == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        login_attempt = supabase_admin.auth.sign_in_with_password(
+            {"email": account.data[0]["email"], "password": password}
+        )
+        if not getattr(login_attempt, "user", None):
+            raise HTTPException(status_code=401, detail="Wrong password")
+
+        return {"message": "Account recovered successfully", "id": id}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Database error at account recovery: {str(exc)}")
+
+
+@router.post("/recover/unanonymize")
+def set_recovered_account(
+    user: UserRecover,
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
+    try:
+        account = supabase_admin.auth.admin.get_user_by_id(user.id).execute()
+        profile = supabase_admin.table("profiles").select("*").eq("id", user.id).single().execute()
+        if not account.data or len(account.data) == 0 or not profile.data or len(profile.data) == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+        elif (
+            account.data[0].get("email") != f"deleted_{user.id}@deleted.com"
+            or profile.data.get("email") != f"deleted_{user.id}@deleted.com"
+            or profile.data.get("username") != f"Deleted User {user.id}"
+            or profile.data.get("deleted_at") is None
+        ):
+            raise HTTPException(status_code=409, detail="Account is not marked as deleted and cannot be recovered")
+        check_password = supabase_admin.auth.sign_in_with_password(
+            {"email": account.data[0]["email"], "password": user.password}
+        )
+        if not getattr(check_password, "user", None):
+            raise HTTPException(status_code=401, detail="Wrong password")
+
+        update_response = (
+            supabase_admin.table("profiles")
+            .update(
+                {
+                    "username": user.username,
+                    "email": user.email,
+                    "avatar_url": user.avatar_url,
+                    "deleted_at": None,
+                }
+            )
+            .eq("id", user.id)
+            .execute()
+        )
+
+        if not update_response.data or len(update_response.data) == 0:
+            raise HTTPException(status_code=500, detail="Error unanonymizing user profile")
+
+        supabase_admin.auth.admin.update_user_by_id(user.id, {"email": user.email})
+        final_login = supabase_admin.auth.sign_in_with_password({"email": user.email, "password": user.password})
+        if not getattr(final_login, "user", None):
+            raise HTTPException(status_code=500, detail="Failed to sign in with updated credentials")
+
+        return {"message": "Account unanonymized successfully", "id": user.id}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Database error at unanonymizing recovered account: {str(exc)}")

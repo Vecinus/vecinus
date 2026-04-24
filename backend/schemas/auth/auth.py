@@ -25,3 +25,11 @@ class UserRegister(BaseModel):
         if "password" in info.data and v != info.data["password"]:
             raise ValueError("Las contraseñas no coinciden")
         return v
+
+
+class UserRecover(BaseModel):
+    id: str
+    password: str
+    username: str
+    email: EmailStr
+    avatar_url: str | None = None
