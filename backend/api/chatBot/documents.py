@@ -2,7 +2,7 @@ import io
 from typing import Optional
 
 import pypdf
-from api.chat.chat_helpers import verify_association_admin
+from api.chat.chat_helpers import verify_association_admin_or_presidente
 from core.deps import get_current_user, get_supabase
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from services.chatBot.documents_ChatBotService import delete_document, index_document, list_documents
@@ -20,7 +20,7 @@ async def get_documents(
     supabase: Client = Depends(get_supabase),
 ):
     path_comunidad_id = str(comunidad_id).strip()
-    verify_association_admin(path_comunidad_id, current_user["id"], supabase)
+    verify_association_admin_or_presidente(path_comunidad_id, current_user["id"], supabase)
     result = list_documents(path_comunidad_id, uploaded_by=uploaded_by, limit=limit)
     documents = [doc.get("document_title") for doc in result.get("documents", []) if doc.get("document_title")]
     return {"documents": documents}
@@ -35,7 +35,7 @@ async def upload_document(
     supabase: Client = Depends(get_supabase),
 ):
     path_comunidad_id = str(comunidad_id).strip()
-    verify_association_admin(path_comunidad_id, current_user["id"], supabase)
+    verify_association_admin_or_presidente(path_comunidad_id, current_user["id"], supabase)
     content_type = request.headers.get("content-type", "")
 
     if "application/json" in content_type:
@@ -115,7 +115,7 @@ async def delete_document_by_title(
     supabase: Client = Depends(get_supabase),
 ):
     path_comunidad_id = str(comunidad_id).strip()
-    verify_association_admin(path_comunidad_id, current_user["id"], supabase)
+    verify_association_admin_or_presidente(path_comunidad_id, current_user["id"], supabase)
 
     result = delete_document(path_comunidad_id, document_title)
     if result["deleted_chunks"] == 0:

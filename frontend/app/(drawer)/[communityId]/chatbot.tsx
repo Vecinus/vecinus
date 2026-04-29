@@ -33,7 +33,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import type { ChatMessage, UploadDocumentFile } from '@/types/chatbot.types';
-import { ADMIN_ROLE_ID } from '@/utils/role.util';
+import { ADMIN_ROLE_ID, PRESIDENT_ROLE_ID } from '@/utils/role.util';
 import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import {
@@ -77,8 +77,9 @@ function toRoleId(role: string | number | null | undefined): number | null {
   return null;
 }
 
-function isAdministratorRole(role: string | number | null | undefined): boolean {
-  return toRoleId(role) === ADMIN_ROLE_ID;
+function isAdministratorOrPresidentRole(role: string | number | null | undefined): boolean {
+  const roleId = toRoleId(role);
+  return roleId === ADMIN_ROLE_ID || roleId === PRESIDENT_ROLE_ID;
 }
 
 function buildMessage(
@@ -220,7 +221,7 @@ export default function CommunityChatbotScreen() {
   }, [normalizedCommunityId, user]);
 
   const communityName = membership?.community.name ?? activeCommunity?.name ?? 'tu comunidad';
-  const canManageDocuments = isAdministratorRole(membership?.role);
+  const canManageDocuments = isAdministratorOrPresidentRole(membership?.role);
 
   React.useEffect(() => {
     if (!normalizedCommunityId) {
