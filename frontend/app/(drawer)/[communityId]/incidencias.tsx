@@ -21,6 +21,7 @@ import {
   type IncidentType,
 } from '@/api/incidents';
 import { useAuth } from '@/context/AuthContext';
+import { getLegalWarning } from '@/utils/legal-warnings';
 import {
   useCreateIncident,
   useIncidentsList,
