@@ -420,6 +420,12 @@ export default function CommunityChatScreen() {
                     );
                     setComposerHeight(nextHeight);
                   }}
+                  onKeyPress={(e: { key?: string; shiftKey?: boolean; preventDefault?: () => void }) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault?.();
+                    void handleSend();
+                    }
+                  }}
                   placeholder="Escribe tu mensaje"
                   numberOfLines={1}
                   scrollEnabled={composerHeight >= CHAT_COMPOSER_MAX_HEIGHT}
