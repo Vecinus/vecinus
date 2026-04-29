@@ -9,6 +9,7 @@ import { Pressable, type TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { useLoginMutation } from '@/api/auth';
+import { openLegalDocument } from '@/utils/legal';
 
 function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -138,6 +139,13 @@ export function SignInForm() {
               <Text className="text-sm underline underline-offset-4">Regístrate</Text>
             </Pressable>
           </Text>
+          <View className="border-t border-border pt-4 mt-4">
+            <Pressable onPress={openLegalDocument}>
+              <Text className="text-center text-xs text-muted-foreground underline">
+                Consulta nuestros Términos y Condiciones
+              </Text>
+            </Pressable>
+          </View>
         </CardContent>
       </Card>
     </View>

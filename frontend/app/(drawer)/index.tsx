@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { ScrollView, View, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { useNavigation, ParamListBase } from '@react-navigation/native';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog';
 
 import { apiClient } from '@/api/client';
+import { openLegalDocument } from '@/utils/legal';
 
 export default function HomeScreen() {
   const navigation = useNavigation<DrawerNavigationProp<ParamListBase>>();
@@ -98,6 +99,14 @@ export default function HomeScreen() {
           <ChevronRight size={18} color="white" />
         </View>
       </Button>
+
+      <View className="border-t border-border px-5 py-6">
+        <Pressable onPress={openLegalDocument}>
+          <Text className="text-center text-xs text-muted-foreground underline">
+            Ver Términos y Condiciones
+          </Text>
+        </Pressable>
+      </View>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
