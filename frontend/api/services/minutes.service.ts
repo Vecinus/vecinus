@@ -25,7 +25,7 @@ export const minutesService = {
         uri: audioFile.uri,
         name: audioFile.name,
         type: audioFile.type,
-      } as any);
+      } as unknown as Blob);
     }
     const response = await apiClient.post<MinutesReadResponse>(
       `/api/minutes/transcribe?association_id=${encodeURIComponent(associationId)}&title=${encodeURIComponent(title)}`,

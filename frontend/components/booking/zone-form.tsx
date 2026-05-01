@@ -21,9 +21,9 @@ export default function ZoneForm({
   const defaultStartTime = initialData.start_time?.substring(0, 5) ?? '09:00';
   const defaultEndTime = initialData.end_time?.substring(0, 5) ?? '21:00';
   const defaultRequiresQr = Boolean(initialData.requires_qr);
-  const defaultCapacity = String(initialData.max_capacity ?? '1');
-  const defaultUsageMode = (initialData as any).usage_mode ?? 'exclusive_reservation';
-  const defaultMaxGuests = String((initialData as any).max_guests_per_reservation ?? '1');
+  const defaultCapacity = String(initialData.capacity ?? '1');
+  const defaultUsageMode = (initialData.usage_mode ?? 'exclusive_reservation') as 'exclusive_reservation' | 'guest_pass';
+  const defaultMaxGuests = String(initialData.max_guests_per_reservation ?? '1');
 
   const [name, setName] = useState(defaultName);
   const [startTime, setStartTime] = useState(defaultStartTime);
@@ -96,7 +96,7 @@ export default function ZoneForm({
         start_time: startTime,
         end_time: endTime,
         requires_qr: requiresQr,
-        max_capacity: capNum,
+        capacity: capNum,
         usage_mode: usageMode,
         max_guests_per_reservation: guestNum,
       });
@@ -168,28 +168,24 @@ export default function ZoneForm({
               <Button
                 onPress={() => setUsageMode('exclusive_reservation')}
                 variant={usageMode === 'exclusive_reservation' ? 'default' : 'outline'}
-                className={`h-10 flex-1 rounded-lg ${
-                  usageMode === 'exclusive_reservation' ? 'bg-primary' : 'border-primary'
-                }`}>
-                <Text
-                  className={`text-sm font-bold ${
-                    usageMode === 'exclusive_reservation'
-                      ? 'text-primary-foreground'
-                      : 'text-primary'
+                className={`h-10 flex-1 rounded-lg ${usageMode === 'exclusive_reservation' ? 'bg-primary' : 'border-primary'
                   }`}>
+                <Text
+                  className={`text-sm font-bold ${usageMode === 'exclusive_reservation'
+                    ? 'text-primary-foreground'
+                    : 'text-primary'
+                    }`}>
                   Reserva Exclusiva
                 </Text>
               </Button>
               <Button
                 onPress={() => setUsageMode('guest_pass')}
                 variant={usageMode === 'guest_pass' ? 'default' : 'outline'}
-                className={`h-10 flex-1 rounded-lg ${
-                  usageMode === 'guest_pass' ? 'bg-primary' : 'border-primary'
-                }`}>
-                <Text
-                  className={`text-sm font-bold ${
-                    usageMode === 'guest_pass' ? 'text-primary-foreground' : 'text-primary'
+                className={`h-10 flex-1 rounded-lg ${usageMode === 'guest_pass' ? 'bg-primary' : 'border-primary'
                   }`}>
+                <Text
+                  className={`text-sm font-bold ${usageMode === 'guest_pass' ? 'text-primary-foreground' : 'text-primary'
+                    }`}>
                   Pase Invitado
                 </Text>
               </Button>
@@ -271,7 +267,7 @@ export default function ZoneForm({
         config={alertConfig}
         onConfirm={handleConfirmCancel}
         onCancel={() => setAlertConfig((prev) => ({ ...prev, visible: false }))}
-        onAcknowledge={() => {}}
+        onAcknowledge={() => { }}
       />
     </>
   );

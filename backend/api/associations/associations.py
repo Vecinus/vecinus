@@ -130,22 +130,55 @@ def invite_admin(
     supabase: Client = Depends(get_supabase),
     supabase_admin: Client = Depends(get_supabase_admin),
 ):
+    # 1. Evitar conceder rol de Admin Global por invitación si tu lógica lo restringe
     if body.role_to_grant == 1:
         raise HTTPException(status_code=400, detail="Cannot grant ADMIN role via invitation")
 
-    # Comprobar que el usuario es admin (role=1) de la asociación
+    # 2. Validar que el usuario que invita es Admin (1) o Presidente (4) de la comunidad
+    # 2. Validar que el usuario que invita es Admin (1) o Presidente (4) de la comunidad
+    # Usamos supabase_admin para evitar problemas de permisos de lectura (RLS)
     membership = (
-        supabase.table("memberships")
+        supabase_admin.table("memberships")
         .select("role")
         .eq("profile_id", current_user["id"])
         .eq("association_id", str(body.association_id))
-        .eq("role", 1)
         .execute()
     )
-    if not membership.data:
-        raise HTTPException(status_code=403, detail="Admin access required for this action")
 
-    # --- NUEVA VALIDACIÓN: Evitar invitaciones duplicadas ---
+    if not membership.data:
+        raise HTTPException(status_code=403, detail="Error de permisos: No se encontró tu membresía en esta comunidad.")
+
+    # Forzamos a entero por si Supabase lo está devolviendo como string ("4")
+    user_role = int(membership.data[0]["role"])
+
+    if user_role not in [1, 4]:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Acceso denegado. Tu rol detectado es {user_role}, pero se requiere Admin (1) o Presidente (4).",
+        )
+
+    # 3. Buscar si el usuario objetivo ya existe en la plataforma (tabla profiles)
+    # Asumiendo que guardas el 'email' en tu tabla 'profiles'
+    target_profile_res = supabase_admin.table("profiles").select("id").eq("email", body.target_email).execute()
+
+    # 4. Si el usuario existe, validamos que NO pertenezca ya a la comunidad
+    if target_profile_res.data:
+        target_profile_id = target_profile_res.data[0]["id"]
+
+        existing_membership = (
+            supabase_admin.table("memberships")
+            .select("id")
+            .eq("profile_id", target_profile_id)
+            .eq("association_id", str(body.association_id))
+            .execute()
+        )
+
+        if existing_membership.data:
+            raise HTTPException(
+                status_code=400, detail="Este correo ya pertenece a un usuario que es miembro de la comunidad."
+            )
+
+    # 5. Validar que no tenga ya una invitación pendiente
     existing_invitation = (
         supabase_admin.table("invitations")
         .select("id")
@@ -159,8 +192,8 @@ def invite_admin(
         raise HTTPException(
             status_code=400, detail="Este correo ya tiene una invitación pendiente para esta comunidad."
         )
-    # --------------------------------------------------------
 
+    # 6. Insertar la invitación
     insert_data = {
         "target_email": body.target_email,
         "association_id": str(body.association_id),
@@ -179,9 +212,11 @@ def invite_admin(
 
     invitation = result.data[0]
     role_label = ROLE_LABELS.get(body.role_to_grant, "Miembro")
-    auth_users = supabase_admin.auth.admin.list_users()
-    registered_emails = [user.email for user in auth_users]
-    if body.target_email not in registered_emails:
+
+    # 7. Enviar correo SOLO si el usuario NO está registrado
+    # Usamos la consulta que hicimos en el paso 3 en lugar de listar todos los usuarios
+    is_registered = len(target_profile_res.data) > 0
+    if not is_registered:
         send_invitation_email(body.target_email, str(invitation["id"]), role_label)
 
     return invitation

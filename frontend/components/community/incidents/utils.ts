@@ -17,13 +17,17 @@ export const normalizeRoleToBackendToken = (role: string | number | null): strin
   return null;
 };
 
-export const getErrorMessage = (error: any, fallback: string): string => {
-  return error?.response?.data?.detail || error?.message || fallback;
+type AnyError = { response?: { status?: number; data?: { detail?: string } }; message?: string };
+
+export const getErrorMessage = (error: unknown, fallback: string): string => {
+  const e = error as AnyError;
+  return e?.response?.data?.detail || e?.message || fallback;
 };
 
-export const getUserFacingErrorMessage = (error: any, fallback: string): string => {   
-  const status = error?.response?.status;
-  const detail = String(error?.response?.data?.detail ?? '').trim();
+export const getUserFacingErrorMessage = (error: unknown, fallback: string): string => {
+  const e = error as AnyError;
+  const status = e?.response?.status;
+  const detail = String(e?.response?.data?.detail ?? '').trim();
 
   if (status === 401) {
     return 'Tu sesion ha expirado. Cierra sesion y vuelve a iniciar sesion.';   
@@ -53,5 +57,5 @@ export const getUserFacingErrorMessage = (error: any, fallback: string): string 
     return detail || fallback;
   }
 
-  return detail || getErrorMessage(error, fallback);
+  return detail || getErrorMessage(e, fallback);
 };

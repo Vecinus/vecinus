@@ -77,7 +77,7 @@ export default function ActaDetail() {
         }
       setLoading(false);
     };
-    loadActa();
+    void loadActa();
   }, [actaId]);
 
   if (loading) {
@@ -317,7 +317,7 @@ export default function ActaDetail() {
           headerRight: () =>
             isAdminOrPresident(activeCommunity.role) ? (
               <TouchableOpacity
-                onPress={handleDownload}
+                onPress={() => { void handleDownload(); }}
                 disabled={downloading}
                 className="mr-4 rounded-full p-2 active:bg-muted">
                 {downloading ? (

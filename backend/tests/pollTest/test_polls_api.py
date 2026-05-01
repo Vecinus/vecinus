@@ -12,6 +12,8 @@ os.environ["SUPABASE_KEY"] = "dummy"
 os.environ["SUPABASE_SERVICE_KEY"] = "dummy"
 os.environ["SUPABASE_SCHEMA"] = "public"
 
+from core.deps import get_current_user, get_supabase, get_supabase_admin  # noqa: E402
+from main import app  # noqa: E402
 
 client = TestClient(app)
 

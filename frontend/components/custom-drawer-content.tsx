@@ -144,9 +144,9 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
               <SelectContent className="w-[250px]">
                 <SelectGroup>
                   <SelectLabel>Tus Comunidades</SelectLabel>
-                  {communityOptions.map((option) => (
-                    <SelectItem key={option!.value} label={option!.label} value={option!.value}>
-                      {option!.label}
+                  {communityOptions.map((option) => !option ? null : (
+                    <SelectItem key={option.value} label={option.label} value={option.value}>
+                      {option.label}
                     </SelectItem>
                   ))}
                 </SelectGroup>

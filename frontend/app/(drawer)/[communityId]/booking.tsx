@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, ScrollView, TouchableOpacity } from 'react-native';
+import { View, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useRouter, useFocusEffect } from 'expo-router';
 
@@ -29,32 +29,12 @@ import {
 
 LocaleConfig.locales['es'] = {
   monthNames: [
-    'Enero',
-    'Febrero',
-    'Marzo',
-    'Abril',
-    'Mayo',
-    'Junio',
-    'Julio',
-    'Agosto',
-    'Septiembre',
-    'Octubre',
-    'Noviembre',
-    'Diciembre',
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
   ],
   monthNamesShort: [
-    'Ene',
-    'Feb',
-    'Mar',
-    'Abr',
-    'May',
-    'Jun',
-    'Jul',
-    'Ago',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dic',
+    'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+    'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic',
   ],
   dayNames: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
   dayNamesShort: ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'],
@@ -62,9 +42,19 @@ LocaleConfig.locales['es'] = {
 };
 LocaleConfig.defaultLocale = 'es';
 
-const GENERATE_BASE_SLOTS = () => {
-  return Array.from({ length: 14 }, (_, i) => {
-    const hour = i + 8;
+// Genera los slots basados en el horario de la zona
+const GENERATE_BASE_SLOTS = (startTime?: string, endTime?: string) => {
+  if (!startTime || !endTime) return [];
+
+  const startHour = parseInt(startTime.split(':')[0], 10);
+  const parsedEnd = parseInt(endTime.split(':')[0], 10);
+
+  // Si la hora de cierre es medianoche (00:00), calculamos hasta las 24
+  const endHour = parsedEnd === 0 ? 24 : parsedEnd;
+  const length = Math.max(0, endHour - startHour);
+
+  return Array.from({ length }, (_, i) => {
+    const hour = i + startHour;
     return `${hour.toString().padStart(2, '0')}:00`;
   });
 };
@@ -82,11 +72,12 @@ export default function Reservas() {
   const [fechaSeleccionada, setFechaSeleccionada] = useState(
     new Date().toISOString().split('T')[0]
   );
-  const [horaSeleccionada, setHoraSeleccionada] = useState('10:00');
+  const [horaSeleccionada, setHoraSeleccionada] = useState('');
   const [slotsDisponibles, setSlotsDisponibles] = useState<
     { time: string; isBooked: boolean; isPast: boolean }[]
   >([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingSlots, setIsLoadingSlots] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeletingZone, setIsDeletingZone] = useState(false);
   const [lastActionWasDelete, setLastActionWasDelete] = useState(false);
@@ -100,7 +91,6 @@ export default function Reservas() {
   });
 
   const esModoExclusivo = (zona: CommonSpace | undefined): boolean => {
-    if (!zona) return false;
     return zona?.usage_mode === 'exclusive_reservation';
   };
 
@@ -116,13 +106,13 @@ export default function Reservas() {
         return data.length > 0 ? data[0].id : null;
       });
     } catch (error) {
-      console.error(error);
+      // Manejo silencioso de error en consola si se desea
     }
   }, [associationId]);
 
   useEffect(() => {
     if (associationId) {
-      fetchZonas();
+      void fetchZonas();
     }
   }, [associationId, fetchZonas]);
 
@@ -135,10 +125,28 @@ export default function Reservas() {
   );
 
   const fetchSlots = useCallback(async () => {
-    if (!zonaActivaId || !fechaSeleccionada) return;
+    if (!zonaActivaId || !fechaSeleccionada) {
+      setSlotsDisponibles([]);
+      return;
+    }
+
+    const zonaActual = zonas.find((z) => z.id === zonaActivaId);
+
+    if (!zonaActual?.start_time || !zonaActual?.end_time) {
+      setSlotsDisponibles([]);
+      return;
+    }
+
+    setIsLoadingSlots(true);
 
     try {
-      const baseSlots = GENERATE_BASE_SLOTS();
+      const baseSlots = GENERATE_BASE_SLOTS(zonaActual.start_time, zonaActual.end_time);
+
+      if (baseSlots.length === 0) {
+        setSlotsDisponibles([]);
+        return;
+      }
+
       const occupiedSlots = await bookingApi.listOccupiedSlots(zonaActivaId, fechaSeleccionada);
 
       const now = new Date();
@@ -160,19 +168,25 @@ export default function Reservas() {
       });
 
       setSlotsDisponibles(newSlots);
+
+      const isValidTime = newSlots.some(s => s.time === horaSeleccionada && !s.isBooked && !s.isPast);
+      if (!isValidTime) {
+        setHoraSeleccionada('');
+      }
+
     } catch (error) {
-      console.error(error);
-      setSlotsDisponibles(
-        GENERATE_BASE_SLOTS().map((time) => ({ time, isBooked: false, isPast: false }))
-      );
+      setSlotsDisponibles([]);
+    } finally {
+      setIsLoadingSlots(false);
     }
-  }, [fechaSeleccionada, zonaActivaId]);
+  }, [fechaSeleccionada, zonaActivaId, zonas, horaSeleccionada]);
 
   useEffect(() => {
     void fetchSlots();
   }, [fetchSlots]);
 
   const zonaActiva = zonas.find((z) => z.id === zonaActivaId);
+
   const handleReservar = async () => {
     if (!zonaActivaId || !fechaSeleccionada) return;
 
@@ -220,12 +234,16 @@ export default function Reservas() {
         });
         setGuestPassCount(1);
       }
-    } catch (error) {
-      console.error(error);
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { detail?: string } }; message?: string };
+      const errorMessage = err.response?.data?.detail
+        || err.message
+        || 'No se pudo completar la acción. Inténtalo de nuevo.';
+
       setAlertConfig({
         visible: true,
         title: 'Error',
-        message: 'No se pudo completar la acción. Inténtalo de nuevo.',
+        message: errorMessage,
         type: 'error',
       });
     } finally {
@@ -266,7 +284,6 @@ export default function Reservas() {
 
       await fetchZonas();
     } catch (error) {
-      console.error(error);
       setAlertConfig({
         visible: true,
         title: 'Error',
@@ -282,7 +299,6 @@ export default function Reservas() {
   const isSelectedSlotUnavailable = selectedSlot?.isBooked || selectedSlot?.isPast;
 
   if (isWorker) {
-    // Pasamos las zonas y la función de actualización al empleado
     return <WorkerView zonas={zonas} zonaActivaId={zonaActivaId} onSelectZona={setZonaActivaId} />;
   }
 
@@ -295,14 +311,13 @@ export default function Reservas() {
           associationId={associationId}
         />
 
-        {/* NUEVO SELECTOR PARA VECINOS */}
         <View className="z-50 mb-6">
           <Text className="mb-2 px-1 text-sm font-medium text-muted-foreground">Instalación:</Text>
           <Select
             value={
               zonaActiva ? { label: zonaActiva.name, value: zonaActiva.id.toString() } : undefined
             }
-            onValueChange={(option) => option && setZonaActivaId(Number(option.value))}>
+            onValueChange={(option) => { if (option) setZonaActivaId(Number(option.value)); }}>
             <SelectTrigger>
               <SelectValue placeholder="Selecciona una instalación" />
             </SelectTrigger>
@@ -326,12 +341,12 @@ export default function Reservas() {
                 variant="outline"
                 size="sm"
                 className="border-primary bg-blue-50/50"
-                onPress={() =>
-                  router.push(`/${associationId}/editar-zona?zona_id=${zonaActivaId}`)
-                }>
+                onPress={() => {
+                  router.push(`/${associationId}/editar-zona?zona_id=${zonaActivaId}`);
+                }}>
                 <Text className="text-xs font-bold text-primary">Editar</Text>
               </Button>
-              <Button variant="destructive" size="sm" onPress={() => setDeleteDialogOpen(true)}>
+              <Button variant="destructive" size="sm" onPress={() => { setDeleteDialogOpen(true); }}>
                 <Text className="text-xs font-bold text-destructive-foreground">Eliminar</Text>
               </Button>
             </View>
@@ -360,7 +375,7 @@ export default function Reservas() {
                 monthTextColor: '#111827',
               }}
               minDate={new Date().toISOString().split('T')[0]}
-              onDayPress={(day: any) => setFechaSeleccionada(day.dateString)}
+              onDayPress={(day: { dateString: string }) => { setFechaSeleccionada(day.dateString); }}
               markedDates={{
                 [fechaSeleccionada]: {
                   selected: true,
@@ -373,15 +388,30 @@ export default function Reservas() {
           </View>
         )}
 
-        {Boolean(fechaSeleccionada) &&
-          esModoExclusivo(zonaActiva) &&
-          slotsDisponibles.length > 0 && (
-            <TimeSlotsGrid
-              slots={slotsDisponibles}
-              horaSeleccionada={horaSeleccionada}
-              onSelectTime={setHoraSeleccionada}
-            />
-          )}
+        {Boolean(fechaSeleccionada) && esModoExclusivo(zonaActiva) && (
+          <View className="mt-4">
+            {isLoadingSlots ? (
+              <View className="py-10 items-center justify-center">
+                <ActivityIndicator size="large" color="#3b82f6" />
+                <Text className="mt-4 text-sm font-medium text-muted-foreground">
+                  Comprobando horarios...
+                </Text>
+              </View>
+            ) : slotsDisponibles.length > 0 ? (
+              <TimeSlotsGrid
+                slots={slotsDisponibles}
+                horaSeleccionada={horaSeleccionada}
+                onSelectTime={setHoraSeleccionada}
+              />
+            ) : (
+              <View className="py-6 items-center justify-center">
+                <Text className="text-center text-sm font-medium text-muted-foreground">
+                  No hay horarios configurados o válidos para esta instalación.
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {Boolean(fechaSeleccionada) &&
           zonaActiva &&
@@ -398,18 +428,16 @@ export default function Reservas() {
                 </Text>
                 <View className="flex-row items-center justify-center gap-4">
                   <TouchableOpacity
-                    onPress={() => setGuestPassCount(Math.max(1, guestPassCount - 1))}
+                    onPress={() => { setGuestPassCount(Math.max(1, guestPassCount - 1)); }}
                     disabled={guestPassCount <= 1}
-                    className={`h-12 w-12 items-center justify-center rounded-full border ${
-                      guestPassCount <= 1
-                        ? 'border-border bg-muted'
-                        : 'border-primary bg-primary/10'
-                    }`}>
+                    className={`h-12 w-12 items-center justify-center rounded-full border ${guestPassCount <= 1
+                      ? 'border-border bg-muted'
+                      : 'border-primary bg-primary/10'
+                      }`}>
                     <Text
                       style={{ lineHeight: 28, textAlign: 'center', includeFontPadding: false }}
-                      className={`text-2xl font-bold ${
-                        guestPassCount <= 1 ? 'text-muted-foreground' : 'text-primary'
-                      }`}>
+                      className={`text-2xl font-bold ${guestPassCount <= 1 ? 'text-muted-foreground' : 'text-primary'
+                        }`}>
                       −
                     </Text>
                   </TouchableOpacity>
@@ -422,18 +450,16 @@ export default function Reservas() {
                   </View>
 
                   <TouchableOpacity
-                    onPress={() => setGuestPassCount(Math.min(maxPases, guestPassCount + 1))}
+                    onPress={() => { setGuestPassCount(Math.min(maxPases, guestPassCount + 1)); }}
                     disabled={guestPassCount >= maxPases}
-                    className={`h-12 w-12 items-center justify-center rounded-full border ${
-                      guestPassCount >= maxPases
-                        ? 'border-border bg-muted'
-                        : 'border-primary bg-primary/10'
-                    }`}>
+                    className={`h-12 w-12 items-center justify-center rounded-full border ${guestPassCount >= maxPases
+                      ? 'border-border bg-muted'
+                      : 'border-primary bg-primary/10'
+                      }`}>
                     <Text
                       style={{ lineHeight: 28, textAlign: 'center', includeFontPadding: false }}
-                      className={`text-2xl font-bold ${
-                        guestPassCount >= maxPases ? 'text-muted-foreground' : 'text-primary'
-                      }`}>
+                      className={`text-2xl font-bold ${guestPassCount >= maxPases ? 'text-muted-foreground' : 'text-primary'
+                        }`}>
                       +
                     </Text>
                   </TouchableOpacity>
@@ -449,7 +475,8 @@ export default function Reservas() {
           onPress={handleReservar}
           disabled={
             isSubmitting ||
-            (esModoExclusivo(zonaActiva) && isSelectedSlotUnavailable) ||
+            isLoadingSlots ||
+            (esModoExclusivo(zonaActiva) && (isSelectedSlotUnavailable || !horaSeleccionada)) ||
             !zonaActivaId
           }>
           <Text className="text-lg font-bold text-primary-foreground">
@@ -459,15 +486,15 @@ export default function Reservas() {
                 ? guestPassCount > 1
                   ? `Generar ${guestPassCount} Pases de Invitado`
                   : 'Generar Pase de Invitado'
-                : `Reservar (${horaSeleccionada})`}
+                : horaSeleccionada ? `Reservar (${horaSeleccionada})` : 'Selecciona una hora'}
           </Text>
         </Button>
       </View>
 
       <CustomAlertDialog
         config={alertConfig}
-        onConfirm={() => {}}
-        onCancel={() => setAlertConfig((prev) => ({ ...prev, visible: false }))}
+        onConfirm={() => { }}
+        onCancel={() => { setAlertConfig((prev) => ({ ...prev, visible: false })); }}
         onAcknowledge={lastActionWasDelete ? handleDeleteAlertConfirm : handleAlertConfirm}
       />
 
@@ -475,7 +502,7 @@ export default function Reservas() {
         visible={deleteDialogOpen}
         title="Eliminar Zona Común"
         message={`¿Estás seguro de que deseas eliminar permanentemente "${zonaActiva?.name}"? Esta acción borrará el calendario y no se puede deshacer.`}
-        onCancel={() => setDeleteDialogOpen(false)}
+        onCancel={() => { setDeleteDialogOpen(false); }}
         onConfirm={handleDeleteZone}
         isLoading={isDeletingZone}
       />
