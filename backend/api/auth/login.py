@@ -160,12 +160,12 @@ def remove_account(
 
 @router.post("/recover")
 def recover_account(
-    id: str,
+    account_id: str,
     password: str,
     supabase_admin: Client = Depends(get_supabase_admin),
 ):
     try:
-        account = supabase_admin.auth.admin.get_user_by_id(id).execute()
+        account = supabase_admin.auth.admin.get_user_by_id(account_id).execute()
         if not account.data or len(account.data) == 0:
             raise HTTPException(status_code=404, detail="User not found")
 
@@ -175,7 +175,7 @@ def recover_account(
         if not getattr(login_attempt, "user", None):
             raise HTTPException(status_code=401, detail="Wrong password")
 
-        return {"message": "Account recovered successfully", "id": id}
+        return {"message": "Account recovered successfully", "id": account_id}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Database error at account recovery: {str(exc)}")
 
