@@ -88,6 +88,11 @@ export function SignUpForm() {
       return;
     }
 
+    if (username.trim().length > 50) {
+      setLocalError('El nombre de usuario no puede exceder los 50 caracteres.');
+      return;
+    }
+
     if (!isValidEmail(email.trim())) {
       setLocalError('Introduce un correo electrónico válido.');
       return;
@@ -171,6 +176,7 @@ export function SignUpForm() {
                 autoCapitalize="none"
                 value={username}
                 onChangeText={setUsername}
+                maxLength={50}
                 editable={!isPending}
                 onSubmitEditing={onUsernameSubmitEditing}
                 returnKeyType="next"

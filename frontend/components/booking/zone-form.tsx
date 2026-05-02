@@ -20,7 +20,7 @@ export default function ZoneForm({
   const defaultName = initialData.name ?? '';
   const defaultStartTime = initialData.start_time?.substring(0, 5) ?? '09:00';
   const defaultEndTime = initialData.end_time?.substring(0, 5) ?? '21:00';
-  const defaultRequiresQr = Boolean(initialData.requires_qr);
+  const defaultRequiresQr = initialData.requires_qr !== undefined ? Boolean(initialData.requires_qr) : undefined;
   const defaultCapacity = String(initialData.capacity ?? '1');
   const defaultUsageMode = (initialData.usage_mode ?? 'exclusive_reservation') as 'exclusive_reservation' | 'guest_pass';
   const defaultMaxGuests = String(initialData.max_guests_per_reservation ?? '1');
@@ -28,7 +28,7 @@ export default function ZoneForm({
   const [name, setName] = useState(defaultName);
   const [startTime, setStartTime] = useState(defaultStartTime);
   const [endTime, setEndTime] = useState(defaultEndTime);
-  const [requiresQr, setRequiresQr] = useState(defaultRequiresQr);
+  const [requiresQr, setRequiresQr] = useState<boolean | undefined>(defaultRequiresQr);
   const [capacity, setCapacity] = useState(defaultCapacity);
   const [usageMode, setUsageMode] = useState<'exclusive_reservation' | 'guest_pass'>(
     defaultUsageMode
@@ -86,6 +86,9 @@ export default function ZoneForm({
       return;
     }
     if (isNaN(guestNum) || guestNum < 1) {
+      return;
+    }
+    if (requiresQr === undefined) {
       return;
     }
 
@@ -234,17 +237,40 @@ export default function ZoneForm({
             </View>
           </View>
 
-          <View className="flex-row items-center justify-between gap-3 rounded-lg bg-secondary/50 p-3">
-            <Text className="text-sm font-medium text-foreground">
+          <View className="gap-2">
+            <Label className="text-lg" nativeID="requiresQr">
               ¿Requiere invitación (QR) para acceder?
-            </Text>
-            <Switch checked={requiresQr} onCheckedChange={setRequiresQr} />
+            </Label>
+            <View className="flex-row gap-2">
+              <Button
+                onPress={() => setRequiresQr(true)}
+                variant={requiresQr === true ? 'default' : 'outline'}
+                className={`h-10 flex-1 rounded-lg ${requiresQr === true ? 'bg-primary' : 'border-primary'
+                  }`}>
+                <Text
+                  className={`text-sm font-bold ${requiresQr === true ? 'text-primary-foreground' : 'text-primary'
+                    }`}>
+                  Sí
+                </Text>
+              </Button>
+              <Button
+                onPress={() => setRequiresQr(false)}
+                variant={requiresQr === false ? 'default' : 'outline'}
+                className={`h-10 flex-1 rounded-lg ${requiresQr === false ? 'bg-primary' : 'border-primary'
+                  }`}>
+                <Text
+                  className={`text-sm font-bold ${requiresQr === false ? 'text-primary-foreground' : 'text-primary'
+                    }`}>
+                  No
+                </Text>
+              </Button>
+            </View>
           </View>
 
           <View className="mt-6 gap-2">
             <Button
               onPress={handleSubmit}
-              disabled={saving || !name.trim() || !hasChanges}
+              disabled={saving || !name.trim() || !hasChanges || requiresQr === undefined}
               className="h-12 rounded-lg bg-primary">
               <Text className="text-base font-bold text-primary-foreground">
                 {saving ? 'Guardando...' : 'Guardar cambios'}

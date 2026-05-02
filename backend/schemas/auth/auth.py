@@ -12,6 +12,13 @@ class UserRegister(BaseModel):
     password_confirm: str
     username: str
 
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, v):
+        if len(v) > 50:
+            raise ValueError("El nombre de usuario no puede exceder los 50 caracteres")
+        return v
+
     @field_validator("password")
     @classmethod
     def validate_password(cls, v):
