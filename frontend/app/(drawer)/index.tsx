@@ -3,6 +3,7 @@ import { ScrollView, View, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { useNavigation, ParamListBase } from '@react-navigation/native';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
+import { useRouter } from 'expo-router';
 import { FileText, MessageSquare, CalendarDays, BellRing, ChevronRight } from 'lucide-react-native';
 
 import { Button } from '@/components/ui/button';
@@ -19,10 +20,10 @@ import {
 } from '@/components/ui/dialog';
 
 import { apiClient } from '@/api/client';
-import { openLegalDocument } from '@/utils/legal';
 
 export default function HomeScreen() {
   const navigation = useNavigation<DrawerNavigationProp<ParamListBase>>();
+  const router = useRouter();
   const [feedback, setFeedback] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -101,7 +102,7 @@ export default function HomeScreen() {
       </Button>
 
       <View className="border-t border-border px-5 py-6">
-        <Pressable onPress={openLegalDocument}>
+        <Pressable onPress={() => router.push('/legal')}>
           <Text className="text-center text-xs text-muted-foreground underline">
             Ver Términos y Condiciones
           </Text>
