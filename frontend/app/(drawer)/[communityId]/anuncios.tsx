@@ -190,14 +190,7 @@ export default function AnunciosScreen() {
     });
   };
 
-  // Guard: redirect non-admin users
-  useEffect(() => {
-    if (communityId && !canManage) {
-      router.replace(`/${communityId}` as any);
-    }
-  }, [communityId, canManage, router]);
-
-  if (!communityId || !canManage) {
+  if (!communityId) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
         <Drawer.Screen options={SCREEN_OPTIONS} />
@@ -224,14 +217,16 @@ export default function AnunciosScreen() {
               </Text>
             </View>
           </View>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setCreateModalVisible(true)}
-            className="bg-indigo-600 dark:bg-indigo-500 rounded-xl h-10 px-4 flex-row items-center gap-1.5 shadow-sm"
-          >
-            <Ionicons name="add" size={20} color="white" />
-            <Text className="text-white font-semibold">Nuevo</Text>
-          </TouchableOpacity>
+          {canManage && (
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setCreateModalVisible(true)}
+              className="bg-indigo-600 dark:bg-indigo-500 rounded-xl h-10 px-4 flex-row items-center gap-1.5 shadow-sm"
+            >
+              <Ionicons name="add" size={20} color="white" />
+              <Text className="text-white font-semibold">Nuevo</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Filter tabs */}
@@ -285,16 +280,21 @@ export default function AnunciosScreen() {
               </View>
               <Text className="text-xl font-bold text-foreground mb-2">Sin anuncios</Text>
               <Text className="text-muted-foreground text-center text-sm leading-5 mb-6">
-                Todavía no se ha publicado ningún anuncio.{"\n"}Crea el primero tocando el botón &quot;Nuevo&quot;.
+                {canManage
+                  ? 'Todavía no se ha publicado ningún anuncio.\nCrea el primero tocando el botón "Nuevo".'
+                  : 'Todavía no se ha publicado ningún anuncio.'
+                }
               </Text>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => setCreateModalVisible(true)}
-                className="bg-indigo-600 dark:bg-indigo-500 rounded-xl h-11 px-6 flex-row items-center gap-2"
-              >
-                <Ionicons name="add-circle-outline" size={20} color="white" />
-                <Text className="text-white font-semibold">Crear primer anuncio</Text>
-              </TouchableOpacity>
+              {canManage && (
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => setCreateModalVisible(true)}
+                  className="bg-indigo-600 dark:bg-indigo-500 rounded-xl h-11 px-6 flex-row items-center gap-2"
+                >
+                  <Ionicons name="add-circle-outline" size={20} color="white" />
+                  <Text className="text-white font-semibold">Crear primer anuncio</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )
         }
