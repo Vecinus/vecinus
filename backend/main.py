@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 
+from api.announcements.announcements import router as announcements_router
 from api.associations.associations import router as associations_router
 from api.auth.login import router as auth_router
 from api.auth.registration import router as registration_router
@@ -57,6 +58,7 @@ app.include_router(incidents_router)
 app.include_router(feedback_router)
 app.include_router(community_payments_router)
 app.include_router(polls_router)
+app.include_router(announcements_router)
 
 
 @app.get("/health")

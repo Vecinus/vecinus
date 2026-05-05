@@ -105,7 +105,7 @@ export default function Reservas() {
         }
         return data.length > 0 ? data[0].id : null;
       });
-    } catch (error) {
+    } catch {
       // Manejo silencioso de error en consola si se desea
     }
   }, [associationId]);
@@ -174,7 +174,7 @@ export default function Reservas() {
         setHoraSeleccionada('');
       }
 
-    } catch (error) {
+    } catch {
       setSlotsDisponibles([]);
     } finally {
       setIsLoadingSlots(false);
@@ -283,7 +283,7 @@ export default function Reservas() {
       });
 
       await fetchZonas();
-    } catch (error) {
+    } catch {
       setAlertConfig({
         visible: true,
         title: 'Error',

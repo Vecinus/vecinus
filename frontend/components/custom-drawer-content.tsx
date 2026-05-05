@@ -20,7 +20,8 @@ import {
   MailIcon,
   MessageSquareIcon,
   UserIcon,
-  PlusCircle
+  PlusCircle,
+  Megaphone
 } from 'lucide-react-native';
 import {
   Select,
@@ -98,6 +99,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       | '/[communityId]/chatbot'
       | '/[communityId]/booking'
       | '/[communityId]/admin'
+      | '/[communityId]/anuncios'
   ) => {
     if (!activeCommunity?.id) return;
     router.push({
@@ -113,6 +115,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
   const isBookingActive = pathname.endsWith('/booking') || pathname.includes('/mis-reservas');
   const isAdminActive = pathname.endsWith('/admin');
   const isInvitationsActive = pathname.includes('/invitations');
+  const isAnnouncementsActive = pathname.endsWith('/anuncios') || pathname.includes('/anuncios/');
 
   return (
     <View className="flex-1 bg-background">
@@ -202,6 +205,16 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
                 <View className="flex-row items-center gap-3">
                   <Icon as={CalendarCheck} size={22} className="text-muted-foreground" />
                   <Text className="font-medium text-foreground">Reservas</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => navigateToCommunityRoute('/[communityId]/anuncios')}
+                className={`rounded-lg px-4 py-3 ${isAnnouncementsActive ? 'bg-muted' : 'active:bg-muted'}`}
+              >
+                <View className="flex-row items-center gap-3">
+                  <Icon as={Megaphone} size={22} className="text-muted-foreground" />
+                  <Text className="font-medium text-foreground">Anuncios</Text>
                 </View>
               </TouchableOpacity>
 

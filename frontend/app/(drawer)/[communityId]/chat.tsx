@@ -11,7 +11,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,7 +21,6 @@ import { ADMIN_ROLE_ID } from '@/utils/role.util';
 import { useLocalSearchParams } from 'expo-router';
 import {
   CircleAlertIcon,
-  MessageSquareIcon,
   SendIcon,
   ShieldAlertIcon,
   SparklesIcon,

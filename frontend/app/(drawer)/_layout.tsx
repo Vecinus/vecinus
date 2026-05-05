@@ -13,7 +13,7 @@ import {
   Bot,
   Building2,
   MailIcon,
-  AlertTriangle, CalendarCheck,
+  AlertTriangle, CalendarCheck, Megaphone
 } from 'lucide-react-native';
 
 import { useAuth } from '@/context/AuthContext';
@@ -124,6 +124,24 @@ export default function DrawerLayout() {
               className="text-foreground"
             />
           ),
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/anuncios"
+        initialParams={{ communityId: activeCommunity?.id }}
+        options={{
+          title: 'Anuncios',
+          drawerLabel: 'Anuncios',
+          drawerIcon: ({ size }) => (
+            <Icon as={Megaphone} size={size} className="text-foreground" />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/anuncio/[id]"
+        options={{
+          title: 'Detalle de Anuncio',
           drawerItemStyle: { display: 'none' },
         }}
       />
