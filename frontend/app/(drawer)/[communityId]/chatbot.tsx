@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -132,7 +132,13 @@ function normalizeDocumentAsset(
   };
 }
 
-function ChatMessageBubble({ message }: { message: ChatMessage }) {
+function ChatMessageBubble({
+  message,
+  userAvatarUrl,
+}: {
+  message: ChatMessage;
+  userAvatarUrl?: string | null;
+}) {
   const isUser = message.role === 'user';
 
   return (
@@ -176,6 +182,7 @@ function ChatMessageBubble({ message }: { message: ChatMessage }) {
 
       {isUser ? (
         <Avatar alt="Usuario" className="mt-1 size-9 border border-border bg-secondary">
+          {userAvatarUrl ? <AvatarImage source={{ uri: userAvatarUrl }} /> : null}
           <AvatarFallback className="bg-secondary">
             <Icon as={UserIcon} size={16} className="text-secondary-foreground" />
           </AvatarFallback>
@@ -470,7 +477,9 @@ export default function CommunityChatbotScreen() {
           ref={flatListRef}
           data={messages}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <ChatMessageBubble message={item} />}
+          renderItem={({ item }) => (
+            <ChatMessageBubble message={item} userAvatarUrl={user?.avatarUrl} />
+          )}
           contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
           className="flex-1"
           showsVerticalScrollIndicator={false}
