@@ -15,7 +15,7 @@ import {
   MailIcon,
   AlertTriangle,
   CalendarCheck,
-  Vote,
+  Scale,
 } from 'lucide-react-native';
 
 import { useAuth } from '@/context/AuthContext';
@@ -131,6 +131,38 @@ export default function DrawerLayout() {
         }}
       />
       <Drawer.Screen
+        name="[communityId]/votaciones/index"
+        initialParams={{ communityId: activeCommunity?.id }}
+        options={{
+          title: 'Votaciones',
+          drawerLabel: 'Votaciones',
+          drawerIcon: ({ size }) => (
+            <Icon as={Scale} size={size} className="text-foreground" />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/votaciones/[pollId]"
+        options={{
+          title: 'Detalle de Votación',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/votaciones/create"
+        options={{
+          title: 'Nueva Votación',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/votaciones/edit"
+        options={{
+          title: 'Editar Votación',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
         name="[communityId]/booking"
         initialParams={{ communityId: activeCommunity?.id }}
         options={{
@@ -182,24 +214,6 @@ export default function DrawerLayout() {
             <Icon as={Building2} size={size} className="text-foreground" />
           ),
           drawerItemStyle: isAdmin ? undefined : { display: 'none' },
-        }}
-      />
-      <Drawer.Screen
-        name="[communityId]/polls"
-        initialParams={{ communityId: activeCommunity?.id }}
-        options={{
-          title: 'Votaciones',
-          drawerLabel: 'Votaciones',
-          drawerIcon: ({ size, color }) => (
-            <Icon as={Vote} size={size} className="text-foreground" />
-          ),
-        }}
-      />
-      <Drawer.Screen
-        name="[communityId]/polls/[poll_id]"
-        options={{
-          headerTitle: 'Votación',
-          drawerItemStyle: { display: 'none' },
         }}
       />
       <Drawer.Screen

@@ -44,7 +44,13 @@ class PollService:
         return response.data[0]
 
     def get_polls_by_community(self, association_id: UUID):
-        response = self.supabase.table("poll").select("*").eq("association_id", str(association_id)).execute()
+        response = (
+            self.supabase.table("poll")
+            .select("*")
+            .eq("association_id", str(association_id))
+            .order("created_at", desc=True)
+            .execute()
+        )
         return response.data
 
     def publish_poll(self, poll_id: UUID, publish_data: PollPublish):
@@ -103,6 +109,10 @@ class PollService:
                 )
 
                 emails_to_send.append({"email": email, "token": new_token})
+
+        print(
+            f"[PUBLISH] Total members: {len(voters_res.data)}, Tokens created: {len(tokens_to_insert)}, Emails to send: {len(emails_to_send)}"
+        )
 
         if tokens_to_insert:
             self.supabase.table("voting_tokens").insert(tokens_to_insert).execute()

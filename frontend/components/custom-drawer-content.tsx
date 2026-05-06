@@ -15,10 +15,10 @@ import {
   HomeIcon,
   LogOutIcon,
   MailIcon,
-  MailOpenIcon,
   MessageSquareIcon,
   UserIcon,
-  PlusCircle
+  PlusCircle,
+  Scale
 } from 'lucide-react-native';
 import {
   Select,
@@ -92,6 +92,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
   const navigateToCommunityRoute = (
     pathnameTemplate:
       | '/[communityId]/actas'
+      | '/[communityId]/votaciones'
       | '/[communityId]/chat'
       | '/[communityId]/chatbot'
       | '/[communityId]/booking'
@@ -106,6 +107,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
 
   const isHomeActive = pathname === '/';
   const isActasActive = pathname.endsWith('/actas') || pathname.includes('/actas/');
+  const isVotacionesActive = pathname.endsWith('/votaciones') || pathname.includes('/votaciones/');
   const isChatActive = pathname.endsWith('/chat');
   const isChatbotActive = pathname.endsWith('/chatbot');
   const isBookingActive = pathname.endsWith('/booking') || pathname.includes('/mis-reservas');
@@ -177,6 +179,15 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
               </TouchableOpacity>
 
               <TouchableOpacity
+                onPress={() => navigateToCommunityRoute('/[communityId]/votaciones')}
+                className={`rounded-lg px-4 py-3 ${isVotacionesActive ? 'bg-muted' : 'active:bg-muted'}`}>
+                <View className="flex-row items-center gap-3">
+                  <Icon as={Scale} size={22} className="text-muted-foreground" />
+                  <Text className="font-medium text-foreground">Votaciones</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 onPress={() => navigateToCommunityRoute('/[communityId]/chat')}
                 className={`rounded-lg px-4 py-3 ${isChatActive ? 'bg-muted' : 'active:bg-muted'}`}>
                 <View className="flex-row items-center gap-3">
@@ -224,22 +235,6 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
               <Text className="font-medium text-foreground">Invitaciones</Text>
             </View>
           </TouchableOpacity>
-
-          {activeCommunity ? (
-            <TouchableOpacity
-              onPress={() =>
-                router.push({
-                  pathname: '/[communityId]/polls',
-                  params: { communityId: activeCommunity.id },
-                })
-              }
-              className="rounded-lg px-4 py-3 active:bg-muted">
-              <View className="flex-row items-center gap-3">
-                <Icon as={MailOpenIcon} size={22} className="text-muted-foreground" />
-                <Text className="font-medium text-foreground">Votaciones</Text>
-              </View>
-            </TouchableOpacity>
-          ) : null}
 
           {activeCommunity ? (
             <TouchableOpacity

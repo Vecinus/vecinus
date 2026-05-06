@@ -32,7 +32,11 @@ def create_poll(
 
 
 @router.get("/associations/{association_id}", response_model=List[PollResponse])
-def get_polls(association_id: UUID, supabase: Client = Depends(get_supabase)):
+def get_polls(
+    association_id: UUID,
+    supabase: Client = Depends(get_supabase),
+    current_user: dict = Depends(get_current_user),
+):
     """Lista todas las votaciones de una comunidad. El estado (ACTIVE, PENDING...) se calcula automáticamente."""
     service = PollService(supabase)
     return service.get_polls_by_community(association_id)
@@ -85,10 +89,11 @@ def close_poll_manually(
 def cast_vote(
     poll_id: UUID,
     vote_data: VoteCreate,
-    supabase: Client = Depends(get_supabase),
-    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_admin),
 ):
-    """Registra el voto de un vecino usando su token de votación obtenido por autenticación de email."""
+    """Registra el voto de un vecino usando su token de votación obtenido por email.
+    La autenticación se realiza mediante el token único de votación (voto nominal según LPH).
+    Se usa get_supabase_admin porque el token es el mecanismo de autenticación y no hay JWT."""
     service = VoteService(supabase)
     return service.cast_vote(poll_id, vote_data)
 

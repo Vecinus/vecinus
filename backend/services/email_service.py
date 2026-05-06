@@ -166,7 +166,12 @@ ROLE_LABELS = {
 
 
 def send_voting_email(
-    to_email: str, association_name: str, poll_title: str, token: str, poll_id: str, association_id: str
+    to_email: str,
+    association_name: str,
+    poll_title: str,
+    token: str,
+    poll_id: str,
+    association_id: str,
 ) -> None:
     resend.api_key = settings.RESEND_API_KEY
     voting_link = f"{settings.APP_BASE_URL}/votar?token={token}&poll_id={poll_id}&association_id={association_id}"
