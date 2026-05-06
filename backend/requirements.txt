@@ -57,7 +57,7 @@ colorama==0.4.6
     # via
     #   -r requirements.in
     #   commitizen
-commitizen==4.15.0
+commitizen==4.15.1
     # via -r requirements.in
 cryptography==46.0.7
     # via
@@ -93,7 +93,7 @@ fsspec==2026.4.0
     #   pyiceberg
 google-auth[requests]==2.49.1
     # via google-genai
-google-genai==1.74.0
+google-genai==1.75.0
     # via -r requirements.in
 h11==0.16.0
     # via
@@ -332,7 +332,7 @@ requests==2.33.1
     #   tiktoken
 requests-toolbelt==1.0.0
     # via langsmith
-resend==2.29.0
+resend==2.30.0
     # via -r requirements.in
 rich==14.3.4
     # via

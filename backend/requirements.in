@@ -75,9 +75,9 @@ websockets==14.1
 yarl==1.23.0
 zstandard==0.25.0
 pre-commit==4.6.0
-commitizen==4.15.0
+commitizen==4.15.1
 autoflake==2.3.3
-google-genai==1.74.0
+google-genai==1.75.0
 python-docx==1.2.0
 # AI / RAG
 langchain
