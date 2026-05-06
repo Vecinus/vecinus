@@ -74,7 +74,7 @@ export default function AnunciosScreen() {
   const [contentDraft, setContentDraft] = useState('');
   const [statusDraft, setStatusDraft] = useState<AnnouncementStatus>('PUBLISHED');
   const [scheduledDate, setScheduledDate] = useState('');
-  const [pickedImage, setPickedImage] = useState<{ uri: string; name?: string | null; mimeType?: string | null; file?: unknown } | null>(null);
+  const [pickedImage, setPickedImage] = useState<{ uri: string; name?: string; mimeType?: string; file?: unknown } | null>(null);
   const [formError, setFormError] = useState('');
 
   // Info Modal (for deletions, alerts)
@@ -136,9 +136,8 @@ export default function AnunciosScreen() {
     try {
       const result = await DocumentPicker.getDocumentAsync({ type: ['image/*'], multiple: false });
       if (result.canceled) return;
-      if (!result.assets || result.assets.length === 0) return;
-
       const asset = result.assets[0];
+
       if (asset.size && asset.size > 5 * 1024 * 1024) {
         setFormError('La imagen no puede exceder 5MB.');
         return;
@@ -146,8 +145,8 @@ export default function AnunciosScreen() {
 
       setPickedImage({
         uri: asset.uri,
-        name: asset.name,
-        mimeType: asset.mimeType,
+        name: asset.name ?? undefined,
+        mimeType: asset.mimeType ?? undefined,
         file: (asset as unknown as { file?: unknown }).file,
       });
       setFormError('');
@@ -172,7 +171,7 @@ export default function AnunciosScreen() {
         content,
         status: statusDraft,
         scheduled_date: scheduledDate ? new Date(scheduledDate).toISOString() : undefined,
-        image: pickedImage,
+        image: pickedImage || undefined,
       });
       resetCreateForm();
       showAlert('Anuncio Creado', 'El anuncio ha sido creado exitosamente.');

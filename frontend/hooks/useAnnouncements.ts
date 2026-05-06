@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { announcementsApi, type AnnouncementStatus } from '@/api/announcements';
+import { announcementsApi, type AnnouncementStatus, type AnnouncementCreate, type AnnouncementUpdate } from '@/api/announcements';
 
 export const useAnnouncementsList = (
   communityId: string | undefined,
@@ -32,13 +32,13 @@ export const useCreateAnnouncement = (communityId: string | undefined) => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: { title: string; content: string; status: AnnouncementStatus; scheduled_date?: string; image?: any }) => {
+    mutationFn: (data: AnnouncementCreate) => {
       if (!communityId) throw new Error('Community ID required');
       return announcementsApi.createAnnouncement(communityId, data);
     },
     onSuccess: () => {
       if (communityId) {
-        queryClient.invalidateQueries({ queryKey: ['announcements', communityId] });
+        void queryClient.invalidateQueries({ queryKey: ['announcements', communityId] });
       }
     },
   });
@@ -48,15 +48,15 @@ export const useUpdateAnnouncement = (communityId: string | undefined, announcem
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: { title?: string; content?: string; status?: AnnouncementStatus; scheduled_date?: string; image?: any }) => {
+    mutationFn: (data: AnnouncementUpdate) => {
       if (!communityId || !announcementId) throw new Error('Community ID and Announcement ID required');
       return announcementsApi.updateAnnouncement(communityId, announcementId, data);
     },
     onSuccess: () => {
       if (communityId) {
-        queryClient.invalidateQueries({ queryKey: ['announcements', communityId] });
+        void queryClient.invalidateQueries({ queryKey: ['announcements', communityId] });
         if (announcementId) {
-          queryClient.invalidateQueries({ queryKey: ['announcements', communityId, 'detail', announcementId] });
+          void queryClient.invalidateQueries({ queryKey: ['announcements', communityId, 'detail', announcementId] });
         }
       }
     },
@@ -73,7 +73,7 @@ export const useDeleteAnnouncement = (communityId: string | undefined) => {
     },
     onSuccess: () => {
       if (communityId) {
-        queryClient.invalidateQueries({ queryKey: ['announcements', communityId] });
+        void queryClient.invalidateQueries({ queryKey: ['announcements', communityId] });
       }
     },
   });

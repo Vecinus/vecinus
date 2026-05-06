@@ -57,7 +57,7 @@ export default function AnuncioDetailScreen() {
   const [titleDraft, setTitleDraft] = useState('');
   const [contentDraft, setContentDraft] = useState('');
   const [statusDraft, setStatusDraft] = useState<AnnouncementStatus>('PUBLISHED');
-  const [pickedImage, setPickedImage] = useState<{ uri: string; name?: string | null; mimeType?: string | null; file?: unknown } | null>(null);
+  const [pickedImage, setPickedImage] = useState<{ uri: string; name?: string; mimeType?: string; file?: unknown } | null>(null);
   const [scheduledDateDraft, setScheduledDateDraft] = useState('');  
   const [formError, setFormError] = useState('');
 
@@ -96,13 +96,12 @@ export default function AnuncioDetailScreen() {
     try {
       const result = await DocumentPicker.getDocumentAsync({ type: ['image/*'], multiple: false });
       if (result.canceled) return;
-      if (!result.assets || result.assets.length === 0) return;
-      
       const asset = result.assets[0];
+      
       setPickedImage({
         uri: asset.uri,
-        name: asset.name,
-        mimeType: asset.mimeType,
+        name: asset.name ?? undefined,
+        mimeType: asset.mimeType ?? undefined,
         file: (asset as unknown as { file?: unknown }).file,
       });
       setFormError('');
@@ -124,13 +123,13 @@ export default function AnuncioDetailScreen() {
         content: contentDraft.trim(),
         status: statusDraft,
         scheduled_date: scheduledDateDraft ? new Date(scheduledDateDraft).toISOString() : undefined,
-        image: pickedImage,
+        image: pickedImage || undefined,
       });
       setIsEditing(false);
       setPickedImage(null);
       showAlert('Éxito', 'Anuncio actualizado correctamente.');
     } catch (err) {
-      console.error('[AnuncioUpdate] Error:', JSON.stringify((err as { response?: { data?: unknown } })?.response?.data, null, 2));
+      console.error('[AnuncioUpdate] Error:', JSON.stringify((err as { response?: { data?: unknown } }).response?.data, null, 2));
       setFormError(getUserFacingErrorMessage(err, 'No se pudo actualizar el anuncio.'));
     }
   };

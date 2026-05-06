@@ -129,7 +129,7 @@ export function DateTimePickerModal({
                   {MONTHS.map((monthName, idx) => (
                     <TouchableOpacity
                       key={idx}
-                      onPress={() => setSelectedMonth(idx)}
+                      onPress={() => { setSelectedMonth(idx); }}
                       className={`px-2 py-1.5 rounded-lg ${selectedMonth === idx
                         ? 'bg-indigo-600'
                         : 'bg-accent/50'
@@ -154,7 +154,7 @@ export function DateTimePickerModal({
                 {years.map((year) => (
                   <TouchableOpacity
                     key={year}
-                    onPress={() => setSelectedYear(year)}
+                    onPress={() => { setSelectedYear(year); }}
                     className={`flex-1 py-2 rounded-lg items-center ${selectedYear === year
                       ? 'bg-indigo-600'
                       : 'bg-accent/50'
@@ -178,7 +178,7 @@ export function DateTimePickerModal({
                 {days.map((day) => (
                   <TouchableOpacity
                     key={day}
-                    onPress={() => setSelectedDay(day)}
+                    onPress={() => { setSelectedDay(day); }}
                     className={`w-9 h-9 rounded-lg items-center justify-center ${validDay === day
                       ? 'bg-indigo-600'
                       : 'bg-accent/50'
@@ -203,7 +203,7 @@ export function DateTimePickerModal({
                   {hours.map((h) => (
                     <TouchableOpacity
                       key={h}
-                      onPress={() => setSelectedHour(h)}
+                      onPress={() => { setSelectedHour(h); }}
                       className={`w-9 h-8 rounded-md items-center justify-center ${selectedHour === h
                         ? 'bg-indigo-600'
                         : 'bg-accent/50'
@@ -227,7 +227,7 @@ export function DateTimePickerModal({
                 {minutes.map((m) => (
                   <TouchableOpacity
                     key={m}
-                    onPress={() => setSelectedMinute(m)}
+                    onPress={() => { setSelectedMinute(m); }}
                     className={`px-3 h-8 rounded-md items-center justify-center ${selectedMinute === m
                       ? 'bg-indigo-600'
                       : 'bg-accent/50'

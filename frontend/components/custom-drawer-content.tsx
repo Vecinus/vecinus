@@ -209,7 +209,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
               </TouchableOpacity>
 
               <TouchableOpacity
-                onPress={() => navigateToCommunityRoute('/[communityId]/anuncios')}
+                onPress={() => { navigateToCommunityRoute('/[communityId]/anuncios'); }}
                 className={`rounded-lg px-4 py-3 ${isAnnouncementsActive ? 'bg-muted' : 'active:bg-muted'}`}
               >
                 <View className="flex-row items-center gap-3">
