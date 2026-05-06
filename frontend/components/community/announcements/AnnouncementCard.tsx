@@ -67,6 +67,7 @@ export function AnnouncementCard({ announcement, onPress, onDelete, canManage }:
               e.stopPropagation();
               onDelete();
             }}
+            accessibilityLabel="Eliminar anuncio"
             className="absolute bottom-3 right-3 w-9 h-9 rounded-full bg-red-500/85 items-center justify-center shadow-md"
             activeOpacity={0.7}
           >
