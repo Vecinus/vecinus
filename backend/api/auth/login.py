@@ -162,20 +162,25 @@ def remove_account(
 def recover_account(
     account_id: str,
     password: str,
+    supabase_anon: Client = Depends(get_supabase_anon),
     supabase_admin: Client = Depends(get_supabase_admin),
 ):
     try:
-        account = supabase_admin.auth.admin.get_user_by_id(account_id).execute()
-        if not account.data or len(account.data) == 0:
+        account = supabase_admin.auth.admin.get_user_by_id(account_id)
+        account_user = getattr(account, "user", None)
+
+        if not account_user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        login_attempt = supabase_admin.auth.sign_in_with_password(
-            {"email": account.data[0]["email"], "password": password}
+        login_attempt = supabase_anon.auth.sign_in_with_password(
+            {"email": account_user.email, "password": password}
         )
         if not getattr(login_attempt, "user", None):
             raise HTTPException(status_code=401, detail="Wrong password")
 
         return {"message": "Account recovered successfully", "id": account_id}
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Database error at account recovery: {str(exc)}")
 
@@ -183,22 +188,24 @@ def recover_account(
 @router.post("/recover/unanonymize")
 def set_recovered_account(
     user: UserRecover,
+    supabase_anon: Client = Depends(get_supabase_anon),
     supabase_admin: Client = Depends(get_supabase_admin),
 ):
     try:
-        account = supabase_admin.auth.admin.get_user_by_id(user.id).execute()
+        account = supabase_admin.auth.admin.get_user_by_id(user.id)
+        account_user = getattr(account, "user", None)
         profile = supabase_admin.table("profiles").select("*").eq("id", user.id).single().execute()
-        if not account.data or len(account.data) == 0 or not profile.data or len(profile.data) == 0:
+        if not account_user or not profile.data:
             raise HTTPException(status_code=404, detail="User not found")
         elif (
-            account.data[0].get("email") != f"deleted_{user.id}@deleted.com"
+            account_user.email != f"deleted_{user.id}@deleted.com"
             or profile.data.get("email") != f"deleted_{user.id}@deleted.com"
             or profile.data.get("username") != f"Deleted User {user.id}"
             or profile.data.get("deleted_at") is None
         ):
             raise HTTPException(status_code=409, detail="Account is not marked as deleted and cannot be recovered")
-        check_password = supabase_admin.auth.sign_in_with_password(
-            {"email": account.data[0]["email"], "password": user.password}
+        check_password = supabase_anon.auth.sign_in_with_password(
+            {"email": account_user.email, "password": user.password}
         )
         if not getattr(check_password, "user", None):
             raise HTTPException(status_code=401, detail="Wrong password")
@@ -221,10 +228,15 @@ def set_recovered_account(
             raise HTTPException(status_code=500, detail="Error unanonymizing user profile")
 
         supabase_admin.auth.admin.update_user_by_id(user.id, {"email": user.email})
-        final_login = supabase_admin.auth.sign_in_with_password({"email": user.email, "password": user.password})
+        final_login = supabase_anon.auth.sign_in_with_password({"email": user.email, "password": user.password})
         if not getattr(final_login, "user", None):
             raise HTTPException(status_code=500, detail="Failed to sign in with updated credentials")
 
         return {"message": "Account unanonymized successfully", "id": user.id}
+    except HTTPException:
+        raise
     except Exception as exc:
+        error_msg = str(exc)
+        if "profiles_username_key" in error_msg or "Key (username)=" in error_msg or "23505" in error_msg:
+            raise HTTPException(status_code=409, detail="El nombre de usuario ya está en uso")
         raise HTTPException(status_code=500, detail=f"Database error at unanonymizing recovered account: {str(exc)}")
