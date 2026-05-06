@@ -6,7 +6,8 @@ import { Text } from '@/components/ui/text';
 import { Image } from 'expo-image';
 import * as React from 'react';
 import { useState } from 'react';
-import { Pressable, type TextInput, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { Platform, Pressable, type TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useRegisterMutation } from '@/api/auth';
 
@@ -96,6 +97,24 @@ export function SignUpForm() {
 
   const { mutateAsync: registerAPI, isPending } = useRegisterMutation();
 
+  const resetForm = React.useCallback(() => {
+    setEmail('');
+    setUsername('');
+    setAvatarUrl('');
+    setPassword('');
+    setPasswordConfirm('');
+    setLocalError('');
+    setIsValidatingAvatar(false);
+    setPendingAvatarValidationUrl(null);
+    setPendingRegistration(null);
+  }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      resetForm();
+    }, [resetForm])
+  );
+
   function onEmailSubmitEditing() {
     usernameInputRef.current?.focus();
   }
@@ -128,6 +147,7 @@ export function SignUpForm() {
         avatar_url: payload.avatarUrl || undefined,
       });
 
+      resetForm();
       router.replace('/sign-in');
     } catch (error: unknown) {
       const err = error as { response?: { status?: number; data?: { detail?: unknown } } };
@@ -204,6 +224,36 @@ export function SignUpForm() {
 
   return (
     <View className="gap-6 w-full max-w-sm">
+      {Platform.OS === 'web' ? (
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            opacity: 0,
+            width: 0,
+            height: 0,
+            overflow: 'hidden',
+          }}>
+          <Input
+            id="signup-decoy-username"
+            value=""
+            onChangeText={() => {}}
+            autoComplete="username"
+            editable={false}
+            tabIndex={-1}
+          />
+          <Input
+            id="signup-decoy-password"
+            value=""
+            onChangeText={() => {}}
+            autoComplete="current-password"
+            secureTextEntry
+            editable={false}
+            tabIndex={-1}
+          />
+        </View>
+      ) : null}
+
       <Card className="border-border/0 shadow-none sm:border-border sm:shadow-sm sm:shadow-black/5">
         <CardHeader>
           <CardTitle className="text-center text-xl sm:text-left">Regístrate</CardTitle>
@@ -221,9 +271,12 @@ export function SignUpForm() {
               <Label htmlFor="email">Email *</Label>
               <Input
                 id="email"
+                key="signup-email"
                 placeholder="example@example.com"
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="email"
                 value={email}
                 onChangeText={setEmail}
                 editable={!isBusy}
@@ -237,8 +290,11 @@ export function SignUpForm() {
               <Input
                 ref={usernameInputRef}
                 id="username"
+                key="signup-username"
                 placeholder="Tu nombre de usuario"
                 autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="username-new"
                 value={username}
                 onChangeText={setUsername}
                 editable={!isBusy}
@@ -252,10 +308,12 @@ export function SignUpForm() {
               <Input
                 ref={avatarUrlInputRef}
                 id="avatarUrl"
+                key="signup-avatar-url"
                 placeholder="https://ejemplo.com/avatar.jpg"
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="url"
+                autoComplete="off"
                 value={avatarUrl}
                 onChangeText={(value) => {
                   setAvatarUrl(value);
@@ -274,8 +332,10 @@ export function SignUpForm() {
               <Input
                 ref={passwordInputRef}
                 id="password"
+                key="signup-password"
                 secureTextEntry
                 placeholder="De 8 a 16 caracteres"
+                autoComplete="new-password"
                 value={password}
                 onChangeText={setPassword}
                 editable={!isBusy}
@@ -289,8 +349,10 @@ export function SignUpForm() {
               <Input
                 ref={passwordConfirmInputRef}
                 id="passwordConfirm"
+                key="signup-password-confirm"
                 secureTextEntry
                 placeholder="Repite tu contraseña"
+                autoComplete="new-password"
                 value={passwordConfirm}
                 onChangeText={setPasswordConfirm}
                 editable={!isBusy}
