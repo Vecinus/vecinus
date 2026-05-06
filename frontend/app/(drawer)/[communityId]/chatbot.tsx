@@ -34,6 +34,7 @@ import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import type { ChatMessage, UploadDocumentFile } from '@/types/chatbot.types';
 import { ADMIN_ROLE_ID } from '@/utils/role.util';
+import { getLegalWarning } from '@/utils/legal-warnings';
 import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import {
@@ -563,6 +564,9 @@ export default function CommunityChatbotScreen() {
         contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
         showsVerticalScrollIndicator>
         <View className="gap-3">
+          <Text className="text-xs italic text-muted-foreground">
+            {getLegalWarning('document_upload')}
+          </Text>
           <Button
             variant="outline"
             onPress={() => {
