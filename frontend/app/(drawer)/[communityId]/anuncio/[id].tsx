@@ -27,7 +27,7 @@ export default function AnuncioDetailScreen() {
   const announcementId = Array.isArray(announcementIdRaw) ? announcementIdRaw[0] : announcementIdRaw;
 
   const { activeCommunity, currentRole, user } = useAuth();
-  
+
   const roleToken = useMemo(() => {
     if (!communityId) return normalizeRoleToBackendToken(currentRole);
     const membership = user?.CommunitiesAndRole.find(
@@ -58,7 +58,7 @@ export default function AnuncioDetailScreen() {
   const [contentDraft, setContentDraft] = useState('');
   const [statusDraft, setStatusDraft] = useState<AnnouncementStatus>('PUBLISHED');
   const [pickedImage, setPickedImage] = useState<{ uri: string; name?: string; mimeType?: string; file?: unknown } | null>(null);
-  const [scheduledDateDraft, setScheduledDateDraft] = useState('');  
+  const [scheduledDateDraft, setScheduledDateDraft] = useState('');
   const [formError, setFormError] = useState('');
 
   // Info Modal
@@ -97,11 +97,11 @@ export default function AnuncioDetailScreen() {
       const result = await DocumentPicker.getDocumentAsync({ type: ['image/*'], multiple: false });
       if (result.canceled) return;
       const asset = result.assets[0];
-      
+
       setPickedImage({
         uri: asset.uri,
-        name: asset.name ?? undefined,
-        mimeType: asset.mimeType ?? undefined,
+        name: asset.name || undefined,
+        mimeType: asset.mimeType || undefined,
         file: (asset as unknown as { file?: unknown }).file,
       });
       setFormError('');
@@ -172,7 +172,7 @@ export default function AnuncioDetailScreen() {
   }
 
   const statusLabel = announcement.status === 'PUBLISHED' ? 'Publicado' : 'Borrador';
-  const statusColor = announcement.status === 'PUBLISHED' 
+  const statusColor = announcement.status === 'PUBLISHED'
     ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
     : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400';
 
@@ -186,25 +186,24 @@ export default function AnuncioDetailScreen() {
           </TouchableOpacity>
         ),
       }} />
-      
+
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         {!isEditing ? (
           <View>
             {/* Hero Image */}
             <View className="w-full aspect-[16/9] bg-muted relative overflow-hidden">
-              <Image 
-                source={{ uri: announcement.image_url || GENERIC_IMAGE }} 
-                className="w-full h-full object-cover" 
+              <Image
+                source={{ uri: announcement.image_url || GENERIC_IMAGE }}
+                className="w-full h-full object-cover"
               />
               {/* Gradient overlay for readability */}
               <View className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-              
+
               {/* Status badge */}
-              <View className={`absolute top-4 right-4 px-3 py-1.5 rounded-full shadow-md ${
-                announcement.status === 'DRAFT' 
-                  ? 'bg-amber-500'
-                  : 'bg-emerald-500'
-              }`}>
+              <View className={`absolute top-4 right-4 px-3 py-1.5 rounded-full shadow-md ${announcement.status === 'DRAFT'
+                ? 'bg-amber-500'
+                : 'bg-emerald-500'
+                }`}>
                 <Text className="text-white font-bold text-xs uppercase tracking-wide">
                   {statusLabel}
                 </Text>
@@ -217,7 +216,7 @@ export default function AnuncioDetailScreen() {
               <Text className="text-2xl sm:text-3xl font-bold text-foreground mb-3 leading-tight">
                 {announcement.title}
               </Text>
-              
+
               {/* Date info row */}
               <View className="flex-row items-center gap-4 mb-5 pb-5 border-b border-border/50">
                 <View className="flex-row items-center gap-1.5">
@@ -270,7 +269,7 @@ export default function AnuncioDetailScreen() {
 
               {/* Edit button - only for admins/presidents */}
               {canManage && (
-                <Button 
+                <Button
                   className="mt-8 bg-indigo-600 dark:bg-indigo-500 h-12 rounded-xl"
                   onPress={() => { setIsEditing(true); }}
                 >
@@ -320,25 +319,23 @@ export default function AnuncioDetailScreen() {
             <View className="flex-row gap-3 mb-6">
               <TouchableOpacity
                 onPress={() => { setStatusDraft('DRAFT'); }}
-                className={`flex-1 py-3.5 rounded-xl border flex-row items-center justify-center gap-2 ${
-                  statusDraft === 'DRAFT'
-                    ? 'bg-amber-50 border-amber-500 dark:bg-amber-900/20'
-                    : 'bg-card border-border'
-                }`}
+                className={`flex-1 py-3.5 rounded-xl border flex-row items-center justify-center gap-2 ${statusDraft === 'DRAFT'
+                  ? 'bg-amber-50 border-amber-500 dark:bg-amber-900/20'
+                  : 'bg-card border-border'
+                  }`}
               >
                 <Ionicons name="document-outline" size={16} color={statusDraft === 'DRAFT' ? '#b45309' : '#9ca3af'} />
                 <Text className={`font-semibold ${statusDraft === 'DRAFT' ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground'}`}>
                   Borrador
                 </Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 onPress={() => { setStatusDraft('PUBLISHED'); }}
-                className={`flex-1 py-3.5 rounded-xl border flex-row items-center justify-center gap-2 ${
-                  statusDraft === 'PUBLISHED'
-                    ? 'bg-indigo-50 border-indigo-500 dark:bg-indigo-900/20'
-                    : 'bg-card border-border'
-                }`}
+                className={`flex-1 py-3.5 rounded-xl border flex-row items-center justify-center gap-2 ${statusDraft === 'PUBLISHED'
+                  ? 'bg-indigo-50 border-indigo-500 dark:bg-indigo-900/20'
+                  : 'bg-card border-border'
+                  }`}
               >
                 <Ionicons name="megaphone-outline" size={16} color={statusDraft === 'PUBLISHED' ? '#4338ca' : '#9ca3af'} />
                 <Text className={`font-semibold ${statusDraft === 'PUBLISHED' ? 'text-indigo-700 dark:text-indigo-400' : 'text-muted-foreground'}`}>
@@ -364,10 +361,10 @@ export default function AnuncioDetailScreen() {
             >
               {(pickedImage || announcement.image_url) ? (
                 <View className="w-full h-full relative">
-                  <Image 
-                    source={{ uri: pickedImage ? pickedImage.uri : (announcement.image_url || GENERIC_IMAGE) }} 
-                    className="w-full h-full" 
-                    resizeMode="cover" 
+                  <Image
+                    source={{ uri: pickedImage ? pickedImage.uri : (announcement.image_url || GENERIC_IMAGE) }}
+                    className="w-full h-full"
+                    resizeMode="cover"
                   />
                   <View className="absolute inset-0 bg-black/40 items-center justify-center">
                     <Ionicons name="camera" size={32} color="white" />
@@ -383,21 +380,21 @@ export default function AnuncioDetailScreen() {
             </TouchableOpacity>
 
             <View className="flex-row gap-4">
-              <Button 
-                variant="outline" 
-                className="flex-1 bg-card h-12 rounded-xl" 
+              <Button
+                variant="outline"
+                className="flex-1 bg-card h-12 rounded-xl"
                 onPress={() => {
                   setIsEditing(false);
                   setPickedImage(null);
                   setFormError('');
-                }} 
+                }}
                 disabled={updateMutation.isPending}
               >
                 <Text>Cancelar</Text>
               </Button>
-              <Button 
-                className="flex-1 bg-indigo-600 dark:bg-indigo-500 h-12 rounded-xl" 
-                onPress={onSave} 
+              <Button
+                className="flex-1 bg-indigo-600 dark:bg-indigo-500 h-12 rounded-xl"
+                onPress={onSave}
                 disabled={updateMutation.isPending}
               >
                 <Text className="text-white font-semibold">{updateMutation.isPending ? 'Guardando...' : 'Guardar Cambios'}</Text>

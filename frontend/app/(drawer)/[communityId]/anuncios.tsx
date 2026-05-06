@@ -145,8 +145,8 @@ export default function AnunciosScreen() {
 
       setPickedImage({
         uri: asset.uri,
-        name: asset.name ?? undefined,
-        mimeType: asset.mimeType ?? undefined,
+        name: asset.name || undefined,
+        mimeType: asset.mimeType || undefined,
         file: (asset as unknown as { file?: unknown }).file,
       });
       setFormError('');

@@ -102,7 +102,7 @@ export default function HomeScreen() {
       </Button>
 
       <View className="border-t border-border px-5 py-6">
-        <Pressable onPress={() => router.push('/legal')}>
+        <Pressable onPress={() => router.push('/legal' as any)}>
           <Text className="text-center text-xs text-muted-foreground underline">
             Ver Términos y Condiciones
           </Text>

@@ -139,7 +139,7 @@ export function SignInForm() {
             </Pressable>
           </Text>
           <View className="border-t border-border pt-4 mt-4">
-            <Pressable onPress={() => router.push('/(auth)/legal')}>
+            <Pressable onPress={() => router.push('/(auth)/legal' as any)}>
               <Text className="text-center text-xs text-muted-foreground underline">
                 Consulta nuestros Términos y Condiciones
               </Text>
