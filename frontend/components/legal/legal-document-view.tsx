@@ -123,7 +123,6 @@ const legalSections: LegalSection[] = [
       "El código fuente, diseño y algoritmos pertenecen a los titulares identificados en el aviso legal.",
       "La redacción de actas y el chatbot están asistidos por inteligencia artificial.",
       "El contenido generado por IA es informativo y debe ser revisado y validado por el administrador antes de su uso oficial.",
-      "La firma mediante trazo digital se considera firma electrónica simple para la aprobación interna de documentos.",
       "La gestión multicomunidad exige que el administrador tenga autorización para operar cada comunidad dada de alta.",
       "Sistema de votaciones: el voto estará ponderado según el porcentaje de propiedad; el usuario deberá estar autenticado mediante correo electrónico, siendo responsable de sus credenciales; los resultados se calcularán de forma ponderada y tendrán carácter vinculante salvo indicación en contrario.",
       "Vecinus se presenta como prototipo académico y los desarrolladores no asumen responsabilidad por fallos técnicos o decisiones tomadas con base en la app.",
