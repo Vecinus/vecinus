@@ -91,7 +91,7 @@ export function DateTimePickerModal({
     <>
       <TouchableOpacity
         activeOpacity={0.7}
-        onPress={() => !disabled && setVisible(true)}
+        onPress={() => { if (!disabled) setVisible(true); }}
         disabled={disabled}
         className="flex-row items-center px-4 py-3 rounded-xl border border-border bg-card mb-4"
       >
@@ -108,14 +108,14 @@ export function DateTimePickerModal({
         visible={visible}
         transparent
         animationType="fade"
-        onRequestClose={() => setVisible(false)}
+        onRequestClose={() => { setVisible(false); }}
       >
         <View className="flex-1 bg-black/50 items-center justify-center p-6">
           <View className="bg-background rounded-2xl p-5 w-full max-w-sm border border-border shadow-2xl">
             {/* Header */}
             <View className="flex-row items-center justify-between mb-5">
               <Text className="text-lg font-bold text-foreground">Fecha y Hora</Text>
-              <TouchableOpacity onPress={() => setVisible(false)} className="p-1">
+              <TouchableOpacity onPress={() => { setVisible(false); }} className="p-1">
                 <Ionicons name="close" size={22} className="text-muted-foreground" />
               </TouchableOpacity>
             </View>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Modal, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Modal, ScrollView, TouchableOpacity, Image, StyleProp, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,7 @@ interface AnnouncementCreateModalProps {
   onClose: () => void;
   onPickImage: () => void;
   onSubmit: () => void;
-  modalCardStyle: any;
+  modalCardStyle: StyleProp<ViewStyle>;
 }
 
 export function AnnouncementCreateModal({
@@ -87,7 +87,7 @@ export function AnnouncementCreateModal({
             <Text className="text-sm font-semibold text-foreground mb-2">Estado</Text>
             <View className="flex-row gap-3 mb-4">
               <TouchableOpacity
-                onPress={() => setStatusDraft('DRAFT')}
+                onPress={() => { setStatusDraft('DRAFT'); }}
                 className={`flex-1 py-3 rounded-xl border ${
                   statusDraft === 'DRAFT'
                     ? 'bg-amber-50 border-amber-500 dark:bg-amber-900/20'
@@ -100,7 +100,7 @@ export function AnnouncementCreateModal({
               </TouchableOpacity>
               
               <TouchableOpacity
-                onPress={() => setStatusDraft('PUBLISHED')}
+                onPress={() => { setStatusDraft('PUBLISHED'); }}
                 className={`flex-1 py-3 rounded-xl border ${
                   statusDraft === 'PUBLISHED'
                     ? 'bg-indigo-50 border-indigo-500 dark:bg-indigo-900/20'

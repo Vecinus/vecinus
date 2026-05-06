@@ -95,14 +95,15 @@ export default function AnuncioDetailScreen() {
   const onPickImage = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({ type: ['image/*'], multiple: false });
-      if (result.canceled || !result.assets?.[0]) return;
+      if (result.canceled) return;
+      if (!result.assets || result.assets.length === 0) return;
       
       const asset = result.assets[0];
       setPickedImage({
         uri: asset.uri,
         name: asset.name,
         mimeType: asset.mimeType,
-        file: (asset as any).file,
+        file: (asset as unknown as { file?: unknown }).file,
       });
       setFormError('');
     } catch {
@@ -129,7 +130,7 @@ export default function AnuncioDetailScreen() {
       setPickedImage(null);
       showAlert('Éxito', 'Anuncio actualizado correctamente.');
     } catch (err) {
-      console.error('[AnuncioUpdate] Error:', JSON.stringify((err as any)?.response?.data, null, 2));
+      console.error('[AnuncioUpdate] Error:', JSON.stringify((err as { response?: { data?: unknown } })?.response?.data, null, 2));
       setFormError(getUserFacingErrorMessage(err, 'No se pudo actualizar el anuncio.'));
     }
   };
@@ -272,7 +273,7 @@ export default function AnuncioDetailScreen() {
               {canManage && (
                 <Button 
                   className="mt-8 bg-indigo-600 dark:bg-indigo-500 h-12 rounded-xl"
-                  onPress={() => setIsEditing(true)}
+                  onPress={() => { setIsEditing(true); }}
                 >
                   <Ionicons name="pencil" size={18} color="white" />
                   <Text className="text-white ml-2 font-semibold text-base">Editar Anuncio</Text>
@@ -319,7 +320,7 @@ export default function AnuncioDetailScreen() {
             <Text className="text-sm font-semibold text-foreground mb-2">Estado</Text>
             <View className="flex-row gap-3 mb-6">
               <TouchableOpacity
-                onPress={() => setStatusDraft('DRAFT')}
+                onPress={() => { setStatusDraft('DRAFT'); }}
                 className={`flex-1 py-3.5 rounded-xl border flex-row items-center justify-center gap-2 ${
                   statusDraft === 'DRAFT'
                     ? 'bg-amber-50 border-amber-500 dark:bg-amber-900/20'
@@ -333,7 +334,7 @@ export default function AnuncioDetailScreen() {
               </TouchableOpacity>
               
               <TouchableOpacity
-                onPress={() => setStatusDraft('PUBLISHED')}
+                onPress={() => { setStatusDraft('PUBLISHED'); }}
                 className={`flex-1 py-3.5 rounded-xl border flex-row items-center justify-center gap-2 ${
                   statusDraft === 'PUBLISHED'
                     ? 'bg-indigo-50 border-indigo-500 dark:bg-indigo-900/20'
@@ -358,7 +359,7 @@ export default function AnuncioDetailScreen() {
             <Text className="text-sm font-semibold text-foreground mb-2">Imagen (Opcional)</Text>
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={onPickImage}
+              onPress={() => { void onPickImage(); }}
               disabled={updateMutation.isPending}
               className="mb-8 h-48 rounded-2xl border-2 border-dashed border-border bg-card items-center justify-center overflow-hidden relative"
             >
@@ -408,13 +409,13 @@ export default function AnuncioDetailScreen() {
       </ScrollView>
 
       {/* INFO MODAL */}
-      <Modal visible={infoModal.visible} transparent animationType="fade" onRequestClose={() => setInfoModal(prev => ({ ...prev, visible: false }))}>
+      <Modal visible={infoModal.visible} transparent animationType="fade" onRequestClose={() => { setInfoModal(prev => ({ ...prev, visible: false })); }}>
         <View className="flex-1 bg-black/50 items-center justify-center p-6">
           <View className="bg-background rounded-2xl p-6 w-full max-w-sm border border-border shadow-xl">
             <Text className="text-lg font-bold text-foreground mb-2">{infoModal.title}</Text>
             <Text className="text-muted-foreground mb-6">{infoModal.message}</Text>
             <View className="flex-row justify-end gap-3">
-              <Button onPress={() => setInfoModal(prev => ({ ...prev, visible: false }))}>
+              <Button onPress={() => { setInfoModal(prev => ({ ...prev, visible: false })); }}>
                 <Text>Aceptar</Text>
               </Button>
             </View>

@@ -16,7 +16,7 @@ async function appendFileToFormData(
 
   const fileName = image.name || 'image.jpg';
   const mimeType = image.mimeType || image.type || 'image/jpeg';
-  const maybeFile = (image as any).file;
+  const maybeFile = image.file;
 
   // On web, if we have a real Blob/File object, use it directly
   if (typeof Blob !== 'undefined' && maybeFile instanceof Blob) {
@@ -33,7 +33,7 @@ async function appendFileToFormData(
         uri: image.uri,
         name: fileName,
         type: mimeType,
-      } as any);
+      } as unknown as Blob);
     }
   } else {
     // React Native style: pass as object (works on native)
@@ -41,7 +41,7 @@ async function appendFileToFormData(
       uri: image.uri,
       name: fileName,
       type: mimeType,
-    } as any);
+    } as unknown as Blob);
   }
 }
 

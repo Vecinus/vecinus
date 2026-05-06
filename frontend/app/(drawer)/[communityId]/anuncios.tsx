@@ -135,7 +135,8 @@ export default function AnunciosScreen() {
   const onPickImage = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({ type: ['image/*'], multiple: false });
-      if (result.canceled || !result.assets?.[0]) return;
+      if (result.canceled) return;
+      if (!result.assets || result.assets.length === 0) return;
 
       const asset = result.assets[0];
       if (asset.size && asset.size > 5 * 1024 * 1024) {
@@ -147,7 +148,7 @@ export default function AnunciosScreen() {
         uri: asset.uri,
         name: asset.name,
         mimeType: asset.mimeType,
-        file: (asset as any).file,
+        file: (asset as unknown as { file?: unknown }).file,
       });
       setFormError('');
     } catch {
@@ -220,7 +221,7 @@ export default function AnunciosScreen() {
           {canManage && (
             <TouchableOpacity
               activeOpacity={0.8}
-              onPress={() => setCreateModalVisible(true)}
+              onPress={() => { setCreateModalVisible(true); }}
               className="bg-indigo-600 dark:bg-indigo-500 rounded-xl h-10 px-4 flex-row items-center gap-1.5 shadow-sm"
             >
               <Ionicons name="add" size={20} color="white" />
@@ -238,7 +239,7 @@ export default function AnunciosScreen() {
                 key={tab.key}
                 activeOpacity={0.7}
                 className={`h-8 px-4 rounded-full items-center justify-center ${isActive ? 'bg-indigo-600 dark:bg-indigo-500' : 'bg-accent/60'}`}
-                onPress={() => setActiveFilter(tab.key)}
+                onPress={() => { setActiveFilter(tab.key); }}
               >
                 <Text className={`text-sm font-semibold ${isActive ? 'text-white' : 'text-muted-foreground'}`}>
                   {tab.label}
@@ -264,7 +265,7 @@ export default function AnunciosScreen() {
                 params: { communityId, id: item.id },
               });
             }}
-            onDelete={() => onDeleteConfirm(item.id)}
+            onDelete={() => { onDeleteConfirm(item.id); }}
           />
         )}
         ListEmptyComponent={
@@ -288,7 +289,7 @@ export default function AnunciosScreen() {
               {canManage && (
                 <TouchableOpacity
                   activeOpacity={0.8}
-                  onPress={() => setCreateModalVisible(true)}
+                  onPress={() => { setCreateModalVisible(true); }}
                   className="bg-indigo-600 dark:bg-indigo-500 rounded-xl h-11 px-6 flex-row items-center gap-2"
                 >
                   <Ionicons name="add-circle-outline" size={20} color="white" />
@@ -323,7 +324,7 @@ export default function AnunciosScreen() {
       )}
 
       {/* INFO MODAL */}
-      <Modal visible={infoModal.visible} transparent animationType="fade" onRequestClose={() => setInfoModal(prev => ({ ...prev, visible: false }))}>
+      <Modal visible={infoModal.visible} transparent animationType="fade" onRequestClose={() => { setInfoModal(prev => ({ ...prev, visible: false })); }}>
         <View className="flex-1 bg-black/50 items-center justify-center p-6">
           <View className="bg-background rounded-2xl p-6 w-full max-w-sm border border-border shadow-xl">
             <Text className="text-lg font-bold text-foreground mb-2">{infoModal.title}</Text>
@@ -331,7 +332,7 @@ export default function AnunciosScreen() {
             <View className="flex-row justify-end gap-3">
               {infoModal.onConfirm ? (
                 <>
-                  <Button variant="outline" onPress={() => setInfoModal(prev => ({ ...prev, visible: false }))}>
+                  <Button variant="outline" onPress={() => { setInfoModal(prev => ({ ...prev, visible: false })); }}>
                     <Text>Cancelar</Text>
                   </Button>
                   <Button
@@ -345,7 +346,7 @@ export default function AnunciosScreen() {
                   </Button>
                 </>
               ) : (
-                <Button onPress={() => setInfoModal(prev => ({ ...prev, visible: false }))}>
+                <Button onPress={() => { setInfoModal(prev => ({ ...prev, visible: false })); }}>
                   <Text>Aceptar</Text>
                 </Button>
               )}
