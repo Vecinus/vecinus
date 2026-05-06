@@ -147,6 +147,13 @@ export function SignInForm() {
               <Text className="text-sm underline underline-offset-4">Recupérala aquí</Text>
             </Pressable>
           </Text>
+          <View className="border-t border-border pt-4 mt-4">
+            <Pressable onPress={() => router.push('/(auth)/legal')}>
+              <Text className="text-center text-xs text-muted-foreground underline">
+                Consulta nuestros Términos y Condiciones
+              </Text>
+            </Pressable>
+          </View>
         </CardContent>
       </Card>
     </View>
