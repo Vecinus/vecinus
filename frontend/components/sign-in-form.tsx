@@ -138,6 +138,15 @@ export function SignInForm() {
               <Text className="text-sm underline underline-offset-4">Regístrate</Text>
             </Pressable>
           </Text>
+          <Text className="text-center text-sm text-muted-foreground">
+            ¿Tu cuenta fue anonimizada?{' '}
+            <Pressable
+              onPress={() => {
+                router.push('/recover-account');
+              }}>
+              <Text className="text-sm underline underline-offset-4">Recupérala aquí</Text>
+            </Pressable>
+          </Text>
         </CardContent>
       </Card>
     </View>

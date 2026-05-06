@@ -10,6 +10,24 @@ export interface RegisterCredentials {
   username: string;
 }
 
+export interface RemoveAccountCredentials {
+  email: string;
+  password: string;
+}
+
+export interface RecoverAccountCredentials {
+  account_id: string;
+  password: string;
+}
+
+export interface RecoverAccountProfilePayload {
+  id: string;
+  password: string;
+  username: string;
+  email: string;
+  avatar_url?: string | null;
+}
+
 interface UserProfile {
   id: string;
   username: string;
@@ -131,5 +149,32 @@ export const useRegisterMutation = () => {
       const response = await apiClient.post<unknown>('/register', credentials);
       return response.data;
     },
+  });
+};
+
+export const removeAccount = async (credentials: RemoveAccountCredentials): Promise<{ id: string }> => {
+  const response = await apiClient.post<{ id: string }>('/remove', credentials);
+  return response.data;
+};
+
+export const recoverDeletedAccount = async (
+  credentials: RecoverAccountCredentials
+): Promise<{ id: string; message: string }> => {
+  const response = await apiClient.post<{ id: string; message: string }>('/recover', null, {
+    params: credentials,
+  });
+  return response.data;
+};
+
+export const unanonymizeRecoveredAccount = async (
+  payload: RecoverAccountProfilePayload
+): Promise<{ id: string; message: string }> => {
+  const response = await apiClient.post<{ id: string; message: string }>('/recover/unanonymize', payload);
+  return response.data;
+};
+
+export const useRemoveAccountMutation = () => {
+  return useMutation({
+    mutationFn: removeAccount,
   });
 };

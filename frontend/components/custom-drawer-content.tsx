@@ -19,6 +19,7 @@ import {
   LogOutIcon,
   MailIcon,
   MessageSquareIcon,
+  ShieldAlert,
   UserIcon,
   PlusCircle
 } from 'lucide-react-native';
@@ -113,6 +114,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
   const isBookingActive = pathname.endsWith('/booking') || pathname.includes('/mis-reservas');
   const isAdminActive = pathname.endsWith('/admin');
   const isInvitationsActive = pathname.includes('/invitations');
+  const isAccountActive = pathname.includes('/account');
 
   return (
     <View className="flex-1 bg-background">
@@ -248,6 +250,14 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
             <View className="flex-row items-center gap-3">
               <Icon as={PlusCircle} size={22} className="text-muted-foreground" />
               <Text className="font-medium text-foreground">Añadir Comunidad</Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push('/(drawer)/account')}
+            className={`rounded-lg px-4 py-3 ${isAccountActive ? 'bg-muted' : 'active:bg-muted'}`}>
+            <View className="flex-row items-center gap-3">
+              <Icon as={ShieldAlert} size={22} className="text-muted-foreground" />
+              <Text className="font-medium text-foreground">Cuenta</Text>
             </View>
           </TouchableOpacity>
         </View>
