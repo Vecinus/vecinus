@@ -4,12 +4,14 @@ import { Separator } from '@/components/ui/separator';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 import {
+  CreditCard,
   FileCheck2,
   FileText,
   type LucideIcon,
   Lock,
   Scale,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react-native';
 import { ScrollView, View } from 'react-native';
 
@@ -33,6 +35,41 @@ const keyFacts = [
 ];
 
 const legalSections: LegalSection[] = [
+  {
+    id: 'servicios',
+    title: 'Descripción del servicio',
+    subtitle: 'Funcionalidades principales y características de la plataforma Vecinus.',
+    icon: Sparkles,
+    tone: {
+      wrapper: 'border-cyan-200 bg-cyan-50 dark:border-cyan-900/40 dark:bg-cyan-950/20',
+      iconBox: 'bg-cyan-500/10',
+      icon: 'text-cyan-600 dark:text-cyan-400',
+    },
+    items: [
+      'Gestión de Juntas e IA: Grabación y transcripción automática de actas mediante Inteligencia Artificial.',
+      'Votaciones Digitales: Sistema de votación ponderada por coeficiente de propiedad con integridad garantizada.',
+      'Comunicación y Asistencia: Chat de vecinos, tablón de anuncios y Chatbot informativo (RAG) basado en normativa interna.',
+      'Gestión Operativa: Reporte de incidencias fotográficas y reserva de zonas comunes mediante códigos QR.',
+      'Panel Multicomunidad: Herramientas específicas para administradores profesionales.',
+    ],
+  },
+  {
+    id: 'precios',
+    title: 'Precios',
+    subtitle: 'Modelo de suscripción mensual por comunidad con dos planes disponibles.',
+    icon: CreditCard,
+    tone: {
+      wrapper: 'border-rose-200 bg-rose-50 dark:border-rose-900/40 dark:bg-rose-950/20',
+      iconBox: 'bg-rose-500/10',
+      icon: 'text-rose-600 dark:text-rose-400',
+    },
+    items: [
+      'Plan Básico: 20 € + 0,20 € por vivienda. Chatbot: 500 mensajes/mes + 5 por vivienda. Actas: 2h/mes acumulables hasta 10h.',
+      'Plan Premium: 30 € + 0,50 € por vivienda. Chatbot: 1.000 mensajes/mes + 10 por vivienda. Actas: 4h/mes acumulables hasta 20h.',
+      'Ejemplo Plan Básico: Comunidad de 50 viviendas → 20 € + (50 × 0,20 €) = 30 €/mes.',
+      'Ejemplo Plan Premium: Comunidad de 50 viviendas → 30 € + (50 × 0,50 €) = 55 €/mes.',
+    ],
+  },
   {
     id: 'aviso-legal',
     title: 'Aviso legal',
