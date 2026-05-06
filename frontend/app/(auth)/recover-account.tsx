@@ -11,6 +11,14 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import * as React from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 
+type RequestError = {
+  response?: {
+    data?: {
+      detail?: string;
+    };
+  };
+};
+
 function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
@@ -85,8 +93,9 @@ export default function RecoverAccountScreen() {
 
       await storageService.removeRecoveryAccountId();
       router.replace('/');
-    } catch (requestError: any) {
-      const detail = requestError?.response?.data?.detail;
+    } catch (requestError: unknown) {
+      const typedError = requestError as RequestError;
+      const detail = typedError.response?.data?.detail;
       setError(typeof detail === 'string' ? detail : 'No se pudo recuperar la cuenta.');
     } finally {
       setIsSubmitting(false);

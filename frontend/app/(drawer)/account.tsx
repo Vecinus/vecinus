@@ -20,6 +20,14 @@ import { AlertTriangle, ShieldAlert } from 'lucide-react-native';
 import * as React from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 
+type RequestError = {
+  response?: {
+    data?: {
+      detail?: string;
+    };
+  };
+};
+
 export default function AccountScreen() {
   const router = useRouter();
   const { user, logoutContext } = useAuth();
@@ -55,8 +63,9 @@ export default function AccountScreen() {
         pathname: '/(auth)/recover-account',
         params: { accountId: response.id },
       });
-    } catch (requestError: any) {
-      const detail = requestError?.response?.data?.detail;
+    } catch (requestError: unknown) {
+      const typedError = requestError as RequestError;
+      const detail = typedError.response?.data?.detail;
       setError(typeof detail === 'string' ? detail : 'No se pudo anonimizar la cuenta.');
     }
   };
@@ -117,7 +126,9 @@ export default function AccountScreen() {
             <Button
               variant="destructive"
               className="h-12"
-              onPress={() => setConfirmDialogOpen(true)}
+              onPress={() => {
+                setConfirmDialogOpen(true);
+              }}
               disabled={isPending}
             >
               {isPending ? <ActivityIndicator color="#ffffff" /> : <Text>Anonimizar mi cuenta</Text>}
@@ -140,7 +151,9 @@ export default function AccountScreen() {
           <DialogFooter>
             <Button
               variant="outline"
-              onPress={() => setConfirmDialogOpen(false)}
+              onPress={() => {
+                setConfirmDialogOpen(false);
+              }}
               disabled={isPending}
             >
               <Text>Cancelar</Text>
