@@ -59,7 +59,7 @@ colorama==0.4.6
     #   commitizen
 commitizen==4.15.0
     # via -r requirements.in
-cryptography==46.0.7
+cryptography==48.0.0
     # via
     #   -r requirements.in
     #   google-auth
