@@ -281,7 +281,7 @@
   ```ts
   const canDeleteThis = ['PENDING', 'SOLVED', 'DISCARDED'].includes(status);
   ```
-- **Problema:** No comprueba propiedad del usuario sobre la incidencia. El botón aparece y al pulsar el backend devuelve `Unauthorized` (lo que reporta Hector).
+- **Problema:** No comprueba propiedad del usuario sobre la incidencia. El botón aparece y al pulsar el backend devuelve `Unauthorized` (lo que reporta Hector). Además, los usuarios no pueden eliminar las incidencias que ellos mismos crearon.
 - **Recomendación:**
   ```ts
   const canDeleteThis =
@@ -305,6 +305,20 @@
 - **Estado:** ⚠️ A REPRODUCIR
 - **Archivo:** `backend/api/common_space/common_space.py:57-66`
 - **Notas:** El backend está implementado correctamente. Verificar que el frontend manda `Origin` válido y que `main.py` no está rechazando el preflight. **Probable causa:** el `allow_origins=["*"]` con `allow_credentials=True` falla en preflight según la spec CORS — al cerrar el comodín hay que añadir el origen real de Expo Web.
+
+### 9.2 Desplegable de zonas comunes de reservas vacío hasta recargar
+- **Estado:** ❌ CONFIRMADO por uso en QA.
+- **Archivo:** `frontend/app/(drawer)/[communityId]/...` (posible `reservas.tsx` o componente de filtros de zonas comunes)
+- **Problema:** Al entrar en la pantalla de reservas, el desplegable de selección de zona común aparece vacío hasta que se recarga la página. Después de refrescar, la lista se carga correctamente.
+- **Impacto:** Experiencia de usuario rota; el usuario no puede seleccionar zona común en su primer acceso.
+- **Recomendación:** Inspeccionar el estado inicial y la carga de datos en el componente de reservas. Asegurar que la lista de zonas comunes se inicializa con la consulta correcta y no depende solo de un efecto posterior a la renderización.
+
+### 9.3 Network error reservando la barbacoa
+- **Estado:** ❌ CONFIRMADO por uso en QA.
+- **Archivo:** `frontend/app/(drawer)/[communityId]/...` (posible `reservas.tsx` o servicio de reservas)
+- **Problema:** La reserva de la barbacoa falla con `Network error`, mientras que el resto de zonas comunes funciona correctamente.
+- **Impacto:** Bloqueo de uso de la zona de barbacoa, pérdida de confianza en el sistema de reservas.
+- **Recomendación:** Revisar la petición específica enviada al reservar la barbacoa. Comparar payload y endpoint con otras zonas comunes; corregir posibles IDs, parámetros de request o validaciones de backend que solo afectan a esta zona.
 
 ### 9.5 QR escaneado para día futuro lanza 400 confuso
 - **Estado:** ⚠️ PARCIAL (Hector)
