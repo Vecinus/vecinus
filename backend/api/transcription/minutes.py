@@ -3,6 +3,7 @@ from typing import List
 from urllib.parse import quote
 from uuid import UUID
 
+from core.deps import get_current_user
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from schemas.transcription.minutes import MeetingType, MinutesReadResponse, MinutesResponse
@@ -34,6 +35,7 @@ def get_service(db=Depends(MinuteService.get_supabase_client)):
 async def get_minutes(
     association_id: UUID,
     service: MinuteService = Depends(get_service),
+    user: dict = Depends(get_current_user),
 ):
     try:
         db_results = await service.get_minutes_by_association(association_id)
@@ -73,6 +75,7 @@ async def transcribe_meeting(
     scheduled_at: datetime = None,
     audio: UploadFile = File(...),
     service: MinuteService = Depends(get_service),
+    user: dict = Depends(get_current_user),
 ):
     if not scheduled_at:
         scheduled_at = datetime.now()
@@ -132,7 +135,10 @@ async def transcribe_meeting(
 
 
 @router.post("/generate-document-preview")
-async def generate_minutes_document_preview(minutes: MinutesResponse):
+async def generate_minutes_document_preview(
+    minutes: MinutesResponse,
+    user: dict = Depends(get_current_user),
+):
     try:
         buffer = DocumentService.generate_docx(minutes)
         filename = DocumentService.build_docx_filename(minutes.title)
