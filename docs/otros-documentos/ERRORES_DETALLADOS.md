@@ -402,7 +402,7 @@
 
 ## 12. Funcional — Actas
 
-### 12.2 Mensaje de error al subir formato no soportado
+### 12.2 Mensaje de error al subir formato no soportado RARES N.P
 - **Estado:** ⚠️ PARCIAL
 - **Archivo:** `frontend/components/actas/create-acta-card.tsx:97-115`
 - **Problema:** El `DocumentPicker` filtra con `type: 'audio/*'` pero algunos OS (sobre todo web/Android) permiten saltarse el filtro. Cuando se sube un fichero no audio:
@@ -413,12 +413,12 @@
   - Mostrar mensajes específicos: "Formato equivocado", "Archivo demasiado grande", etc.
   - Whitelist explícita: `['audio/mpeg','audio/wav','audio/x-m4a','audio/mp4','audio/ogg','audio/flac','audio/webm']`.
 
-### 12.3 Falta `maxLength` en input de título
+### 12.3 Falta `maxLength` en input de título  RARES N.P
 - **Estado:** ❌ CONFIRMADO
 - **Archivo:** `frontend/components/actas/create-acta-card.tsx:170-177`.
 - **Recomendación:** `maxLength={120}` y replicar `Field` con validación en backend.
 
-### 12.4 Mensaje "no se pudo cargar el audio" tras grabación
+### 12.4 Mensaje "no se pudo cargar el audio" tras grabación  RARES N.P
 - **Archivo:** `frontend/components/actas/create-acta-card.tsx:62-85`.
 - **Notas:** El callback de `useAudioRecorder` se ejecuta con `result.uri` undefined ocasionalmente en web (Permission denied o stream cerrado). Asegurar mensajes específicos según `result.error`.
 
