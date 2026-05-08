@@ -613,6 +613,54 @@ def get_all_properties(
     return properties_res.data
 
 
+@router.get("/{association_id}/properties/eligible")
+def get_eligible_voting_properties(
+    association_id: str,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
+    """
+    Lista las propiedades asignadas a propietarios o presidentes para votaciones.
+    Solo accesible para Administradores o Presidentes (Roles 1 y 4).
+    """
+    admin_check = (
+        supabase.table("memberships")
+        .select("role")
+        .eq("profile_id", current_user["id"])
+        .eq("association_id", association_id)
+        .execute()
+    )
+
+    is_admin = admin_check.data and admin_check.data[0].get("role") in [1, 4]
+
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Acceso denegado. Se requiere ser Administrador o Presidente.")
+
+    memberships_res = (
+        supabase_admin.table("memberships")
+        .select("properties(id, number, coefficient, is_defaulter, association_id)")
+        .eq("association_id", association_id)
+        .in_("role", [2, 4])
+        .not_.is_("property_id", "null")
+        .execute()
+    )
+
+    properties = []
+    seen_property_ids = set()
+    for item in memberships_res.data or []:
+        prop = item.get("properties")
+        if not prop:
+            continue
+        prop_id = prop.get("id")
+        if not prop_id or prop_id in seen_property_ids:
+            continue
+        seen_property_ids.add(prop_id)
+        properties.append(prop)
+
+    return properties
+
+
 @router.get("/{association_id}/properties/available")
 def get_available_properties(
     association_id: str,

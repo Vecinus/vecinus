@@ -77,6 +77,8 @@ class PollService:
             self.supabase.table("memberships")
             .select("id, profiles(email, username), properties(is_defaulter)")
             .eq("association_id", association_id)
+            .in_("role", [2, 4])
+            .not_.is_("property_id", "null")
             .execute()
         )
 
@@ -111,7 +113,9 @@ class PollService:
                 emails_to_send.append({"email": email, "token": new_token})
 
         print(
-            f"[PUBLISH] Total members: {len(voters_res.data)}, Tokens created: {len(tokens_to_insert)}, Emails to send: {len(emails_to_send)}"
+            f"[PUBLISH] Total members: {len(voters_res.data)}, "
+            f"Tokens created: {len(tokens_to_insert)}, "
+            f"Emails to send: {len(emails_to_send)}"
         )
 
         if tokens_to_insert:

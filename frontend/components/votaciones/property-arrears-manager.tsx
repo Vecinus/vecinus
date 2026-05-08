@@ -35,7 +35,7 @@ export function PropertyArrearsManager({ associationId, onCoefficientChange }: P
 
   const loadProperties = useCallback(async () => {
     try {
-      const data = await associationService.getProperties(associationId);
+      const data = await associationService.getVotingProperties(associationId);
       setProperties(data);
       // Distribuir equitativamente por defecto
       await distributeEquitably(data);
