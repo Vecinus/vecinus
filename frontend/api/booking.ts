@@ -3,7 +3,7 @@ import { OccupiedSlot, Reservation, ReservationCancelResponse, ReservationCreate
 
 export const bookingApi = {
     createReservation: async (reservation: ReservationCreate): Promise<Reservation> => {
-        const response = await apiClient.post<Reservation>("/reservations", reservation);
+        const response = await apiClient.post<Reservation>("/reservations/", reservation);
         return response.data;
     },
     
