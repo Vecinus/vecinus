@@ -310,7 +310,7 @@ export default function IncidenciasScreen() {
     const isAdminOrPresident = roleToken === '1' || roleToken === '4';
     const canDeleteThis =
       (isAdminOrPresident || isOwner) &&
-      ['PENDING', 'SOLVED', 'DISCARDED'].includes(item.status);
+      ['PENDING', 'IN PROGRESS', 'SOLVED', 'DISCARDED'].includes(item.status);
 
     return (
       <IncidentCard
