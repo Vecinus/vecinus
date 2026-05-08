@@ -73,6 +73,10 @@ export const communityApi = {
     return data;
   },
 
+  deleteInvitation: async (communityId: string, invitationId: string): Promise<void> => {
+    await apiClient.delete(`/${communityId}/invitations/${invitationId}`);
+  },
+
   deleteMember: async (membershipId: string): Promise<void> => {
     await apiClient.delete(`/members/${membershipId}`);
   },

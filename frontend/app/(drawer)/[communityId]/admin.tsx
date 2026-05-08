@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, FlatList, ActivityIndicator, TouchableOpacity, Modal, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, FlatList, ActivityIndicator, TouchableOpacity, Modal, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/ui/text';
@@ -20,6 +20,7 @@ import {
   useCommunityMembers,
   usePendingInvitations,
   useDeleteMember,
+  useDeleteInvitation,
   useInviteMember,
   useAddProperty,
   useAvailableProperties
@@ -54,6 +55,9 @@ export default function CommunityAdminScreen() {
   const [propertyModalVisible, setPropertyModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState({ id: '', name: '' });
+
+  const [deleteInvModalVisible, setDeleteInvModalVisible] = useState(false);
+  const [invitationToDelete, setInvitationToDelete] = useState({ id: '', email: '' });
 
   // --- Estados Formularios ---
   const [email, setEmail] = useState('');
@@ -96,6 +100,7 @@ export default function CommunityAdminScreen() {
 
   // --- Mutations ---
   const { mutate: deleteMember, isPending: isDeleting } = useDeleteMember(communityId);
+  const { mutate: deleteInvitation, isPending: isDeletingInvitation } = useDeleteInvitation(communityId);
   const { mutate: inviteMember, isPending: isInviting } = useInviteMember(communityId);
   const { mutate: addProperty, isPending: isAddingProperty } = useAddProperty(communityId);
 
@@ -135,6 +140,26 @@ export default function CommunityAdminScreen() {
     deleteMember(memberToDelete.id, {
       onSuccess: () => setDeleteModalVisible(false),
       onError: () => setDeleteModalVisible(false)
+    });
+  };
+
+  const handleDeleteInvitation = (invitationId: string, email: string) => {
+    setInvitationToDelete({ id: invitationId, email });
+    setDeleteInvModalVisible(true);
+  };
+
+  const confirmDeleteInvitation = () => {
+    deleteInvitation(invitationToDelete.id, {
+      onSuccess: () => setDeleteInvModalVisible(false),
+      onError: (error: unknown) => {
+        const err = error as { response?: { data?: { detail?: string }; status?: number }; message?: string };
+        const detail = err?.response?.data?.detail || err?.message || 'Error desconocido';
+        console.error('[deleteInvitation] Error:', err?.response?.status, detail);
+        setDeleteInvModalVisible(false);
+        setTimeout(() => {
+          Alert.alert('Error al eliminar', detail);
+        }, 300);
+      }
     });
   };
 
@@ -314,7 +339,12 @@ export default function CommunityAdminScreen() {
                 {showPending && (
                   <View className="px-4 pb-4 pt-1 border-t border-amber-100 dark:border-amber-900/30">
                     {pendingInvitations.map((inv) => (
-                      <PendingInvitationCard key={inv.id} invitation={inv} />
+                      <PendingInvitationCard
+                        key={inv.id}
+                        invitation={inv}
+                        onDelete={handleDeleteInvitation}
+                        isDeletingId={isDeletingInvitation ? invitationToDelete.id : undefined}
+                      />
                     ))}
                   </View>
                 )}
@@ -513,6 +543,39 @@ export default function CommunityAdminScreen() {
                 disabled={isDeleting}
               >
                 {isDeleting ? <ActivityIndicator color="#dc2626" /> : <Text className="font-semibold text-red-600 dark:text-red-400">Expulsar</Text>}
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* --- MODAL ELIMINAR INVITACIÓN --- */}
+      <Modal visible={deleteInvModalVisible} animationType="fade" transparent>
+        <View className="flex-1 justify-center bg-black/45 px-6">
+          <View className="bg-white dark:bg-card rounded-3xl p-6 border border-slate-200 dark:border-border">
+            <View className="w-14 h-14 bg-red-50 dark:bg-red-900/25 rounded-2xl items-center justify-center mb-4 self-center">
+              <AlertTriangle color="#ef4444" size={28} strokeWidth={2.5} />
+            </View>
+            <Text className="text-xl font-bold text-slate-900 dark:text-foreground mb-2 text-center">Eliminar Invitación</Text>
+            <Text className="text-sm text-slate-500 dark:text-muted-foreground text-center leading-relaxed mb-6">
+              ¿Estás seguro de eliminar la invitación enviada a <Text className="font-bold text-slate-800 dark:text-foreground">{invitationToDelete.email}</Text>? El enlace dejará de ser válido inmediatamente.
+            </Text>
+            <View className="flex-row gap-3 mt-1">
+              <Button
+                variant="outline"
+                className="flex-1 h-12"
+                onPress={() => setDeleteInvModalVisible(false)}
+                disabled={isDeletingInvitation}
+              >
+                <Text className="font-semibold text-foreground">Cancelar</Text>
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1 h-12 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20"
+                onPress={confirmDeleteInvitation}
+                disabled={isDeletingInvitation}
+              >
+                {isDeletingInvitation ? <ActivityIndicator color="#dc2626" /> : <Text className="font-semibold text-red-600 dark:text-red-400">Eliminar</Text>}
               </Button>
             </View>
           </View>

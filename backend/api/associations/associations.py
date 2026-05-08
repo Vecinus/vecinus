@@ -691,6 +691,56 @@ def get_pending_community_invitations(
     return response.data
 
 
+@router.delete("/{association_id}/invitations/{invitation_id}")
+def delete_pending_invitation(
+    association_id: str,
+    invitation_id: str,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
+    """
+    Elimina (cancela) una invitación pendiente de una comunidad.
+    Solo accesible para Administradores o Presidentes (Roles 1 y 4).
+    La invitación se marca con status=4 (CANCELLED) para invalidarla definitivamente.
+    """
+    # 1. Verificar que el usuario es Admin (1) o Presidente (4) de la comunidad
+    admin_check = (
+        supabase.table("memberships")
+        .select("role")
+        .eq("profile_id", current_user["id"])
+        .eq("association_id", association_id)
+        .execute()
+    )
+
+    is_admin = admin_check.data and int(admin_check.data[0].get("role", 0)) in [1, 4]
+
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Acceso denegado. Se requiere ser Administrador o Presidente.")
+
+    # 2. Verificar que la invitación existe, pertenece a esta comunidad y está pendiente
+    inv_res = supabase_admin.table("invitations").select("id, status, association_id").eq("id", invitation_id).execute()
+
+    if not inv_res.data:
+        raise HTTPException(status_code=404, detail="La invitación no existe.")
+
+    invitation = inv_res.data[0]
+
+    if str(invitation["association_id"]) != str(association_id):
+        raise HTTPException(status_code=403, detail="La invitación no pertenece a esta comunidad.")
+
+    if invitation["status"] != 1:
+        raise HTTPException(status_code=400, detail="Solo se pueden eliminar invitaciones pendientes.")
+
+    # 3. Marcar la invitación como REJECTED/CANCELLED (status=3) para invalidarla
+    try:
+        supabase_admin.table("invitations").update({"status": 3}).eq("id", invitation_id).execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al cancelar la invitación: {str(e)}")
+
+    return {"message": "Invitación eliminada correctamente"}
+
+
 @router.patch("/properties/{property_id}")
 def update_property(
     property_id: UUID,
