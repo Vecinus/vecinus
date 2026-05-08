@@ -276,7 +276,7 @@
 ## 8. Funcional — Incidencias
 
 ### 8.1 Botón de borrar visible para usuarios sin permiso JESUS ORIA
-- **Estado:** ❌ CONFIRMADO
+- **Estado:** ✅ RESUELTO
 - **Archivo:** `frontend/app/(drawer)/[communityId]/incidencias.tsx:311-313`
   ```ts
   const canDeleteThis = ['PENDING', 'SOLVED', 'DISCARDED'].includes(status);
@@ -289,8 +289,8 @@
     ['PENDING','SOLVED','DISCARDED'].includes(status);
   ```
 
-### 8.2 Estado `IN PROGRESS` no deletable (confuso)
-- **Estado:** ❌ CONFIRMADO en backend (`incidents.py:282`).
+### 8.2 Estado `IN PROGRESS` no deletable (confuso) JESUS ORIA
+- **Estado:** ✅ RESUELTO
 - **Recomendación:** Permitir el borrado por admin en cualquier estado, o mostrar al usuario explícitamente "no se puede eliminar incidencias en curso".
 
 ### 8.3 Error en backend tras logout post-delete
