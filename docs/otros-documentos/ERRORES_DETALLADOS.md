@@ -275,7 +275,7 @@
 
 ## 8. Funcional — Incidencias
 
-### 8.1 Botón de borrar visible para usuarios sin permiso
+### 8.1 Botón de borrar visible para usuarios sin permiso JESUS ORIA
 - **Estado:** ❌ CONFIRMADO
 - **Archivo:** `frontend/app/(drawer)/[communityId]/incidencias.tsx:311-313`
   ```ts
