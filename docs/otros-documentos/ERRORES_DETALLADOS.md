@@ -176,6 +176,16 @@
   ```
   Y en backend, considerar añadir `expected_space_id` opcional al payload de validación si se quiere ligar a un punto físico.
 
+### 3.7 Invitación a comunidad sin validar que el usuario existe
+- **Estado:** ❌ CONFIRMADO
+- **Archivo:** `backend/api/associations/associations.py` — endpoint de creación/envío de invitaciones
+- **Problema:** El sistema permite enviar una invitación a un email que **no está registrado** en la aplicación. No se valida la existencia del perfil de usuario antes de crear el registro de invitación.
+- **Impacto:** Se crean invitaciones fantasma hacia usuarios inexistentes. El email se envía a una dirección que puede no tener cuenta, generando ruido y confusión (el usuario recibe un email pero no puede aceptarla si no está registrado).
+- **Recomendación:**
+  1. Antes de crear la invitación, consultar la tabla `profiles` para verificar que existe un usuario con ese email.
+  2. Si no existe, devolver HTTP 400 con detail: `"El usuario con email {email} no está registrado en la aplicación. Debe registrarse primero."`.
+  3. Alternativamente, permitir invitar a usuarios no registrados pero enviar un email que redirija al formulario de registro en lugar del formulario de aceptar invitación.
+
 ---
 
 ## 4. Backend — Calidad y mantenibilidad
@@ -481,7 +491,7 @@
 | Severidad   | Items                                                               |
 |-------------|---------------------------------------------------------------------|
 | 🔴 Crítica   | 1.1 (JWT), 2.1 (transcribe sin auth), 1.2 (CORS), 1.3 (leak)        |
-| 🟠 Alta      | 2.2/2.3/2.4 (presidentes), 3.1/3.2 (validación), 8.1/8.3 (incidencias), 14.1 (redirect) |
+| 🟠 Alta      | 2.2/2.3/2.4 (presidentes), 3.1/3.2/3.7 (validación), 8.1/8.3 (incidencias), 14.1 (redirect) |
 | 🟡 Media     | 5.1 (login serial), 6.1 (storage), 6.2 (chat flash), 9.1 (CORS preflight), 10.6 (chat presi) |
 | 🟢 Baja      | 4.x (refactors), 7.3 (logs), 9.4 (photo_url), 13.2 (rol IDs)        |
 
