@@ -354,7 +354,7 @@
   O fijar altura calculada solamente con `onContentSizeChange`.
 
 ### 10.2 Falta atajo Enter / Shift+Enter
-- **Estado:** ❌ CONFIRMADO
+- **Estado:** ⚠️ RESUELTO POR ARIEL, REVISAR
 - **Recomendación:** En web, capturar `onKeyPress`:
   ```tsx
   onKeyPress={(e) => {
