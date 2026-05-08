@@ -33,6 +33,7 @@ export default function CreatePoll() {
   const [options, setOptions] = useState<string[]>(['Sí', 'No']);
   const [newOption, setNewOption] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [totalCoefficient, setTotalCoefficient] = useState(0);
 
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertConfig, setAlertConfig] = useState({
@@ -90,6 +91,10 @@ export default function CreatePoll() {
     }
     if (options.length < 2) {
       showAlert('Error', 'Debe haber al menos 2 opciones');
+      return;
+    }
+    if (Math.abs(totalCoefficient - 100) > 0.01) {
+      showAlert('Error', 'La suma total de los coeficientes de las propiedades debe ser exactamente 100%');
       return;
     }
 
@@ -209,7 +214,7 @@ export default function CreatePoll() {
             <Text className="ml-1 text-xs text-muted-foreground">
               Marca las propiedades morosas para excluirlas del censo electoral (Art. 15.2 LPH).
             </Text>
-            <PropertyArrearsManager associationId={communityId} />
+            <PropertyArrearsManager associationId={communityId} onCoefficientChange={setTotalCoefficient} />
           </View>
         </View>
       </ScrollView>
@@ -218,7 +223,7 @@ export default function CreatePoll() {
         <Button
           className="h-14 w-full gap-2 rounded-xl"
           onPress={handleSubmit}
-          disabled={isSubmitting || !title.trim() || options.length < 2}>
+          disabled={isSubmitting || !title.trim() || options.length < 2 || Math.abs(totalCoefficient - 100) > 0.01}>
           {isSubmitting ? (
             <ActivityIndicator size="small" color="white" />
           ) : (
@@ -230,6 +235,11 @@ export default function CreatePoll() {
             </>
           )}
         </Button>
+        {Math.abs(totalCoefficient - 100) > 0.01 && (
+          <Text className="text-xs text-destructive text-center mt-2">
+            El total actual de ponderaciones debe ajustarse hasta alcanzar el 100%.
+          </Text>
+        )}
       </View>
 
       <Dialog open={alertOpen} onOpenChange={setAlertOpen}>

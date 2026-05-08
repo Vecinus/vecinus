@@ -15,9 +15,10 @@ import { cn } from '@/lib/utils';
 
 interface PropertyArrearsManagerProps {
   associationId: string;
+  onCoefficientChange?: (total: number) => void;
 }
 
-export function PropertyArrearsManager({ associationId }: PropertyArrearsManagerProps) {
+export function PropertyArrearsManager({ associationId, onCoefficientChange }: PropertyArrearsManagerProps) {
   const { colorScheme } = useColorScheme();
   const theme = NAV_THEME[colorScheme ?? 'light'];
 
@@ -28,12 +29,16 @@ export function PropertyArrearsManager({ associationId }: PropertyArrearsManager
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingCoefficient, setEditingCoefficient] = useState('');
-  const [coefficientError, setCoefficientError] = useState(false);
+  const [coefficientError, setCoefficientError] = useState<string | null>(null);
+  const [distributing, setDistributing] = useState(false);
+  const [isEquitableMode, setIsEquitableMode] = useState(true);
 
   const loadProperties = useCallback(async () => {
     try {
       const data = await associationService.getProperties(associationId);
       setProperties(data);
+      // Distribuir equitativamente por defecto
+      await distributeEquitably(data);
     } catch (error) {
       console.error('Error loading properties:', error);
     } finally {
@@ -58,9 +63,16 @@ export function PropertyArrearsManager({ associationId }: PropertyArrearsManager
       const updated = await associationService.updateProperty(property.id, {
         is_defaulter: newValue,
       });
-      setProperties((prev) =>
-        prev.map((p) => (p.id === property.id ? { ...p, is_defaulter: updated.is_defaulter } : p))
+      const updatedProperties = properties.map((p) =>
+        p.id === property.id ? { ...p, is_defaulter: updated.is_defaulter } : p
       );
+      setProperties(updatedProperties);
+
+      // Redistribuir equitativamente si está en modo equitativo
+      if (isEquitableMode) {
+        await distributeEquitably(updatedProperties);
+      }
+      onCoefficientChange?.(updatedProperties.reduce((sum, property) => sum + property.coefficient, 0));
     } catch (error: any) {
       const detail = error?.response?.data?.detail;
       console.error('Error updating property:', detail || error);
@@ -77,15 +89,111 @@ export function PropertyArrearsManager({ associationId }: PropertyArrearsManager
   const cancelEditingCoefficient = () => {
     setEditingId(null);
     setEditingCoefficient('');
-    setCoefficientError(false);
+    setCoefficientError(null);
+  };
+
+  const totalCoefficient = properties.reduce((sum, property) => sum + property.coefficient, 0);
+
+  const distributeEquitably = async (props: PropertyReadResponse[] = properties) => {
+    const eligibleProperties = props.filter((property) => !property.is_defaulter);
+    if (eligibleProperties.length === 0) return;
+
+    const baseValue = Math.floor((10000 / eligibleProperties.length)) / 100;
+    const remainder = parseFloat((100 - baseValue * eligibleProperties.length).toFixed(2));
+
+    const coefficientById = eligibleProperties.reduce<Record<string, number>>((acc, property, index) => {
+      acc[property.id] = parseFloat(
+        ((index === 0 ? baseValue + remainder : baseValue).toFixed(2)).toString()
+      );
+      return acc;
+    }, {});
+
+    const updates = props.map((property) => ({
+      id: property.id,
+      coefficient: property.is_defaulter ? 0 : coefficientById[property.id],
+    }));
+
+    try {
+      const updatedProperties = await Promise.all(
+        updates.map((update) =>
+          associationService.updateProperty(update.id, { coefficient: update.coefficient })
+        )
+      );
+      setProperties(updatedProperties);
+      setCoefficientError(null);
+      onCoefficientChange?.(updatedProperties.reduce((sum, property) => sum + property.coefficient, 0));
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail;
+      console.error('Error distributing coefficients:', detail || error);
+    }
+  };
+
+  const toggleWeightedMode = async () => {
+    if (!isEquitableMode) {
+      // Cambiando a modo equitativo: distribuir equitativamente
+      await distributeCoefficients();
+    }
+    setIsEquitableMode(!isEquitableMode);
+  };
+
+  const distributeCoefficients = async () => {
+    const eligibleProperties = properties.filter((property) => !property.is_defaulter);
+    if (eligibleProperties.length === 0) return;
+
+    setDistributing(true);
+    const baseValue = Math.floor((10000 / eligibleProperties.length)) / 100;
+    const remainder = parseFloat((100 - baseValue * eligibleProperties.length).toFixed(2));
+
+    const coefficientById = eligibleProperties.reduce<Record<string, number>>((acc, property, index) => {
+      acc[property.id] = parseFloat(
+        ((index === 0 ? baseValue + remainder : baseValue).toFixed(2)).toString()
+      );
+      return acc;
+    }, {});
+
+    const updates = properties.map((property) => ({
+      id: property.id,
+      coefficient: property.is_defaulter ? 0 : coefficientById[property.id],
+    }));
+
+    try {
+      const updatedProperties = await Promise.all(
+        updates.map((update) =>
+          associationService.updateProperty(update.id, { coefficient: update.coefficient })
+        )
+      );
+      setProperties(updatedProperties);
+      setCoefficientError(null);
+      onCoefficientChange?.(updatedProperties.reduce((sum, property) => sum + property.coefficient, 0));
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail;
+      console.error('Error distributing coefficients:', detail || error);
+    } finally {
+      setDistributing(false);
+    }
   };
 
   const saveCoefficient = async (property: PropertyReadResponse) => {
-    const value = parseFloat(editingCoefficient);
-    if (isNaN(value) || value < 0 || value > 100) {
-      setCoefficientError(true);
+    if (isEquitableMode) {
+      setCoefficientError('No se puede editar manualmente en modo equitativo.');
       return;
     }
+
+    const value = parseFloat(editingCoefficient);
+    const otherTotal = properties
+      .filter((p) => p.id !== property.id)
+      .reduce((sum, p) => sum + p.coefficient, 0);
+
+    if (isNaN(value) || value < 0 || value > 100) {
+      setCoefficientError('El coeficiente debe estar entre 0 y 100.');
+      return;
+    }
+
+    if (otherTotal + value > 100) {
+      setCoefficientError('La suma total de coeficientes no puede superar 100%.');
+      return;
+    }
+
     setUpdatingId(property.id);
     try {
       const updated = await associationService.updateProperty(property.id, {
@@ -96,7 +204,9 @@ export function PropertyArrearsManager({ associationId }: PropertyArrearsManager
       );
       setEditingId(null);
       setEditingCoefficient('');
-      setCoefficientError(false);
+      setCoefficientError(null);
+      const newTotal = properties.reduce((sum, p) => sum + (p.id === property.id ? updated.coefficient : p.coefficient), 0);
+      onCoefficientChange?.(newTotal);
     } catch (error: any) {
       const detail = error?.response?.data?.detail;
       console.error('Error updating coefficient:', detail || error);
@@ -147,8 +257,30 @@ export function PropertyArrearsManager({ associationId }: PropertyArrearsManager
         </Card>
       )}
 
+      <View className="flex-row items-center justify-between gap-2">
+        <Text className="text-xs text-muted-foreground">
+          Total coeficiente: {totalCoefficient.toFixed(2)}% • Modo: {isEquitableMode ? 'Equitativo' : 'Ponderado'}
+        </Text>
+        <Button
+          variant="outline"
+          size="sm"
+          onPress={toggleWeightedMode}
+          disabled={distributing}
+        >
+          {isEquitableMode ? 'Repartir ponderadamente' : 'Repartir equitativamente'}
+        </Button>
+      </View>
+
+      {totalCoefficient > 100 && (
+        <Text className="text-xs text-destructive">
+          La suma total de coeficientes no puede superar 100%.
+        </Text>
+      )}
+
       <Text className="text-xs text-muted-foreground">
-        Marca como morosas las propiedades que deban quedar excluidas del voto y ajusta el coeficiente de cada una.
+        {isEquitableMode
+          ? 'Los porcentajes se ajustan automáticamente de forma equitativa. Marca propiedades como morosas para excluirlas.'
+          : 'Ajusta manualmente los porcentajes de cada propiedad. La suma total no puede superar 100%.'}
       </Text>
 
       <FlatList
@@ -167,7 +299,7 @@ export function PropertyArrearsManager({ associationId }: PropertyArrearsManager
                   <View className="flex-1 mr-3">
                     <View className="flex-row items-center gap-2 mb-1">
                       <Text className="text-sm font-medium text-foreground">
-                        Puerta {item.number}
+                        {item.number}
                       </Text>
                       {item.is_defaulter && (
                         <View className="rounded-md bg-destructive/10 px-1.5 py-0.5">
@@ -184,7 +316,7 @@ export function PropertyArrearsManager({ associationId }: PropertyArrearsManager
                             value={editingCoefficient}
                             onChangeText={(v) => {
                               setEditingCoefficient(v);
-                              setCoefficientError(false);
+                              setCoefficientError(null);
                             }}
                             className={cn(
                               'h-8 w-20 text-xs px-2',
@@ -215,12 +347,18 @@ export function PropertyArrearsManager({ associationId }: PropertyArrearsManager
                       </View>
                     ) : (
                       <TouchableOpacity
-                        onPress={() => startEditingCoefficient(item)}
-                        className="flex-row items-center gap-1 mt-0.5">
+                        onPress={() => !isEquitableMode && startEditingCoefficient(item)}
+                        disabled={isEquitableMode}
+                        className={cn(
+                          "flex-row items-center gap-1 mt-0.5",
+                          isEquitableMode && "opacity-50"
+                        )}>
                         <Text className="text-xs text-muted-foreground">
                           Coeficiente: {item.coefficient}%
                         </Text>
-                        <Icon as={Pencil} size={12} className="text-muted-foreground" />
+                        {!isEquitableMode && (
+                          <Icon as={Pencil} size={12} className="text-muted-foreground" />
+                        )}
                       </TouchableOpacity>
                     )}
                   </View>
