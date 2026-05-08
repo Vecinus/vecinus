@@ -390,6 +390,16 @@
 
 ---
 
+## 11. Funcional — Chatbot
+
+### 11.1 El presidente no puede gestionar los documentos del chabot
+- **Estado:** ⚠️ RESUELTO POR ARIEL, REVISAR
+- **Archivos:** `documents.py, líneas 22-24, 37-38 y 117-120; chat_helpers.py, líneas 48-66; chatbot.tsx, líneas 80-82 y 222-264.`
+- **Problema:** Backend y frontend han codificado “gestionar documentos” como permiso exclusivo de rol 1. Eso contradice otros módulos del repo donde admin y presidente comparten capacidades administrativas.
+- **Recomendación:** Unificar autorización en un helper único admin_or_president, reutilizarlo en API y UI, y añadir tests de regresión para rol 4 en listar, subir y eliminar documentos. Aquí el fallo no es de interfaz: hoy también fallaría aunque el presidente forzase la petición manualmente.
+
+---
+
 ## 12. Funcional — Actas
 
 ### 12.2 Mensaje de error al subir formato no soportado
