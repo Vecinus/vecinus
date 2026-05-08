@@ -306,14 +306,14 @@
 - **Archivo:** `backend/api/common_space/common_space.py:57-66`
 - **Notas:** El backend está implementado correctamente. Verificar que el frontend manda `Origin` válido y que `main.py` no está rechazando el preflight. **Probable causa:** el `allow_origins=["*"]` con `allow_credentials=True` falla en preflight según la spec CORS — al cerrar el comodín hay que añadir el origen real de Expo Web.
 
-### 9.2 Desplegable de zonas comunes de reservas vacío hasta recargar
+### 9.2 Desplegable de zonas comunes de reservas vacío hasta recargar JESUS ORIA
 - **Estado:** ❌ CONFIRMADO por uso en QA.
 - **Archivo:** `frontend/app/(drawer)/[communityId]/...` (posible `reservas.tsx` o componente de filtros de zonas comunes)
 - **Problema:** Al entrar en la pantalla de reservas, el desplegable de selección de zona común aparece vacío hasta que se recarga la página. Después de refrescar, la lista se carga correctamente.
 - **Impacto:** Experiencia de usuario rota; el usuario no puede seleccionar zona común en su primer acceso.
 - **Recomendación:** Inspeccionar el estado inicial y la carga de datos en el componente de reservas. Asegurar que la lista de zonas comunes se inicializa con la consulta correcta y no depende solo de un efecto posterior a la renderización.
 
-### 9.3 Network error reservando la barbacoa
+### 9.3 Network error reservando la barbacoa JESUS ORIA
 - **Estado:** ❌ CONFIRMADO por uso en QA.
 - **Archivo:** `frontend/app/(drawer)/[communityId]/...` (posible `reservas.tsx` o servicio de reservas)
 - **Problema:** La reserva de la barbacoa falla con `Network error`, mientras que el resto de zonas comunes funciona correctamente.
