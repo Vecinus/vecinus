@@ -340,7 +340,7 @@
 
 ---
 
-## 10. Funcional — Chat
+## 10. Funcional — Chat --> Alejandro
 
 ### 10.1 Cuadro de texto recortado al redimensionar hacia arriba
 - **Estado:** ❌ CONFIRMADO (Rares)
