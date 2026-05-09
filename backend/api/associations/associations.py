@@ -570,13 +570,16 @@ def delete_member(
         raise HTTPException(status_code=403, detail="Admin or Presidente access required for this action")
 
     try:
+        # Prevent foreign key constraint violation
+        supabase_admin.table("voting_tokens").delete().eq("membership_id", membership_id).execute()
+
         delete_res = supabase_admin.table("memberships").delete().eq("id", membership_id).execute()
 
         if not delete_res.data:
             raise HTTPException(status_code=500, detail="No se pudo eliminar el registro de la base de datos")
 
-    except Exception:
-        raise HTTPException(status_code=500, detail="Database error")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
     return {"message": f"Membership {membership_id} deleted successfully"}
 
