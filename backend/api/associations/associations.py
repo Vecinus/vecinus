@@ -436,7 +436,10 @@ def accept_invitation_internal(
     user_id = current_user.get("id")
 
     # Verificar que la invitación existe, es para este usuario y está pendiente
-    inv_res = supabase.table("invitations").select("*").eq("id", invitation_id).eq("status", 1).execute()
+    try:
+        inv_res = supabase.table("invitations").select("*").eq("id", invitation_id).eq("status", 1).execute()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Formato de invitación inválido.")
 
     if not inv_res.data:
         raise HTTPException(status_code=404, detail="Invitación no encontrada o ya procesada")
@@ -481,7 +484,10 @@ def reject_invitation_internal(
     """Rechaza la invitación marcándola con status 3"""
     user_email = current_user.get("email")
 
-    inv_res = supabase_admin.table("invitations").select("target_email, status").eq("id", invitation_id).execute()
+    try:
+        inv_res = supabase_admin.table("invitations").select("target_email, status").eq("id", invitation_id).execute()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Formato de invitación inválido.")
 
     if not inv_res.data:
         raise HTTPException(status_code=404, detail="La invitación no existe")
@@ -719,7 +725,12 @@ def delete_pending_invitation(
         raise HTTPException(status_code=403, detail="Acceso denegado. Se requiere ser Administrador o Presidente.")
 
     # 2. Verificar que la invitación existe, pertenece a esta comunidad y está pendiente
-    inv_res = supabase_admin.table("invitations").select("id, status, association_id").eq("id", invitation_id).execute()
+    try:
+        inv_res = (
+            supabase_admin.table("invitations").select("id, status, association_id").eq("id", invitation_id).execute()
+        )
+    except Exception:
+        raise HTTPException(status_code=400, detail="Formato de invitación inválido.")
 
     if not inv_res.data:
         raise HTTPException(status_code=404, detail="La invitación no existe.")
