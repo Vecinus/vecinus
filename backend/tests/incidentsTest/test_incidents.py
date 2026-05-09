@@ -631,6 +631,7 @@ def test_get_incidents_discarded_non_admin_forbidden():
     # Cambia esto para que coincida con el router:
     assert data["detail"] == "Admin or president access required for this action"
 
+
 # ------------------- GET incidents/{association_id}/{incident_id} ------------------
 
 
@@ -981,11 +982,13 @@ def test_post_state_incident_not_found():
 
 # ------------------- DELETE incidents/{association_id}/{incident_id} ------------------
 
+
 # --- Función de utilidad para aplicar overrides comunes en DELETE ---
 def setup_delete_overrides(user, mock_db):
     app.dependency_overrides[get_current_user] = lambda: user
     app.dependency_overrides[get_supabase] = lambda: mock_db
-    app.dependency_overrides[get_supabase_admin] = lambda: mock_db # CRUCIAL
+    app.dependency_overrides[get_supabase_admin] = lambda: mock_db  # CRUCIAL
+
 
 @pytest.mark.parametrize(
     "user,incident_id",
@@ -1000,11 +1003,13 @@ def test_delete_incident_correct(user, incident_id):
     assert response.status_code == 204
     assert response.content == b""
 
+
 def test_delete_incident_not_incident_owner():
     setup_delete_overrides(mock_employee, make_mock_supabase())
     response = client.delete(f"/incidents/{mock_association_id}/{mock_incident_1_id}")
     assert response.status_code == 403
     assert response.json()["detail"] == "El usuario no tiene permisos para eliminar esta incidencia"
+
 
 def test_delete_incident_wrong_association():
     # Usamos un usuario que no está en la 'mock_other_association_id'
@@ -1013,11 +1018,12 @@ def test_delete_incident_wrong_association():
     assert response.status_code == 403
     assert response.json()["detail"] == "User has no access to this association"
 
+
 @pytest.mark.parametrize(
     "incident_id",
     [
-        mock_incident_6_id, # PENDING (Debe ser 204)
-        mock_incident_8_id, # IN PROGRESS (Debe ser 409)
+        mock_incident_6_id,  # PENDING (Debe ser 204)
+        mock_incident_8_id,  # IN PROGRESS (Debe ser 409)
     ],
 )
 def test_delete_incident_not_reviewed(incident_id):
