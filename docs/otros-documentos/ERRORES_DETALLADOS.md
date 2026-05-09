@@ -79,14 +79,14 @@
   - Mismo patrón que `verify_association_admin_or_president` en `common_space.py`.
 
 ### 2.3 Listado de incidencias DESCARTADAS solo visible para admin (no presidente)
-- **Estado:** ❌ CONFIRMADO
+- **Estado:** ⚠️ En progreso Héctor
 - **Archivo:** `backend/api/incidents/incidents.py:95-96` (y filtros posteriores).
 - **Problema:** `is_admin = ... == "1"` se usa para mostrar incidencias en estado `DISCARDED`. El presidente no entra en la lista.
 - **Llamada del lado de Hector:** "al presidente no le salen las incidencias rechazadas pero al administrador sí".
 - **Recomendación:** Tratar al presidente como admin para visibilidad de incidencias (`role in {"1","4"}`).
 
 ### 2.4 Borrado de incidencias: lógica inconsistente y errores
-- **Estado:** ❌ CONFIRMADO
+- **Estado:** ⚠️ En progreso Héctor
 - **Archivo:** `backend/api/incidents/incidents.py:282`
   ```python
   if latest_state.get("status") not in {"PENDING", "DISCARDED", "SOLVED"}:
