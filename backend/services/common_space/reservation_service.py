@@ -298,6 +298,7 @@ def validate_reservation_qr_and_check_in(
     current_user_id: str,
     active_association_id: str,
     qr_token: str,
+    space_id: int | None = None,
 ) -> dict | None:
     reservation_response = (
         supabase_admin.table(RESERVATION_TABLE)
@@ -318,6 +319,12 @@ def validate_reservation_qr_and_check_in(
 
     if str(association_id) != active_association_id:
         raise HTTPException(status_code=403, detail="Este codigo QR no pertenece a la comunidad seleccionada")
+
+    if space_id is not None and int(reservation["space_id"]) != space_id:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Este codigo QR es para '{common_space.get('name')}' y no para la zona actual",
+        )
 
     _verify_employee_membership(supabase_admin, str(association_id), current_user_id)
 
@@ -367,6 +374,7 @@ def validate_qr_and_check_in(
         current_user_id,
         active_association_id,
         qr_token,
+        payload.space_id,
     )
     if reservation_result:
         return reservation_result
@@ -376,6 +384,7 @@ def validate_qr_and_check_in(
         current_user_id,
         active_association_id,
         qr_token,
+        payload.space_id,
     )
     if guest_pass_result:
         return guest_pass_result
