@@ -46,6 +46,8 @@ import {
   Trash2Icon,
   UploadCloudIcon,
   UserIcon,
+  ArrowDownIcon,
+  ChevronDownIcon,
 } from 'lucide-react-native';
 import * as React from 'react';
 import {
@@ -151,18 +153,20 @@ function ChatMessageBubble({ message }: { message: ChatMessage }) {
           'max-w-[85%] rounded-3xl border px-4 py-3',
           isUser ? 'border-primary bg-primary' : 'border-border bg-card'
         )}>
-        <Text
+        <FormattedText
+          content={message.content}
           className={cn(
             'text-sm leading-6',
             isUser ? 'text-primary-foreground' : 'text-card-foreground'
-          )}>
-          {message.content}
-        </Text>
+          )}
+        />
 
         {message.source ? (
           <View className="mt-3 flex-row flex-wrap items-center gap-2">
             <Badge variant="outline" className="border-primary/30 bg-primary/5">
-              <Text className="text-xs text-primary">Fuente: {message.source.type}</Text>
+              <Text className="text-xs text-primary">
+                Fuente: {formatSourceType(message.source.type)}
+              </Text>
             </Badge>
             {message.source.reference ? (
               <Text className="text-xs text-muted-foreground">{message.source.reference}</Text>
@@ -183,6 +187,37 @@ function ChatMessageBubble({ message }: { message: ChatMessage }) {
         </Avatar>
       ) : null}
     </View>
+  );
+}
+
+function formatSourceType(type: string | null | undefined): string {
+  if (!type) return 'Desconocida';
+  if (type === 'RAG_PINECONE') return 'Base de conocimientos';
+  return type.charAt(0).toUpperCase() + type.slice(1);
+}
+
+function FormattedText({ content, className }: { content: string; className?: string }) {
+  const parts = content.split(/(\*\*.*?\*\*|\n)/g);
+
+  return (
+    <Text className={className}>
+      {parts.map((part, index) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+          return (
+            <Text key={index} className="font-bold">
+              {part.slice(2, -2)}
+            </Text>
+          );
+        }
+        if (part === '\n') {
+          return '\n';
+        }
+        if (part.trim().startsWith('* ')) {
+          return `  • ${part.trim().slice(2)}`;
+        }
+        return part;
+      })}
+    </Text>
   );
 }
 
@@ -211,6 +246,8 @@ export default function CommunityChatbotScreen() {
   const [feedbackMessage, setFeedbackMessage] = React.useState<string | null>(null);
   const [pendingDeleteTitle, setPendingDeleteTitle] = React.useState<string | null>(null);
   const [composerHeight, setComposerHeight] = React.useState(CHAT_COMPOSER_MIN_HEIGHT);
+  const [showScrollToBottom, setShowScrollToBottom] = React.useState(false);
+  const isAtBottomRef = React.useRef(true);
 
   const membership = React.useMemo(() => {
     return (
@@ -302,6 +339,19 @@ export default function CommunityChatbotScreen() {
     }
   }, [normalizedCommunityId, question, sendQuestionMutation]);
 
+  const handleScroll = React.useCallback((event: any) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const distanceToBottom = contentSize.height - (layoutMeasurement.height + contentOffset.y);
+    const isAtBottom = distanceToBottom < 50;
+    setShowScrollToBottom(!isAtBottom);
+    isAtBottomRef.current = isAtBottom;
+  }, []);
+
+  const scrollToBottom = React.useCallback(() => {
+    flatListRef.current?.scrollToEnd({ animated: true });
+    isAtBottomRef.current = true;
+  }, []);
+
   const handleComposerSizeChange = React.useCallback(
     (event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>) => {
       const nextHeight = Math.max(
@@ -377,7 +427,7 @@ export default function CommunityChatbotScreen() {
       setDocumentTitle('');
       setDocumentContent('');
     } catch (error) {
-      setFeedbackMessage(getErrorMessage(error, 'No se pudo indexar el documento.'));
+      setFeedbackMessage(getErrorMessage(error, 'No se pudo añadir el documento.'));
     }
   }, [documentContent, documentTitle, normalizedCommunityId, selectedFile, uploadDocumentMutation]);
 
@@ -475,7 +525,13 @@ export default function CommunityChatbotScreen() {
           contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
           className="flex-1"
           showsVerticalScrollIndicator={false}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          onContentSizeChange={() => {
+            if (isAtBottomRef.current) {
+              flatListRef.current?.scrollToEnd({ animated: true });
+            }
+          }}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
           ListFooterComponent={
             sendQuestionMutation.isPending ? (
               <View className="flex-row items-center gap-3 px-2 py-2">
@@ -496,6 +552,16 @@ export default function CommunityChatbotScreen() {
             ) : null
           }
         />
+        {showScrollToBottom && (
+          <View className="absolute bottom-4 left-0 right-0 z-50 items-center">
+            <Button
+              onPress={scrollToBottom}
+              size="icon"
+              className="size-12 rounded-full bg-primary shadow-lg">
+              <Icon as={ArrowDownIcon} size={20} className="text-primary-foreground" />
+            </Button>
+          </View>
+        )}
       </View>
 
       <CardContent className="gap-3 border-t border-border px-4 py-4">
@@ -618,7 +684,7 @@ export default function CommunityChatbotScreen() {
             ) : (
               <>
                 <Icon as={UploadCloudIcon} size={16} className="text-primary-foreground" />
-                <Text>Indexar información</Text>
+                <Text>Añadir a la base de conocimientos</Text>
               </>
             )}
           </Button>
@@ -626,7 +692,7 @@ export default function CommunityChatbotScreen() {
 
         <View className="mt-6 gap-3">
           <View className="flex-row items-center justify-between gap-3">
-            <Text className="text-base font-semibold text-foreground">Documentos indexados</Text>
+            <Text className="text-base font-semibold text-foreground">Base de conocimientos</Text>
             <Badge variant="secondary">
               <Text>{documents.length}</Text>
             </Badge>
@@ -653,7 +719,7 @@ export default function CommunityChatbotScreen() {
           {!documentsQuery.isLoading && !documentsQuery.error && documents.length === 0 ? (
             <View className="rounded-2xl border border-dashed border-border bg-muted/30 px-4 py-6">
               <Text className="text-sm text-muted-foreground">
-                Todavía no hay documentos indexados para esta comunidad.
+                Todavía no hay documentos en la base de conocimientos para esta comunidad.
               </Text>
             </View>
           ) : null}
@@ -721,8 +787,8 @@ export default function CommunityChatbotScreen() {
             <DialogTitle>Eliminar documento</DialogTitle>
             <DialogDescription>
               {pendingDeleteTitle
-                ? `Se eliminará "${pendingDeleteTitle}" del índice del chatbot para esta comunidad.`
-                : 'Se eliminará el documento del índice del chatbot.'}
+                ? `Se eliminará "${pendingDeleteTitle}" de la base de conocimientos para esta comunidad.`
+                : 'Se eliminará el documento de la base de conocimientos.'}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
