@@ -456,6 +456,16 @@
   - Invalidar query de TanStack Query: `queryClient.invalidateQueries(['community-users', associationId])` tras aceptar.
   - O suscribirse al canal Realtime de Supabase para `memberships`.
 
+### 13.2 Botón eliminar propietario inactivo — no elimina (CRÍTICO) JESUS ORIA
+- **Estado:** ❌ CONFIRMADO (Pruebas funcionales)
+- **Archivo:** `frontend/app/(drawer)/[communityId]/admin.tsx` — pantalla de gestión de miembros / comunidad.
+- **Problema:** Al intentar eliminar a un propietario (rol 2) desde la ventana de comunidad, el botón de eliminar no funciona. Solo administradores (rol 1) y presidentes (rol 4) deberían poder eliminar propietarios, pero la acción no se completa.
+- **Impacto:** Los administradores y presidentes no pueden gestionar miembros correctamente. Bloquea la administración de la comunidad.
+- **Recomendación:**
+  - Verificar que el endpoint de backend `DELETE /api/associations/{association_id}/members/{member_id}` o equivalente tiene validación correcta de permisos.
+  - Validar que la petición se envía correctamente (método, headers, parámetros).
+  - Comprobar que el frontend captura errores de la petición y los muestra al usuario en lugar de fallar silenciosamente.
+  - Considerar unificar la lógica de eliminación de miembros con la de administración de incidencias (ver 2.7).
 
 ---
 
@@ -503,10 +513,10 @@
 
 | Severidad   | Items                                                               |
 |-------------|---------------------------------------------------------------------|
-| 🔴 Crítica   | 1.1 (JWT), 2.1 (transcribe sin auth), 1.2 (CORS), 1.3 (leak)        |
+| 🔴 Crítica   | 1.1 (JWT), 2.1 (transcribe sin auth), 1.2 (CORS), 1.3 (leak), 13.2 (eliminar propietario) |
 | 🟠 Alta      | 2.2/2.3/2.4 (presidentes), 3.1/3.2 (validación), 8.1/8.3 (incidencias), 14.1 (redirect) |
 | 🟡 Media     | 5.1 (login serial), 6.1 (storage), 6.2 (chat flash), 8.4 (saturación incidencias), 9.1 (CORS preflight), 10.6 (chat presi) |
-| 🟢 Baja      | 4.x (refactors), 7.3 (logs), 9.4 (photo_url), 13.2 (rol IDs)        |
+| 🟢 Baja      | 4.x (refactors), 7.3 (logs), 9.4 (photo_url), 13.1 (refresh miembros) |
 
 ---
 
