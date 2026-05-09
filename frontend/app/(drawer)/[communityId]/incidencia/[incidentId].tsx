@@ -141,8 +141,9 @@ export default function IncidentDetailScreen() {
   const canDiscardSelectedIncident = useMemo(() => {
     if (!selectedIncident) return false;
     const isReviewed = selectedIncident.status === 'SOLVED' || selectedIncident.status === 'DISCARDED';
-    return isReviewed && isSelectedIncidentOwned;
-  }, [isSelectedIncidentOwned, selectedIncident]);
+    const isAdminOrPresident = roleToken === '1' || roleToken === '4';
+    return isReviewed && (isAdminOrPresident || isSelectedIncidentOwned);
+  }, [isSelectedIncidentOwned, selectedIncident, roleToken]);
 
   const isSelectedIncidentReviewed = useMemo(() => {
     if (!selectedIncident) return false;

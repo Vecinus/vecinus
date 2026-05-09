@@ -78,22 +78,22 @@ def get_incidents(
 ):
     user_id = current_user["id"]
     verify_association_membership(association_id, user_id, supabase)
-    is_admin = (
-        str(
-            (
-                supabase.table("memberships")
-                .select("role")
-                .eq("association_id", str(association_id))
-                .eq("profile_id", str(user_id))
-                .execute()
-            )
-            .data[0]
-            .get("role")
+    user_role = str(
+        (
+            supabase.table("memberships")
+            .select("role")
+            .eq("association_id", str(association_id))
+            .eq("profile_id", str(user_id))
+            .execute()
         )
-        == "1"
+        .data[0]
+        .get("role")
     )
-    if status == "DISCARDED" and not is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required for this action")
+    is_admin = user_role == "1"
+    is_president = user_role == "4"
+    is_admin_or_president = is_admin or is_president
+    if status == "DISCARDED" and not is_admin_or_president:
+        raise HTTPException(status_code=403, detail="Admin or president access required for this action")
 
     incidents_res = supabase.table("incidents").select("""
                 id,
@@ -111,7 +111,7 @@ def get_incidents(
         if incident:
             latest_state = get_latest_state(supabase, incident["id"])
             incident_status = latest_state.get("status")
-            if incident_status == "DISCARDED" and not is_admin and not mine:
+            if incident_status == "DISCARDED" and not is_admin_or_president and not mine:
                 continue
             incident["status"] = incident_status
             incidents.append(incident)
@@ -279,7 +279,7 @@ def discard_incident(
 
     latest_state = get_latest_state(supabase, incident_id)
 
-    if latest_state.get("status") not in {"PENDING", "DISCARDED", "SOLVED"}:
+    if latest_state.get("status") not in {"DISCARDED", "SOLVED"}:
         raise HTTPException(status_code=409, detail="La incidencia no puede ser eliminada en su estado actual")
 
     try:
