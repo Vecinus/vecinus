@@ -64,7 +64,7 @@ export default function IncidentDetailScreen() {
 
   const handleGoBack = () => {
     if (communityId) {
-      router.push(`/${communityId}/incidencias`);
+      router.replace(`/${communityId}/incidencias`);
     } else {
       router.back();
     }
@@ -170,6 +170,16 @@ export default function IncidentDetailScreen() {
     }
   }, [selectedIncident?.id, selectedIncident?.status]);
 
+  // Manejar error 404 cuando la incidencia fue borrada
+  useEffect(() => {
+    if (detailQuery.isError) {
+      const error = detailQuery.error as any;
+      if (error?.response?.status === 404 || error?.message?.includes('404')) {
+        handleGoBack();
+      }
+    }
+  }, [detailQuery.isError, detailQuery.error]);
+
   const incidentHistory = useMemo(() => {
     if (detailQuery.data?.history?.length) return detailQuery.data.history;
     if (!selectedIncident) return [];
@@ -271,6 +281,17 @@ export default function IncidentDetailScreen() {
             <View className="items-center py-10">
               <ActivityIndicator color="#4f46e5" />
               <Text className="mt-3 text-slate-500 dark:text-zinc-400">Cargando detalle...</Text>
+            </View>
+          ) : detailQuery.isError && !selectedIncident ? (
+            <View className="items-center py-10">
+              <Text className="text-red-600 dark:text-red-400 font-semibold">Error al cargar la incidencia</Text>
+              <Button
+                variant="outline"
+                className="mt-4"
+                onPress={handleGoBack}
+              >
+                <Text>Volver</Text>
+              </Button>
             </View>
           ) : (
             <>

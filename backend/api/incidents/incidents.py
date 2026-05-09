@@ -2,7 +2,7 @@ import cloudinary
 import cloudinary.uploader
 from api.chat.chat_helpers import verify_association_membership
 from core.config import settings
-from core.deps import get_current_user, get_supabase
+from core.deps import get_current_user, get_supabase, get_supabase_admin
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from schemas.incidents.incidents import Incident
 from services.helpers.role_service import get_user_role
@@ -268,6 +268,7 @@ def discard_incident(
     incident_id: str,
     current_user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
+    supabase_admin: Client = Depends(get_supabase_admin),
 ):
     user_id = current_user["id"]
     role = str(get_user_role(supabase, association_id, user_id))
@@ -279,11 +280,16 @@ def discard_incident(
 
     latest_state = get_latest_state(supabase, incident_id)
 
+    if not latest_state:
+        raise HTTPException(status_code=404, detail="Incidencia no encontrada")
+
     if latest_state.get("status") not in {"DISCARDED", "SOLVED"}:
         raise HTTPException(status_code=409, detail="La incidencia no puede ser eliminada en su estado actual")
 
     try:
-        supabase.table("incident_states").delete().eq("incident_id", incident_id).execute()
-        supabase.table("incidents").delete().eq("id", incident_id).execute()
+        # Primero borrar todos los estados de la incidencia
+        supabase_admin.table("incident_states").delete().eq("incident_id", str(incident_id)).execute()
+        # Luego borrar la incidencia
+        supabase_admin.table("incidents").delete().eq("id", str(incident_id)).execute()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al eliminar la incidencia: {str(e)}")
