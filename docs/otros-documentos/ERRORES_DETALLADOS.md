@@ -297,6 +297,29 @@
 - **Estado:** ❌ REPORTADO (Hector). Investigar.
 - **Hipótesis:** Una `subscription` o `interval` sigue ejecutándose tras logout y dispara una petición con token inválido → 401. Auditar `useEffect` cleanups en `incidencias.tsx`.
 
+### 8.4 Múltiples peticiones de listado de incidencias saturan el backend
+- **Estado:** ❌ CONFIRMADO (Pruebas funcionales)
+- **Archivo:** `frontend/app/(drawer)/[communityId]/incidencias.tsx` y `backend/api/incidents/incidents.py`
+- **Problema:** Se realizan demasiadas peticiones de listado de incidencias al backend, especialmente al:
+  - Entrar en la pantalla de incidencias.
+  - Cambiar de filtro o estado de visualización.
+  - Refrescar manualmente (Pull to Refresh).
+  - Reabrir la pantalla tras cambiar de comunidad.
+  
+  Esto puede provocar que el backend se sature si múltiples usuarios abren la misma pantalla simultáneamente.
+- **Impacto:** Degradación de rendimiento, posibles timeouts, experiencia de usuario lenta especialmente en comunidades con muchas incidencias (>100).
+- **Recomendación:**
+  - **Frontend:** Implementar debouncing y throttling en la carga de incidencias. Usar React Query con `staleTime` y `cacheTime` apropiados para evitar refetches innecesarios.
+    ```ts
+    const { data: incidents } = useIncidents(communityId, {
+      staleTime: 30000,  // 30 segundos antes de considerar datos obsoletos
+      cacheTime: 5 * 60 * 1000,  // Mantener en caché 5 minutos
+      refetchOnWindowFocus: false,  // No refetch al volver a la ventana
+    });
+    ```
+  - **Backend:** Implementar paginación obligatoria (ej: `?limit=20&offset=0`) y agregar caché en memoria o Redis para listados recientes (TTL 60 segundos).
+  - **Ambos:** Considerar usar WebSocket/Realtime de Supabase para actualizaciones push en lugar de polling constante.
+
 ---
 
 ## 9. Funcional — Reservas, pases y QR
@@ -482,7 +505,7 @@
 |-------------|---------------------------------------------------------------------|
 | 🔴 Crítica   | 1.1 (JWT), 2.1 (transcribe sin auth), 1.2 (CORS), 1.3 (leak)        |
 | 🟠 Alta      | 2.2/2.3/2.4 (presidentes), 3.1/3.2 (validación), 8.1/8.3 (incidencias), 14.1 (redirect) |
-| 🟡 Media     | 5.1 (login serial), 6.1 (storage), 6.2 (chat flash), 9.1 (CORS preflight), 10.6 (chat presi) |
+| 🟡 Media     | 5.1 (login serial), 6.1 (storage), 6.2 (chat flash), 8.4 (saturación incidencias), 9.1 (CORS preflight), 10.6 (chat presi) |
 | 🟢 Baja      | 4.x (refactors), 7.3 (logs), 9.4 (photo_url), 13.2 (rol IDs)        |
 
 ---
