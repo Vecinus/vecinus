@@ -29,6 +29,8 @@ import {
   SparklesIcon,
   UserIcon,
   UsersIcon,
+  ChevronDownIcon,
+  ArrowDownIcon,
 } from 'lucide-react-native';
 import * as React from 'react';
 import {
@@ -158,6 +160,9 @@ export default function CommunityChatScreen() {
   const [composerHeight, setComposerHeight] = React.useState(CHAT_COMPOSER_MIN_HEIGHT);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [isSending, setIsSending] = React.useState(false);
+  const [showScrollToBottom, setShowScrollToBottom] = React.useState(false);
+  const [hasNewMessages, setHasNewMessages] = React.useState(false);
+  const isAtBottomRef = React.useRef(true);
 
   const loadMessages = React.useCallback(async (channelId: string) => {
     const nextMessages = await fetchChannelMessages(channelId);
@@ -274,6 +279,10 @@ export default function CommunityChatScreen() {
             return current;
           }
 
+          if (!isAtBottomRef.current) {
+            setHasNewMessages(true);
+          }
+
           return [...current, payload];
         });
       } catch {
@@ -296,6 +305,26 @@ export default function CommunityChatScreen() {
       setIsRefreshing(false);
     }
   }, [channel?.id, loadMessages]);
+
+  const handleScroll = React.useCallback((event: any) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const distanceToBottom = contentSize.height - (layoutMeasurement.height + contentOffset.y);
+
+    // Si estamos a menos de 50px del fondo, consideramos que estamos en el fondo
+    const isAtBottom = distanceToBottom < 50;
+    setShowScrollToBottom(!isAtBottom);
+    isAtBottomRef.current = isAtBottom;
+
+    if (isAtBottom) {
+      setHasNewMessages(false);
+    }
+  }, []);
+
+  const scrollToBottom = React.useCallback(() => {
+    flatListRef.current?.scrollToEnd({ animated: true });
+    setHasNewMessages(false);
+    isAtBottomRef.current = true;
+  }, []);
 
   const handleSend = React.useCallback(async () => {
     const trimmedMessage = messageText.trim();
@@ -409,7 +438,13 @@ export default function CommunityChatScreen() {
                 refreshControl={
                   <RefreshControl refreshing={isRefreshing} onRefresh={() => void handleRefresh()} />
                 }
-                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                onContentSizeChange={() => {
+                  if (!showScrollToBottom) {
+                    flatListRef.current?.scrollToEnd({ animated: true });
+                  }
+                }}
+                onScroll={handleScroll}
+                scrollEventThrottle={16}
                 ListEmptyComponent={
                   <View className="items-center gap-3 px-6 py-16">
                     <View className="rounded-full bg-primary/10 p-4">
@@ -425,6 +460,22 @@ export default function CommunityChatScreen() {
                 }
               />
             ) : null}
+
+            {showScrollToBottom && (
+              <View className="absolute bottom-4 left-0 right-0 z-50 items-center">
+                <Button
+                  onPress={scrollToBottom}
+                  size="icon"
+                  className="size-12 rounded-full bg-primary shadow-lg">
+                  <View className="relative">
+                    <Icon as={ArrowDownIcon} size={20} className="text-primary-foreground" />
+                    {hasNewMessages && (
+                      <View className="absolute -right-1 -top-1 size-3 rounded-full border-2 border-primary bg-destructive" />
+                    )}
+                  </View>
+                </Button>
+              </View>
+            )}
           </View>
 
           {state === 'ready' ? (
