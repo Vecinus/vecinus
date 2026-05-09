@@ -11,8 +11,6 @@ interface AnnouncementCardProps {
   canManage: boolean;
 }
 
-const GENERIC_IMAGE = 'https://res.cloudinary.com/dvz3u3rrd/image/upload/v1730035043/vecinus_logo.png';
-
 export function AnnouncementCard({ announcement, onPress, onDelete, canManage }: AnnouncementCardProps) {
   const isDraft = announcement.status === 'DRAFT';
 
