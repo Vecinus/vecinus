@@ -1,6 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { announcementsApi, type AnnouncementStatus, type AnnouncementCreate, type AnnouncementUpdate } from '@/api/announcements';
 
+interface ApiError {
+  response?: {
+    status?: number;
+    data?: {
+      detail?: string;
+    };
+  };
+  message?: string;
+}
+
 export const useAnnouncementsList = (
   communityId: string | undefined,
   status?: AnnouncementStatus,
@@ -14,9 +24,10 @@ export const useAnnouncementsList = (
     },
     enabled: !!communityId && enabled,
     staleTime: 1000 * 60 * 5, // 5 mins
-    retry: (failureCount, error: any) => {
+    retry: (failureCount, error: unknown) => {
+      const apiError = error as ApiError;
       // Don't retry if it's a 403 error
-      if (error?.response?.status === 403) return false;
+      if (apiError?.response?.status === 403) return false;
       return failureCount < 3;
     },
   });
@@ -30,8 +41,9 @@ export const useAnnouncementDetail = (communityId: string | undefined, announcem
       return announcementsApi.getAnnouncement(communityId, announcementId);
     },
     enabled: !!communityId && !!announcementId,
-    retry: (failureCount, error: any) => {
-      if (error?.response?.status === 403) return false;
+    retry: (failureCount, error: unknown) => {
+      const apiError = error as ApiError;
+      if (apiError?.response?.status === 403) return false;
       return failureCount < 3;
     },
   });

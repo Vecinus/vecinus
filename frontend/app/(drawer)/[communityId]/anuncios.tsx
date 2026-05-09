@@ -285,7 +285,7 @@ export default function AnunciosScreen() {
                 </View>
                 <Text className="text-xl font-bold text-foreground mb-2">Error de acceso</Text>
                 <Text className="text-muted-foreground text-center text-sm leading-5 mb-6">
-                  {(allAnnouncementsQuery.error as any)?.response?.status === 403 
+                  {((allAnnouncementsQuery.error as { response?: { status?: number } })?.response?.status === 403)
                     ? 'No tienes permiso para ver el tablón de anuncios de esta comunidad.'
                     : 'Hubo un problema al cargar los anuncios. Por favor, inténtalo de nuevo.'}
                 </Text>
