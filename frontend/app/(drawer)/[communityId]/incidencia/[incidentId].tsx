@@ -97,6 +97,8 @@ export default function IncidentDetailScreen() {
 
   const [draftStatus, setDraftStatus] = useState<IncidentStatus>('PENDING');
 
+  const [isIncidentDeleted, setIsIncidentDeleted] = useState(false);
+
   const membersQuery = useQuery<Member[], Error>({
     queryKey: ['incidents', 'members', communityId, user?.id],
     queryFn: () => communityApi.getMembers(communityId as string),
@@ -104,7 +106,7 @@ export default function IncidentDetailScreen() {
     staleTime: 1000 * 60 * 5,
   });
 
-  const detailQuery = useIncidentDetail(communityId, incidentId, !!communityId && !!incidentId, user?.id);
+  const detailQuery = useIncidentDetail(communityId, incidentId, !!communityId && !!incidentId && !isIncidentDeleted, user?.id);
 
   const myIncidentsQuery = useIncidentsList(communityId, true, !!communityId, user?.id);
   const myIncidentIds = useMemo(
@@ -224,6 +226,8 @@ export default function IncidentDetailScreen() {
     if (!selectedIncident) return;
     try {
       await discardIncidentMutation.mutateAsync({ incidentId: selectedIncident.id });
+      // Marcar como borrada para deshabilitar la query y evitar refetches
+      setIsIncidentDeleted(true);
       showAlert('Incidencia eliminada', 'La incidencia se ha eliminado correctamente.', () => {
         handleGoBack();
       });
@@ -233,6 +237,8 @@ export default function IncidentDetailScreen() {
         await refreshUserContext();
         try {
           await discardIncidentMutation.mutateAsync({ incidentId: selectedIncident.id });
+          // Marcar como borrada para deshabilitar la query
+          setIsIncidentDeleted(true);
           showAlert('Incidencia eliminada', 'La incidencia se ha eliminado correctamente.', () => {
             handleGoBack();
           });
