@@ -279,20 +279,17 @@ def accept_invitation(
 ):
     # 1. Leer invitación PENDING por token
     try:
-        inv_res = (
-            supabase_anon.table("invitations")
-            .select("*")
-            .eq("id", str(body.invitation_token))
-            .eq("status", 1)
-            .execute()
-        )
+        inv_res = supabase_anon.table("invitations").select("*").eq("id", str(body.invitation_token)).execute()
     except Exception:
         raise HTTPException(status_code=400, detail="El formato del token de invitación es inválido.")
 
     if not inv_res.data:
-        raise HTTPException(status_code=404, detail="La invitación no existe o ya ha sido utilizada")
+        raise HTTPException(status_code=404, detail="La invitación no existe.")
 
     invitation = inv_res.data[0]
+
+    if invitation["status"] != 1:
+        raise HTTPException(status_code=400, detail="La invitación ya fue procesada o utilizada anteriormente.")
 
     # 2. Comprobar caducidad de 24 horas
     if "created_at" in invitation and invitation["created_at"]:
@@ -437,17 +434,20 @@ def accept_invitation_internal(
 
     # Verificar que la invitación existe, es para este usuario y está pendiente
     try:
-        inv_res = supabase.table("invitations").select("*").eq("id", invitation_id).eq("status", 1).execute()
+        inv_res = supabase.table("invitations").select("*").eq("id", invitation_id).execute()
     except Exception:
         raise HTTPException(status_code=400, detail="Formato de invitación inválido.")
 
     if not inv_res.data:
-        raise HTTPException(status_code=404, detail="Invitación no encontrada o ya procesada")
+        raise HTTPException(status_code=404, detail="La invitación no existe.")
 
     invitation = inv_res.data[0]
 
     if invitation["target_email"] != user_email:
-        raise HTTPException(status_code=403, detail="No tienes permiso para aceptar esta invitación")
+        raise HTTPException(status_code=403, detail="No tienes permiso para aceptar esta invitación.")
+
+    if invitation["status"] != 1:
+        raise HTTPException(status_code=400, detail="La invitación ya fue procesada anteriormente.")
 
     # 1. Crear la membresía
     membership_data = {
