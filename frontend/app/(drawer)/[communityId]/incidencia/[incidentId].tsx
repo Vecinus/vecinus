@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ActivityIndicator,
@@ -62,14 +62,13 @@ export default function IncidentDetailScreen() {
   const routeIncidentIdRaw = params.incidentId;
   const incidentId = (Array.isArray(routeIncidentIdRaw) ? routeIncidentIdRaw[0] : routeIncidentIdRaw) as string;
 
-  const handleGoBack = () => {
+  const handleGoBack = useCallback(() => {
     if (communityId) {
       router.replace(`/${communityId}/incidencias`);
     } else {
       router.back();
     }
-  };
-
+  }, [communityId, router]);
   const roleToken = useMemo(() => {
     if (!communityId) return normalizeRoleToBackendToken(currentRole);
     const membership = user?.CommunitiesAndRole.find((entry) => String(entry.community.id) === String(communityId));
@@ -180,7 +179,7 @@ export default function IncidentDetailScreen() {
         handleGoBack();
       }
     }
-  }, [detailQuery.isError, detailQuery.error]);
+  }, [detailQuery.isError, detailQuery.error, handleGoBack]);
 
   const incidentHistory = useMemo(() => {
     if (detailQuery.data?.history?.length) return detailQuery.data.history;
