@@ -58,6 +58,9 @@ export default function CommunityAdminScreen() {
 
   const [deleteInvModalVisible, setDeleteInvModalVisible] = useState(false);
   const [invitationToDelete, setInvitationToDelete] = useState({ id: '', email: '' });
+  
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const [errorModalMessage, setErrorModalMessage] = useState('');
 
   // --- Estados Formularios ---
   const [email, setEmail] = useState('');
@@ -154,11 +157,14 @@ export default function CommunityAdminScreen() {
       onError: (error: unknown) => {
         const err = error as { response?: { data?: { detail?: string }; status?: number }; message?: string };
         const detail = err?.response?.data?.detail || err?.message || 'Error desconocido';
-        console.error('[deleteInvitation] Error:', err?.response?.status, detail);
+        console.warn('[deleteInvitation] Error:', err?.response?.status, detail);
         setDeleteInvModalVisible(false);
-        setTimeout(() => {
-          Alert.alert('Error al eliminar', detail);
-        }, 300);
+        setErrorModalMessage(detail);
+        setErrorModalVisible(true);
+        // Si el status fue 400 por ya estar procesada, refrescamos la lista
+        if (err?.response?.status === 400) {
+          refetchInvitations();
+        }
       }
     });
   };
@@ -578,6 +584,27 @@ export default function CommunityAdminScreen() {
                 {isDeletingInvitation ? <ActivityIndicator color="#dc2626" /> : <Text className="font-semibold text-red-600 dark:text-red-400">Eliminar</Text>}
               </Button>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* --- MODAL ERROR (Reemplaza Alert en web) --- */}
+      <Modal visible={errorModalVisible} animationType="fade" transparent onRequestClose={() => setErrorModalVisible(false)}>
+        <View className="flex-1 bg-black/40 items-center justify-center px-6">
+          <View className="w-full max-w-[360px] bg-card rounded-3xl p-6 border border-border items-center">
+            <View className="w-14 h-14 rounded-full bg-red-100 dark:bg-red-900/30 items-center justify-center mb-4">
+              <AlertTriangle size={28} color="#ef4444" />
+            </View>
+            <Text className="text-xl font-bold text-foreground mb-2 text-center">No se pudo realizar la acción</Text>
+            <Text className="text-sm text-muted-foreground mb-6 text-center">
+              {errorModalMessage}
+            </Text>
+            <Button
+              className="w-full h-12"
+              onPress={() => setErrorModalVisible(false)}
+            >
+              <Text className="text-primary-foreground font-semibold">Entendido</Text>
+            </Button>
           </View>
         </View>
       </Modal>

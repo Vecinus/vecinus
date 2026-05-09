@@ -729,8 +729,12 @@ def delete_pending_invitation(
     if str(invitation["association_id"]) != str(association_id):
         raise HTTPException(status_code=403, detail="La invitación no pertenece a esta comunidad.")
 
-    if invitation["status"] != 1:
-        raise HTTPException(status_code=400, detail="Solo se pueden eliminar invitaciones pendientes.")
+    if invitation["status"] == 2:
+        raise HTTPException(status_code=400, detail="La invitación ya fue aceptada.")
+    elif invitation["status"] == 3:
+        raise HTTPException(status_code=400, detail="La invitación ya fue rechazada.")
+    elif invitation["status"] != 1:
+        raise HTTPException(status_code=400, detail="La invitación ya fue procesada anteriormente.")
 
     # 3. Marcar la invitación como REJECTED/CANCELLED (status=3) para invalidarla
     try:
