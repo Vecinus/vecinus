@@ -14,6 +14,11 @@ export const useAnnouncementsList = (
     },
     enabled: !!communityId && enabled,
     staleTime: 1000 * 60 * 5, // 5 mins
+    retry: (failureCount, error: any) => {
+      // Don't retry if it's a 403 error
+      if (error?.response?.status === 403) return false;
+      return failureCount < 3;
+    },
   });
 };
 
@@ -25,6 +30,10 @@ export const useAnnouncementDetail = (communityId: string | undefined, announcem
       return announcementsApi.getAnnouncement(communityId, announcementId);
     },
     enabled: !!communityId && !!announcementId,
+    retry: (failureCount, error: any) => {
+      if (error?.response?.status === 403) return false;
+      return failureCount < 3;
+    },
   });
 };
 

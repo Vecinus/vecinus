@@ -89,13 +89,14 @@ export default function AnunciosScreen() {
   };
 
   const allAnnouncementsQuery = useAnnouncementsList(communityId, undefined, !!communityId);
+  const { refetch: refetchAnnouncements } = allAnnouncementsQuery;
 
   useFocusEffect(
     useCallback(() => {
       if (communityId) {
-        allAnnouncementsQuery.refetch();
+        refetchAnnouncements();
       }
-    }, [communityId, allAnnouncementsQuery])
+    }, [communityId, refetchAnnouncements])
   );
 
   const createMutation = useCreateAnnouncement(communityId);
@@ -183,6 +184,9 @@ export default function AnunciosScreen() {
   const onDeleteConfirm = (id: string) => {
     showAlert('Eliminar Anuncio', '¿Estás seguro de que deseas eliminar este anuncio?', () => {
       deleteMutation.mutate(id, {
+        onSuccess: () => {
+          showAlert('Eliminado', 'El anuncio ha sido eliminado correctamente.');
+        },
         onError: (err) => {
           showAlert('Error', getUserFacingErrorMessage(err, 'No se pudo eliminar el anuncio.'));
         },
@@ -249,56 +253,78 @@ export default function AnunciosScreen() {
         </View>
       </View>
 
-      <FlatList
-        data={filteredAnnouncements}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <AnnouncementCard
-            announcement={item}
-            canManage={canManage}
-            onPress={() => {
-              router.push({
-                pathname: '/[communityId]/anuncio/[id]',
-                params: { communityId, id: item.id },
-              });
-            }}
-            onDelete={() => { onDeleteConfirm(item.id); }}
-          />
-        )}
-        ListEmptyComponent={
-          allAnnouncementsQuery.isLoading ? (
-            <View className="items-center justify-center py-20">
-              <ActivityIndicator size="large" color="#4f46e5" />
-              <Text className="text-sm text-muted-foreground mt-3">Cargando anuncios...</Text>
-            </View>
-          ) : (
-            <View className="items-center justify-center py-20 px-8">
-              <View className="w-20 h-20 rounded-full bg-indigo-50 dark:bg-indigo-900/20 items-center justify-center mb-5">
-                <Ionicons name="megaphone-outline" size={36} color="#6366f1" />
+      <View className="flex-1 w-full max-w-5xl mx-auto">
+        <FlatList
+          data={filteredAnnouncements}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <AnnouncementCard
+              announcement={item}
+              canManage={canManage}
+              onPress={() => {
+                router.push({
+                  pathname: '/[communityId]/anuncio/[id]',
+                  params: { communityId, id: item.id },
+                });
+              }}
+              onDelete={() => { onDeleteConfirm(item.id); }}
+            />
+          )}
+          ListEmptyComponent={
+            allAnnouncementsQuery.isLoading ? (
+              <View className="items-center justify-center py-20">
+                <ActivityIndicator size="large" color="#4f46e5" />
+                <Text className="text-sm text-muted-foreground mt-3">Cargando anuncios...</Text>
               </View>
-              <Text className="text-xl font-bold text-foreground mb-2">Sin anuncios</Text>
-              <Text className="text-muted-foreground text-center text-sm leading-5 mb-6">
-                {canManage
-                  ? 'Todavía no se ha publicado ningún anuncio.\nCrea el primero tocando el botón "Nuevo".'
-                  : 'Todavía no se ha publicado ningún anuncio.'
-                }
-              </Text>
-              {canManage && (
+            ) : allAnnouncementsQuery.isError ? (
+              <View className="items-center justify-center py-20 px-8">
+                <View className="w-20 h-20 rounded-full bg-red-50 dark:bg-red-900/20 items-center justify-center mb-5">
+                  <Ionicons name="alert-circle-outline" size={36} color="#ef4444" />
+                </View>
+                <Text className="text-xl font-bold text-foreground mb-2">Error de acceso</Text>
+                <Text className="text-muted-foreground text-center text-sm leading-5 mb-6">
+                  {(allAnnouncementsQuery.error as any)?.response?.status === 403 
+                    ? 'No tienes permiso para ver el tablón de anuncios de esta comunidad.'
+                    : 'Hubo un problema al cargar los anuncios. Por favor, inténtalo de nuevo.'}
+                </Text>
                 <TouchableOpacity
                   activeOpacity={0.8}
-                  onPress={() => { setCreateModalVisible(true); }}
+                  onPress={() => { router.back(); }}
                   className="bg-indigo-600 dark:bg-indigo-500 rounded-xl h-11 px-6 flex-row items-center gap-2"
                 >
-                  <Ionicons name="add-circle-outline" size={20} color="white" />
-                  <Text className="text-white font-semibold">Crear primer anuncio</Text>
+                  <Ionicons name="arrow-back" size={20} color="white" />
+                  <Text className="text-white font-semibold">Volver</Text>
                 </TouchableOpacity>
-              )}
-            </View>
-          )
-        }
-      />
+              </View>
+            ) : (
+              <View className="items-center justify-center py-20 px-8">
+                <View className="w-20 h-20 rounded-full bg-indigo-50 dark:bg-indigo-900/20 items-center justify-center mb-5">
+                  <Ionicons name="megaphone-outline" size={36} color="#6366f1" />
+                </View>
+                <Text className="text-xl font-bold text-foreground mb-2">Sin anuncios</Text>
+                <Text className="text-muted-foreground text-center text-sm leading-5 mb-6">
+                  {canManage
+                    ? 'Todavía no se ha publicado ningún anuncio.\nCrea el primero tocando el botón "Nuevo".'
+                    : 'Todavía no se ha publicado ningún anuncio.'
+                  }
+                </Text>
+                {canManage && (
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => { setCreateModalVisible(true); }}
+                    className="bg-indigo-600 dark:bg-indigo-500 rounded-xl h-11 px-6 flex-row items-center gap-2"
+                  >
+                    <Ionicons name="add-circle-outline" size={20} color="white" />
+                    <Text className="text-white font-semibold">Crear primer anuncio</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )
+          }
+        />
+      </View>
 
       {canManage && (
         <AnnouncementCreateModal
@@ -317,6 +343,7 @@ export default function AnunciosScreen() {
           isPending={createMutation.isPending}
           onClose={resetCreateForm}
           onPickImage={onPickImage}
+          setPickedImage={setPickedImage}
           onSubmit={onCreate}
           modalCardStyle={modalCardStyle}
         />

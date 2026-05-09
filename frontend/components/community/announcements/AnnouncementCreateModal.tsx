@@ -23,6 +23,7 @@ interface AnnouncementCreateModalProps {
   isPending: boolean;
   onClose: () => void;
   onPickImage: () => void;
+  setPickedImage: (img: { uri: string; name?: string; mimeType?: string; file?: unknown } | null) => void;
   onSubmit: () => void;
   modalCardStyle: StyleProp<ViewStyle>;
 }
@@ -43,6 +44,7 @@ export function AnnouncementCreateModal({
   isPending,
   onClose,
   onPickImage,
+  setPickedImage,
   onSubmit,
   modalCardStyle,
 }: AnnouncementCreateModalProps) {
@@ -85,7 +87,7 @@ export function AnnouncementCreateModal({
             />
 
             <Text className="text-sm font-semibold text-foreground mb-2">Estado</Text>
-            <View className="flex-row gap-3 mb-4">
+            <View className="flex-row gap-3 mb-2">
               <TouchableOpacity
                 onPress={() => { setStatusDraft('DRAFT'); }}
                 className={`flex-1 py-3 rounded-xl border ${
@@ -112,6 +114,11 @@ export function AnnouncementCreateModal({
                 </Text>
               </TouchableOpacity>
             </View>
+            <Text className="text-[11px] text-muted-foreground mb-4 px-1">
+              * {statusDraft === 'DRAFT' 
+                ? 'Los borradores solo son visibles para administradores.' 
+                : 'Los anuncios publicados son visibles para todos los vecinos.'}
+            </Text>
 
             <Text className="text-sm font-semibold text-foreground mb-2">Fecha Programada (Opcional)</Text>
             <DateTimePickerModal
@@ -121,7 +128,20 @@ export function AnnouncementCreateModal({
               placeholder="Tocar para seleccionar fecha y hora"
             />
 
-            <Text className="text-sm font-semibold text-foreground mb-2">Imagen (Opcional)</Text>
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="text-sm font-semibold text-foreground">Imagen (Opcional)</Text>
+              {pickedImage && (
+                <TouchableOpacity 
+                  onPress={() => {
+                    setPickedImage(null);
+                  }}
+                  className="flex-row items-center gap-1"
+                >
+                  <Ionicons name="trash-outline" size={14} color="#ef4444" />
+                  <Text className="text-red-500 text-xs font-medium">Quitar</Text>
+                </TouchableOpacity>
+              )}
+            </View>
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={onPickImage}

@@ -188,30 +188,34 @@ export default function AnuncioDetailScreen() {
       }} />
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-        {!isEditing ? (
-          <View>
-            {/* Hero Image */}
-            <View className="w-full aspect-[16/9] bg-muted relative overflow-hidden">
-              <Image
-                source={{ uri: announcement.image_url || GENERIC_IMAGE }}
-                className="w-full h-full object-cover"
-              />
-              {/* Gradient overlay for readability */}
-              <View className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-
-              {/* Status badge */}
-              <View className={`absolute top-4 right-4 px-3 py-1.5 rounded-full shadow-md ${announcement.status === 'DRAFT'
-                ? 'bg-amber-500'
-                : 'bg-emerald-500'
-                }`}>
-                <Text className="text-white font-bold text-xs uppercase tracking-wide">
-                  {statusLabel}
-                </Text>
-              </View>
-            </View>
-
-            {/* Content */}
-            <View className="p-6 -mt-4 bg-background rounded-t-3xl relative z-10">
+        <View className="w-full max-w-4xl mx-auto">
+          {!isEditing ? (
+            <View>
+              {/* Hero Image - Only show if present */}
+              {announcement.image_url ? (
+                <View className="w-full aspect-[16/9] md:aspect-[21/9] md:max-h-[450px] bg-muted relative overflow-hidden md:rounded-b-3xl">
+                  <Image
+                    source={{ uri: announcement.image_url }}
+                    className="w-full h-full"
+                    resizeMode="cover"
+                  />
+                  {/* Gradient overlay for readability */}
+                  <View className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+ 
+                  {/* Status badge */}
+                  <View className={`absolute top-4 right-4 px-3 py-1.5 rounded-full shadow-md ${announcement.status === 'DRAFT'
+                    ? 'bg-amber-500'
+                    : 'bg-emerald-500'
+                    }`}>
+                    <Text className="text-white font-bold text-xs uppercase tracking-wide">
+                      {statusLabel}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+ 
+              {/* Content */}
+              <View className={`p-6 bg-background rounded-t-3xl relative z-10 ${announcement.image_url ? '-mt-4' : 'mt-0'}`}>
               {/* Title */}
               <Text className="text-2xl sm:text-3xl font-bold text-foreground mb-3 leading-tight">
                 {announcement.title}
@@ -316,7 +320,7 @@ export default function AnuncioDetailScreen() {
             />
 
             <Text className="text-sm font-semibold text-foreground mb-2">Estado</Text>
-            <View className="flex-row gap-3 mb-6">
+            <View className="flex-row gap-3 mb-2">
               <TouchableOpacity
                 onPress={() => { setStatusDraft('DRAFT'); }}
                 className={`flex-1 py-3.5 rounded-xl border flex-row items-center justify-center gap-2 ${statusDraft === 'DRAFT'
@@ -329,7 +333,7 @@ export default function AnuncioDetailScreen() {
                   Borrador
                 </Text>
               </TouchableOpacity>
-
+ 
               <TouchableOpacity
                 onPress={() => { setStatusDraft('PUBLISHED'); }}
                 className={`flex-1 py-3.5 rounded-xl border flex-row items-center justify-center gap-2 ${statusDraft === 'PUBLISHED'
@@ -343,6 +347,11 @@ export default function AnuncioDetailScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
+            <Text className="text-[11px] text-muted-foreground mb-6 px-1">
+              * {statusDraft === 'DRAFT' 
+                ? 'Los borradores solo son visibles para administradores.' 
+                : 'Los anuncios publicados son visibles para todos los vecinos.'}
+            </Text>
 
             <Text className="text-sm font-semibold text-foreground mb-2">Fecha Programada (Opcional)</Text>
             <DateTimePickerModal
@@ -352,7 +361,30 @@ export default function AnuncioDetailScreen() {
               placeholder="Tocar para seleccionar fecha y hora"
             />
 
-            <Text className="text-sm font-semibold text-foreground mb-2">Imagen (Opcional)</Text>
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="text-sm font-semibold text-foreground">Imagen (Opcional)</Text>
+              {(pickedImage || announcement.image_url) && (
+                <TouchableOpacity 
+                  onPress={() => {
+                    if (pickedImage) {
+                      setPickedImage(null);
+                    } else {
+                      // If it's the original image, we might want a way to "un-set" it.
+                      // For now, let's just allow clearing the picked one.
+                      // If they want to remove the existing one, we'd need to send a null image_url to the backend.
+                      // The backend update logic should handle this.
+                      setPickedImage(null);
+                      // I'll mark it to be removed if needed, but for now let's just clear the preview.
+                      // Actually, let's add a state to track if the original image should be deleted.
+                    }
+                  }}
+                  className="flex-row items-center gap-1"
+                >
+                  <Ionicons name="trash-outline" size={14} color="#ef4444" />
+                  <Text className="text-red-500 text-xs font-medium">Quitar</Text>
+                </TouchableOpacity>
+              )}
+            </View>
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => { void onPickImage(); }}
@@ -402,6 +434,7 @@ export default function AnuncioDetailScreen() {
             </View>
           </View>
         )}
+        </View>
       </ScrollView>
 
       {/* INFO MODAL */}

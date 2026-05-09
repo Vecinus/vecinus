@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Modal, TouchableOpacity } from 'react-native';
+import { View, Modal, TouchableOpacity, Alert } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Ionicons } from '@expo/vector-icons';
@@ -62,6 +62,10 @@ export function DateTimePickerModal({
 
   const handleConfirm = () => {
     const date = new Date(selectedYear, selectedMonth, validDay, selectedHour, selectedMinute);
+    if (date < new Date()) {
+      Alert.alert('Fecha inválida', 'La fecha seleccionada debe ser futura.');
+      return;
+    }
     onChange(date.toISOString());
     setVisible(false);
   };
@@ -244,11 +248,24 @@ export function DateTimePickerModal({
               </View>
             </View>
 
-            {/* Preview */}
-            <View className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-3 mb-5 items-center">
-              <Text className="text-indigo-700 dark:text-indigo-400 font-bold text-base">
+            {/* Preview & Validation */}
+            <View className={`rounded-xl p-3 mb-5 items-center ${
+              new Date(selectedYear, selectedMonth, validDay, selectedHour, selectedMinute) < new Date()
+                ? 'bg-red-50 dark:bg-red-900/20'
+                : 'bg-indigo-50 dark:bg-indigo-900/20'
+            }`}>
+              <Text className={`font-bold text-base ${
+                new Date(selectedYear, selectedMonth, validDay, selectedHour, selectedMinute) < new Date()
+                  ? 'text-red-700 dark:text-red-400'
+                  : 'text-indigo-700 dark:text-indigo-400'
+              }`}>
                 {pad(validDay)}/{pad(selectedMonth + 1)}/{selectedYear} — {pad(selectedHour)}:{pad(selectedMinute)}
               </Text>
+              {new Date(selectedYear, selectedMonth, validDay, selectedHour, selectedMinute) < new Date() && (
+                <Text className="text-[11px] text-red-600 dark:text-red-400 mt-1 font-semibold">
+                  ⚠️ La fecha debe ser futura
+                </Text>
+              )}
             </View>
 
             {/* Buttons */}
@@ -261,7 +278,11 @@ export function DateTimePickerModal({
                 <Text className="text-muted-foreground">Limpiar</Text>
               </Button>
               <Button
-                className="flex-1 bg-indigo-600 dark:bg-indigo-500"
+                className={`flex-1 ${
+                  new Date(selectedYear, selectedMonth, validDay, selectedHour, selectedMinute) < new Date()
+                    ? 'bg-slate-300 dark:bg-slate-700'
+                    : 'bg-indigo-600 dark:bg-indigo-500'
+                }`}
                 onPress={handleConfirm}
               >
                 <Text className="text-white font-semibold">Confirmar</Text>
