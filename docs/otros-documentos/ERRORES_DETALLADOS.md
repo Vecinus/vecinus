@@ -350,7 +350,7 @@
 - **Recomendación:** El frontend debería evitar la llamada cuando ya sabe que es un QR de fecha futura (información del propio QR si se mete fecha en el payload). Reduce ruido y latencia.
 
 ### 9.6 QR de zona X validado escaneando en zona Y
-- **Estado:** ⚠️ Kevin
+- **Estado:** ✅ Kevin
 - **Archivo:** `frontend/app/(drawer)/[communityId]/scanner.tsx:27-77`
 - **Hipótesis:** El scanner muestra "Acceso Permitido" porque el primer escaneo fue válido (mismo community), pero un segundo escaneo casi simultáneo dispara el 400 que aparece en el log del backend. La protección `if (scanned || isValidating) return;` está antes del `setScanned(true)`, así que React no actualiza estado entre dos lecturas seguidas del mismo frame.
 - **Recomendación:** Añadir `useRef` lock síncrono:
@@ -389,7 +389,7 @@
   ```
 
 ### 10.3 Sin scroll lateral / barra para chats largos
-- **Estado:** ⚠️ Kevin
+- **Estado:** ✅ Kevin
 - **Recomendación:** Añadir botón "scroll to bottom" cuando el usuario sube y aparezcan mensajes nuevos.
 
 
