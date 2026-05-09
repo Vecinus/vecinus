@@ -20,6 +20,7 @@ class ReservationCreate(BaseModel):
 class QRValidateRequest(BaseModel):
     qr_token: UUID
     association_id: UUID
+    space_id: int | None = None
 
 
 class Reservation(BaseModel):
