@@ -47,6 +47,14 @@ logger = logging.getLogger(__name__)
 _BLOCKING_PAYMENT_ACTIONS = {"failed", "cancelled", "customer_approval_denied"}
 _CHARGEBACK_ACTIONS = {"late_failure_settled", "chargeback_settled"}
 _BLOCKING_MANDATE_ACTIONS = {"failed", "cancelled", "expired"}
+_NON_RESETTABLE_CONFIRMED_STATUSES = {
+    "confirmed",
+    "paid_out",
+    "failed",
+    "cancelled",
+    "customer_approval_denied",
+    "charged_back",
+}
 
 
 def _now_iso() -> str:
@@ -163,6 +171,47 @@ def _reset_usage_counters(supabase_admin: Client, subscription_id: str) -> None:
         supabase_admin.rpc("reset_usage_counters", {"p_subscription_id": subscription_id}).execute()
     except Exception:
         logger.exception("reset_usage_counters RPC failed for subscription %s", subscription_id)
+
+
+def _usage_counters_exist(supabase_admin: Client, subscription_id: str) -> bool:
+    res = (
+        supabase_admin.table("community_usage_counters")
+        .select("community_subscription_id")
+        .eq("community_subscription_id", subscription_id)
+        .limit(1)
+        .execute()
+    )
+    return bool(res.data)
+
+
+def _ensure_usage_counters_initialized(supabase_admin: Client, subscription_id: str) -> None:
+    _reset_usage_counters(supabase_admin, subscription_id)
+    if _usage_counters_exist(supabase_admin, subscription_id):
+        return
+
+    logger.warning(
+        "Usage counters missing after reset for subscription %s; retrying once",
+        subscription_id,
+    )
+    _reset_usage_counters(supabase_admin, subscription_id)
+    if not _usage_counters_exist(supabase_admin, subscription_id):
+        logger.error(
+            "Usage counters still missing after retry for subscription %s",
+            subscription_id,
+        )
+
+
+def _should_reset_usage_on_payment_confirmed(previous_invoice_status: str | None, has_usage_counters: bool) -> bool:
+    """
+    Sólo abrir/recalcular cuota cuando este `confirmed` representa el cobro del
+    nuevo ciclo. Si el pago estaba fallido y se recupera después, desbloqueamos
+    la comunidad pero no concedemos cuota adicional retroactiva.
+    """
+    if previous_invoice_status is None:
+        return True
+    if not has_usage_counters:
+        return True
+    return previous_invoice_status not in _NON_RESETTABLE_CONFIRMED_STATUSES
 
 
 def _handle_billing_request_fulfilled(supabase_admin: Client, event: dict[str, Any]) -> None:
@@ -334,7 +383,7 @@ def _process_subscription_renewal(
         }
     ).eq("id", subscription_id).execute()
 
-    _reset_usage_counters(supabase_admin, subscription_id)
+    _ensure_usage_counters_initialized(supabase_admin, subscription_id)
 
 
 def _handle_mandate_active(supabase_admin: Client, event: dict[str, Any]) -> None:
@@ -463,6 +512,10 @@ def _handle_payment_confirmed(supabase_admin: Client, event: dict[str, Any]) -> 
         logger.warning("payments.confirmed for unknown subscription (payment=%s)", payment_id)
         return
 
+    previous_invoice = _load_invoice_by_payment_id(supabase_admin, payment_id)
+    previous_status = previous_invoice.get("status") if previous_invoice else None
+    has_usage_counters = _usage_counters_exist(supabase_admin, str(subscription["id"]))
+
     _upsert_invoice_from_payment(
         supabase_admin,
         payment_id=payment_id,
@@ -477,7 +530,8 @@ def _handle_payment_confirmed(supabase_admin: Client, event: dict[str, Any]) -> 
         "active",
         extra={"failure_count": 0, "last_payment_at": _now_iso()},
     )
-    _reset_usage_counters(supabase_admin, subscription["id"])
+    if _should_reset_usage_on_payment_confirmed(previous_status, has_usage_counters):
+        _ensure_usage_counters_initialized(supabase_admin, str(subscription["id"]))
 
 
 def _handle_payment_paid_out(supabase_admin: Client, event: dict[str, Any]) -> None:

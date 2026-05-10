@@ -130,6 +130,37 @@ def _count_association_properties(supabase_admin: Client, association_id: str) -
     return len(res.data or [])
 
 
+def _build_usage_fallback(
+    association_id: str,
+    subscription_id: str,
+    subscription_status: str,
+    plan: dict[str, Any] | None,
+    household_count: int,
+) -> dict[str, Any]:
+    safe_household_count = max(int(household_count or 0), 0)
+    chatbot_base = int((plan or {}).get("chatbot_base_msg") or 0)
+    chatbot_per_household = int((plan or {}).get("chatbot_per_household_msg") or 0)
+    chatbot_quota = chatbot_base + chatbot_per_household * safe_household_count
+    minutes_per_month = int((plan or {}).get("minutes_seconds_per_month") or 0)
+    minutes_cap = int((plan or {}).get("minutes_seconds_cap") or 0)
+
+    return {
+        "association_id": association_id,
+        "subscription_id": subscription_id,
+        "subscription_status": subscription_status,
+        "chatbot": {"used": 0, "quota": chatbot_quota, "remaining": chatbot_quota},
+        "minutes": {
+            "used_seconds": 0,
+            "balance_seconds": minutes_per_month,
+            "remaining_seconds": minutes_per_month,
+            "cap_seconds": minutes_cap,
+        },
+        "period_started_at": None,
+        "period_ends_at": None,
+        "last_reset_at": None,
+    }
+
+
 # -----------------------------------------------------------------------------
 # Endpoints
 # -----------------------------------------------------------------------------
@@ -203,6 +234,8 @@ def get_subscription_usage(
     _require_membership(supabase_admin, current_user["id"], association_id)
 
     subscription = _load_subscription(supabase_admin, association_id)
+    plan = _load_plan(supabase_admin, subscription["subscription_plan_id"])
+    household_count = _load_association_household_count(supabase_admin, association_id)
 
     counters_res = (
         supabase_admin.table("community_usage_counters")
@@ -213,19 +246,16 @@ def get_subscription_usage(
     )
 
     if not counters_res.data:
-        # La cs_row existe pero sus contadores aún no se inicializaron (caso
-        # raro: el RPC reset_usage_counters no llegó a correr). Devolvemos 0/0
-        # para que la UI no peté.
-        return {
-            "association_id": association_id,
-            "subscription_id": subscription["id"],
-            "subscription_status": subscription["status"],
-            "chatbot": {"used": 0, "quota": 0, "remaining": 0},
-            "minutes": {"used_seconds": 0, "balance_seconds": 0, "remaining_seconds": 0, "cap_seconds": 0},
-            "period_started_at": None,
-            "period_ends_at": None,
-            "last_reset_at": None,
-        }
+        # Si falta la fila técnica de contadores, devolvemos la cuota base del
+        # plan para no mostrar 0/0 en una suscripción activa mientras se
+        # recupera la inicialización persistida.
+        return _build_usage_fallback(
+            association_id=association_id,
+            subscription_id=subscription["id"],
+            subscription_status=subscription["status"],
+            plan=plan,
+            household_count=household_count,
+        )
 
     counters = counters_res.data[0]
     chatbot_quota = int(counters.get("chatbot_messages_quota") or 0)
