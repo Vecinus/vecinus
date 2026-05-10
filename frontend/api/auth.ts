@@ -8,12 +8,14 @@ export interface RegisterCredentials {
   password: string;
   password_confirm: string;
   username: string;
+  avatar_url?: string | null;
 }
 
 interface UserProfile {
   id: string;
   username: string;
   email: string;
+  avatar_url?: string | null;
 }
 
 interface MembershipItem {
@@ -42,6 +44,7 @@ export const fetchUserWithCommunities = async (jwtToken: string): Promise<User> 
     id: profile.id,
     name: profile.username,
     email: profile.email,
+    avatarUrl: profile.avatar_url ?? null,
     CommunitiesAndRole: communitiesData.map((membership: MembershipItem) => ({
       community: {
         id: membership.neighborhood_associations.id,
@@ -52,7 +55,6 @@ export const fetchUserWithCommunities = async (jwtToken: string): Promise<User> 
     })),
   };
 };
-
 
 export const useAcceptInvitationMutation = () => {
   const { loginContext } = useAuth();
@@ -85,28 +87,25 @@ export const useLoginMutation = () => {
 
   return useMutation({
     mutationFn: async (credentials: LoginCredentials) => {
-      // 1. Login to get session
       const loginResponse = await apiClient.post<{ session: { access_token: string } }>('/login', credentials);
       const { session } = loginResponse.data;
       const token = session.access_token;
 
-      // 2. Fetch user profile
-      const userResponse = await apiClient.get<{ id: string; username: string; email: string }>('/users/me', {
+      const userResponse = await apiClient.get<UserProfile>('/users/me', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const profile = userResponse.data;
 
-      // 3. Fetch user communities
       const communitiesResponse = await apiClient.get<MembershipItem[]>('/users/me/communities', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const communitiesData = communitiesResponse.data;
 
-      // 4. Transform data to our User type
       const fullUser: User = {
         id: profile.id,
         name: profile.username,
         email: profile.email,
+        avatarUrl: profile.avatar_url ?? null,
         CommunitiesAndRole: communitiesData.map((membership) => ({
           community: {
             id: membership.neighborhood_associations.id,
@@ -132,4 +131,14 @@ export const useRegisterMutation = () => {
       return response.data;
     },
   });
+};
+
+export const updateMyAvatarUrl = async (token: string, avatarUrl?: string | null) => {
+  const response = await apiClient.put(
+    '/users/me/avatar',
+    { avatar_url: avatarUrl?.trim() || null },
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+
+  return response.data;
 };

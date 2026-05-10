@@ -31,6 +31,10 @@ class CreatePropertyRequest(BaseModel):
 # -------------------------------------------
 
 
+class UpdateAvatarRequest(BaseModel):
+    avatar_url: str | None = None
+
+
 @router.get("/users/me/communities", response_model=List[MembershipWithCommunity])
 def get_my_communities(
     current_user: dict = Depends(get_current_user),
@@ -112,6 +116,39 @@ def get_current_user_profile(
     )
 
     profile_data = profile_res.data[0] if profile_res.data else {}
+
+    return {
+        "id": current_user["id"],
+        "email": current_user["email"],
+        "role": current_user["role"],
+        "username": profile_data.get("username"),
+        "avatar_url": profile_data.get("avatar_url"),
+        "created_at": profile_data.get("created_at"),
+    }
+
+
+@router.put("/users/me/avatar", response_model=UserMeResponse)
+def update_current_user_avatar(
+    body: UpdateAvatarRequest,
+    current_user: dict = Depends(get_current_user),
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
+    avatar_url = body.avatar_url.strip() if isinstance(body.avatar_url, str) else None
+
+    if avatar_url == "":
+        avatar_url = None
+
+    if avatar_url is not None and not (avatar_url.startswith("http://") or avatar_url.startswith("https://")):
+        raise HTTPException(status_code=400, detail="La URL de la imagen debe comenzar por http:// o https://")
+
+    update_result = (
+        supabase_admin.table("profiles").update({"avatar_url": avatar_url}).eq("id", current_user["id"]).execute()
+    )
+
+    if not update_result.data:
+        raise HTTPException(status_code=500, detail="No se pudo actualizar la imagen de perfil")
+
+    profile_data = update_result.data[0]
 
     return {
         "id": current_user["id"],
