@@ -24,31 +24,13 @@ import {
 import { SandboxBanner } from '@/components/community/SandboxBanner';
 import { paymentsApi } from '@/api/payments';
 import { useAuth } from '@/context/AuthContext';
+import { getErrorMessage } from '@/lib/error-message';
 import type {
     PlanCode,
     RegistrationPaymentOrderResponse,
 } from '@/types/payments.types';
 
 type Step = 'form' | 'paying';
-
-function isAxiosErrorWithDetail(error: unknown): error is { response: { data: { detail: unknown } } } {
-    if (!error || typeof error !== 'object') return false;
-    const candidate = error as { response?: { data?: { detail?: unknown } } };
-    return !!candidate.response && !!candidate.response.data && 'detail' in candidate.response.data;
-}
-
-function extractErrorMessage(error: unknown, fallback: string): string {
-    if (isAxiosErrorWithDetail(error)) {
-        const detail = error.response.data.detail;
-        if (typeof detail === 'string') return detail;
-        if (detail && typeof detail === 'object' && 'message' in detail) {
-            const msg = (detail as { message?: unknown }).message;
-            if (typeof msg === 'string') return msg;
-        }
-    }
-    if (error instanceof Error && error.message) return error.message;
-    return fallback;
-}
 
 export default function CrearComunidadScreen() {
     const router = useRouter();
@@ -127,7 +109,7 @@ export default function CrearComunidadScreen() {
         } catch (error) {
             showError(
                 'No se pudo iniciar el alta',
-                extractErrorMessage(error, 'Error de red al crear la orden de pago.'),
+                getErrorMessage(error, 'Error de red al crear la orden de pago.'),
             );
         } finally {
             setIsSubmitting(false);
@@ -153,7 +135,7 @@ export default function CrearComunidadScreen() {
         } catch (error) {
             showError(
                 'No se pudo abrir la pasarela',
-                extractErrorMessage(error, 'Error inesperado al abrir el enlace.'),
+                getErrorMessage(error, 'Error inesperado al abrir el enlace.'),
             );
         }
     };

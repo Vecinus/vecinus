@@ -140,8 +140,40 @@ export function CreateActaCard({
       });
       showAlert('Éxito', 'El acta se ha creado correctamente y se está procesando', true);
     } catch (error) {
-      console.error('Error saving minute:', error);
-      showAlert('Error', 'No se pudo crear el acta. Por favor, inténtalo de nuevo.');
+      const err = error as {
+        response?: {
+          status?: number;
+          data?: {
+            detail?: string | {
+              code?: string;
+              resource?: string;
+              message?: string;
+            };
+          };
+        };
+      };
+      const detail = err?.response?.data?.detail;
+      const quotaMessage =
+        err?.response?.status === 429 &&
+        detail &&
+        typeof detail === 'object' &&
+        detail.code === 'quota_exhausted' &&
+        detail.resource === 'minutes'
+          ? detail.message
+          : null;
+      const validationMessage =
+        err?.response?.status === 422 && typeof detail === 'string'
+          ? detail
+          : null;
+
+      if (!quotaMessage && !validationMessage) {
+        console.error('Error saving minute:', error);
+      }
+
+      showAlert(
+        'Error',
+        quotaMessage || validationMessage || 'No se pudo crear el acta. Por favor, inténtalo de nuevo.'
+      );
     } finally {
       setIsUploading(false);
     }

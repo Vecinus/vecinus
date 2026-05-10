@@ -7,6 +7,7 @@ import { AlertTriangle, CheckCircle2 } from 'lucide-react-native';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { getErrorMessage } from '@/lib/error-message';
 import { paymentsApi } from '@/api/payments';
 import { useAuth } from '@/context/AuthContext';
 
@@ -16,19 +17,6 @@ type ScreenState =
   | { kind: 'verifying' }
   | { kind: 'pending'; message: string }
   | { kind: 'error'; message: string };
-
-function extractErrorMessage(error: unknown, fallback: string): string {
-  if (!error || typeof error !== 'object') return fallback;
-  const err = error as { response?: { data?: { detail?: unknown } }; message?: string };
-  const detail = err.response?.data?.detail;
-  if (typeof detail === 'string') return detail;
-  if (detail && typeof detail === 'object' && 'message' in detail) {
-    const msg = (detail as { message?: unknown }).message;
-    if (typeof msg === 'string') return msg;
-  }
-  if (typeof err.message === 'string') return err.message;
-  return fallback;
-}
 
 export default function GocardlessCompleteScreen() {
   const router = useRouter();
@@ -71,7 +59,7 @@ export default function GocardlessCompleteScreen() {
           'GoCardless todavía está procesando tu autorización. Espera unos segundos y pulsa "Reintentar verificación".',
       });
     } catch (error) {
-      const message = extractErrorMessage(
+      const message = getErrorMessage(
         error,
         'No se pudo verificar el estado del mandato. Inténtalo de nuevo.',
       );

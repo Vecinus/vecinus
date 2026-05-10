@@ -6,25 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useRenewSubscription, useRetryPayment } from '@/hooks/useSubscription';
+import { getErrorMessage } from '@/lib/error-message';
 
 type Props = {
   communityId: string;
   onSuccess?: () => void;
   onError?: (message: string) => void;
 };
-
-function extractErrorMessage(error: unknown, fallback: string): string {
-  if (!error || typeof error !== 'object') return fallback;
-  const err = error as { response?: { data?: { detail?: unknown } }; message?: string };
-  const detail = err.response?.data?.detail;
-  if (typeof detail === 'string') return detail;
-  if (detail && typeof detail === 'object' && 'message' in detail) {
-    const msg = (detail as { message?: unknown }).message;
-    if (typeof msg === 'string') return msg;
-  }
-  if (typeof err.message === 'string') return err.message;
-  return fallback;
-}
 
 
 export function RetryPaymentButton({ communityId, onSuccess, onError }: Props) {
@@ -44,7 +32,7 @@ export function RetryPaymentButton({ communityId, onSuccess, onError }: Props) {
         onSuccess?.();
       },
       onError: (error) => {
-        const message = extractErrorMessage(
+        const message = getErrorMessage(
           error,
           'No se pudo encolar el reintento. Inténtalo de nuevo en unos minutos.',
         );
@@ -81,7 +69,7 @@ export function RetryPaymentButton({ communityId, onSuccess, onError }: Props) {
       }
       await Linking.openURL(url);
     } catch (error) {
-      const message = extractErrorMessage(
+      const message = getErrorMessage(
         error,
         'No se pudo iniciar el cambio de cuenta bancaria.',
       );

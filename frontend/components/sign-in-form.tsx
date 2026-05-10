@@ -9,37 +9,10 @@ import { Pressable, type TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { useLoginMutation } from '@/api/auth';
+import { extractErrorMessage } from '@/lib/error-message';
 
 function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-}
-
-function extractErrorMessage(detail: unknown): string {
-  if (typeof detail === 'string') {
-    return detail.trim();
-  }
-
-  if (Array.isArray(detail)) {
-    const messages = detail
-      .map((item) => {
-        if (typeof item === 'string') return item.trim();
-        if (item && typeof item === 'object' && 'msg' in item) {
-          const msg = (item as { msg?: unknown }).msg;
-          return typeof msg === 'string' ? msg.trim() : '';
-        }
-        return '';
-      })
-      .filter(Boolean);
-
-    return messages.join(' ');
-  }
-
-  if (detail && typeof detail === 'object' && 'msg' in detail) {
-    const msg = (detail as { msg?: unknown }).msg;
-    return typeof msg === 'string' ? msg.trim() : '';
-  }
-
-  return '';
 }
 
 export function SignInForm() {
