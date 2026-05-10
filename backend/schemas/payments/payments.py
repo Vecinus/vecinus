@@ -75,6 +75,11 @@ class RegistrationOrderCreate(BaseModel):
         return stripped
 
 
+class SubscriptionChangeRequest(BaseModel):
+    plan: PlanCode
+    household_count: int = Field(..., ge=0, le=10000)
+
+
 class RegistrationPaymentOrderResponse(BaseModel):
     id: UUID
     email: EmailStr

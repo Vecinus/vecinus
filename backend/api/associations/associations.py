@@ -18,6 +18,11 @@ from schemas.associations import (
     UserMeResponse,
 )
 from services.email_service import ROLE_LABELS, send_invitation_email
+from services.payments.subscription_service import load_association_household_count as load_active_household_count
+from services.payments.subscription_service import (
+    load_subscription,
+    resolve_operational_household_limit,
+)
 from supabase import Client
 
 router = APIRouter()
@@ -34,7 +39,7 @@ class CreatePropertyRequest(BaseModel):
 def _load_association_household_count(supabase_admin: Client, association_id: str) -> int:
     association_res = (
         supabase_admin.table("neighborhood_associations")
-        .select("household_count")
+        .select("id, household_count")
         .eq("id", association_id)
         .limit(1)
         .execute()
@@ -42,12 +47,7 @@ def _load_association_household_count(supabase_admin: Client, association_id: st
     if not association_res.data:
         raise HTTPException(status_code=404, detail="Comunidad no encontrada.")
 
-    household_count = association_res.data[0].get("household_count")
-    try:
-        limit = int(household_count)
-    except (TypeError, ValueError):
-        limit = 0
-
+    limit = load_active_household_count(supabase_admin, association_id)
     if limit <= 0:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -57,7 +57,29 @@ def _load_association_household_count(supabase_admin: Client, association_id: st
                 "association_id": association_id,
             },
         )
+    return limit
 
+
+def _load_operational_household_limit(supabase_admin: Client, association_id: str) -> int:
+    active_limit = _load_association_household_count(supabase_admin, association_id)
+
+    try:
+        subscription = load_subscription(supabase_admin, association_id)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_404_NOT_FOUND:
+            return active_limit
+        raise
+
+    limit = resolve_operational_household_limit(subscription, active_limit)
+    if limit <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "community_household_count_invalid",
+                "message": "La comunidad no tiene configurado un numero de viviendas valido.",
+                "association_id": association_id,
+            },
+        )
     return limit
 
 
@@ -668,7 +690,7 @@ def create_property(
     if existing_prop.data:
         raise HTTPException(status_code=400, detail="Esta propiedad ya existe en la comunidad.")
 
-    household_limit = _load_association_household_count(supabase_admin, association_id)
+    household_limit = _load_operational_household_limit(supabase_admin, association_id)
     properties_res = supabase_admin.table("properties").select("id").eq("association_id", association_id).execute()
     current_count = len(properties_res.data or [])
 

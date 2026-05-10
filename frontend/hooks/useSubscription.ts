@@ -6,6 +6,8 @@ import type {
   RetryPaymentResponse,
   SubscriptionStatusResponse,
   SubscriptionUsageResponse,
+  UpdateSubscriptionRequest,
+  UpdateSubscriptionResponse,
 } from '@/types/payments.types';
 
 
@@ -62,5 +64,21 @@ export const useRetryPayment = (communityId: string | undefined) => {
 export const useRenewSubscription = (communityId: string | undefined) => {
   return useMutation<RenewSubscriptionResponse, Error, void>({
     mutationFn: () => paymentsApi.renewSubscription(communityId as string),
+  });
+};
+
+export const useUpdateSubscription = (communityId: string | undefined) => {
+  const queryClient = useQueryClient();
+
+  return useMutation<UpdateSubscriptionResponse, Error, UpdateSubscriptionRequest>({
+    mutationFn: (payload) => paymentsApi.updateSubscription(communityId as string, payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: subscriptionKeys.status(communityId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: subscriptionKeys.usage(communityId),
+      });
+    },
   });
 };

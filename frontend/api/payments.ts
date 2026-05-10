@@ -6,6 +6,8 @@ import type {
   RetryPaymentResponse,
   SubscriptionStatusResponse,
   SubscriptionUsageResponse,
+  UpdateSubscriptionRequest,
+  UpdateSubscriptionResponse,
 } from '@/types/payments.types';
 
 export const paymentsApi = {
@@ -55,6 +57,17 @@ export const paymentsApi = {
   renewSubscription: async (communityId: string): Promise<RenewSubscriptionResponse> => {
     const { data } = await apiClient.post<RenewSubscriptionResponse>(
       `/payments/subscriptions/${encodeURIComponent(communityId)}/renew`,
+    );
+    return data;
+  },
+
+  updateSubscription: async (
+    communityId: string,
+    body: UpdateSubscriptionRequest,
+  ): Promise<UpdateSubscriptionResponse> => {
+    const { data } = await apiClient.patch<UpdateSubscriptionResponse>(
+      `/payments/subscriptions/${encodeURIComponent(communityId)}`,
+      body,
     );
     return data;
   },

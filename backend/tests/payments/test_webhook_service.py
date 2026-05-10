@@ -86,6 +86,9 @@ def build_client(invoice_status: str | None = None, include_renewal_tables: bool
                 "id": "sub-1",
                 "association_id": "assoc-1",
                 "subscription_plan_id": "plan-1",
+                "pending_subscription_plan_id": None,
+                "pending_household_count": None,
+                "pending_amount_cents": None,
                 "gocardless_subscription_id": "gc-sub-1",
                 "current_amount_cents": 2000,
                 "status": "past_due" if invoice_status == "failed" else "pending_first_payment",
@@ -181,7 +184,7 @@ def test_confirmed_recovered_failed_payment_initializes_missing_usage_counters(m
 
     webhook_service._handle_payment_confirmed(client, {"links": {"payment": "pay-1"}})
 
-    assert reset_calls == ["sub-1"]
+    assert reset_calls == ["sub-1", "sub-1"]
     assert client.storage["community_subscriptions"][0]["status"] == "active"
     assert client.storage["community_subscriptions"][0]["failure_count"] == 0
     assert client.storage["subscription_invoices"][0]["status"] == "confirmed"
@@ -220,7 +223,53 @@ def test_subscription_renewal_retries_missing_usage_counters(monkeypatch):
 
     webhook_service._process_subscription_renewal(client, "sub-1", "new-md")
 
-    assert reset_calls == ["sub-1", "sub-1"]
+    assert reset_calls == ["sub-1"]
     assert client.storage["community_subscriptions"][0]["status"] == "active"
     assert client.storage["community_subscriptions"][0]["gocardless_mandate_id"] == "new-md"
     assert client.storage["community_subscriptions"][0]["gocardless_subscription_id"] == "gc-sub-2"
+
+
+def test_confirmed_payment_applies_pending_subscription_change(monkeypatch):
+    client = build_client(invoice_status=None, include_renewal_tables=True)
+    client.storage["community_subscriptions"][0].update(
+        {
+            "pending_subscription_plan_id": "plan-2",
+            "pending_household_count": 12,
+            "pending_amount_cents": 2400,
+            "pending_change_requested_at": "2026-05-09T08:00:00+00:00",
+        }
+    )
+    client.storage["subscription_plans"].append(
+        {
+            "id": "plan-2",
+            "base_cents": 1800,
+            "per_household_cents": 50,
+        }
+    )
+    reset_calls: list[str] = []
+
+    monkeypatch.setattr(
+        webhook_service,
+        "get_payment",
+        lambda payment_id: {
+            "id": payment_id,
+            "amount": 2000,
+            "currency": "EUR",
+            "charge_date": "2026-05-10",
+            "links": {"subscription": "gc-sub-1"},
+        },
+    )
+    monkeypatch.setattr(webhook_service, "_now_iso", lambda: "2026-05-10T12:00:00+00:00")
+    monkeypatch.setattr(webhook_service, "_reset_usage_counters", lambda _admin, sub_id: reset_calls.append(sub_id))
+
+    webhook_service._handle_payment_confirmed(client, {"links": {"payment": "pay-1"}})
+
+    subscription = client.storage["community_subscriptions"][0]
+    association = client.storage["neighborhood_associations"][0]
+    assert reset_calls == ["sub-1"]
+    assert subscription["subscription_plan_id"] == "plan-2"
+    assert subscription["current_amount_cents"] == 2400
+    assert subscription["pending_subscription_plan_id"] is None
+    assert subscription["pending_household_count"] is None
+    assert subscription["pending_amount_cents"] is None
+    assert association["household_count"] == 12

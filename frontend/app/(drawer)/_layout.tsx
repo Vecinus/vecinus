@@ -197,6 +197,14 @@ export default function DrawerLayout() {
         }}
       />
       <Drawer.Screen
+        name="[communityId]/subscription-plan"
+        initialParams={{ communityId: activeCommunity?.id }}
+        options={{
+          title: 'Gestionar plan',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
         name="[communityId]/incidencia/[incidentId]"
         options={{
           headerTitle: 'Detalle de Incidencia',

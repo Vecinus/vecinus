@@ -82,6 +82,7 @@ export type InvoiceStatus =
   | 'charged_back';
 
 export type SubscriptionPlanSummary = {
+  id?: string;
   code: PlanCode;
   display_name: string;
   base_cents: number;
@@ -92,6 +93,20 @@ export type SubscriptionPlanSummary = {
   chatbot_per_household_msg: number;
   chatbot_input_chars: number;
   chatbot_output_chars: number;
+};
+
+export type UpdateSubscriptionRequest = {
+  plan: PlanCode;
+  household_count: number;
+};
+
+export type UpdateSubscriptionResponse = {
+  ok: boolean;
+  message: string;
+  pending_plan: SubscriptionPlanSummary | null;
+  pending_household_count: number | null;
+  pending_amount_cents: number | null;
+  operational_household_limit: number;
 };
 
 export type SubscriptionInvoice = {
@@ -114,9 +129,14 @@ export type SubscriptionStatusResponse = {
   status: SubscriptionStatusValue | string;
   is_blocked: boolean;
   plan: SubscriptionPlanSummary | null;
+  pending_plan: SubscriptionPlanSummary | null;
   current_amount_cents: number | null;
   household_count: number | null;
   current_household_count: number;
+  operational_household_limit: number;
+  pending_household_count: number | null;
+  pending_amount_cents: number | null;
+  pending_change_requested_at: string | null;
   mandate_status: MandateStatus | string | null;
   gocardless_subscription_id: string | null;
   current_period_start: string | null;

@@ -201,6 +201,41 @@ def _ensure_usage_counters_initialized(supabase_admin: Client, subscription_id: 
         )
 
 
+def _apply_pending_subscription_change(supabase_admin: Client, subscription: dict[str, Any]) -> dict[str, Any]:
+    pending_plan_id = subscription.get("pending_subscription_plan_id")
+    pending_household_count = subscription.get("pending_household_count")
+    pending_amount_cents = subscription.get("pending_amount_cents")
+
+    if pending_plan_id is None and pending_household_count is None and pending_amount_cents is None:
+        return subscription
+
+    association_id = str(subscription["association_id"])
+    update_payload: dict[str, Any] = {
+        "pending_subscription_plan_id": None,
+        "pending_household_count": None,
+        "pending_amount_cents": None,
+        "pending_change_requested_at": None,
+        "updated_at": _now_iso(),
+    }
+    if pending_plan_id is not None:
+        update_payload["subscription_plan_id"] = pending_plan_id
+    if pending_amount_cents is not None:
+        update_payload["current_amount_cents"] = pending_amount_cents
+
+    res = supabase_admin.table("community_subscriptions").update(update_payload).eq("id", subscription["id"]).execute()
+    updated_subscription = _first(res.data) or dict(subscription, **update_payload)
+
+    if pending_household_count is not None:
+        supabase_admin.table("neighborhood_associations").update(
+            {
+                "household_count": pending_household_count,
+                "updated_at": _now_iso(),
+            }
+        ).eq("id", association_id).execute()
+
+    return updated_subscription
+
+
 def _should_reset_usage_on_payment_confirmed(previous_invoice_status: str | None, has_usage_counters: bool) -> bool:
     """
     Sólo abrir/recalcular cuota cuando este `confirmed` representa el cobro del
@@ -523,6 +558,8 @@ def _handle_payment_confirmed(supabase_admin: Client, event: dict[str, Any]) -> 
         new_status="confirmed",
         payment_dict=payment_dict,
     )
+
+    subscription = _apply_pending_subscription_change(supabase_admin, subscription)
 
     _set_subscription_status(
         supabase_admin,

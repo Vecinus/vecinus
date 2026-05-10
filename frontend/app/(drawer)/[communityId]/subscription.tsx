@@ -4,6 +4,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle } from 'lucide-react-native';
 
+import { formatEuros } from '@/components/community/PlanSelector';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -45,9 +46,6 @@ export default function CommunitySubscriptionScreen() {
     ? routeCommunityId
     : activeCommunity?.id;
 
-  // El rol se calcula contra la comunidad del PATH (no la activa) para que
-  // el deep-link desde el modal de F1 funcione aunque la comunidad bloqueada
-  // no sea la activa actualmente. Si el user no es miembro, role = null.
   const membership = React.useMemo(() => {
     if (!user || !communityId) return null;
     return (
@@ -156,6 +154,9 @@ export default function CommunitySubscriptionScreen() {
   }
 
   const showRetryButton = isAdmin && status.status === 'past_due';
+  const activeHouseholdCount = status.household_count ?? 0;
+  const pendingHouseholdCount = status.pending_household_count;
+  const hasPendingChange = !!status.pending_plan || pendingHouseholdCount !== null;
 
   return (
     <ScrollView
@@ -174,6 +175,52 @@ export default function CommunitySubscriptionScreen() {
       </View>
 
       <SubscriptionStatusCard status={status} />
+
+      {isAdmin ? (
+        <View className="rounded-2xl border border-border bg-card p-5 gap-4">
+          <View className="gap-1">
+            <Text className="text-lg font-bold text-foreground">Plan y límite de viviendas</Text>
+            <Text className="text-sm text-muted-foreground">
+              Gestiona los cambios de plan desde una pantalla dedicada para revisar mejor el impacto antes de guardarlos.
+            </Text>
+          </View>
+
+          {hasPendingChange ? (
+            <View className="rounded-xl border border-blue-300/60 bg-blue-50 p-4 gap-2 dark:border-blue-700/40 dark:bg-blue-950/30">
+              <Text className="text-sm font-semibold text-blue-900 dark:text-blue-200">
+                Hay un cambio programado para el siguiente ciclo.
+              </Text>
+              <Text className="text-xs text-blue-900 dark:text-blue-200">
+                Próximo ciclo: {status.pending_plan?.display_name ?? status.plan?.display_name ?? '—'} · {pendingHouseholdCount ?? activeHouseholdCount} viviendas · {typeof status.pending_amount_cents === 'number' ? formatEuros(status.pending_amount_cents) : '—'} /mes
+              </Text>
+              {pendingHouseholdCount !== null && pendingHouseholdCount < activeHouseholdCount ? (
+                <Text className="text-xs text-blue-900 dark:text-blue-200">
+                  La reducción pendiente ya limita las nuevas altas desde este momento.
+                </Text>
+              ) : null}
+            </View>
+          ) : (
+            <View className="rounded-xl border border-border/60 bg-background p-4 gap-2">
+              <Text className="text-sm text-muted-foreground">
+                Plan actual: {status.plan?.display_name ?? '—'}
+              </Text>
+              <Text className="text-sm text-muted-foreground">
+                Límite actual: {activeHouseholdCount} viviendas
+              </Text>
+              <Text className="text-sm text-muted-foreground">
+                Viviendas creadas: {status.current_household_count}
+              </Text>
+            </View>
+          )}
+
+          <Button
+            onPress={() => router.push(`/${communityId}/subscription-plan`)}
+            className="h-12 rounded-xl"
+          >
+            <Text className="font-semibold text-primary-foreground">Gestionar plan</Text>
+          </Button>
+        </View>
+      ) : null}
 
       {usage ? (
         <UsageMeters usage={usage} />

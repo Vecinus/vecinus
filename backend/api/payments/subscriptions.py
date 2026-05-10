@@ -19,20 +19,36 @@ autorización (rol de membership) se valida explícitamente en cada endpoint.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID, uuid4
 
 from core.config import settings
 from core.deps import get_current_user, get_supabase_admin
 from fastapi import APIRouter, Depends, HTTPException, status
+from schemas.payments import SubscriptionChangeRequest
 from services.payments.gocardless_service import (
     create_billing_request_flow,
     create_mandate_billing_request,
     retry_payment,
+    update_subscription,
+)
+from services.payments.subscription_service import (
+    calculate_amount_cents,
+    count_association_properties,
+    load_association_household_count,
+    load_plan_by_code,
+    load_plan_by_id,
+    load_subscription,
+    resolve_operational_household_limit,
 )
 from supabase import Client
 
 router = APIRouter(prefix="/payments/subscriptions", tags=["subscriptions"])
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 # -----------------------------------------------------------------------------
@@ -78,56 +94,15 @@ def _require_membership(
 
 
 def _load_subscription(supabase_admin: Client, association_id: str) -> dict[str, Any]:
-    res = (
-        supabase_admin.table("community_subscriptions")
-        .select("*")
-        .eq("association_id", association_id)
-        .limit(1)
-        .execute()
-    )
-    if not res.data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No existe suscripción para esta comunidad",
-        )
-    return res.data[0]
-
-
-def _load_plan(supabase_admin: Client, plan_id: str) -> dict[str, Any] | None:
-    res = (
-        supabase_admin.table("subscription_plans")
-        .select(
-            "code, display_name, base_cents, per_household_cents, "
-            "minutes_seconds_per_month, minutes_seconds_cap, "
-            "chatbot_base_msg, chatbot_per_household_msg, "
-            "chatbot_input_chars, chatbot_output_chars"
-        )
-        .eq("id", plan_id)
-        .limit(1)
-        .execute()
-    )
-    return res.data[0] if res.data else None
+    return load_subscription(supabase_admin, association_id)
 
 
 def _load_association_household_count(supabase_admin: Client, association_id: str) -> int:
-    res = (
-        supabase_admin.table("neighborhood_associations")
-        .select("household_count")
-        .eq("id", association_id)
-        .limit(1)
-        .execute()
-    )
-    if not res.data:
-        return 0
-    try:
-        return int(res.data[0].get("household_count") or 0)
-    except (TypeError, ValueError):
-        return 0
+    return load_association_household_count(supabase_admin, association_id)
 
 
 def _count_association_properties(supabase_admin: Client, association_id: str) -> int:
-    res = supabase_admin.table("properties").select("id").eq("association_id", association_id).execute()
-    return len(res.data or [])
+    return count_association_properties(supabase_admin, association_id)
 
 
 def _build_usage_fallback(
@@ -180,9 +155,13 @@ def get_subscription_status(
     _require_membership(supabase_admin, current_user["id"], association_id, allowed_roles={1, 4})
 
     subscription = _load_subscription(supabase_admin, association_id)
-    plan = _load_plan(supabase_admin, subscription["subscription_plan_id"])
+    plan = load_plan_by_id(supabase_admin, subscription["subscription_plan_id"])
+    pending_plan = None
+    if subscription.get("pending_subscription_plan_id"):
+        pending_plan = load_plan_by_id(supabase_admin, subscription["pending_subscription_plan_id"])
     household_count = _load_association_household_count(supabase_admin, association_id)
     current_household_count = _count_association_properties(supabase_admin, association_id)
+    operational_household_limit = resolve_operational_household_limit(subscription, household_count)
 
     invoices_res = (
         supabase_admin.table("subscription_invoices")
@@ -205,9 +184,14 @@ def get_subscription_status(
         "status": subscription["status"],
         "is_blocked": is_blocked,
         "plan": plan,
+        "pending_plan": pending_plan,
         "current_amount_cents": subscription.get("current_amount_cents"),
         "household_count": household_count,
         "current_household_count": current_household_count,
+        "operational_household_limit": operational_household_limit,
+        "pending_household_count": subscription.get("pending_household_count"),
+        "pending_amount_cents": subscription.get("pending_amount_cents"),
+        "pending_change_requested_at": subscription.get("pending_change_requested_at"),
         "mandate_status": subscription.get("mandate_status"),
         "gocardless_subscription_id": subscription.get("gocardless_subscription_id"),
         "current_period_start": subscription.get("current_period_start"),
@@ -234,7 +218,7 @@ def get_subscription_usage(
     _require_membership(supabase_admin, current_user["id"], association_id)
 
     subscription = _load_subscription(supabase_admin, association_id)
-    plan = _load_plan(supabase_admin, subscription["subscription_plan_id"])
+    plan = load_plan_by_id(supabase_admin, subscription["subscription_plan_id"])
     household_count = _load_association_household_count(supabase_admin, association_id)
 
     counters_res = (
@@ -281,6 +265,69 @@ def get_subscription_usage(
         "period_started_at": counters.get("period_started_at"),
         "period_ends_at": counters.get("period_ends_at"),
         "last_reset_at": counters.get("last_reset_at"),
+    }
+
+
+@router.patch("/{community_id}")
+def schedule_subscription_change(
+    community_id: UUID,
+    payload: SubscriptionChangeRequest,
+    current_user: dict = Depends(get_current_user),
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
+    association_id = str(community_id)
+    _require_membership(supabase_admin, current_user["id"], association_id, allowed_roles={1})
+
+    subscription = _load_subscription(supabase_admin, association_id)
+    current_property_count = _count_association_properties(supabase_admin, association_id)
+    if payload.household_count < current_property_count:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "household_limit_below_current_usage",
+                "message": "No puedes reducir el limite por debajo del numero de viviendas creadas.",
+                "current_count": current_property_count,
+                "requested_limit": payload.household_count,
+            },
+        )
+
+    active_household_count = _load_association_household_count(supabase_admin, association_id)
+    next_plan = load_plan_by_code(supabase_admin, payload.plan)
+    pending_amount_cents = calculate_amount_cents(next_plan, payload.household_count)
+
+    gc_subscription_id = subscription.get("gocardless_subscription_id")
+    if gc_subscription_id:
+        update_subscription(
+            subscription_id=str(gc_subscription_id),
+            amount_cents=pending_amount_cents,
+            metadata={
+                "subscription_id": str(subscription["id"]),
+                "pending_plan_code": str(next_plan["code"]),
+                "pending_household_count": str(payload.household_count),
+            },
+        )
+
+    update_payload = {
+        "pending_subscription_plan_id": next_plan["id"],
+        "pending_household_count": payload.household_count,
+        "pending_amount_cents": pending_amount_cents,
+        "pending_change_requested_at": _now_iso(),
+    }
+    updated_subscription_res = (
+        supabase_admin.table("community_subscriptions").update(update_payload).eq("id", subscription["id"]).execute()
+    )
+    updated_subscription = (updated_subscription_res.data or [dict(subscription, **update_payload)])[0]
+
+    return {
+        "ok": True,
+        "message": "El cambio se ha programado para el siguiente ciclo de facturación.",
+        "pending_plan": next_plan,
+        "pending_household_count": updated_subscription.get("pending_household_count"),
+        "pending_amount_cents": updated_subscription.get("pending_amount_cents"),
+        "operational_household_limit": resolve_operational_household_limit(
+            updated_subscription,
+            active_household_count,
+        ),
     }
 
 
