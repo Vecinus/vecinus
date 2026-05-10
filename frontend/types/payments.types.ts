@@ -115,7 +115,8 @@ export type SubscriptionStatusResponse = {
   is_blocked: boolean;
   plan: SubscriptionPlanSummary | null;
   current_amount_cents: number | null;
-  household_count_snapshot: number | null;
+  household_count: number | null;
+  current_household_count: number;
   mandate_status: MandateStatus | string | null;
   gocardless_subscription_id: string | null;
   current_period_start: string | null;

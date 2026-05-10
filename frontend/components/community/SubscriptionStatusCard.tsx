@@ -89,7 +89,8 @@ export function SubscriptionStatusCard({ status }: Props) {
   const amount = typeof status.current_amount_cents === 'number'
     ? formatEuros(status.current_amount_cents)
     : '—';
-  const householdCount = status.household_count_snapshot ?? 0;
+  const householdCount = status.household_count ?? 0;
+  const currentHouseholdCount = status.current_household_count ?? 0;
 
   return (
     <View className="rounded-2xl border border-border bg-card p-5 gap-4">
@@ -123,6 +124,9 @@ export function SubscriptionStatusCard({ status }: Props) {
       {/* Detalles tabulares */}
       <View className="gap-2 border-t border-border/60 pt-3">
         <DetailRow label="Mandato SEPA" value={status.mandate_status ?? '—'} />
+        {householdCount > 0 ? (
+          <DetailRow label="Viviendas" value={`${currentHouseholdCount} / ${householdCount}`} />
+        ) : null}
         <DetailRow label="Próximo cobro" value={formatDate(status.current_period_end)} />
         <DetailRow label="Último cobro confirmado" value={formatDateTime(status.last_payment_at)} />
         {status.last_failure_at ? (

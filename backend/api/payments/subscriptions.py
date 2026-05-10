@@ -109,6 +109,27 @@ def _load_plan(supabase_admin: Client, plan_id: str) -> dict[str, Any] | None:
     return res.data[0] if res.data else None
 
 
+def _load_association_household_count(supabase_admin: Client, association_id: str) -> int:
+    res = (
+        supabase_admin.table("neighborhood_associations")
+        .select("household_count")
+        .eq("id", association_id)
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        return 0
+    try:
+        return int(res.data[0].get("household_count") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _count_association_properties(supabase_admin: Client, association_id: str) -> int:
+    res = supabase_admin.table("properties").select("id").eq("association_id", association_id).execute()
+    return len(res.data or [])
+
+
 # -----------------------------------------------------------------------------
 # Endpoints
 # -----------------------------------------------------------------------------
@@ -129,6 +150,8 @@ def get_subscription_status(
 
     subscription = _load_subscription(supabase_admin, association_id)
     plan = _load_plan(supabase_admin, subscription["subscription_plan_id"])
+    household_count = _load_association_household_count(supabase_admin, association_id)
+    current_household_count = _count_association_properties(supabase_admin, association_id)
 
     invoices_res = (
         supabase_admin.table("subscription_invoices")
@@ -152,7 +175,8 @@ def get_subscription_status(
         "is_blocked": is_blocked,
         "plan": plan,
         "current_amount_cents": subscription.get("current_amount_cents"),
-        "household_count_snapshot": subscription.get("household_count_snapshot"),
+        "household_count": household_count,
+        "current_household_count": current_household_count,
         "mandate_status": subscription.get("mandate_status"),
         "gocardless_subscription_id": subscription.get("gocardless_subscription_id"),
         "current_period_start": subscription.get("current_period_start"),

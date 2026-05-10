@@ -184,9 +184,17 @@ def _ensure_association(supabase_admin: Client, order: dict[str, Any]) -> str:
     if existing_assoc_id:
         return str(existing_assoc_id)
 
+    household_count = int(order.get("household_count") or 0)
+
     association_res = (
         supabase_admin.table("neighborhood_associations")
-        .insert({"name": order["community_name"], "address": order["community_address"]})
+        .insert(
+            {
+                "name": order["community_name"],
+                "address": order["community_address"],
+                "household_count": household_count,
+            }
+        )
         .execute()
     )
     if not association_res.data:
@@ -218,7 +226,6 @@ def _ensure_community_subscription_row(
     association_id: str,
     plan_id: str,
     amount_cents: int,
-    household_count: int,
     mandate_id: str,
     customer_id: str | None,
 ) -> dict[str, Any]:
@@ -240,7 +247,6 @@ def _ensure_community_subscription_row(
                 "subscription_plan_id": plan_id,
                 "status": "pending_first_payment",
                 "current_amount_cents": amount_cents,
-                "household_count_snapshot": household_count,
                 "gocardless_mandate_id": mandate_id,
                 "gocardless_customer_id": customer_id,
                 "mandate_status": "active",
@@ -382,7 +388,6 @@ def complete_registration_order(
         association_id=association_id,
         plan_id=str(plan["id"]),
         amount_cents=amount_cents,
-        household_count=household_count,
         mandate_id=mandate_id,
         customer_id=customer_id,
     )

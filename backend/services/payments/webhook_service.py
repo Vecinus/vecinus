@@ -92,7 +92,11 @@ def _load_invoice_by_payment_id(supabase_admin: Client, payment_id: str) -> dict
 
 def _load_association(supabase_admin: Client, association_id: str) -> dict[str, Any] | None:
     res = (
-        supabase_admin.table("neighborhood_associations").select("id, name").eq("id", association_id).limit(1).execute()
+        supabase_admin.table("neighborhood_associations")
+        .select("id, name, household_count")
+        .eq("id", association_id)
+        .limit(1)
+        .execute()
     )
     return _first(res.data)
 
@@ -258,7 +262,9 @@ def _process_subscription_renewal(
         )
         if plan_res.data:
             plan = plan_res.data[0]
-            household_count = int(cs.get("household_count_snapshot") or 0)
+            household_count = int(
+                ((_load_association(supabase_admin, association_id) or {}).get("household_count")) or 0
+            )
             amount_cents = int(plan["base_cents"]) + int(plan["per_household_cents"]) * household_count
 
     if amount_cents <= 0:

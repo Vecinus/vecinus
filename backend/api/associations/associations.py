@@ -31,6 +31,36 @@ class CreatePropertyRequest(BaseModel):
 # -------------------------------------------
 
 
+def _load_association_household_count(supabase_admin: Client, association_id: str) -> int:
+    association_res = (
+        supabase_admin.table("neighborhood_associations")
+        .select("household_count")
+        .eq("id", association_id)
+        .limit(1)
+        .execute()
+    )
+    if not association_res.data:
+        raise HTTPException(status_code=404, detail="Comunidad no encontrada.")
+
+    household_count = association_res.data[0].get("household_count")
+    try:
+        limit = int(household_count)
+    except (TypeError, ValueError):
+        limit = 0
+
+    if limit <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "community_household_count_invalid",
+                "message": "La comunidad no tiene configurado un numero de viviendas valido.",
+                "association_id": association_id,
+            },
+        )
+
+    return limit
+
+
 @router.get("/users/me/communities", response_model=List[MembershipWithCommunity])
 def get_my_communities(
     current_user: dict = Depends(get_current_user),
@@ -637,6 +667,22 @@ def create_property(
     )
     if existing_prop.data:
         raise HTTPException(status_code=400, detail="Esta propiedad ya existe en la comunidad.")
+
+    household_limit = _load_association_household_count(supabase_admin, association_id)
+    properties_res = supabase_admin.table("properties").select("id").eq("association_id", association_id).execute()
+    current_count = len(properties_res.data or [])
+
+    if current_count >= household_limit:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "property_limit_reached",
+                "message": "Has alcanzado el numero maximo de viviendas de esta comunidad.",
+                "association_id": association_id,
+                "limit": household_limit,
+                "current_count": current_count,
+            },
+        )
 
     # Insertar la propiedad
     insert_data = {"association_id": association_id, "number": body.number}

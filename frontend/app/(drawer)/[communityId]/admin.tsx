@@ -181,8 +181,13 @@ export default function CommunityAdminScreen() {
         setPropertyModalVisible(false);
         setPropertyNumber('');
       },
-      onError: () => {
-        setPropertyError('No se pudo añadir. Tal vez ya exista.');
+      onError: (error: unknown) => {
+        const err = error as { response?: { data?: { detail?: string | { message?: string } } } };
+        const detail = err?.response?.data?.detail;
+        const message = typeof detail === 'string'
+          ? detail
+          : detail?.message;
+        setPropertyError(message || 'No se pudo anadir. Tal vez ya exista.');
       }
     });
   };
