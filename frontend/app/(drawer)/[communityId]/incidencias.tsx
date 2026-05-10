@@ -303,17 +303,6 @@ export default function IncidenciasScreen() {
   }
 
   const renderIncidentItem = ({ item }: { item: Incident }) => {
-<<<<<<< HEAD
-=======
-    const isOwner =
-      myIncidentIds.has(item.id) ||
-      !!(myMembershipId && String(item.membershipId) === String(myMembershipId));
-    const isAdminOrPresident = roleToken === '1' || roleToken === '4';
-    const canDeleteThis =
-      (isAdminOrPresident || isOwner) &&
-      ['PENDING', 'IN PROGRESS', 'SOLVED', 'DISCARDED'].includes(item.status);
-
->>>>>>> cbf020b0801b50d39b1c908d3b1015af056e36b0
     return (
       <IncidentCard
         incident={item}
