@@ -572,6 +572,17 @@ def delete_member(
     try:
         # Prevent foreign key constraint violation
         supabase_admin.table("voting_tokens").delete().eq("membership_id", membership_id).execute()
+        supabase_admin.table("vote").delete().eq("membership_id", membership_id).execute()
+
+        # Obtener incidentes para borrar sus estados y luego los incidentes
+        incidents_res = supabase_admin.table("incidents").select("id").eq("membership_id", membership_id).execute()
+        if incidents_res.data:
+            inc_ids = [inc["id"] for inc in incidents_res.data]
+            supabase_admin.table("incident_states").delete().in_("incident_id", inc_ids).execute()
+            supabase_admin.table("incidents").delete().eq("membership_id", membership_id).execute()
+
+        # Evitar que se elimine la propiedad si hay una regla CASCADE mal configurada en la BD
+        supabase_admin.table("memberships").update({"property_id": None}).eq("id", membership_id).execute()
 
         delete_res = supabase_admin.table("memberships").delete().eq("id", membership_id).execute()
 
