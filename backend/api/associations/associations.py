@@ -28,6 +28,18 @@ class CreatePropertyRequest(BaseModel):
     number: str
 
 
+def is_user_admin_or_president(supabase: Client, user_id: str, association_id: str) -> bool:
+    """Verifica si un usuario es Administrador (1) o Presidente (4) en una comunidad."""
+    admin_check = (
+        supabase.table("memberships")
+        .select("role")
+        .eq("profile_id", user_id)
+        .eq("association_id", str(association_id))
+        .execute()
+    )
+    return bool(admin_check.data and int(admin_check.data[0].get("role", 0)) in [1, 4])
+
+
 # -------------------------------------------
 
 
@@ -316,20 +328,17 @@ def accept_invitation(
 ):
     # 1. Leer invitación PENDING por token
     try:
-        inv_res = (
-            supabase_anon.table("invitations")
-            .select("*")
-            .eq("id", str(body.invitation_token))
-            .eq("status", 1)
-            .execute()
-        )
-    except Exception:
-        raise HTTPException(status_code=400, detail="El formato del token de invitación es inválido.")
+        inv_res = supabase_anon.table("invitations").select("*").eq("id", str(body.invitation_token)).execute()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"El formato del token de invitación es inválido. ({str(e)})")
 
     if not inv_res.data:
-        raise HTTPException(status_code=404, detail="La invitación no existe o ya ha sido utilizada")
+        raise HTTPException(status_code=404, detail="La invitación no existe.")
 
     invitation = inv_res.data[0]
+
+    if invitation["status"] != 1:
+        raise HTTPException(status_code=400, detail="La invitación ya fue procesada o utilizada anteriormente.")
 
     # 2. Comprobar caducidad de 24 horas
     if "created_at" in invitation and invitation["created_at"]:
@@ -473,15 +482,21 @@ def accept_invitation_internal(
     user_id = current_user.get("id")
 
     # Verificar que la invitación existe, es para este usuario y está pendiente
-    inv_res = supabase.table("invitations").select("*").eq("id", invitation_id).eq("status", 1).execute()
+    try:
+        inv_res = supabase.table("invitations").select("*").eq("id", invitation_id).execute()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Formato de invitación inválido. ({str(e)})")
 
     if not inv_res.data:
-        raise HTTPException(status_code=404, detail="Invitación no encontrada o ya procesada")
+        raise HTTPException(status_code=404, detail="La invitación no existe.")
 
     invitation = inv_res.data[0]
 
     if invitation["target_email"] != user_email:
-        raise HTTPException(status_code=403, detail="No tienes permiso para aceptar esta invitación")
+        raise HTTPException(status_code=403, detail="No tienes permiso para aceptar esta invitación.")
+
+    if invitation["status"] != 1:
+        raise HTTPException(status_code=400, detail="La invitación ya fue procesada anteriormente.")
 
     # 1. Crear la membresía
     membership_data = {
@@ -518,7 +533,10 @@ def reject_invitation_internal(
     """Rechaza la invitación marcándola con status 3"""
     user_email = current_user.get("email")
 
-    inv_res = supabase_admin.table("invitations").select("target_email, status").eq("id", invitation_id).execute()
+    try:
+        inv_res = supabase_admin.table("invitations").select("target_email, status").eq("id", invitation_id).execute()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Formato de invitación inválido. ({str(e)})")
 
     if not inv_res.data:
         raise HTTPException(status_code=404, detail="La invitación no existe")
@@ -575,8 +593,8 @@ def delete_member(
         if not delete_res.data:
             raise HTTPException(status_code=500, detail="No se pudo eliminar el registro de la base de datos")
 
-    except Exception:
-        raise HTTPException(status_code=500, detail="Database error")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
     return {"message": f"Membership {membership_id} deleted successfully"}
 
@@ -702,17 +720,7 @@ def get_pending_community_invitations(
     Obtiene todas las invitaciones pendientes (status=1) para una comunidad específica.
     Solo accesible para Administradores o Presidentes.
     """
-    admin_check = (
-        supabase.table("memberships")
-        .select("role")
-        .eq("profile_id", current_user["id"])
-        .eq("association_id", association_id)
-        .execute()
-    )
-
-    is_admin = admin_check.data and admin_check.data[0].get("role") in [1, 4]
-
-    if not is_admin:
+    if not is_user_admin_or_president(supabase, current_user["id"], association_id):
         raise HTTPException(status_code=403, detail="Admin access required for this action")
 
     # 2. Usamos supabase_admin para leer la tabla sin que el RLS nos bloquee
@@ -726,6 +734,55 @@ def get_pending_community_invitations(
     )
 
     return response.data
+
+
+@router.delete("/{association_id}/invitations/{invitation_id}")
+def delete_pending_invitation(
+    association_id: str,
+    invitation_id: str,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
+    """
+    Elimina (cancela) una invitación pendiente de una comunidad.
+    Solo accesible para Administradores o Presidentes (Roles 1 y 4).
+    La invitación se marca con status=4 (CANCELLED) para invalidarla definitivamente.
+    """
+    # 1. Verificar que el usuario es Admin (1) o Presidente (4) de la comunidad
+    if not is_user_admin_or_president(supabase, current_user["id"], association_id):
+        raise HTTPException(status_code=403, detail="Acceso denegado. Se requiere ser Administrador o Presidente.")
+
+    # 2. Verificar que la invitación existe, pertenece a esta comunidad y está pendiente
+    try:
+        inv_res = (
+            supabase_admin.table("invitations").select("id, status, association_id").eq("id", invitation_id).execute()
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Formato de invitación inválido. ({str(e)})")
+
+    if not inv_res.data:
+        raise HTTPException(status_code=404, detail="La invitación no existe.")
+
+    invitation = inv_res.data[0]
+
+    if str(invitation["association_id"]) != str(association_id):
+        raise HTTPException(status_code=403, detail="La invitación no pertenece a esta comunidad.")
+
+    if invitation["status"] == 2:
+        raise HTTPException(status_code=400, detail="La invitación ya fue aceptada.")
+    elif invitation["status"] == 3:
+        raise HTTPException(status_code=400, detail="La invitación ya fue rechazada.")
+    elif invitation["status"] != 1:
+        raise HTTPException(status_code=400, detail="La invitación ya fue procesada anteriormente.")
+
+    # 3. Marcar la invitación como REJECTED/CANCELLED (status=3) para invalidarla
+    try:
+        supabase_admin.table("invitations").update({"status": 3}).eq("id", invitation_id).execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al cancelar la invitación: {str(e)}")
+
+    return {"message": "Invitación eliminada correctamente"}
 
 
 @router.patch("/properties/{property_id}")
@@ -747,17 +804,7 @@ def update_property(
 
     association_id = prop_res.data[0]["association_id"]
 
-    admin_check = (
-        supabase.table("memberships")
-        .select("role")
-        .eq("profile_id", current_user["id"])
-        .eq("association_id", association_id)
-        .execute()
-    )
-
-    is_admin = admin_check.data and admin_check.data[0].get("role") in [1, 4]
-
-    if not is_admin:
+    if not is_user_admin_or_president(supabase, current_user["id"], association_id):
         raise HTTPException(
             status_code=403, detail="Acceso denegado. Solo un administrador puede modificar las cuotas y morosidad."
         )
