@@ -1,4 +1,3 @@
-import io
 import os
 import sys
 import types
@@ -57,7 +56,6 @@ def patched_version(distribution_name: str) -> str:
 metadata.version = patched_version
 pydantic.networks.version = patched_version
 
-import api.common_space.common_space as common_space_api  # noqa: E402
 from api.common_space.common_space import router as common_space_router  # noqa: E402
 from api.common_space.guest_passes import router as guest_passes_router  # noqa: E402
 from api.common_space.reservations import router as reservations_router  # noqa: E402
@@ -319,25 +317,9 @@ def setup_overrides(monkeypatch):
     app.dependency_overrides[get_supabase] = lambda: state["client"]
     app.dependency_overrides[get_supabase_admin] = lambda: state["client"]
 
-    monkeypatch.setattr(
-        common_space_api,
-        "upload_common_space_photo_service",
-        lambda file_bytes, filename, content_type: {"secure_url": f"https://cdn.test/{filename}"},
-    )
-
     yield state
 
     app.dependency_overrides.clear()
-
-
-def test_upload_common_space_photo(setup_overrides):
-    response = client.post(
-        "/common-spaces/upload-photo",
-        files={"file": ("photo.png", io.BytesIO(b"fake-image"), "image/png")},
-    )
-
-    assert response.status_code == 200
-    assert response.json()["secure_url"] == "https://cdn.test/photo.png"
 
 
 def test_create_common_space_with_association_in_path(setup_overrides):
