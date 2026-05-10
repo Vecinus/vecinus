@@ -28,7 +28,7 @@ def register(
             "id": str(user_id),
             "email": user.email,
             "username": user.username,
-            "avatar_url": None,
+            "avatar_url": user.avatar_url,
             "created_at": datetime.utcnow().isoformat(),
         }
 
