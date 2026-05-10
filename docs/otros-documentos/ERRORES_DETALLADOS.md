@@ -78,14 +78,14 @@
   - Verificar que el usuario es Admin (1) o Presidente (4) de la `association_id`.
   - Mismo patrón que `verify_association_admin_or_president` en `common_space.py`.
 
-### 2.3 Listado de incidencias DESCARTADAS solo visible para admin (no presidente)
+### 2.3 Listado de incidencias DESCARTADAS solo visible para admin (no presidente) HECTOR
 - **Estado:** ⚠️ Corregido Héctor Pendiente aprobacion
 - **Archivo:** `backend/api/incidents/incidents.py:95-96` (y filtros posteriores).
 - **Problema:** `is_admin = ... == "1"` se usa para mostrar incidencias en estado `DISCARDED`. El presidente no entra en la lista.
 - **Llamada del lado de Hector:** "al presidente no le salen las incidencias rechazadas pero al administrador sí".
 - **Recomendación:** Tratar al presidente como admin para visibilidad de incidencias (`role in {"1","4"}`).
 
-### 2.4 Borrado de incidencias: lógica inconsistente y errores
+### 2.4 Borrado de incidencias: lógica inconsistente y errores HECTOR
 - **Estado:** ⚠️ Corregido Héctor Pendiente aprobacion
 - **Archivo:** `backend/api/incidents/incidents.py:282`
   ```python
@@ -293,11 +293,11 @@
 - **Estado:** ✅ RESUELTO
 - **Recomendación:** Permitir el borrado por admin en cualquier estado, o mostrar al usuario explícitamente "no se puede eliminar incidencias en curso".
 
-### 8.3 Error en backend tras logout post-delete
+### 8.3 Error en backend tras logout post-delete HECTOR
 - **Estado:** ❌ REPORTADO (Hector). Investigar.
 - **Hipótesis:** Una `subscription` o `interval` sigue ejecutándose tras logout y dispara una petición con token inválido → 401. Auditar `useEffect` cleanups en `incidencias.tsx`.
 
-### 8.4 Múltiples peticiones de listado de incidencias saturan el backend
+### 8.4 Múltiples peticiones de listado de incidencias saturan el backend HECTOR
 - **Estado:** ❌ CONFIRMADO (Pruebas funcionales)
 - **Archivo:** `frontend/app/(drawer)/[communityId]/incidencias.tsx` y `backend/api/incidents/incidents.py`
 - **Problema:** Se realizan demasiadas peticiones de listado de incidencias al backend, especialmente al:
