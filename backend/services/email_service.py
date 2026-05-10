@@ -165,6 +165,180 @@ ROLE_LABELS = {
 }
 
 
+def _resolve_admin_email(supabase_admin, association_id: str) -> tuple[str | None, str | None]:
+    """
+    Devuelve (email, profile_id) del admin (role=1) de la comunidad.
+    Si hay varios admins, devuelve el más antiguo. Si no hay ninguno, (None, None).
+    """
+    membership_res = (
+        supabase_admin.table("memberships")
+        .select("profile_id, joined_at")
+        .eq("association_id", str(association_id))
+        .eq("role", 1)
+        .order("joined_at")
+        .limit(1)
+        .execute()
+    )
+    if not membership_res.data:
+        return (None, None)
+
+    profile_id = str(membership_res.data[0]["profile_id"])
+    try:
+        user_res = supabase_admin.auth.admin.get_user_by_id(profile_id)
+        user = getattr(user_res, "user", None)
+        email = getattr(user, "email", None) if user else None
+    except Exception:
+        logger.exception("Could not fetch admin email for profile %s", profile_id)
+        email = None
+
+    return (email, profile_id)
+
+
+def _build_payment_failed_html(
+    association_name: str,
+    amount_eur: str,
+    failure_reason: str,
+    admin_url: str,
+) -> str:
+    return f"""<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8" /><title>Cobro fallido — VecinUs</title></head>
+<body style="margin:0; padding:0; background-color:{_BG};
+             font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+         style="background-color:{_BG}; padding:40px 16px;">
+    <tr><td align="center">
+      <table width="480" cellpadding="0" cellspacing="0" role="presentation"
+             style="background-color:{_CARD_BG}; border-radius:16px;
+                    box-shadow:0 4px 24px rgba(0,0,0,0.08); overflow:hidden;
+                    max-width:480px; width:100%;">
+        <tr>
+          <td style="background: linear-gradient(135deg, #c0392b 0%, #922b21 100%);
+                     padding:32px 40px 28px; text-align:center;">
+            <span style="font-size:26px; font-weight:700; color:#ffffff; letter-spacing:-0.5px;">VecinUs</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:36px 40px 20px;">
+            <h1 style="margin:0 0 12px; font-size:22px; font-weight:700;
+                       color:{_TEXT}; line-height:1.3;">
+              Cobro fallido en tu comunidad
+            </h1>
+            <p style="margin:0 0 16px; font-size:15px; color:{_TEXT_MUTED}; line-height:1.6;">
+              No hemos podido completar el cobro mensual de la suscripción de
+              <strong style="color:{_TEXT};">{association_name}</strong>
+              ({amount_eur}). Mientras la suscripción esté impagada, los servicios
+              de la comunidad (chatbot, actas, incidencias, etc.) quedan bloqueados.
+            </p>
+            <div style="background:{_BG}; border-left:4px solid #c0392b;
+                        border-radius:6px; padding:10px 18px; margin:0 0 24px;">
+              <span style="font-size:13px; color:{_TEXT_MUTED};">Motivo del fallo:</span><br />
+              <span style="font-size:14px; font-weight:600; color:{_TEXT};">{failure_reason}</span>
+            </div>
+            <p style="margin:0 0 28px; font-size:15px; color:{_TEXT_MUTED}; line-height:1.6;">
+              Entra en el panel de administración de la comunidad para revisar
+              el estado de la suscripción y reintentar el cobro.
+            </p>
+            <table cellpadding="0" cellspacing="0" role="presentation">
+              <tr><td style="border-radius:10px;
+                         background: linear-gradient(135deg, {_PRIMARY} 0%, {_PRIMARY_DARK} 100%);">
+                <a href="{admin_url}"
+                   style="display:inline-block; padding:14px 32px;
+                          font-size:16px; font-weight:700; color:#ffffff;
+                          text-decoration:none; border-radius:10px; letter-spacing:0.2px;">
+                  Abrir panel de administración
+                </a>
+              </td></tr>
+            </table>
+            <p style="margin:20px 0 0; font-size:12px; color:{_TEXT_MUTED};">
+              Si el botón no funciona, copia este enlace en tu navegador:<br />
+              <a href="{admin_url}" style="color:{_PRIMARY}; word-break:break-all;">{admin_url}</a>
+            </p>
+          </td>
+        </tr>
+        <tr><td style="padding:0 40px;"><hr style="border:none; border-top:1px solid #e8edf0; margin:0;" /></td></tr>
+        <tr>
+          <td style="padding:20px 40px 32px; text-align:center;">
+            <p style="margin:0; font-size:12px; color:{_TEXT_MUTED}; line-height:1.6;">
+              Este es un mensaje automático. Si crees que se trata de un error,
+              contacta con tu entidad bancaria o con soporte.
+            </p>
+            <p style="margin:12px 0 0; font-size:11px; color:#9BA1A6;">
+              © VecinUs — Gestión de comunidades de vecinos
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+
+def send_payment_failed_email(
+    supabase_admin,
+    association_id: str,
+    association_name: str,
+    amount_cents: int,
+    currency: str,
+    failure_reason: str | None,
+) -> bool:
+    """
+    Envía un email al admin (role=1) de la comunidad notificando que el cobro
+    mensual ha fallado y proporcionando un link al panel de administración.
+
+    El link va al FRONTEND (`APP_BASE_URL/{association_id}/admin`), nunca al
+    dashboard de GoCardless ni a un endpoint del backend.
+
+    Devuelve True si el email se envió, False si no se pudo (admin sin email,
+    Resend caído, etc.). El llamador (worker del webhook) NO debe abortar el
+    procesado del evento si esta función falla.
+    """
+    if not settings.RESEND_API_KEY:
+        logger.warning("RESEND_API_KEY not configured; skipping payment_failed email")
+        return False
+
+    email, profile_id = _resolve_admin_email(supabase_admin, association_id)
+    if not email:
+        logger.warning(
+            "No admin email found for association %s; payment_failed email skipped (profile_id=%s)",
+            association_id,
+            profile_id,
+        )
+        return False
+
+    resend.api_key = settings.RESEND_API_KEY
+    admin_url = f"{settings.APP_BASE_URL.rstrip('/')}/{association_id}/admin"
+
+    amount_eur = f"{amount_cents / 100:.2f} {currency or 'EUR'}".replace(".", ",")
+    reason_text = (failure_reason or "no especificado").replace("_", " ")
+
+    try:
+        resend.Emails.send(
+            {
+                "from": SENDER,
+                "to": [email],
+                "subject": f"⚠️ Cobro fallido en {association_name}",
+                "html": _build_payment_failed_html(
+                    association_name=association_name,
+                    amount_eur=amount_eur,
+                    failure_reason=reason_text,
+                    admin_url=admin_url,
+                ),
+            }
+        )
+        logger.info("Payment failed email sent to %s for association %s", email, association_id)
+        return True
+    except Exception as exc:
+        logger.error(
+            "Failed to send payment_failed email to %s for association %s: %s",
+            email,
+            association_id,
+            exc,
+        )
+        return False
+
+
 def send_voting_email(to_email: str, association_name: str, poll_title: str, token: str) -> None:
     resend.api_key = settings.RESEND_API_KEY
     voting_link = f"{settings.FRONTEND_URL}/votar?token={token}"

@@ -2,7 +2,7 @@ from typing import List
 from uuid import UUID
 
 from api.chat.chat_helpers import verify_association_membership
-from core.deps import get_current_user, get_supabase, get_supabase_admin
+from core.deps import get_current_user, get_supabase, get_supabase_admin, require_active_community
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
 from schemas.common_space import CommonSpace, CommonSpaceCreate, CommonSpaceUpdate
 from services.common_space.common_space_service import create_common_space as create_common_space_service
@@ -54,7 +54,12 @@ async def upload_common_space_photo_endpoint(
     return upload_common_space_photo_service(file_bytes, file.filename or "common-space", file.content_type)
 
 
-@router.post("/{association_id}", response_model=CommonSpace, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{association_id}",
+    response_model=CommonSpace,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_active_community)],
+)
 def create_common_space_endpoint(
     association_id: UUID,
     payload: CommonSpaceCreate,
@@ -66,7 +71,11 @@ def create_common_space_endpoint(
     return create_common_space_service(supabase_admin, payload, association_id)
 
 
-@router.get("/{association_id}", response_model=List[CommonSpace])
+@router.get(
+    "/{association_id}",
+    response_model=List[CommonSpace],
+    dependencies=[Depends(require_active_community)],
+)
 def list_common_spaces_endpoint(
     association_id: UUID,
     current_user: dict = Depends(get_current_user),
@@ -76,7 +85,11 @@ def list_common_spaces_endpoint(
     return list_common_spaces_service(supabase, association_id)
 
 
-@router.get("/{association_id}/{common_space_id}", response_model=CommonSpace)
+@router.get(
+    "/{association_id}/{common_space_id}",
+    response_model=CommonSpace,
+    dependencies=[Depends(require_active_community)],
+)
 def get_common_space_endpoint(
     association_id: UUID,
     common_space_id: int,
@@ -87,7 +100,11 @@ def get_common_space_endpoint(
     return get_common_space_by_id_service(supabase, association_id, common_space_id)
 
 
-@router.put("/{association_id}/{common_space_id}", response_model=CommonSpace)
+@router.put(
+    "/{association_id}/{common_space_id}",
+    response_model=CommonSpace,
+    dependencies=[Depends(require_active_community)],
+)
 def update_common_space_endpoint(
     association_id: UUID,
     common_space_id: int,
@@ -100,7 +117,11 @@ def update_common_space_endpoint(
     return update_common_space_service(supabase_admin, association_id, common_space_id, payload)
 
 
-@router.delete("/{association_id}/{common_space_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{association_id}/{common_space_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_active_community)],
+)
 def delete_common_space_endpoint(
     association_id: UUID,
     common_space_id: int,

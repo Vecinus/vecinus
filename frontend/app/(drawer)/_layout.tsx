@@ -189,6 +189,14 @@ export default function DrawerLayout() {
         }}
       />
       <Drawer.Screen
+        name="[communityId]/subscription"
+        initialParams={{ communityId: activeCommunity?.id }}
+        options={{
+          title: 'Suscripción y pagos',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
         name="[communityId]/incidencia/[incidentId]"
         options={{
           headerTitle: 'Detalle de Incidencia',

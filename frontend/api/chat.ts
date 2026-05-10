@@ -24,13 +24,23 @@ export interface ChannelMessage {
 }
 
 interface ErrorPayload {
-  detail?: string;
+  detail?: string | { message?: unknown; [key: string]: unknown };
   message?: string;
 }
 
 export function getChatErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError<ErrorPayload>(error)) {
-    return error.response?.data.detail ?? error.response?.data?.message ?? error.message;
+    const detail = error.response?.data?.detail;
+
+    if (typeof detail === 'string') {
+      return detail;
+    }
+
+    if (detail && typeof detail === 'object' && 'message' in detail && detail.message != null) {
+      return String(detail.message);
+    }
+
+    return error.response?.data?.message ?? error.message ?? fallback;
   }
 
   if (error instanceof Error) {

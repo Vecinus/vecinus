@@ -108,6 +108,32 @@ def _format_history(history: list[dict[str, str]] | None) -> str:
     return "\n".join([f"{m['role']}: {m['content']}" for m in valid_messages])
 
 
+def truncate_chatbot_answer(text: str, max_chars: int) -> str:
+    """
+    Recorta la respuesta del LLM al límite del plan, intentando cortar en un
+    punto natural (último '.' o salto de línea dentro del rango). Si no
+    encuentra uno razonable (p.ej. un párrafo larguísimo sin puntuación),
+    corta en seco y añade una elipsis.
+
+    El umbral del 70% evita truncados absurdamente cortos cuando el último '.'
+    cae al principio del texto.
+    """
+    if not text or len(text) <= max_chars:
+        return text
+
+    window = text[:max_chars]
+    soft_threshold = int(max_chars * 0.7)
+
+    last_newline = window.rfind("\n")
+    last_period = window.rfind(".")
+    cut = max(last_newline, last_period)
+
+    if cut >= soft_threshold:
+        return window[: cut + 1].rstrip()
+
+    return window.rstrip() + "…"
+
+
 async def _ask_gemini_with_timeout(context: str, question: str, history: list[dict[str, str]] | None = None):
     system_instruction = (
         "Eres el asistente de una comunidad de vecinos."

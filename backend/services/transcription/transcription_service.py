@@ -1,6 +1,8 @@
 import asyncio
+import io
 import json
 import logging
+import math
 import os
 import re
 import tempfile
@@ -8,9 +10,36 @@ import tempfile
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+from mutagen import File as MutagenFile
 from schemas.transcription.minutes import AIGeneratedContent
 
 logger = logging.getLogger(__name__)
+
+
+def get_audio_duration_seconds(audio_bytes: bytes, content_type: str | None = None) -> int:
+    """
+    Devuelve la duración del audio en segundos, redondeada hacia arriba.
+
+    Usa `mutagen` para leer la metadata; si no consigue determinarla (archivo
+    corrupto, formato sin metadata fiable, etc.) lanza ValueError para que el
+    caller responda HTTP 422 antes de descontar segundos del cupo a ciegas.
+    """
+    if not audio_bytes:
+        raise ValueError("Empty audio payload")
+
+    try:
+        audio = MutagenFile(io.BytesIO(audio_bytes))
+    except Exception as exc:
+        raise ValueError(f"Could not parse audio metadata: {exc}") from exc
+
+    if audio is None or audio.info is None or not getattr(audio.info, "length", None):
+        raise ValueError(f"Audio duration could not be determined (content_type={content_type})")
+
+    seconds = math.ceil(float(audio.info.length))
+    if seconds <= 0:
+        raise ValueError("Audio duration resolved to 0 seconds")
+    return seconds
+
 
 TRANSCRIPTION_PROMPT = """
 Actua como un Secretario Juridico. Procesa el audio y devuelve un JSON estricto en español.

@@ -2,13 +2,17 @@ import cloudinary
 import cloudinary.uploader
 from api.chat.chat_helpers import verify_association_membership
 from core.config import settings
-from core.deps import get_current_user, get_supabase
+from core.deps import get_current_user, get_supabase, require_active_community
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from schemas.incidents.incidents import Incident
 from services.helpers.role_service import get_user_role
 from supabase import Client
 
-router = APIRouter(prefix="/incidents", tags=["incidents"])
+router = APIRouter(
+    prefix="/incidents",
+    tags=["incidents"],
+    dependencies=[Depends(require_active_community)],
+)
 cloudinary.config(cloudinary_url=settings.CLOUDINARY_URL, secure=True)
 
 ALLOWED_STATUSES = {"PENDING", "IN PROGRESS", "SOLVED", "DISCARDED"}

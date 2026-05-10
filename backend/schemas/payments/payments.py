@@ -1,8 +1,10 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
+
+PlanCode = Literal["basic", "premium"]
 
 
 class CommunityDraft(BaseModel):
@@ -59,23 +61,18 @@ class CommunityPaymentOrderResponse(BaseModel):
 
 
 class RegistrationOrderCreate(BaseModel):
-    email: EmailStr
-    username: str = Field(..., min_length=1, max_length=100)
     community_name: str = Field(..., min_length=1, max_length=200)
     community_address: str = Field(..., min_length=1, max_length=300)
+    plan: PlanCode = "basic"
+    household_count: int = Field(0, ge=0, le=10000)
 
-    @field_validator("username", "community_name", "community_address")
+    @field_validator("community_name", "community_address")
     @classmethod
     def strip_registration_text(cls, value: str) -> str:
         stripped = value.strip()
         if not stripped:
             raise ValueError("Value cannot be empty")
         return stripped
-
-
-class RegistrationOrderComplete(BaseModel):
-    email: EmailStr
-    password: str = Field(..., min_length=8, max_length=128)
 
 
 class RegistrationPaymentOrderResponse(BaseModel):
@@ -97,5 +94,9 @@ class RegistrationPaymentOrderResponse(BaseModel):
     granted_role: int
     granted_role_label: str
     token: Optional[str] = None
+    plan_code: Optional[PlanCode] = None
+    subscription_plan_id: Optional[UUID] = None
+    household_count: int = 0
+    created_subscription_id: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime

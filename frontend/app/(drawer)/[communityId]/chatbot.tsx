@@ -34,8 +34,10 @@ import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import type { ChatMessage, UploadDocumentFile } from '@/types/chatbot.types';
 import { ADMIN_ROLE_ID } from '@/utils/role.util';
+import { apiClient } from '@/api/client';
+import { isAxiosError } from 'axios';
 import * as DocumentPicker from 'expo-document-picker';
-import { useLocalSearchParams, useNavigation } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
 import {
   CircleAlertIcon,
   FileTextIcon,
@@ -199,6 +201,23 @@ export default function CommunityChatbotScreen() {
 
     return communityId ?? '';
   }, [communityId]);
+
+  const verifyCommunityAccess = React.useCallback(async () => {
+    if (!normalizedCommunityId) return;
+    try {
+      await apiClient.get(`/communities/${normalizedCommunityId}/verify-access`);
+    } catch (error) {
+      if (!isAxiosError(error) || error?.response?.status !== 402) {
+        console.error('verify-access (chatbot) failed:', error);
+      }
+    }
+  }, [normalizedCommunityId]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      void verifyCommunityAccess();
+    }, [verifyCommunityAccess])
+  );
 
   const isDesktop = width >= 1024;
   const [activeTab, setActiveTab] = React.useState<ChatTabValue>('chat');

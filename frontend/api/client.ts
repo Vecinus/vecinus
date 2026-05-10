@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { storageService } from './services/storage.service';
 import { notifyUnauthorized } from '@/lib/auth-events';
+import { notifyCommunityBlocked } from '@/lib/payment-events';
+import type { CommunityBlockedDetail } from '@/types/payments.types';
 
 const getBackendUrl = () => {
   if (process.env.EXPO_PUBLIC_BACKEND_URL) {
@@ -33,6 +35,16 @@ apiClient.interceptors.request.use(
   }
 );
 
+function isCommunityBlockedDetail(value: unknown): value is CommunityBlockedDetail {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    (candidate.code === 'community_blocked' || candidate.code === 'community_no_subscription') &&
+    typeof candidate.association_id === 'string' &&
+    candidate.association_id.length > 0
+  );
+}
+
 apiClient.interceptors.response.use(
   (response) => {
     return response;
@@ -43,6 +55,13 @@ apiClient.interceptors.response.use(
     const isAuthPublicEndpoint = requestUrl.includes('/login') || requestUrl.includes('/logout');
     if (status === 401 && !isAuthPublicEndpoint) {
       await notifyUnauthorized();
+    }
+
+    if (status === 402) {
+      const detail = error?.response?.data?.detail;
+      if (isCommunityBlockedDetail(detail)) {
+        void notifyCommunityBlocked(detail);
+      }
     }
 
     // Axios rechaza la promesa automáticamente, TanStack Query lo detectará como error

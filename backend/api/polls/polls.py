@@ -1,7 +1,7 @@
 from typing import List
 from uuid import UUID
 
-from core.deps import get_current_user, get_supabase, get_supabase_admin
+from core.deps import get_current_user, get_supabase, get_supabase_admin, require_active_community
 from fastapi import APIRouter, Depends, HTTPException, status
 from schemas.polls.polls import PollCreate, PollPublish, PollResponse
 from schemas.polls.results import PollResultResponse
@@ -15,7 +15,12 @@ from supabase import Client
 router = APIRouter(prefix="/polls", tags=["Votaciones"])
 
 
-@router.post("/associations/{association_id}", response_model=PollResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/associations/{association_id}",
+    response_model=PollResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_active_community)],
+)
 def create_poll(
     association_id: UUID,
     poll_data: PollCreate,
@@ -31,7 +36,11 @@ def create_poll(
     return service.create_poll(association_id, user_id, poll_data)
 
 
-@router.get("/associations/{association_id}", response_model=List[PollResponse])
+@router.get(
+    "/associations/{association_id}",
+    response_model=List[PollResponse],
+    dependencies=[Depends(require_active_community)],
+)
 def get_polls(association_id: UUID, supabase: Client = Depends(get_supabase)):
     """Lista todas las votaciones de una comunidad. El estado (ACTIVE, PENDING...) se calcula automáticamente."""
     service = PollService(supabase)
@@ -88,7 +97,11 @@ def cast_vote(poll_id: UUID, vote_data: VoteCreate, supabase: Client = Depends(g
     return service.cast_vote(poll_id, vote_data)
 
 
-@router.get("/{association_id}/{poll_id}/results", response_model=PollResultResponse)
+@router.get(
+    "/{association_id}/{poll_id}/results",
+    response_model=PollResultResponse,
+    dependencies=[Depends(require_active_community)],
+)
 def get_poll_results(association_id: UUID, poll_id: UUID, supabase: Client = Depends(get_supabase_admin)):
     """Genera el escrutinio de la votación (Doble mayoría: Personas y Cuotas)."""
     service = EscrutinioService(supabase)

@@ -2,8 +2,8 @@ from datetime import datetime, timedelta, timezone
 from typing import List
 from uuid import UUID
 
-from core.deps import get_current_user, get_supabase, get_supabase_admin, get_supabase_anon
-from fastapi import APIRouter, Depends, HTTPException, status
+from core.deps import get_current_user, get_supabase, get_supabase_admin, get_supabase_anon, require_active_community
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel  # <-- NUEVO IMPORT
 from schemas.associations import (
     AcceptInvitationRequest,
@@ -53,49 +53,47 @@ def create_community(
     supabase_admin: Client = Depends(get_supabase_admin),
 ):
     """
-    Crea una nueva comunidad (asociación de vecinos).
-    El usuario que la crea se convierte automáticamente en el Administrador (rol 1).
+    DEPRECATED — la creación libre de comunidades está deshabilitada.
+
+    Toda comunidad debe nacer de una orden de pago/suscripción a través del
+    flujo `POST /registration/gocardless/orders` + `/{id}/complete`. Permitir
+    `POST /communities` directamente dejaría comunidades sin `community_subscriptions`
+    asociada, lo que rompería el middleware de bloqueo por impago y la
+    facturación mensual.
+
+    Cuando exista un rol de SuperAdmin global (p.ej. role=99 en `memberships`)
+    este endpoint puede re-habilitarse condicionado a esa comprobación.
+    Hasta entonces responde 410 Gone.
     """
-    try:
-        # 1. Crear la comunidad en la tabla neighborhood_associations
-        community_data = {
-            "name": body.name,
-            "address": body.address,
-            "created_at": datetime.utcnow().isoformat(),
-        }
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail=(
+            "La creación directa de comunidades está deshabilitada. "
+            "Inicia el alta a través de POST /registration/gocardless/orders."
+        ),
+    )
 
-        community_result = supabase_admin.table("neighborhood_associations").insert(community_data).execute()
 
-        if not community_result.data:
-            raise HTTPException(status_code=500, detail="Error al crear la comunidad")
+@router.get(
+    "/communities/{association_id}/verify-access",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_active_community)],
+)
+def verify_community_access(association_id: str):
+    """
+    Endpoint ligero de verificación de suscripción.
 
-        community = community_result.data[0]
-        community_id = community["id"]
-
-        # 2. Crear la membresía del creador como Administrador (rol = 1)
-        membership_data = {
-            "profile_id": str(current_user["id"]),
-            "association_id": community_id,
-            "role": 1,  # ADMIN
-            "joined_at": datetime.utcnow().isoformat(),
-        }
-
-        membership_result = supabase_admin.table("memberships").insert(membership_data).execute()
-
-        if not membership_result.data:
-            raise HTTPException(status_code=500, detail="Error al crear la membresía del administrador")
-
-        return {
-            "id": community["id"],
-            "name": community["name"],
-            "address": community["address"],
-            "created_at": community["created_at"],
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno al crear la comunidad: {str(e)}")
+    Su único propósito es servir como "ping" desde el frontend (típicamente
+    desde un useFocusEffect) para forzar la evaluación del middleware
+    `require_active_community` sin tener que disparar un endpoint pesado.
+    Si la suscripción está al corriente devuelve 204; si no, la dependency
+    inyectada lanza 402 con el detail estándar y el interceptor global del
+    frontend desencadena el redirect + modal.
+    """
+    # `association_id` queda sin uso intencionalmente: la dependency lo lee
+    # del path. Lo declaramos aquí para que aparezca en el OpenAPI.
+    del association_id
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/users/me", response_model=UserMeResponse)

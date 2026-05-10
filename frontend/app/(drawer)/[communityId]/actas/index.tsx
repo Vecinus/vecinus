@@ -1,7 +1,8 @@
+import { isAxiosError } from 'axios';
 import { Text } from '@/components/ui/text';
 import * as React from 'react';
 import { View, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { minutesService } from '@/api/services/minutes.service';
 import { storageService } from '@/api/services/storage.service';
 import { MinutesReadResponse } from '@/types/minutes.types';
@@ -30,16 +31,21 @@ export default function Actas() {
       const data = await minutesService.getMinutes(communityId);
       setMinutes(data);
     } catch (error) {
-      console.error('Error fetching minutes:', error);
+
+      if(!isAxiosError(error) || error?.response?.status !== 402){
+        console.error('Error fetching minutes:', error);
+      }
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
   }, [communityId]);
 
-  React.useEffect(() => {
-    fetchMinutes();
-  }, [fetchMinutes]);
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchMinutes();
+    }, [fetchMinutes])
+  );
 
   const onRefresh = () => {
     setIsRefreshing(true);

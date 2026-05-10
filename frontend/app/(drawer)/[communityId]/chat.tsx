@@ -8,6 +8,7 @@ import {
   type ChannelMessage,
   type CommunityChannel,
 } from '@/api/chat';
+import { apiClient } from '@/api/client';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -18,7 +19,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import { ADMIN_ROLE_ID } from '@/utils/role.util';
-import { useLocalSearchParams } from 'expo-router';
+import { isAxiosError } from 'axios';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
   CircleAlertIcon,
   MessageSquareIcon,
@@ -197,9 +199,29 @@ export default function CommunityChatScreen() {
     }
   }, [isAdmin, loadMessages, membership, normalizedCommunityId]);
 
-  React.useEffect(() => {
-    void resolveChannel();
-  }, [resolveChannel]);
+  const verifyCommunityAccess = React.useCallback(async (): Promise<boolean> => {
+    if (!normalizedCommunityId) return true;
+    try {
+      await apiClient.get(`/communities/${normalizedCommunityId}/verify-access`);
+      return true;
+    } catch (error) {
+      if (!isAxiosError(error) || error?.response?.status !== 402) {
+        console.error('verify-access (chat) failed:', error);
+      }
+      return false;
+    }
+  }, [normalizedCommunityId]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      void (async () => {
+        const hasAccess = await verifyCommunityAccess();
+        if (hasAccess) {
+          await resolveChannel();
+        }
+      })();
+    }, [verifyCommunityAccess, resolveChannel])
+  );
 
   React.useEffect(() => {
     if (!feedbackMessage) {
