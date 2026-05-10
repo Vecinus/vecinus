@@ -10,7 +10,6 @@ from services.common_space.common_space_service import delete_common_space as de
 from services.common_space.common_space_service import get_common_space_by_id as get_common_space_by_id_service
 from services.common_space.common_space_service import list_common_spaces as list_common_spaces_service
 from services.common_space.common_space_service import update_common_space as update_common_space_service
-from services.common_space.common_space_service import upload_common_space_photo as upload_common_space_photo_service
 from supabase import Client
 
 router = APIRouter(prefix="/common-spaces", tags=["common_spaces"])
@@ -35,23 +34,6 @@ def verify_association_admin_or_president(association_id: UUID, user_id: str, su
         raise HTTPException(status_code=403, detail="Se requiere rol de administrador o presidente para esta acción")
 
     return membership
-
-
-@router.post("/upload-photo")
-async def upload_common_space_photo_endpoint(
-    file: UploadFile,
-    current_user: dict = Depends(get_current_user),
-):
-    del current_user
-
-    if not file.content_type or not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="Solo se permiten subidas de imágenes")
-
-    file_bytes = await file.read()
-    if not file_bytes:
-        raise HTTPException(status_code=400, detail="El archivo subido está vacío")
-
-    return upload_common_space_photo_service(file_bytes, file.filename or "common-space", file.content_type)
 
 
 @router.post("/{association_id}", response_model=CommonSpace, status_code=status.HTTP_201_CREATED)
