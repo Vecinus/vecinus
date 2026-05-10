@@ -33,7 +33,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import type { ChatMessage, UploadDocumentFile } from '@/types/chatbot.types';
-import { ADMIN_ROLE_ID } from '@/utils/role.util';
+import { ADMIN_ROLE_ID, isAdminOrPresident } from '@/utils/role.util';
 import { getLegalWarning } from '@/utils/legal-warnings';
 import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
@@ -228,7 +228,7 @@ export default function CommunityChatbotScreen() {
   }, [normalizedCommunityId, user]);
 
   const communityName = membership?.community.name ?? activeCommunity?.name ?? 'tu comunidad';
-  const canManageDocuments = isAdministratorRole(membership?.role);
+  const canManageDocuments = isAdminOrPresident(membership?.role);
 
   React.useEffect(() => {
     if (!normalizedCommunityId) {

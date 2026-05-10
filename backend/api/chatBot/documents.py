@@ -1,14 +1,34 @@
 import io
 from typing import Optional
 
+from uuid import UUID
 import pypdf
-from api.chat.chat_helpers import verify_association_admin
 from core.deps import get_current_user, get_supabase
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from services.chatBot.documents_ChatBotService import delete_document, index_document, list_documents
 from supabase import Client
 
 router = APIRouter(prefix="/comunities", tags=["documents"])
+
+def verify_association_admin_or_president(association_id: UUID | str, user_id: str, supabase: Client):
+    """Verifica que un usuario tiene rol de administrador (role=1) o presidente (role=4) en la comunidad dada. Lanza 403 o 404."""
+    membership_res = (
+        supabase.table("memberships")
+        .select("role")
+        .eq("association_id", str(association_id))
+        .eq("profile_id", str(user_id))
+        .execute()
+    )
+
+    if not membership_res.data:
+        raise HTTPException(status_code=404, detail="Membership not found in this community")
+
+    user_role = membership_res.data[0].get("role")
+
+    if str(user_role) not in ("1", "4"):
+        raise HTTPException(status_code=403, detail="Admin or president access required for this action")
+
+    return membership_res.data[0]
 
 
 @router.get("/{comunidad_id}/documents")
@@ -20,7 +40,7 @@ async def get_documents(
     supabase: Client = Depends(get_supabase),
 ):
     path_comunidad_id = str(comunidad_id).strip()
-    verify_association_admin(path_comunidad_id, current_user["id"], supabase)
+    verify_association_admin_or_president(path_comunidad_id, current_user["id"], supabase)
     result = list_documents(path_comunidad_id, uploaded_by=uploaded_by, limit=limit)
     documents = [doc.get("document_title") for doc in result.get("documents", []) if doc.get("document_title")]
     return {"documents": documents}
@@ -35,7 +55,7 @@ async def upload_document(
     supabase: Client = Depends(get_supabase),
 ):
     path_comunidad_id = str(comunidad_id).strip()
-    verify_association_admin(path_comunidad_id, current_user["id"], supabase)
+    verify_association_admin_or_president(path_comunidad_id, current_user["id"], supabase)
     content_type = request.headers.get("content-type", "")
 
     if "application/json" in content_type:
@@ -115,7 +135,7 @@ async def delete_document_by_title(
     supabase: Client = Depends(get_supabase),
 ):
     path_comunidad_id = str(comunidad_id).strip()
-    verify_association_admin(path_comunidad_id, current_user["id"], supabase)
+    verify_association_admin_or_president(path_comunidad_id, current_user["id"], supabase)
 
     result = delete_document(path_comunidad_id, document_title)
     if result["deleted_chunks"] == 0:
