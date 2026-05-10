@@ -43,3 +43,10 @@ class UserRegister(BaseModel):
             raise ValueError("La URL de la imagen debe comenzar por http:// o https://")
 
         return normalized
+    
+class UserRecover(BaseModel):
+    id: str
+    password: str
+    username: str
+    email: EmailStr
+    avatar_url: str | None = None

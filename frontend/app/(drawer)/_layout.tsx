@@ -217,6 +217,13 @@ export default function DrawerLayout() {
         }}
       />
       <Drawer.Screen
+        name="account"
+        options={{
+          title: 'Cuenta',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
         name="legal"
         options={{
           title: 'Documentación legal',
