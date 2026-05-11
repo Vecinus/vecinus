@@ -9,7 +9,7 @@ import {
   type CommunityChannel,
 } from '@/api/chat';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
@@ -50,9 +50,11 @@ type ScreenState = 'loading' | 'ready' | 'empty' | 'error';
 function ChatBubble({
   message,
   currentUserId,
+  currentUserAvatarUrl,
 }: {
   message: ChannelMessage;
   currentUserId: string | null;
+  currentUserAvatarUrl?: string | null;
 }) {
   const isUser = currentUserId === message.sender_id;
 
@@ -60,6 +62,7 @@ function ChatBubble({
     <View className={cn('mb-4 flex-row gap-3', isUser ? 'justify-end' : 'justify-start')}>
       {!isUser ? (
         <Avatar alt="Vecino" className="mt-1 size-9 border border-border bg-primary/10">
+          {message.sender?.avatar_url ? <AvatarImage source={{ uri: message.sender.avatar_url }} /> : null}
           <AvatarFallback className="bg-primary/10">
             <Icon as={UsersIcon} size={16} className="text-primary" />
           </AvatarFallback>
@@ -110,6 +113,7 @@ function ChatBubble({
 
       {isUser ? (
         <Avatar alt="Usuario" className="mt-1 size-9 border border-border bg-secondary">
+          {currentUserAvatarUrl ? <AvatarImage source={{ uri: currentUserAvatarUrl }} /> : null}
           <AvatarFallback className="bg-secondary">
             <Icon as={UserIcon} size={16} className="text-secondary-foreground" />
           </AvatarFallback>
@@ -402,7 +406,11 @@ export default function CommunityChatScreen() {
                 data={messages}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
-                  <ChatBubble message={item} currentUserId={user?.id ?? null} />
+                  <ChatBubble
+                    message={item}
+                    currentUserId={user?.id ?? null}
+                    currentUserAvatarUrl={user?.avatarUrl}
+                  />
                 )}
                 contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
                 className="flex-1"

@@ -67,7 +67,11 @@ def _ensure_within_opening_hours(space: dict, start_at: datetime, end_at: dateti
     start_time = localized_start.time().replace(tzinfo=None)
     end_time = localized_end.time().replace(tzinfo=None)
 
-    if start_time < opening_time or end_time > closing_time:
+    # When closing_time is midnight (00:00), it represents end-of-day,
+    # so any end_time within the same day is valid.
+    is_midnight_closing = closing_time == time(0, 0)
+
+    if start_time < opening_time or (not is_midnight_closing and end_time > closing_time):
         raise HTTPException(
             status_code=400,
             detail="La reserva debe estar comprendida entre la hora de apertura y la de cierre de la zona comun",
@@ -142,7 +146,7 @@ def _count_user_daily_reservations(supabase: Client, user_id: str, space_id: int
     return count
 
 
-def create_reservation(supabase: Client, user_id: str, payload: ReservationCreate) -> dict:
+def create_reservation(supabase: Client, supabase_user: Client, user_id: str, payload: ReservationCreate) -> dict:
     space = _get_common_space(supabase, payload.space_id)
     _ensure_user_belongs_to_association(supabase, str(space["association_id"]), user_id)
     if space.get("usage_mode") != EXCLUSIVE_RESERVATION_MODE:
@@ -173,7 +177,7 @@ def create_reservation(supabase: Client, user_id: str, payload: ReservationCreat
         "guests_count": payload.guests_count,
     }
 
-    response = supabase.table(RESERVATION_TABLE).insert(insert_data).execute()
+    response = supabase_user.table(RESERVATION_TABLE).insert(insert_data).execute()
 
     if not response.data:
         raise HTTPException(status_code=500, detail="No se ha podido crear la reserva")
