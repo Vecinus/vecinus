@@ -27,7 +27,7 @@ export const useAnnouncementsList = (
     retry: (failureCount, error: unknown) => {
       const apiError = error as ApiError;
       // Don't retry if it's a 403 error
-      if (apiError?.response?.status === 403) return false;
+      if (apiError.response?.status === 403) return false;
       return failureCount < 3;
     },
   });
@@ -43,7 +43,7 @@ export const useAnnouncementDetail = (communityId: string | undefined, announcem
     enabled: !!communityId && !!announcementId,
     retry: (failureCount, error: unknown) => {
       const apiError = error as ApiError;
-      if (apiError?.response?.status === 403) return false;
+      if (apiError.response?.status === 403) return false;
       return failureCount < 3;
     },
   });
