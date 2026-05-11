@@ -9,12 +9,11 @@ import {
   type CommunityChannel,
 } from '@/api/chat';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import { isAdminOrPresident } from '@/utils/role.util';
@@ -26,7 +25,9 @@ import {
   ShieldAlertIcon,
   SparklesIcon,
   UserIcon,
-  UsersIcon
+  UsersIcon,
+  ChevronDownIcon,
+  ArrowDownIcon,
 } from 'lucide-react-native';
 import * as React from 'react';
 import {
@@ -36,6 +37,9 @@ import {
   Platform,
   RefreshControl,
   View,
+  TextInput,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
 } from 'react-native';
 
 const CHAT_COMPOSER_MIN_HEIGHT = 24;
@@ -46,9 +50,11 @@ type ScreenState = 'loading' | 'ready' | 'empty' | 'error';
 function ChatBubble({
   message,
   currentUserId,
+  currentUserAvatarUrl,
 }: {
   message: ChannelMessage;
   currentUserId: string | null;
+  currentUserAvatarUrl?: string | null;
 }) {
   const isUser = currentUserId === message.sender_id;
 
@@ -56,6 +62,7 @@ function ChatBubble({
     <View className={cn('mb-4 flex-row gap-3', isUser ? 'justify-end' : 'justify-start')}>
       {!isUser ? (
         <Avatar alt="Vecino" className="mt-1 size-9 border border-border bg-primary/10">
+          {message.sender?.avatar_url ? <AvatarImage source={{ uri: message.sender.avatar_url }} /> : null}
           <AvatarFallback className="bg-primary/10">
             <Icon as={UsersIcon} size={16} className="text-primary" />
           </AvatarFallback>
@@ -106,6 +113,7 @@ function ChatBubble({
 
       {isUser ? (
         <Avatar alt="Usuario" className="mt-1 size-9 border border-border bg-secondary">
+          {currentUserAvatarUrl ? <AvatarImage source={{ uri: currentUserAvatarUrl }} /> : null}
           <AvatarFallback className="bg-secondary">
             <Icon as={UserIcon} size={16} className="text-secondary-foreground" />
           </AvatarFallback>
@@ -181,6 +189,9 @@ export default function CommunityChatScreen() {
   const scrollToBottom = React.useCallback(() => {
     flatListRef.current?.scrollToEnd({ animated: true });
   }, []);
+  const [showScrollToBottom, setShowScrollToBottom] = React.useState(false);
+  const [hasNewMessages, setHasNewMessages] = React.useState(false);
+  const isAtBottomRef = React.useRef(true);
 
   const loadMessages = React.useCallback(async (channelId: string) => {
     const nextMessages = await fetchChannelMessages(channelId);
@@ -277,6 +288,10 @@ export default function CommunityChatScreen() {
             return current;
           }
 
+          if (!isAtBottomRef.current) {
+            setHasNewMessages(true);
+          }
+
           return [...current, payload];
         });
       } catch {
@@ -299,6 +314,26 @@ export default function CommunityChatScreen() {
       setIsRefreshing(false);
     }
   }, [channel?.id, loadMessages]);
+
+  const handleScroll = React.useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const distanceToBottom = contentSize.height - (layoutMeasurement.height + contentOffset.y);
+
+    // Si estamos a menos de 50px del fondo, consideramos que estamos en el fondo
+    const isAtBottom = distanceToBottom < 50;
+    setShowScrollToBottom(!isAtBottom);
+    isAtBottomRef.current = isAtBottom;
+
+    if (isAtBottom) {
+      setHasNewMessages(false);
+    }
+  }, []);
+
+  const scrollToBottom = React.useCallback(() => {
+    flatListRef.current?.scrollToEnd({ animated: true });
+    setHasNewMessages(false);
+    isAtBottomRef.current = true;
+  }, []);
 
   const handleSend = React.useCallback(async () => {
     const trimmedMessage = messageText.trim();
@@ -400,7 +435,11 @@ export default function CommunityChatScreen() {
                 data={messages}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
-                  <ChatBubble message={item} currentUserId={user?.id ?? null} />
+                  <ChatBubble
+                    message={item}
+                    currentUserId={user?.id ?? null}
+                    currentUserAvatarUrl={user?.avatarUrl}
+                  />
                 )}
                 contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
                 className="flex-1"
@@ -448,7 +487,7 @@ export default function CommunityChatScreen() {
               ) : null}
 
               <View className="flex-row items-end gap-3 rounded-3xl border border-border bg-background px-3 py-2">
-                <Textarea
+                <TextInput
                   value={messageText}
                   onChangeText={setMessageText}
                   onContentSizeChange={(event) => {
@@ -468,6 +507,7 @@ export default function CommunityChatScreen() {
                     }
                   }}
                   placeholder="Escribe tu mensaje"
+                  multiline
                   numberOfLines={1}
                   scrollEnabled={composerHeight >= CHAT_COMPOSER_MAX_HEIGHT}
                   style={{ height: composerHeight, maxHeight: CHAT_COMPOSER_MAX_HEIGHT, resize: 'none' }}
