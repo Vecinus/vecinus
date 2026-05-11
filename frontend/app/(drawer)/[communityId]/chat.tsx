@@ -11,22 +11,22 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
-import { ADMIN_ROLE_ID } from '@/utils/role.util';
+import { isAdminOrPresident } from '@/utils/role.util';
 import { useLocalSearchParams } from 'expo-router';
 import {
+  ChevronDownIcon,
   CircleAlertIcon,
-  MessageSquareIcon,
   SendIcon,
   ShieldAlertIcon,
   SparklesIcon,
   UserIcon,
-  UsersIcon,
+  UsersIcon
 } from 'lucide-react-native';
 import * as React from 'react';
 import {
@@ -142,7 +142,7 @@ export default function CommunityChatScreen() {
       : typeof membership?.role === 'string'
         ? Number.parseInt(membership.role, 10)
         : null;
-  const isAdmin = roleId === ADMIN_ROLE_ID;
+  const isAdmin = isAdminOrPresident(roleId);
 
   const [state, setState] = React.useState<ScreenState>('loading');
   const [feedbackMessage, setFeedbackMessage] = React.useState<string | null>(null);
@@ -152,6 +152,35 @@ export default function CommunityChatScreen() {
   const [composerHeight, setComposerHeight] = React.useState(CHAT_COMPOSER_MIN_HEIGHT);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [isSending, setIsSending] = React.useState(false);
+  const [isAtBottom, setIsAtBottom] = React.useState(true);
+
+  const handleScroll = React.useCallback(
+    (event: {
+      nativeEvent: {
+        contentOffset: { y: number };
+        layoutMeasurement: { height: number };
+        contentSize: { height: number };
+      };
+    }) => {
+      const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+      const isBottom = contentOffset.y + layoutMeasurement.height >= contentSize.height - 50;
+      setIsAtBottom(isBottom);
+    },
+    []
+  );
+
+  const handleContentSizeChange = React.useCallback(
+    (width: number, height: number) => {
+      if (isAtBottom) {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }
+    },
+    [isAtBottom]
+  );
+
+  const scrollToBottom = React.useCallback(() => {
+    flatListRef.current?.scrollToEnd({ animated: true });
+  }, []);
 
   const loadMessages = React.useCallback(async (channelId: string) => {
     const nextMessages = await fetchChannelMessages(channelId);
@@ -181,7 +210,7 @@ export default function CommunityChatScreen() {
         return;
       }
 
-      if (!isAdmin) {
+      if (!isAdminOrPresident(roleId)) {
         setChannel(null);
         setMessages([]);
         setState('empty');
@@ -195,7 +224,7 @@ export default function CommunityChatScreen() {
       setState('error');
       setFeedbackMessage(getChatErrorMessage(error, 'No se pudo preparar el chat comunitario.'));
     }
-  }, [isAdmin, loadMessages, membership, normalizedCommunityId]);
+  }, [roleId, loadMessages, membership, normalizedCommunityId]);
 
   React.useEffect(() => {
     void resolveChannel();
@@ -379,7 +408,8 @@ export default function CommunityChatScreen() {
                 refreshControl={
                   <RefreshControl refreshing={isRefreshing} onRefresh={() => void handleRefresh()} />
                 }
-                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                onScroll={handleScroll}
+                onContentSizeChange={handleContentSizeChange}
                 ListEmptyComponent={
                   <View className="items-center gap-3 px-6 py-16">
                     <View className="rounded-full bg-primary/10 p-4">
@@ -394,6 +424,17 @@ export default function CommunityChatScreen() {
                   </View>
                 }
               />
+            ) : null}
+
+            {state === 'ready' && !isAtBottom && messages.length > 0 ? (
+              <View className="absolute bottom-4 right-4 z-10">
+                <Button
+                  onPress={scrollToBottom}
+                  size="lg"
+                  className="size-15 rounded-full shadow-lg bg-cyan-500 hover:bg-cyan-600">
+                  <Icon as={ChevronDownIcon} size={32} className="text-white" />
+                </Button>
+              </View>
             ) : null}
           </View>
 
@@ -420,10 +461,16 @@ export default function CommunityChatScreen() {
                     );
                     setComposerHeight(nextHeight);
                   }}
+                  onKeyPress={(e) => {
+                    if (e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) {
+                      e.preventDefault();
+                      void handleSend();
+                    }
+                  }}
                   placeholder="Escribe tu mensaje"
                   numberOfLines={1}
                   scrollEnabled={composerHeight >= CHAT_COMPOSER_MAX_HEIGHT}
-                  style={{ height: composerHeight, maxHeight: CHAT_COMPOSER_MAX_HEIGHT }}
+                  style={{ height: composerHeight, maxHeight: CHAT_COMPOSER_MAX_HEIGHT, resize: 'none' }}
                   className="min-h-0 flex-1 border-0 bg-transparent px-0 py-1 shadow-none"
                 />
 
