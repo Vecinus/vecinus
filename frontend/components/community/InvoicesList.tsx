@@ -89,7 +89,7 @@ export function InvoicesList({ invoices }: Props) {
         <Icon as={Receipt} size={28} className="text-muted-foreground" />
         <Text className="mt-2 text-sm font-medium text-foreground">Sin cobros aún</Text>
         <Text className="mt-1 text-xs text-muted-foreground text-center">
-          Cuando GoCardless emita el primer cobro mensual aparecerá aquí.
+          Cuando se emita el primer cobro mensual aparecerá aquí.
         </Text>
       </View>
     );

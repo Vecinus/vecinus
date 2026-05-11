@@ -54,7 +54,7 @@ export function RetryPaymentButton({ communityId, onSuccess, onError }: Props) {
       const result = await mutateRenewAsync();
       const url = result.checkout_url;
       if (!url) {
-        const message = 'No se recibió la URL de GoCardless. Inténtalo de nuevo en unos segundos.';
+        const message = 'No se recibió la URL de reintento. Inténtalo de nuevo en unos segundos.';
         setRenewError(message);
         onError?.(message);
         return;

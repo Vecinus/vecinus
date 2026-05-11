@@ -64,7 +64,7 @@ export default function GocardlessCompleteScreen() {
       setState({
         kind: 'pending',
         message:
-          'GoCardless todavía está procesando tu autorización. Espera unos segundos y pulsa "Reintentar verificación".',
+          'Todavía se está procesando tu autorización. Espera unos segundos y pulsa "Reintentar verificación".',
       });
     } catch (error) {
       const message = getErrorMessage(

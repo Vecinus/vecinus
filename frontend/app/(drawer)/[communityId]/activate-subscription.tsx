@@ -11,7 +11,6 @@ import {
   PLAN_CATALOG,
   PlanSelector,
 } from '@/components/community/PlanSelector';
-import { SandboxBanner } from '@/components/community/SandboxBanner';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
@@ -99,7 +98,7 @@ export default function ActivateSubscriptionScreen() {
       if (!created.authorisation_url) {
         showError(
           'Error de pasarela',
-          'GoCardless no devolvió una URL de autorización. Inténtalo de nuevo.',
+          'Hubo un problema con la URL de autorización. Inténtalo de nuevo.',
         );
         return;
       }
@@ -164,7 +163,7 @@ export default function ActivateSubscriptionScreen() {
         </View>
         <Text className="text-center text-2xl font-bold text-foreground">Activar suscripción</Text>
         <Text className="mt-2 text-center text-sm text-muted-foreground">
-          La comunidad ya existe. Solo falta autorizar el mandato SEPA y activar la suscripción mensual.
+          La comunidad ya existe. Solo falta autorizar y activar la suscripción mensual.
         </Text>
       </View>
 
@@ -223,11 +222,10 @@ export default function ActivateSubscriptionScreen() {
       <View className="mb-6 mt-4 items-center">
         <Text className="text-center text-2xl font-bold text-foreground">Resumen y pago</Text>
         <Text className="mt-2 text-center text-sm text-muted-foreground">
-          Revisa los datos y abre la pasarela para autorizar el mandato SEPA.
+          Revisa los datos y abre la pasarela pago para autorizar el mandato.
         </Text>
       </View>
 
-      <SandboxBanner className="mb-4" />
 
       <View className="gap-3 rounded-2xl border border-border bg-card p-5">
         <SummaryRow label="Comunidad" value={communityName} />
@@ -238,7 +236,7 @@ export default function ActivateSubscriptionScreen() {
 
       <View className="mt-8 gap-3">
         <Button onPress={handleOpenGateway} className="h-14 rounded-xl">
-          <Text className="text-lg font-bold text-primary-foreground">Pagar con SEPA en GoCardless</Text>
+          <Text className="text-lg font-bold text-primary-foreground">Pagar</Text>
         </Button>
         <Button variant="ghost" onPress={() => setStep('form')} className="h-12">
           <Text className="text-foreground">Volver atrás</Text>

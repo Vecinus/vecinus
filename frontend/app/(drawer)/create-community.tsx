@@ -21,7 +21,6 @@ import {
     calculateMonthlyAmountCents,
     formatEuros,
 } from '@/components/community/PlanSelector';
-import { SandboxBanner } from '@/components/community/SandboxBanner';
 import { paymentsApi } from '@/api/payments';
 import { useAuth } from '@/context/AuthContext';
 import { getErrorMessage } from '@/lib/error-message';
@@ -99,7 +98,7 @@ export default function CrearComunidadScreen() {
             if (!created.authorisation_url) {
                 showError(
                     'Error de pasarela',
-                    'GoCardless no devolvió una URL de autorización. Inténtalo de nuevo.',
+                    'Hubo un problema con la URL de autorización. Inténtalo de nuevo.',
                 );
                 return;
             }
@@ -155,7 +154,7 @@ export default function CrearComunidadScreen() {
                     Registrar nueva comunidad
                 </Text>
                 <Text className="mt-2 text-center text-sm text-muted-foreground">
-                    Tras pagar el primer mes en GoCardless, tu comunidad se creará automáticamente
+                    Tras pagar el primer mes, tu comunidad se creará automáticamente
                     y se asociará a tu cuenta como administrador.
                 </Text>
             </View>
@@ -220,12 +219,11 @@ export default function CrearComunidadScreen() {
                     Resumen y pago
                 </Text>
                 <Text className="mt-2 text-center text-sm text-muted-foreground">
-                    Revisa los datos y abre la pasarela para autorizar el mandato SEPA. Al
+                    Revisa los datos y abre la pasarela para de pago. Al
                     terminar, te redirigiremos automáticamente a la app.
                 </Text>
             </View>
 
-            <SandboxBanner className="mb-4" />
 
             <View className="gap-3 rounded-2xl border border-border bg-card p-5">
                 <SummaryRow label="Comunidad" value={communityName.trim()} />
@@ -249,7 +247,7 @@ export default function CrearComunidadScreen() {
             <View className="mt-8 gap-3">
                 <Button onPress={handleOpenGateway} className="h-14 rounded-xl">
                     <Text className="text-lg font-bold text-primary-foreground">
-                        Pagar con SEPA en GoCardless
+                        Pagar
                     </Text>
                 </Button>
                 <Button variant="ghost" onPress={handleBackToForm} className="h-12">

@@ -284,7 +284,7 @@ export default function CommunitySubscriptionScreen() {
       {status.status === 'mandate_invalid' ? (
         <View className="rounded-md border border-red-300/60 bg-red-50 p-3 dark:border-red-700/40 dark:bg-red-950/30">
           <Text className="text-xs text-red-900 dark:text-red-200">
-            El mandato SEPA ya no es válido (cancelado o caducado). Para reactivar la suscripción habrá que firmar un mandato nuevo, función que se habilitará en una próxima iteración.
+            El mandato SEPA ya no es válido (cancelado o caducado). Para reactivar la suscripción habrá que firmar un mandato nuevo.
           </Text>
         </View>
       ) : null}
