@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Modal, ScrollView, TouchableOpacity, Image, StyleProp, ViewStyle } from 'react-native';
+import { View, Modal, ScrollView, TouchableOpacity, Image, StyleProp, ViewStyle, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,10 +49,18 @@ export function AnnouncementCreateModal({
   onSubmit,
   modalCardStyle,
 }: AnnouncementCreateModalProps) {
+  const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View className="flex-1 bg-black/50 justify-end sm:justify-center p-0 sm:p-4">
-        <View style={modalCardStyle} className="bg-background rounded-t-3xl sm:rounded-2xl h-[90%] sm:h-auto overflow-hidden shadow-2xl flex flex-col">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <View className="flex-1 bg-black/50 justify-end sm:justify-center p-0 sm:p-4">
+          <View
+            style={[modalCardStyle, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
+            className="bg-background rounded-t-3xl sm:rounded-2xl max-h-[95%] sm:max-h-[90%] overflow-hidden shadow-2xl flex flex-col"
+          >
           <View className="px-5 py-4 border-b border-border flex-row items-center justify-between bg-card">
             <Text className="text-xl font-bold text-foreground">Crear Anuncio</Text>
             <TouchableOpacity onPress={onClose} className="p-2 rounded-full hover:bg-accent">
@@ -174,8 +183,9 @@ export function AnnouncementCreateModal({
               <Text className="text-white">{isPending ? 'Guardando...' : 'Guardar'}</Text>
             </Button>
           </View>
+          </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

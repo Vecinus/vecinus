@@ -57,6 +57,7 @@ import {
   Pressable,
   ScrollView,
   type TextInputContentSizeChangeEventData,
+  type TextInputKeyPressEventData,
   View,
   useWindowDimensions,
 } from 'react-native';
@@ -511,10 +512,17 @@ export default function CommunityChatbotScreen() {
             value={question}
             onChangeText={setQuestion}
             onContentSizeChange={handleComposerSizeChange}
-            onKeyPress={(e: { key?: string; shiftKey?: boolean; preventDefault?: () => void }) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault?.();
-                void handleSend();
+            onKeyPress={(e: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
+              if (e.nativeEvent.key === 'Enter' && Platform.OS === 'web') {
+                const nativeEvent = e.nativeEvent as unknown as { shiftKey?: boolean };
+                if (!nativeEvent.shiftKey) {
+                  // preventDefault is not available on NativeSyntheticEvent usually, but on web it might be.
+                  // For React Native Web, we use this trick.
+                  if ('preventDefault' in e) {
+                    (e as unknown as { preventDefault: () => void }).preventDefault();
+                  }
+                  void handleSend();
+                }
               }
             }}
             placeholder="Haz una pregunta sobre la comunidad..."

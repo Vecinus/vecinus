@@ -32,8 +32,10 @@ import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
+  NativeSyntheticEvent,
   Platform,
   RefreshControl,
+  type TextInputContentSizeChangeEventData,
   View,
 } from 'react-native';
 
@@ -152,13 +154,13 @@ export default function CommunityChatScreen() {
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [isSending, setIsSending] = React.useState(false);
 
-  const loadMessages = React.useCallback(async (channelId: string) => {
+  const loadMessages = React.useCallback(async (channelId: string): Promise<void> => {
     const nextMessages = await fetchChannelMessages(channelId);
     setMessages(nextMessages);
     setState('ready');
   }, []);
 
-  const resolveChannel = React.useCallback(async () => {
+  const resolveChannel = React.useCallback(async (): Promise<void> => {
     if (!normalizedCommunityId || !membership) {
       setState('error');
       setFeedbackMessage('No encontramos una comunidad válida para este chat.');
@@ -219,9 +221,9 @@ export default function CommunityChatScreen() {
 
     const socket = new WebSocket(buildChatWebSocketUrl(channel.id));
 
-    socket.onmessage = (event) => {
+    socket.onmessage = (event: MessageEvent) => {
       try {
-        const payload = JSON.parse(event.data) as
+        const payload = JSON.parse(event.data as string) as
           | ChannelMessage
           | { event: 'message_edited'; message: ChannelMessage }
           | { event: 'message_deleted'; message_id: string };
@@ -257,7 +259,7 @@ export default function CommunityChatScreen() {
     return () => socket.close();
   }, [channel?.id]);
 
-  const handleRefresh = React.useCallback(async () => {
+  const handleRefresh = React.useCallback(async (): Promise<void> => {
     if (!channel?.id) return;
 
     setIsRefreshing(true);
@@ -270,7 +272,7 @@ export default function CommunityChatScreen() {
     }
   }, [channel?.id, loadMessages]);
 
-  const handleSend = React.useCallback(async () => {
+  const handleSend = React.useCallback(async (): Promise<void> => {
     const trimmedMessage = messageText.trim();
 
     if (!trimmedMessage || !channel?.id || isSending) {
@@ -409,7 +411,7 @@ export default function CommunityChatScreen() {
                 <Textarea
                   value={messageText}
                   onChangeText={setMessageText}
-                  onContentSizeChange={(event) => {
+                  onContentSizeChange={(event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>) => {
                     const nextHeight = Math.max(
                       CHAT_COMPOSER_MIN_HEIGHT,
                       Math.min(

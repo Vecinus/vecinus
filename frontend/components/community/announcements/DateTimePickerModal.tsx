@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Modal, TouchableOpacity, Alert } from 'react-native';
+import { View, Modal, TouchableOpacity, Alert, TextInput, Platform } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Ionicons } from '@expo/vector-icons';
@@ -40,8 +40,10 @@ export function DateTimePickerModal({
   const [selectedYear, setSelectedYear] = useState(parsedDate?.getFullYear() ?? now.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(parsedDate?.getMonth() ?? now.getMonth());
   const [selectedDay, setSelectedDay] = useState(parsedDate?.getDate() ?? now.getDate());
-  const [selectedHour, setSelectedHour] = useState(parsedDate?.getHours() ?? 10);
-  const [selectedMinute, setSelectedMinute] = useState(parsedDate?.getMinutes() ?? 0);
+
+  // Editable text states for the time inputs
+  const [hourText, setHourText] = useState(pad(parsedDate?.getHours() ?? 10));
+  const [minuteText, setMinuteText] = useState(pad(parsedDate?.getMinutes() ?? 0));
 
   // When the modal opens, sync with the current value
   useEffect(() => {
@@ -50,8 +52,8 @@ export function DateTimePickerModal({
       setSelectedYear(d.getFullYear());
       setSelectedMonth(d.getMonth());
       setSelectedDay(d.getDate());
-      setSelectedHour(d.getHours());
-      setSelectedMinute(d.getMinutes());
+      setHourText(pad(d.getHours()));
+      setMinuteText(pad(d.getMinutes()));
     }
   }, [visible, value]);
 
@@ -60,8 +62,31 @@ export function DateTimePickerModal({
   // Ensure selected day is valid for the current month
   const validDay = Math.min(selectedDay, daysInMonth);
 
+  const handleHourChange = (text: string) => {
+    setHourText(text);
+  };
+
+  const handleHourBlur = () => {
+    const num = parseInt(hourText, 10);
+    const clamped = isNaN(num) ? 0 : Math.min(23, Math.max(0, num));
+    setHourText(pad(clamped));
+  };
+
+  const handleMinuteChange = (text: string) => {
+    setMinuteText(text);
+  };
+
+  const handleMinuteBlur = () => {
+    const num = parseInt(minuteText, 10);
+    const clamped = isNaN(num) ? 0 : Math.min(59, Math.max(0, num));
+    setMinuteText(pad(clamped));
+  };
+
   const handleConfirm = () => {
-    const date = new Date(selectedYear, selectedMonth, validDay, selectedHour, selectedMinute);
+    // Commit any pending text values before confirming
+    const h = Math.min(23, Math.max(0, parseInt(hourText, 10) || 0));
+    const m = Math.min(59, Math.max(0, parseInt(minuteText, 10) || 0));
+    const date = new Date(selectedYear, selectedMonth, validDay, h, m);
     if (date < new Date()) {
       Alert.alert('Fecha inválida', 'La fecha seleccionada debe ser futura.');
       return;
@@ -88,8 +113,9 @@ export function DateTimePickerModal({
   // Generate arrays for selectors
   const years = Array.from({ length: 5 }, (_, i) => now.getFullYear() + i);
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-  const hours = Array.from({ length: 24 }, (_, i) => i);
-  const minutes = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+
+  const previewDate = new Date(selectedYear, selectedMonth, validDay, parseInt(hourText, 10) || 0, parseInt(minuteText, 10) || 0);
+  const isPast = previewDate < new Date();
 
   return (
     <>
@@ -199,69 +225,65 @@ export function DateTimePickerModal({
               </View>
             </View>
 
-            {/* Time Selector */}
-            <View className="flex-row gap-4 mb-6">
-              <View className="flex-1">
-                <Text className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wide">Hora</Text>
-                <View className="flex-row flex-wrap gap-1">
-                  {hours.map((h) => (
-                    <TouchableOpacity
-                      key={h}
-                      onPress={() => { setSelectedHour(h); }}
-                      className={`w-9 h-8 rounded-md items-center justify-center ${selectedHour === h
-                        ? 'bg-indigo-600'
-                        : 'bg-accent/50'
-                        }`}
-                    >
-                      <Text
-                        className={`text-xs font-medium ${selectedHour === h ? 'text-white' : 'text-foreground'
-                          }`}
-                      >
-                        {pad(h)}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+            {/* Time Input — Hour : Minute */}
+            <View className="mb-4">
+              <Text className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Hora</Text>
+              <View className="flex-row items-center gap-2">
+                {/* Hour input */}
+                <View className="flex-1 bg-card border border-border rounded-xl overflow-hidden">
+                  <TextInput
+                    value={hourText}
+                    onChangeText={handleHourChange}
+                    onBlur={handleHourBlur}
+                    keyboardType="number-pad"
+                    maxLength={2}
+                    placeholder="HH"
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: Platform.OS === 'web' ? 10 : 12,
+                      fontSize: 20,
+                      fontWeight: '700',
+                      textAlign: 'center',
+                      color: 'inherit',
+                    }}
+                  />
+                </View>
+                <Text className="text-2xl font-bold text-foreground">:</Text>
+                {/* Minute input */}
+                <View className="flex-1 bg-card border border-border rounded-xl overflow-hidden">
+                  <TextInput
+                    value={minuteText}
+                    onChangeText={handleMinuteChange}
+                    onBlur={handleMinuteBlur}
+                    keyboardType="number-pad"
+                    maxLength={2}
+                    placeholder="MM"
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: Platform.OS === 'web' ? 10 : 12,
+                      fontSize: 20,
+                      fontWeight: '700',
+                      textAlign: 'center',
+                      color: 'inherit',
+                    }}
+                  />
                 </View>
               </View>
-            </View>
-
-            <View className="mb-6">
-              <Text className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wide">Minuto</Text>
-              <View className="flex-row flex-wrap gap-1">
-                {minutes.map((m) => (
-                  <TouchableOpacity
-                    key={m}
-                    onPress={() => { setSelectedMinute(m); }}
-                    className={`px-3 h-8 rounded-md items-center justify-center ${selectedMinute === m
-                      ? 'bg-indigo-600'
-                      : 'bg-accent/50'
-                      }`}
-                  >
-                    <Text
-                      className={`text-xs font-medium ${selectedMinute === m ? 'text-white' : 'text-foreground'
-                        }`}
-                    >
-                      {pad(m)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <Text className="text-[11px] text-muted-foreground mt-1 px-1">Introduce la hora en formato 24h (00-23) y los minutos (00-59).</Text>
             </View>
 
             {/* Preview & Validation */}
-            <View className={`rounded-xl p-3 mb-5 items-center ${
-              new Date(selectedYear, selectedMonth, validDay, selectedHour, selectedMinute) < new Date()
-                ? 'bg-red-50 dark:bg-red-900/20'
-                : 'bg-indigo-50 dark:bg-indigo-900/20'
+            <View className={`rounded-xl p-3 mb-5 items-center ${isPast
+              ? 'bg-red-50 dark:bg-red-900/20'
+              : 'bg-indigo-50 dark:bg-indigo-900/20'
             }`}>
-              <Text className={`font-bold text-base ${
-                new Date(selectedYear, selectedMonth, validDay, selectedHour, selectedMinute) < new Date()
-                  ? 'text-red-700 dark:text-red-400'
-                  : 'text-indigo-700 dark:text-indigo-400'
+              <Text className={`font-bold text-base ${isPast
+                ? 'text-red-700 dark:text-red-400'
+                : 'text-indigo-700 dark:text-indigo-400'
               }`}>
-                {pad(validDay)}/{pad(selectedMonth + 1)}/{selectedYear} — {pad(selectedHour)}:{pad(selectedMinute)}
+                {pad(validDay)}/{pad(selectedMonth + 1)}/{selectedYear} — {hourText.padStart(2, '0')}:{minuteText.padStart(2, '0')}
               </Text>
-              {new Date(selectedYear, selectedMonth, validDay, selectedHour, selectedMinute) < new Date() && (
+              {isPast && (
                 <Text className="text-[11px] text-red-600 dark:text-red-400 mt-1 font-semibold">
                   ⚠️ La fecha debe ser futura
                 </Text>
@@ -278,10 +300,9 @@ export function DateTimePickerModal({
                 <Text className="text-muted-foreground">Limpiar</Text>
               </Button>
               <Button
-                className={`flex-1 ${
-                  new Date(selectedYear, selectedMonth, validDay, selectedHour, selectedMinute) < new Date()
-                    ? 'bg-slate-300 dark:bg-slate-700'
-                    : 'bg-indigo-600 dark:bg-indigo-500'
+                className={`flex-1 ${isPast
+                  ? 'bg-slate-300 dark:bg-slate-700'
+                  : 'bg-indigo-600 dark:bg-indigo-500'
                 }`}
                 onPress={handleConfirm}
               >

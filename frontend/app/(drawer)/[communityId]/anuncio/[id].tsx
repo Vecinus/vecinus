@@ -1,11 +1,13 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { View, ScrollView, ActivityIndicator, Image, Modal, TouchableOpacity } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter , useFocusEffect } from 'expo-router';
+
 import { Drawer } from 'expo-router/drawer';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { ArrowLeft } from 'lucide-react-native';
 import * as DocumentPicker from 'expo-document-picker';
+import { type DocumentPickerAsset } from 'expo-document-picker';
 
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -15,6 +17,10 @@ import { useAnnouncementDetail, useUpdateAnnouncement } from '@/hooks/useAnnounc
 import { normalizeRoleToBackendToken, getUserFacingErrorMessage } from '@/components/community/incidents/utils';
 import { type AnnouncementStatus } from '@/api/announcements';
 import { DateTimePickerModal } from '@/components/community/announcements/DateTimePickerModal';
+
+interface DocumentPickerAssetWithFile extends DocumentPickerAsset {
+  file?: Blob;
+}
 
 const GENERIC_IMAGE = 'https://res.cloudinary.com/dvz3u3rrd/image/upload/v1730035043/vecinus_logo.png';
 
@@ -42,9 +48,12 @@ export default function AnuncioDetailScreen() {
 
   const canManage = roleToken === '1' || roleToken === '4';
 
-  const handleGoBack = () => {
+  const handleGoBack = (): void => {
     if (communityId) {
-      router.push(`/${communityId}/anuncios`);
+      router.push({
+        pathname: '/[communityId]/anuncios',
+        params: { communityId },
+      });
     } else {
       router.back();
     }
@@ -68,9 +77,18 @@ export default function AnuncioDetailScreen() {
     message: '',
   });
 
-  const showAlert = (title: string, message: string, onConfirm?: () => void) => {
+  const showAlert = (title: string, message: string, onConfirm?: () => void): void => {
     setInfoModal({ visible: true, title, message, onConfirm });
   };
+
+  // Reset edit mode when the screen gains focus (fixes stale state when navigating between announcements)
+  useFocusEffect(
+    useCallback(() => {
+      setIsEditing(false);
+      setPickedImage(null);
+      setFormError('');
+    }, [])
+  );
 
   useEffect(() => {
     if (announcement && !isEditing) {
@@ -92,17 +110,17 @@ export default function AnuncioDetailScreen() {
     }
   }, [announcement, isEditing]);
 
-  const onPickImage = async () => {
+  const onPickImage = async (): Promise<void> => {
     try {
       const result = await DocumentPicker.getDocumentAsync({ type: ['image/*'], multiple: false });
       if (result.canceled) return;
-      const asset = result.assets[0];
+      const asset = result.assets[0] as DocumentPickerAssetWithFile;
 
       setPickedImage({
         uri: asset.uri,
         name: asset.name || undefined,
         mimeType: asset.mimeType || undefined,
-        file: (asset as unknown as { file?: unknown }).file,
+        file: asset.file,
       });
       setFormError('');
     } catch {
@@ -110,7 +128,7 @@ export default function AnuncioDetailScreen() {
     }
   };
 
-  const onSave = async () => {
+  const onSave = async (): Promise<void> => {
     setFormError('');
     if (!titleDraft.trim() || !contentDraft.trim()) {
       setFormError('Por favor completa el título y contenido.');
@@ -128,8 +146,7 @@ export default function AnuncioDetailScreen() {
       setIsEditing(false);
       setPickedImage(null);
       showAlert('Éxito', 'Anuncio actualizado correctamente.');
-    } catch (err) {
-      console.error('[AnuncioUpdate] Error:', JSON.stringify((err as { response?: { data?: unknown } }).response?.data, null, 2));
+    } catch (err: unknown) {
       setFormError(getUserFacingErrorMessage(err, 'No se pudo actualizar el anuncio.'));
     }
   };
@@ -321,19 +338,28 @@ export default function AnuncioDetailScreen() {
 
             <Text className="text-sm font-semibold text-foreground mb-2">Estado</Text>
             <View className="flex-row gap-3 mb-2">
+              {/* Drafts can become published, but published cannot go back to draft */}
               <TouchableOpacity
-                onPress={() => { setStatusDraft('DRAFT'); }}
-                className={`flex-1 py-3.5 rounded-xl border flex-row items-center justify-center gap-2 ${statusDraft === 'DRAFT'
-                  ? 'bg-amber-50 border-amber-500 dark:bg-amber-900/20'
-                  : 'bg-card border-border'
-                  }`}
+                onPress={() => {
+                  if (announcement.status !== 'PUBLISHED') {
+                    setStatusDraft('DRAFT');
+                  }
+                }}
+                disabled={announcement.status === 'PUBLISHED'}
+                className={`flex-1 py-3.5 rounded-xl border flex-row items-center justify-center gap-2 ${
+                  announcement.status === 'PUBLISHED'
+                    ? 'bg-card border-border opacity-40'
+                    : statusDraft === 'DRAFT'
+                      ? 'bg-amber-50 border-amber-500 dark:bg-amber-900/20'
+                      : 'bg-card border-border'
+                }`}
               >
-                <Ionicons name="document-outline" size={16} color={statusDraft === 'DRAFT' ? '#b45309' : '#9ca3af'} />
-                <Text className={`font-semibold ${statusDraft === 'DRAFT' ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground'}`}>
+                <Ionicons name="document-outline" size={16} color={statusDraft === 'DRAFT' && announcement.status !== 'PUBLISHED' ? '#b45309' : '#9ca3af'} />
+                <Text className={`font-semibold ${statusDraft === 'DRAFT' && announcement.status !== 'PUBLISHED' ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground'}`}>
                   Borrador
                 </Text>
               </TouchableOpacity>
- 
+
               <TouchableOpacity
                 onPress={() => { setStatusDraft('PUBLISHED'); }}
                 className={`flex-1 py-3.5 rounded-xl border flex-row items-center justify-center gap-2 ${statusDraft === 'PUBLISHED'
@@ -347,19 +373,32 @@ export default function AnuncioDetailScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
+            {announcement.status === 'PUBLISHED' && (
+              <View className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-900/40 flex-row items-center gap-2">
+                <Ionicons name="lock-closed-outline" size={14} color="#b45309" />
+                <Text className="text-amber-700 dark:text-amber-400 text-xs font-medium flex-1">
+                  Un anuncio publicado no puede volver a estado borrador.
+                </Text>
+              </View>
+            )}
             <Text className="text-[11px] text-muted-foreground mb-6 px-1">
               * {statusDraft === 'DRAFT' 
                 ? 'Los borradores solo son visibles para administradores.' 
                 : 'Los anuncios publicados son visibles para todos los vecinos.'}
             </Text>
 
-            <Text className="text-sm font-semibold text-foreground mb-2">Fecha Programada (Opcional)</Text>
-            <DateTimePickerModal
-              value={scheduledDateDraft}
-              onChange={setScheduledDateDraft}
-              disabled={updateMutation.isPending}
-              placeholder="Tocar para seleccionar fecha y hora"
-            />
+            {/* Only show scheduled date for draft announcements */}
+            {announcement.status !== 'PUBLISHED' && (
+              <>
+                <Text className="text-sm font-semibold text-foreground mb-2">Fecha Programada (Opcional)</Text>
+                <DateTimePickerModal
+                  value={scheduledDateDraft}
+                  onChange={setScheduledDateDraft}
+                  disabled={updateMutation.isPending}
+                  placeholder="Tocar para seleccionar fecha y hora"
+                />
+              </>
+            )}
 
             <View className="flex-row items-center justify-between mb-2">
               <Text className="text-sm font-semibold text-foreground">Imagen (Opcional)</Text>

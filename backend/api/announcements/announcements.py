@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 
 import cloudinary
@@ -8,6 +9,8 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi import status as http_status
 from schemas.announcements.announcements import AnnouncementResponse
 from supabase import Client
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/announcements", tags=["announcements"])
 cloudinary.config(cloudinary_url=settings.CLOUDINARY_URL, secure=True)
@@ -49,6 +52,9 @@ def get_announcements(
     else:
         query_status = status
 
+    # Publish any scheduled announcements that are due
+    _publish_scheduled(supabase_admin, str(association_id))
+
     query = supabase_admin.table("announcements").select("*").eq("association_id", str(association_id))
     if query_status:
         check_status(query_status)
@@ -57,6 +63,28 @@ def get_announcements(
     announcements_res = query.order("created_at", desc=True).execute()
 
     return announcements_res.data or []
+
+
+def _publish_scheduled(supabase_admin: Client, association_id: str):
+    """Publish any DRAFT announcements whose scheduled_date has passed."""
+    try:
+        now_iso = datetime.now(timezone.utc).isoformat()
+        due = (
+            supabase_admin.table("announcements")
+            .select("id")
+            .eq("association_id", association_id)
+            .eq("status", "DRAFT")
+            .not_.is_("scheduled_date", "null")
+            .lte("scheduled_date", now_iso)
+            .execute()
+        )
+        for row in due.data or []:
+            supabase_admin.table("announcements").update({"status": "PUBLISHED", "updated_at": now_iso}).eq(
+                "id", row["id"]
+            ).execute()
+    except Exception as e:
+        # Non-fatal — just log it; don't break the main request
+        logger.warning(f"_publish_scheduled failed: {e}")
 
 
 @router.get("/{association_id}/{announcement_id}", response_model=AnnouncementResponse)
@@ -80,6 +108,9 @@ def get_announcement(
         raise HTTPException(status_code=403, detail="Error de permisos: No se encontró tu membresía en esta comunidad.")
 
     user_role = int(membership.data[0].get("role", 0))
+
+    # Publish scheduled announcements before returning detail
+    _publish_scheduled(supabase_admin, str(association_id))
 
     announcement_res = (
         supabase_admin.table("announcements")
@@ -134,13 +165,17 @@ def create_announcement(
     membership_id = membership.data[0]["id"]
     image_url = None
 
-    if file:
+    if file and file.filename:
         try:
             if not settings.CLOUDINARY_URL:
                 raise HTTPException(status_code=500, detail="Cloudinary configuration is missing")
-            else:
-                upload = cloudinary.uploader.upload(file.file, folder=f"announcements/{association_id}")
-                image_url = upload.get("secure_url")
+            file_content = file.file.read()
+            if len(file_content) == 0:
+                raise HTTPException(status_code=400, detail="El archivo de imagen está vacío.")
+            upload = cloudinary.uploader.upload(file_content, folder=f"announcements/{association_id}")
+            image_url = upload.get("secure_url")
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to upload image: {str(e)}")
 
@@ -156,8 +191,6 @@ def create_announcement(
         }
         if scheduled_date:
             insert_data["scheduled_date"] = scheduled_date
-
-        print(f"[DEBUG] Creating announcement with association_id={association_id}, membership_id={membership_id}")
 
         new_announcement = supabase_admin.table("announcements").insert(insert_data).execute()
 
@@ -208,13 +241,25 @@ def update_announcement(
     # Validamos que el anuncio existe (usamos supabase_admin para saltar RLS)
     announcement_res = (
         supabase_admin.table("announcements")
-        .select("id")
+        .select("id, status")
         .eq("id", announcement_id)
         .eq("association_id", str(association_id))
         .execute()
     )
     if not announcement_res.data:
         raise HTTPException(status_code=404, detail="Announcement not found")
+
+    current_status = announcement_res.data[0].get("status")
+
+    # Business rule: a PUBLISHED announcement cannot be reverted to DRAFT
+    if current_status == "PUBLISHED" and status == "DRAFT":
+        raise HTTPException(status_code=400, detail="Un anuncio publicado no puede volver a estado borrador.")
+
+    # Business rule: scheduled_date only makes sense for DRAFT announcements
+    # If the announcement is (or will be) PUBLISHED, ignore scheduled_date
+    effective_status = status if status else current_status
+    if effective_status == "PUBLISHED":
+        scheduled_date = None
 
     update_data = {}
     if title is not None:
@@ -225,14 +270,21 @@ def update_announcement(
         update_data["status"] = status
     if scheduled_date is not None:
         update_data["scheduled_date"] = scheduled_date
+    elif effective_status == "PUBLISHED":
+        # Explicitly clear any lingering scheduled_date when publishing
+        update_data["scheduled_date"] = None
 
-    if file:
+    if file and file.filename:
         try:
             if not settings.CLOUDINARY_URL:
                 raise HTTPException(status_code=500, detail="Cloudinary configuration is missing")
-            else:
-                upload = cloudinary.uploader.upload(file.file, folder=f"announcements/{association_id}")
-                update_data["image_url"] = upload.get("secure_url")
+            file_content = file.file.read()
+            if len(file_content) == 0:
+                raise HTTPException(status_code=400, detail="El archivo de imagen está vacío.")
+            upload = cloudinary.uploader.upload(file_content, folder=f"announcements/{association_id}")
+            update_data["image_url"] = upload.get("secure_url")
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to upload image: {str(e)}")
 

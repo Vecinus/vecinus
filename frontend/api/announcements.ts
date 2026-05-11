@@ -21,8 +21,8 @@ async function appendFileToFormData(
   // On web, if we have a real Blob/File object, use it directly
   if (typeof Blob !== 'undefined' && maybeFile instanceof Blob) {
     formData.append('file', maybeFile, fileName);
-  } else if (typeof fetch !== 'undefined' && image.uri.startsWith('data:')) {
-    // Web fallback: convert data URI to Blob
+  } else if (typeof fetch !== 'undefined' && (image.uri.startsWith('data:') || image.uri.startsWith('blob:'))) {
+    // Web: convert data URI or blob URI to a proper Blob object
     try {
       const response = await fetch(image.uri);
       const blob = await response.blob();

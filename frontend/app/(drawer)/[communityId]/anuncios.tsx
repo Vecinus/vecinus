@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, FlatList, ActivityIndicator, Modal, useWindowDimensions, TouchableOpacity } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
