@@ -19,13 +19,13 @@ import { cn } from '@/lib/utils';
 import { isAdminOrPresident } from '@/utils/role.util';
 import { useLocalSearchParams } from 'expo-router';
 import {
+  ChevronDownIcon,
   CircleAlertIcon,
   SendIcon,
   ShieldAlertIcon,
   SparklesIcon,
   UserIcon,
   UsersIcon,
-  ChevronDownIcon,
 } from 'lucide-react-native';
 import * as React from 'react';
 import {
@@ -34,10 +34,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
-  View,
   TextInput,
-  type NativeSyntheticEvent,
+  View,
   type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 
 const CHAT_COMPOSER_MIN_HEIGHT = 24;
