@@ -623,7 +623,7 @@ export default function CommunityChatbotScreen() {
                 }
               }}
               placeholder="Haz una pregunta sobre la comunidad..."
-            multiline
+              multiline
               numberOfLines={1}
               returnKeyType="send"
               enablesReturnKeyAutomatically
