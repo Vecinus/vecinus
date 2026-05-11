@@ -2,7 +2,12 @@ import cloudinary
 import cloudinary.uploader
 from api.chat.chat_helpers import verify_association_membership
 from core.config import settings
-from core.deps import get_current_user, get_supabase, require_active_community
+from core.deps import (
+    get_current_user,
+    get_supabase,
+    get_supabase_admin,
+    require_active_community,
+)
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from schemas.incidents.incidents import Incident
 from services.helpers.role_service import get_user_role
@@ -82,22 +87,22 @@ def get_incidents(
 ):
     user_id = current_user["id"]
     verify_association_membership(association_id, user_id, supabase)
-    is_admin = (
-        str(
-            (
-                supabase.table("memberships")
-                .select("role")
-                .eq("association_id", str(association_id))
-                .eq("profile_id", str(user_id))
-                .execute()
-            )
-            .data[0]
-            .get("role")
+    user_role = str(
+        (
+            supabase.table("memberships")
+            .select("role")
+            .eq("association_id", str(association_id))
+            .eq("profile_id", str(user_id))
+            .execute()
         )
-        == "1"
+        .data[0]
+        .get("role")
     )
-    if status == "DISCARDED" and not is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required for this action")
+    is_admin = user_role == "1"
+    is_president = user_role == "4"
+    is_admin_or_president = is_admin or is_president
+    if status == "DISCARDED" and not is_admin_or_president:
+        raise HTTPException(status_code=403, detail="Admin or president access required for this action")
 
     incidents_res = supabase.table("incidents").select("""
                 id,
@@ -115,7 +120,7 @@ def get_incidents(
         if incident:
             latest_state = get_latest_state(supabase, incident["id"])
             incident_status = latest_state.get("status")
-            if incident_status == "DISCARDED" and not is_admin and not mine:
+            if incident_status == "DISCARDED" and not is_admin_or_president and not mine:
                 continue
             incident["status"] = incident_status
             incidents.append(incident)
@@ -272,6 +277,7 @@ def discard_incident(
     incident_id: str,
     current_user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
+    supabase_admin: Client = Depends(get_supabase_admin),
 ):
     user_id = current_user["id"]
     role = str(get_user_role(supabase, association_id, user_id))
@@ -283,11 +289,16 @@ def discard_incident(
 
     latest_state = get_latest_state(supabase, incident_id)
 
-    if latest_state.get("status") not in {"PENDING", "DISCARDED", "SOLVED"}:
+    if not latest_state:
+        raise HTTPException(status_code=404, detail="Incidencia no encontrada")
+
+    if latest_state.get("status") not in {"DISCARDED", "SOLVED"}:
         raise HTTPException(status_code=409, detail="La incidencia no puede ser eliminada en su estado actual")
 
     try:
-        supabase.table("incident_states").delete().eq("incident_id", incident_id).execute()
-        supabase.table("incidents").delete().eq("id", incident_id).execute()
+        # Primero borrar todos los estados de la incidencia
+        supabase_admin.table("incident_states").delete().eq("incident_id", str(incident_id)).execute()
+        # Luego borrar la incidencia
+        supabase_admin.table("incidents").delete().eq("id", str(incident_id)).execute()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al eliminar la incidencia: {str(e)}")

@@ -9,6 +9,7 @@ const TOKEN_KEY = 'jwt_token'; // nosemgrep
 const USER_KEY = 'user_data'; // nosemgrep
 const COMMUNITY_KEY = 'community_data'; // nosemgrep
 const SELECTED_MINUTE_KEY = 'selected_minute_data'; // nosemgrep
+const RECOVERY_ACCOUNT_ID_KEY = 'recovery_account_id'; // nosemgrep
 type StoredActiveCommunity = {
   id: string;
   name: string;
@@ -71,6 +72,16 @@ export const storageService = {
   },
   removeSelectedMinute: async (): Promise<void> => {
     await AsyncStorage.removeItem(SELECTED_MINUTE_KEY);
+  },
+
+  saveRecoveryAccountId: async (accountId: string): Promise<void> => {
+    await AsyncStorage.setItem(RECOVERY_ACCOUNT_ID_KEY, accountId);
+  },
+  getRecoveryAccountId: async (): Promise<string | null> => {
+    return await AsyncStorage.getItem(RECOVERY_ACCOUNT_ID_KEY);
+  },
+  removeRecoveryAccountId: async (): Promise<void> => {
+    await AsyncStorage.removeItem(RECOVERY_ACCOUNT_ID_KEY);
   },
 
 

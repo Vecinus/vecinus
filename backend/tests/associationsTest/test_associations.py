@@ -511,7 +511,7 @@ def test_accept_invitation_not_found():
             },
         )
         assert response.status_code == 404  # nosec B101
-        assert response.json()["detail"] == "La invitación no existe o ya ha sido utilizada"  # nosec B101
+        assert response.json()["detail"] == "La invitación no existe."  # nosec B101
     finally:
         app.dependency_overrides.clear()
 

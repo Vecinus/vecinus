@@ -17,6 +17,7 @@ from api.payments.subscriptions import router as subscriptions_router
 from api.payments.webhook import router as gocardless_webhook_router
 from api.polls.polls import router as polls_router
 from api.transcription.minutes import router as minutes_router
+from core.config import settings
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from services.transcription.transcription_service import get_genai_client
@@ -36,9 +37,18 @@ app = FastAPI(
 )
 
 # Set up CORS
+origins = [
+    settings.APP_BASE_URL,
+    "https://vecinus-s1.onrender.com",
+    "https://vecinus-s2.onrender.com",
+    "https://vecinus-s3.onrender.com",
+    "https://vecinus-ppl.onrender.com",
+    "https://vecinus.onrender.com",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Debería ser limitado en producción
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

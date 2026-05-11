@@ -1,7 +1,7 @@
 import React from 'react';
-import { View } from 'react-native';
+import { View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { Mail, ShieldCheck, Key, User, Crown, Briefcase } from 'lucide-react-native';
+import { Mail, ShieldCheck, Key, User, Crown, Briefcase, Trash2 } from 'lucide-react-native';
 import type { PendingInvitation } from '@/api/community';
 
 export const getRoleConfig = (roleId: number) => {
@@ -17,10 +17,13 @@ export const getRoleConfig = (roleId: number) => {
 
 interface PendingInvitationCardProps {
   invitation: PendingInvitation;
+  onDelete?: (invitationId: string, email: string) => void;
+  isDeletingId?: string;
 }
 
-export function PendingInvitationCard({ invitation }: PendingInvitationCardProps) {
+export function PendingInvitationCard({ invitation, onDelete, isDeletingId }: PendingInvitationCardProps) {
   const { icon: RoleIcon, color: roleColor, name: roleName } = getRoleConfig(invitation.role_to_grant);
+  const isBeingDeleted = isDeletingId === invitation.id;
 
   return (
     <View className="flex-row items-center p-3.5 mb-2.5 bg-background dark:bg-card border border-amber-50 dark:border-amber-900/10 rounded-2xl shadow-sm">
@@ -39,6 +42,21 @@ export function PendingInvitationCard({ invitation }: PendingInvitationCardProps
           </Text>
         </View>
       </View>
+
+      {onDelete && (
+        <TouchableOpacity
+          className="w-9 h-9 bg-red-50 dark:bg-red-900/25 rounded-xl items-center justify-center mr-2"
+          activeOpacity={0.7}
+          onPress={() => onDelete(invitation.id, invitation.target_email)}
+          disabled={isBeingDeleted}
+        >
+          {isBeingDeleted ? (
+            <ActivityIndicator size="small" color="#dc2626" />
+          ) : (
+            <Trash2 size={16} color="#dc2626" />
+          )}
+        </TouchableOpacity>
+      )}
 
       <View className="bg-amber-100 dark:bg-amber-900/40 px-3 py-1.5 rounded-full border border-amber-200 dark:border-amber-700/50">
         <Text className="text-[10px] font-bold text-amber-700 dark:text-amber-500 uppercase tracking-widest">

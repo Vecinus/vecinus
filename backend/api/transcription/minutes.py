@@ -3,7 +3,13 @@ from typing import List
 from urllib.parse import quote
 from uuid import UUID
 
-from core.deps import get_current_user, get_supabase_admin, require_active_community
+from api.chat.chat_helpers import verify_association_admin
+from core.deps import (
+    get_current_user,
+    get_supabase,
+    get_supabase_admin,
+    require_active_community,
+)
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from schemas.transcription.minutes import (
@@ -51,7 +57,10 @@ def get_service(db=Depends(MinuteService.get_supabase_client)):
 async def get_minutes(
     association_id: UUID,
     service: MinuteService = Depends(get_service),
+    user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
 ):
+    verify_association_admin(association_id, user["id"], supabase)
     try:
         db_results = await service.get_minutes_by_association(association_id)
         results = []
@@ -96,7 +105,10 @@ async def transcribe_meeting(
     current_user: dict = Depends(get_current_user),
     supabase_admin: Client = Depends(get_supabase_admin),
     service: MinuteService = Depends(get_service),
+    user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
 ):
+    verify_association_admin(association_id, user["id"], supabase)
     if not scheduled_at:
         scheduled_at = datetime.now()
     if audio.content_type not in ALLOWED_CONTENT_TYPES:
@@ -185,7 +197,10 @@ async def transcribe_meeting(
 
 
 @router.post("/generate-document-preview")
-async def generate_minutes_document_preview(minutes: MinutesResponse):
+async def generate_minutes_document_preview(
+    minutes: MinutesResponse,
+    user: dict = Depends(get_current_user),
+):
     try:
         buffer = DocumentService.generate_docx(minutes)
         filename = DocumentService.build_docx_filename(minutes.title)
