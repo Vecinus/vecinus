@@ -70,10 +70,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               setActiveCommunityState(normalizedCommunity);
               await storageService.saveActiveCommunity(normalizedCommunity);
             } else {
-              selectFirstCommunity(normalizedUser);
+              void selectFirstCommunity(normalizedUser);
             }
           } else if (normalizedUser.CommunitiesAndRole.length > 0) {
-            selectFirstCommunity(normalizedUser);
+            void selectFirstCommunity(normalizedUser);
           }
         }
       } catch (e) {
@@ -83,7 +83,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     };
 
-    hydrate();
+    void hydrate();
   }, []);
 
   const selectFirstCommunity = async (userData: User) => {

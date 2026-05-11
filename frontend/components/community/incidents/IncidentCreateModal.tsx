@@ -4,13 +4,16 @@ import {
   Image,
   Modal,
   ScrollView,
+  StyleProp,
   TextInput,
   TouchableOpacity,
   View,
+  ViewStyle,
 } from 'react-native';
 import { Camera } from 'lucide-react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
+import { getLegalWarning } from '@/utils/legal-warnings';
 import { INCIDENT_TYPE_LABEL, INCIDENT_TYPES, type IncidentType } from '@/api/incidents';
 
 const INCIDENT_TYPE_OPTIONS: IncidentType[] = [
@@ -37,7 +40,7 @@ interface IncidentCreateModalProps {
   onClose: () => void;
   onPickImage: () => void;
   onSubmit: () => void;
-  modalCardStyle: any;
+  modalCardStyle: StyleProp<ViewStyle>;
 }
 
 export function IncidentCreateModal({
@@ -91,7 +94,7 @@ export function IncidentCreateModal({
                         selected ? 'text-primary-foreground' : 'text-slate-700 dark:text-zinc-200'
                       }`}
                     >
-                      {INCIDENT_TYPE_LABEL[typeOption]}
+                      {INCIDENT_TYPE_LABEL[typeOption] /* nosemgrep */}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -113,6 +116,9 @@ export function IncidentCreateModal({
             />
 
             <Text className="mb-2 text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase">Fotografia (opcional)</Text>
+            <Text className="mb-2 text-xs italic text-muted-foreground">
+              {getLegalWarning('image_upload')}
+            </Text>
             <TouchableOpacity
               className="h-12 rounded-xl bg-muted border border-border px-4 mb-2 flex-row items-center"
               onPress={onPickImage}

@@ -232,7 +232,7 @@ export default function MisReservas() {
       <CustomAlertDialog
         config={alertConfig}
         onConfirm={processCancel}
-        onCancel={() => setAlertConfig(prev => ({ ...prev as any, visible: false }))}
+        onCancel={() => setAlertConfig(prev => ({ ...prev, visible: false }))}
         onAcknowledge={() => setAlertConfig(prev => ({ ...prev, visible: false }))}
       />
     </View>

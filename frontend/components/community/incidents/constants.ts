@@ -12,25 +12,28 @@ import {
   XCircle,
   Zap,
 } from 'lucide-react-native';
+import { type ComponentType } from 'react';
 import { type IncidentStatus, type IncidentType } from '@/api/incidents';
+
+type IconComponent = ComponentType<{ size?: number; color?: string }>;
 
 export type StatusTone = { text: string; bg: string; border: string };
 
 export const STATUS_TONE: Record<IncidentStatus, StatusTone> = {
-  PENDING: { text: '#B42318', bg: '#FEE4E2', border: '#FECDCA' },
+  PENDING: { text: '#B54708', bg: '#FEF9C3', border: '#FDE68A' },
   'IN PROGRESS': { text: '#B54708', bg: '#FEF0C7', border: '#FEDF89' },
   SOLVED: { text: '#067647', bg: '#D1FADF', border: '#A6F4C5' },
   DISCARDED: { text: '#991B1B', bg: '#FEE2E2', border: '#FECACA' },
 };
 
-export const STATUS_ICON: Record<IncidentStatus, any> = {
+export const STATUS_ICON: Record<IncidentStatus, IconComponent> = {
   PENDING: AlertTriangle,
   'IN PROGRESS': Clock3,
   SOLVED: CheckCircle2,
   DISCARDED: XCircle,
 };
 
-export const TYPE_META: Record<IncidentType, { icon: any; color: string; bg: string }> = {
+export const TYPE_META: Record<IncidentType, { icon: IconComponent; color: string; bg: string }> = {
   LIGHTING: { icon: Lightbulb, color: '#B54708', bg: '#FFF7ED' },
   ELECTRICITY: { icon: Zap, color: '#EA580C', bg: '#FFF7ED' },
   ELEVATOR: { icon: ArrowUp, color: '#1D4ED8', bg: '#EFF6FF' },

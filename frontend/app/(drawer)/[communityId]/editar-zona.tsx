@@ -34,7 +34,11 @@ const validateData = (data: Partial<CommonSpace> & Record<string, unknown>): str
     return 'Formato de hora de fin inválido (Usa HH:MM).';
   }
 
-  if (timeToMinutes(endTime) <= timeToMinutes(startTime)) {
+  const endMinutes = timeToMinutes(endTime);
+  // Treat 00:00 as midnight (end of day = 1440 minutes)
+  const effectiveEndMinutes = endMinutes === 0 ? 1440 : endMinutes;
+
+  if (effectiveEndMinutes <= timeToMinutes(startTime)) {
     return 'La hora de fin debe ser posterior a la hora de inicio.';
   }
 
@@ -89,7 +93,7 @@ export default function EditarZona() {
 
   useEffect(() => {
     if (communityId && zona_id) {
-      loadZona();
+      void loadZona();
     }
   }, [communityId, zona_id, loadZona]);
 

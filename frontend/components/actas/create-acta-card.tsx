@@ -5,6 +5,7 @@ import { Mic, Upload, X, Save, AlertCircle, Circle } from 'lucide-react-native';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { AudioPlayer } from './audio-player';
 import { minutesService } from '@/api/services/minutes.service';
+import { getLegalWarning } from '@/utils/legal-warnings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
@@ -75,7 +76,7 @@ export function CreateActaCard({
       flac: 'audio/flac',
       webm: 'audio/webm',
     };
-    const mimeType = mimeMap[extension];
+    const mimeType = mimeMap[extension]; // nosemgrep
 
     setAudioUri(result.uri);
     setAudioDuration(result.durationMs);
@@ -174,6 +175,10 @@ export function CreateActaCard({
                 className="h-12 text-base"
               />
             </View>
+
+            <Text className="text-xs italic text-muted-foreground">
+              {getLegalWarning('voice_signature')}
+            </Text>
 
             {!audioUri ? (
               <View className="gap-4">

@@ -53,11 +53,14 @@ export default function InvitationsScreen() {
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [invitationToReject, setInvitationToReject] = useState<string | null>(null);
+  const [showCancelledModal, setShowCancelledModal] = useState(false);
 
   const handleSessionExpired = async () => {
     await logoutContext();
     router.replace('/(auth)/sign-in');
   };
+
+  type ApiError = { response?: { status?: number; data?: { detail?: string } } };
 
   const handleAccept = async (invitationId: string) => {
     try {
@@ -65,13 +68,19 @@ export default function InvitationsScreen() {
       await acceptInvitation.mutateAsync(invitationId);
       await refreshUserContext();
       Alert.alert('Invitacion aceptada', 'Te has unido a la comunidad correctamente.');
-    } catch (error: any) {
-      if (error?.response?.status === 401) {
+    } catch (error: unknown) {
+      const err = error as ApiError;
+      if (err?.response?.status === 401) {
         Alert.alert('Sesion expirada', 'Vuelve a iniciar sesion para continuar.');
         await handleSessionExpired();
         return;
       }
-      Alert.alert('Error', error?.response?.data?.detail || 'No se pudo aceptar la invitacion.');
+      if (err?.response?.status === 404 || err?.response?.status === 400) {
+        setShowCancelledModal(true);
+        void refetch();
+        return;
+      }
+      Alert.alert('Error', err?.response?.data?.detail || 'No se pudo aceptar la invitacion.');
     } finally {
       setAcceptingId(null);
     }
@@ -84,13 +93,19 @@ export default function InvitationsScreen() {
       setRejectingId(invitationToReject);
       setInvitationToReject(null);
       await rejectInvitation.mutateAsync(invitationToReject);
-    } catch (error: any) {
-      if (error?.response?.status === 401) {
+    } catch (error: unknown) {
+      const err = error as ApiError;
+      if (err?.response?.status === 401) {
         Alert.alert('Sesion expirada', 'Vuelve a iniciar sesion para continuar.');
         await handleSessionExpired();
         return;
       }
-      Alert.alert('Error', error?.response?.data?.detail || 'No se pudo rechazar la invitacion.');
+      if (err?.response?.status === 404 || err?.response?.status === 400) {
+        setShowCancelledModal(true);
+        void refetch();
+        return;
+      }
+      Alert.alert('Error', err?.response?.data?.detail || 'No se pudo rechazar la invitacion.');
     } finally {
       setRejectingId(null);
     }
@@ -185,11 +200,11 @@ export default function InvitationsScreen() {
         <View className="flex-1 items-center justify-center px-6">
           <Text className="text-lg font-bold text-foreground mb-2 text-center">No pudimos cargar tus invitaciones</Text>
           <Text className="text-muted-foreground text-center mb-5">
-            {error && (error as any)?.response?.status === 401
+            {error && (error as ApiError)?.response?.status === 401
               ? 'Tu sesion ha expirado. Inicia sesion de nuevo.'
               : 'Ha ocurrido un error de red. Intentalo en unos segundos.'}
           </Text>
-          {(error as any)?.response?.status === 401 ? (
+          {(error as ApiError)?.response?.status === 401 ? (
             <Button className="h-11 px-5 bg-indigo-600" onPress={() => { void handleSessionExpired(); }}>
               <Text className="text-white font-semibold">Ir a iniciar sesion</Text>
             </Button>
@@ -243,6 +258,27 @@ export default function InvitationsScreen() {
                 {rejectingId ? <ActivityIndicator color="#dc2626" /> : <Text className="font-semibold text-red-600 dark:text-red-400">Rechazar</Text>}
               </Button>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal: Invitación cancelada por el admin/presidente */}
+      <Modal visible={showCancelledModal} transparent animationType="fade" onRequestClose={() => setShowCancelledModal(false)}>
+        <View className="flex-1 bg-black/40 items-center justify-center px-6">
+          <View className="w-full max-w-[360px] bg-card rounded-3xl p-6 border border-border items-center">
+            <View className="w-14 h-14 rounded-full bg-amber-100 dark:bg-amber-900/30 items-center justify-center mb-4">
+              <X size={28} color="#f59e0b" />
+            </View>
+            <Text className="text-xl font-bold text-foreground mb-2 text-center">Invitación no disponible</Text>
+            <Text className="text-sm text-muted-foreground mb-6 text-center">
+              El presidente o el administrador ha cancelado esta invitación.
+            </Text>
+            <Button
+              className="w-full h-12"
+              onPress={() => setShowCancelledModal(false)}
+            >
+              <Text className="text-primary-foreground font-semibold">Entendido</Text>
+            </Button>
           </View>
         </View>
       </Modal>
