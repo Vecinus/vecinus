@@ -14,7 +14,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import { ADMIN_ROLE_ID } from '@/utils/role.util';
@@ -26,6 +25,8 @@ import {
   SparklesIcon,
   UserIcon,
   UsersIcon,
+  ChevronDownIcon,
+  ArrowDownIcon,
 } from 'lucide-react-native';
 import * as React from 'react';
 import {
@@ -37,6 +38,8 @@ import {
   RefreshControl,
   type TextInputContentSizeChangeEventData,
   View,
+  TextInput,
+  type NativeScrollEvent,
 } from 'react-native';
 
 const CHAT_COMPOSER_MIN_HEIGHT = 24;
@@ -157,6 +160,9 @@ export default function CommunityChatScreen() {
   const [composerHeight, setComposerHeight] = React.useState(CHAT_COMPOSER_MIN_HEIGHT);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [isSending, setIsSending] = React.useState(false);
+  const [showScrollToBottom, setShowScrollToBottom] = React.useState(false);
+  const [hasNewMessages, setHasNewMessages] = React.useState(false);
+  const isAtBottomRef = React.useRef(true);
 
   const loadMessages = React.useCallback(async (channelId: string): Promise<void> => {
     const nextMessages = await fetchChannelMessages(channelId);
@@ -253,6 +259,10 @@ export default function CommunityChatScreen() {
             return current;
           }
 
+          if (!isAtBottomRef.current) {
+            setHasNewMessages(true);
+          }
+
           return [...current, payload];
         });
       } catch {
@@ -275,6 +285,26 @@ export default function CommunityChatScreen() {
       setIsRefreshing(false);
     }
   }, [channel?.id, loadMessages]);
+
+  const handleScroll = React.useCallback((event: NativeSyntheticEvent<NativeScrollEvent>): void => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const distanceToBottom = contentSize.height - (layoutMeasurement.height + contentOffset.y);
+
+    // Si estamos a menos de 50px del fondo, consideramos que estamos en el fondo
+    const isAtBottom = distanceToBottom < 50;
+    setShowScrollToBottom(!isAtBottom);
+    isAtBottomRef.current = isAtBottom;
+
+    if (isAtBottom) {
+      setHasNewMessages(false);
+    }
+  }, []);
+
+  const scrollToBottom = React.useCallback((): void => {
+    flatListRef.current?.scrollToEnd({ animated: true });
+    setHasNewMessages(false);
+    isAtBottomRef.current = true;
+  }, []);
 
   const handleSend = React.useCallback(async (): Promise<void> => {
     const trimmedMessage = messageText.trim();
@@ -388,7 +418,13 @@ export default function CommunityChatScreen() {
                 refreshControl={
                   <RefreshControl refreshing={isRefreshing} onRefresh={() => void handleRefresh()} />
                 }
-                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                onContentSizeChange={() => {
+                  if (!showScrollToBottom) {
+                    flatListRef.current?.scrollToEnd({ animated: true });
+                  }
+                }}
+                onScroll={handleScroll}
+                scrollEventThrottle={16}
                 ListEmptyComponent={
                   <View className="items-center gap-3 px-6 py-16">
                     <View className="rounded-full bg-primary/10 p-4">
@@ -404,6 +440,22 @@ export default function CommunityChatScreen() {
                 }
               />
             ) : null}
+
+            {showScrollToBottom && (
+              <View className="absolute bottom-4 left-0 right-0 z-50 items-center">
+                <Button
+                  onPress={scrollToBottom}
+                  size="icon"
+                  className="size-12 rounded-full bg-primary shadow-lg">
+                  <View className="relative">
+                    <Icon as={ArrowDownIcon} size={20} className="text-primary-foreground" />
+                    {hasNewMessages && (
+                      <View className="absolute -right-1 -top-1 size-3 rounded-full border-2 border-primary bg-destructive" />
+                    )}
+                  </View>
+                </Button>
+              </View>
+            )}
           </View>
 
           {state === 'ready' ? (
@@ -416,7 +468,7 @@ export default function CommunityChatScreen() {
               ) : null}
 
               <View className="flex-row items-end gap-3 rounded-3xl border border-border bg-background px-3 py-2">
-                <Textarea
+                <TextInput
                   value={messageText}
                   onChangeText={setMessageText}
                   onContentSizeChange={(event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>) => {
@@ -430,10 +482,11 @@ export default function CommunityChatScreen() {
                     setComposerHeight(nextHeight);
                   }}
                   placeholder="Escribe tu mensaje"
+                  multiline
                   numberOfLines={1}
                   scrollEnabled={composerHeight >= CHAT_COMPOSER_MAX_HEIGHT}
                   style={{ height: composerHeight, maxHeight: CHAT_COMPOSER_MAX_HEIGHT }}
-                  className="min-h-0 flex-1 border-0 bg-transparent px-0 py-1 shadow-none"
+                  className="min-h-0 flex-1 border-0 bg-transparent px-0 py-1 text-base text-foreground shadow-none"
                 />
 
                 <Button

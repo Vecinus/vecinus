@@ -196,6 +196,7 @@ def validate_guest_pass_qr_and_check_in(
     current_user_id: str,
     active_association_id: str,
     qr_token: str,
+    space_id: int | None = None,
 ) -> dict | None:
     guest_pass_response = (
         supabase_admin.table(GUEST_PASS_TABLE)
@@ -216,6 +217,12 @@ def validate_guest_pass_qr_and_check_in(
 
     if str(association_id) != active_association_id:
         raise HTTPException(status_code=403, detail="Este codigo QR no pertenece a la comunidad seleccionada")
+
+    if space_id is not None and int(guest_pass["space_id"]) != space_id:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Este codigo QR es para '{common_space.get('name')}' y no para la zona actual",
+        )
 
     _verify_employee_membership(supabase_admin, str(association_id), current_user_id)
 
