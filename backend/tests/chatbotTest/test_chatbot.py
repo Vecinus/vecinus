@@ -233,7 +233,7 @@ def test_upload_documento_no_admin_devuelve_403():
 
     response = client.post(f"/comunities/{COMMUNITY_ID}/documents", files=archivos)
     assert response.status_code == 403  # nosec B101
-    assert response.json()["detail"] == "Admin access required for this action"  # nosec B101
+    assert response.json()["detail"] == "Admin or president access required for this action"  # nosec B101
 
 
 def test_chatbot_no_envia_historial_al_backend():
@@ -312,7 +312,7 @@ def test_borrar_documento_no_admin_devuelve_403():
 
     response = client.delete(f"/comunities/{COMMUNITY_ID}/documents?document_title=prueba.txt")
     assert response.status_code == 403  # nosec B101
-    assert response.json()["detail"] == "Admin access required for this action"  # nosec B101
+    assert response.json()["detail"] == "Admin or president access required for this action"  # nosec B101
 
 
 def test_listar_documentos_no_admin_devuelve_403():
@@ -324,4 +324,4 @@ def test_listar_documentos_no_admin_devuelve_403():
 
     response = client.get(f"/comunities/{COMMUNITY_ID}/documents")
     assert response.status_code == 403  # nosec B101
-    assert response.json()["detail"] == "Admin access required for this action"  # nosec B101
+    assert response.json()["detail"] == "Admin or president access required for this action"  # nosec B101
