@@ -124,3 +124,8 @@ class RegistrationPaymentOrderResponse(BaseModel):
     created_subscription_id: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
+
+
+class CancelSubscriptionResponse(BaseModel):
+    ok: bool
+    message: str

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Modal, ScrollView, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle } from 'lucide-react-native';
@@ -13,8 +13,10 @@ import { RetryPaymentButton } from '@/components/community/RetryPaymentButton';
 import { SubscriptionStatusCard } from '@/components/community/SubscriptionStatusCard';
 import { UsageMeters } from '@/components/community/UsageMeters';
 import { useAuth } from '@/context/AuthContext';
+import { getErrorMessage } from '@/lib/error-message';
 import {
   subscriptionKeys,
+  useCancelSubscription,
   useSubscriptionStatus,
   useSubscriptionUsage,
 } from '@/hooks/useSubscription';
@@ -83,6 +85,11 @@ export default function CommunitySubscriptionScreen() {
     isLoading: usageLoading,
     refetch: refetchUsage,
   } = useSubscriptionUsage(communityId, canView);
+
+  const [cancelModalOpen, setCancelModalOpen] = React.useState(false);
+  const [actionError, setActionError] = React.useState<string | null>(null);
+
+  const { mutate: cancelSubscription, isPending: isCancelling } = useCancelSubscription(communityId);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -182,6 +189,22 @@ export default function CommunitySubscriptionScreen() {
   const activeHouseholdCount = status.household_count ?? 0;
   const pendingHouseholdCount = status.pending_household_count;
   const hasPendingChange = !!status.pending_plan || pendingHouseholdCount !== null;
+  const isCancelled = status.status === 'cancelled';
+  const anySubscriptionActionPending = isCancelling;
+
+  const handleConfirmCancel = () => {
+    setActionError(null);
+    cancelSubscription(undefined, {
+      onSuccess: () => {
+        setCancelModalOpen(false);
+      },
+      onError: (error) => {
+        setActionError(
+          getErrorMessage(error, 'No se pudo cancelar la suscripción.'),
+        );
+      },
+    });
+  };
 
   return (
     <ScrollView
@@ -201,7 +224,7 @@ export default function CommunitySubscriptionScreen() {
 
       <SubscriptionStatusCard status={status} />
 
-      {isAdmin ? (
+      {isAdmin && !isCancelled ? (
         <View className="rounded-2xl border border-border bg-card p-5 gap-4">
           <View className="gap-1">
             <Text className="text-lg font-bold text-foreground">Plan y límite de viviendas</Text>
@@ -238,12 +261,63 @@ export default function CommunitySubscriptionScreen() {
             </View>
           )}
 
+          {isCancelled ? (
+            <Button
+              onPress={() => router.push(`/${communityId}/reactivate-subscription`)}
+              className="h-12 rounded-xl"
+            >
+              <Text className="font-semibold text-primary-foreground">Reactivar suscripción</Text>
+            </Button>
+          ) : (
+            <>
+              <Button
+                onPress={() => router.push(`/${communityId}/subscription-plan`)}
+                className="h-12 rounded-xl"
+              >
+                <Text className="font-semibold text-primary-foreground">Gestionar plan</Text>
+              </Button>
+
+              <Button
+                variant="outline"
+                onPress={() => setCancelModalOpen(true)}
+                disabled={anySubscriptionActionPending}
+                className="h-12 rounded-xl border-destructive/40"
+              >
+                <Text className="font-semibold text-foreground">Cancelar suscripción</Text>
+              </Button>
+            </>
+          )}
+
+          {actionError ? (
+            <View className="rounded-md border border-destructive/40 bg-destructive/10 p-3">
+              <Text className="text-xs text-destructive">{actionError}</Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
+      {isAdmin && isCancelled ? (
+        <View className="rounded-2xl border border-border bg-card p-5 gap-4">
+          <View className="gap-1">
+            <Text className="text-lg font-bold text-foreground">Suscripción cancelada</Text>
+            <Text className="text-sm text-muted-foreground">
+              La comunidad está bloqueada. Si quieres volver a utilizarla, tendrás que contratar de nuevo
+              un plan y firmar un mandato nuevo.
+            </Text>
+          </View>
+
           <Button
-            onPress={() => router.push(`/${communityId}/subscription-plan`)}
+            onPress={() => router.push(`/${communityId}/reactivate-subscription`)}
             className="h-12 rounded-xl"
           >
-            <Text className="font-semibold text-primary-foreground">Gestionar plan</Text>
+            <Text className="font-semibold text-primary-foreground">Reactivar suscripción</Text>
           </Button>
+
+          {actionError ? (
+            <View className="rounded-md border border-destructive/40 bg-destructive/10 p-3">
+              <Text className="text-xs text-destructive">{actionError}</Text>
+            </View>
+          ) : null}
         </View>
       ) : null}
 
@@ -288,6 +362,53 @@ export default function CommunitySubscriptionScreen() {
           </Text>
         </View>
       ) : null}
+
+      <Modal
+        visible={cancelModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!isCancelling) setCancelModalOpen(false);
+        }}
+      >
+        <View className="flex-1 items-center justify-center bg-black/50 p-6">
+          <View className="w-full max-w-md gap-4 rounded-2xl border border-border bg-background p-6 shadow-xl">
+            <View className="gap-2">
+              <Text className="text-lg font-semibold text-foreground">Cancelar suscripción</Text>
+              <Text className="text-sm text-muted-foreground">
+                La comunidad quedará bloqueada inmediatamente. Para volver a utilizarla habrá que
+                contratar de nuevo un plan y firmar un mandato nuevo.
+              </Text>
+            </View>
+
+            {actionError ? (
+              <View className="rounded-md border border-destructive/40 bg-destructive/10 p-3">
+                <Text className="text-xs text-destructive">{actionError}</Text>
+              </View>
+            ) : null}
+
+            <View className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button
+                variant="outline"
+                onPress={() => setCancelModalOpen(false)}
+                disabled={isCancelling}
+                className="h-11"
+              >
+                <Text>Volver</Text>
+              </Button>
+              <Button
+                onPress={handleConfirmCancel}
+                disabled={isCancelling}
+                className="h-11 bg-destructive"
+              >
+                <Text className="font-bold text-white">
+                  {isCancelling ? 'Guardando...' : 'Confirmar cancelación'}
+                </Text>
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }

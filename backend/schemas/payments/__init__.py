@@ -1,4 +1,5 @@
 from schemas.payments.payments import (
+    CancelSubscriptionResponse,
     CommunityDraft,
     CommunityOrderItemResponse,
     CommunityPaymentOrderCreate,
@@ -10,6 +11,7 @@ from schemas.payments.payments import (
 )
 
 __all__ = [
+    "CancelSubscriptionResponse",
     "CommunityDraft",
     "CommunityOrderItemResponse",
     "CommunityPaymentOrderCreate",

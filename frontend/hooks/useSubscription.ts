@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { paymentsApi } from '@/api/payments';
 import type {
+  CancelSubscriptionResponse,
   RenewSubscriptionResponse,
   RetryPaymentResponse,
   SubscriptionStatusResponse,
@@ -64,6 +65,19 @@ export const useRetryPayment = (communityId: string | undefined) => {
 export const useRenewSubscription = (communityId: string | undefined) => {
   return useMutation<RenewSubscriptionResponse, Error, void>({
     mutationFn: () => paymentsApi.renewSubscription(communityId as string),
+  });
+};
+
+export const useCancelSubscription = (communityId: string | undefined) => {
+  const queryClient = useQueryClient();
+
+  return useMutation<CancelSubscriptionResponse, Error, void>({
+    mutationFn: () => paymentsApi.cancelSubscription(communityId as string),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: subscriptionKeys.status(communityId),
+      });
+    },
   });
 };
 

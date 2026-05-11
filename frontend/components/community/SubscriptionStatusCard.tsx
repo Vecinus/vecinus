@@ -127,7 +127,9 @@ export function SubscriptionStatusCard({ status }: Props) {
         {householdCount > 0 ? (
           <DetailRow label="Viviendas" value={`${currentHouseholdCount} / ${householdCount}`} />
         ) : null}
-        <DetailRow label="Próximo cobro" value={formatDate(status.current_period_end)} />
+        {status.status !== 'cancelled' ? (
+          <DetailRow label="Próximo cobro" value={formatDate(status.current_period_end)} />
+        ) : null}
         <DetailRow label="Último cobro confirmado" value={formatDateTime(status.last_payment_at)} />
         {status.last_failure_at ? (
           <DetailRow label="Último fallo" value={formatDateTime(status.last_failure_at)} />

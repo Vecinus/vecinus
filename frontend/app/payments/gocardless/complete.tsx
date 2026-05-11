@@ -22,19 +22,26 @@ export default function GocardlessCompleteScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { refreshUserContext } = useAuth();
-  const params = useLocalSearchParams<{ order_id?: string | string[]; activation_order_id?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    order_id?: string | string[];
+    activation_order_id?: string | string[];
+    reactivation_order_id?: string | string[];
+  }>();
 
   const orderId = Array.isArray(params.order_id) ? params.order_id[0] : params.order_id;
   const activationOrderId = Array.isArray(params.activation_order_id)
     ? params.activation_order_id[0]
     : params.activation_order_id;
+  const reactivationOrderId = Array.isArray(params.reactivation_order_id)
+    ? params.reactivation_order_id[0]
+    : params.reactivation_order_id;
 
   const [state, setState] = React.useState<ScreenState>({ kind: 'verifying' });
 
   const didRunRef = React.useRef(false);
 
   const runComplete = React.useCallback(async () => {
-    if (!orderId && !activationOrderId) {
+    if (!orderId && !activationOrderId && !reactivationOrderId) {
       setState({
         kind: 'error',
         message: 'No se encontró el identificador de la orden de pago en la URL.',
@@ -45,15 +52,17 @@ export default function GocardlessCompleteScreen() {
     setState({ kind: 'verifying' });
 
     try {
-      const updated = activationOrderId
-        ? await paymentsApi.completeSubscriptionActivationOrder(activationOrderId)
-        : await paymentsApi.completeRegistrationOrder(orderId as string);
+      const updated = reactivationOrderId
+        ? await paymentsApi.completeSubscriptionReactivationOrder(reactivationOrderId)
+        : activationOrderId
+          ? await paymentsApi.completeSubscriptionActivationOrder(activationOrderId)
+          : await paymentsApi.completeRegistrationOrder(orderId as string);
 
       if (updated.created_subscription_id) {
 
         queryClient.clear();
         await refreshUserContext();
-        const destination = activationOrderId && updated.created_association_id
+        const destination = (activationOrderId || reactivationOrderId) && updated.created_association_id
           ? `/${updated.created_association_id}/subscription`
           : '/';
         router.replace(destination as never);
@@ -73,7 +82,7 @@ export default function GocardlessCompleteScreen() {
       );
       setState({ kind: 'error', message });
     }
-  }, [activationOrderId, orderId, queryClient, refreshUserContext, router]);
+  }, [activationOrderId, orderId, queryClient, reactivationOrderId, refreshUserContext, router]);
 
   React.useEffect(() => {
     if (didRunRef.current) return;

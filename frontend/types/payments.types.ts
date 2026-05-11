@@ -184,3 +184,8 @@ export type RetryPaymentResponse = {
 export type RenewSubscriptionResponse = {
   checkout_url: string;
 };
+
+export type CancelSubscriptionResponse = {
+  ok: boolean;
+  message: string;
+};

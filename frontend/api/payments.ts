@@ -1,5 +1,6 @@
 import { apiClient } from './client';
 import type {
+  CancelSubscriptionResponse,
   RegistrationOrderCreate,
   RegistrationPaymentOrderResponse,
   RenewSubscriptionResponse,
@@ -51,6 +52,26 @@ export const paymentsApi = {
     return data;
   },
 
+  createSubscriptionReactivationOrder: async (
+    communityId: string,
+    body: SubscriptionActivationOrderCreate,
+  ): Promise<RegistrationPaymentOrderResponse> => {
+    const { data } = await apiClient.post<RegistrationPaymentOrderResponse>(
+      `/payments/subscriptions/${encodeURIComponent(communityId)}/reactivation-orders`,
+      body,
+    );
+    return data;
+  },
+
+  completeSubscriptionReactivationOrder: async (
+    orderId: string,
+  ): Promise<RegistrationPaymentOrderResponse> => {
+    const { data } = await apiClient.post<RegistrationPaymentOrderResponse>(
+      `/payments/subscriptions/reactivation-orders/${encodeURIComponent(orderId)}/complete`,
+    );
+    return data;
+  },
+
   getSubscriptionStatus: async (communityId: string): Promise<SubscriptionStatusResponse> => {
     const { data } = await apiClient.get<SubscriptionStatusResponse>(
       `/payments/subscriptions/${encodeURIComponent(communityId)}`,
@@ -75,6 +96,13 @@ export const paymentsApi = {
   renewSubscription: async (communityId: string): Promise<RenewSubscriptionResponse> => {
     const { data } = await apiClient.post<RenewSubscriptionResponse>(
       `/payments/subscriptions/${encodeURIComponent(communityId)}/renew`,
+    );
+    return data;
+  },
+
+  cancelSubscription: async (communityId: string): Promise<CancelSubscriptionResponse> => {
+    const { data } = await apiClient.post<CancelSubscriptionResponse>(
+      `/payments/subscriptions/${encodeURIComponent(communityId)}/cancel`,
     );
     return data;
   },

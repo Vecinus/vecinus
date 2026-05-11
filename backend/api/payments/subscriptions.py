@@ -27,12 +27,19 @@ from core.config import settings
 from core.deps import get_current_user, get_supabase_admin
 from fastapi import APIRouter, Depends, HTTPException, status
 from schemas.payments import (
+    CancelSubscriptionResponse,
     RegistrationPaymentOrderResponse,
     SubscriptionActivationOrderCreate,
     SubscriptionChangeRequest,
 )
-from services.payments import complete_subscription_activation_order, create_subscription_activation_order
+from services.payments import (
+    complete_subscription_activation_order,
+    complete_subscription_reactivation_order,
+    create_subscription_activation_order,
+    create_subscription_reactivation_order,
+)
 from services.payments.gocardless_service import (
+    cancel_subscription,
     create_billing_request_flow,
     create_mandate_billing_request,
     retry_payment,
@@ -68,6 +75,21 @@ def create_activation_order(
     return create_subscription_activation_order(supabase_admin, current_user, association_id, payload)
 
 
+@router.post(
+    "/{community_id}/reactivation-orders",
+    response_model=RegistrationPaymentOrderResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_reactivation_order(
+    community_id: UUID,
+    payload: SubscriptionActivationOrderCreate,
+    current_user: dict = Depends(get_current_user),
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
+    association_id = str(community_id)
+    return create_subscription_reactivation_order(supabase_admin, current_user, association_id, payload)
+
+
 @router.post("/activation-orders/{order_id}/complete", response_model=RegistrationPaymentOrderResponse)
 def complete_activation_order(
     order_id: str,
@@ -75,6 +97,15 @@ def complete_activation_order(
     supabase_admin: Client = Depends(get_supabase_admin),
 ):
     return complete_subscription_activation_order(supabase_admin, current_user, order_id)
+
+
+@router.post("/reactivation-orders/{order_id}/complete", response_model=RegistrationPaymentOrderResponse)
+def complete_reactivation_order(
+    order_id: str,
+    current_user: dict = Depends(get_current_user),
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
+    return complete_subscription_reactivation_order(supabase_admin, current_user, order_id)
 
 
 def _now_iso() -> str:
@@ -480,6 +511,49 @@ def _extract_gocardless_error_reasons(detail_text: str) -> list[str]:
     if not isinstance(items, list):
         return []
     return [str(item.get("reason")) for item in items if isinstance(item, dict) and item.get("reason")]
+
+
+@router.post("/{community_id}/cancel", response_model=CancelSubscriptionResponse)
+def cancel_subscription_now(
+    community_id: UUID,
+    current_user: dict = Depends(get_current_user),
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
+    association_id = str(community_id)
+    _require_membership(supabase_admin, current_user["id"], association_id, allowed_roles={1})
+
+    subscription = _load_subscription(supabase_admin, association_id)
+    if subscription.get("status") == "cancelled":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This subscription is already cancelled")
+
+    gc_subscription_id = subscription.get("gocardless_subscription_id")
+    if gc_subscription_id:
+        cancel_subscription(
+            str(gc_subscription_id),
+            metadata={
+                "reason": "manual_cancellation",
+                "subscription_id": str(subscription["id"]),
+                "association_id": association_id,
+            },
+            idempotency_key=f"manual-cancel-{subscription['id']}",
+        )
+
+    (
+        supabase_admin.table("community_subscriptions")
+        .update(
+            {
+                "status": "cancelled",
+                "cancelled_at": _now_iso(),
+            }
+        )
+        .eq("id", subscription["id"])
+        .execute()
+    )
+
+    return {
+        "ok": True,
+        "message": "La suscripción se ha cancelado inmediatamente.",
+    }
 
 
 @router.post("/{community_id}/renew", status_code=status.HTTP_201_CREATED)

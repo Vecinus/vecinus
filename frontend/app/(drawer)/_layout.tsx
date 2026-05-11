@@ -213,6 +213,14 @@ export default function DrawerLayout() {
         }}
       />
       <Drawer.Screen
+        name="[communityId]/reactivate-subscription"
+        initialParams={{ communityId: activeCommunity?.id }}
+        options={{
+          title: 'Reactivar suscripción',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
         name="[communityId]/incidencia/[incidentId]"
         options={{
           headerTitle: 'Detalle de Incidencia',
