@@ -4,7 +4,13 @@ import { storageService } from '@/api/services/storage.service';
 import { fetchUserWithCommunities } from '@/api/auth';
 import { User } from '@/types/auth.types';
 
-type ActiveCommunity = { id: string; name: string; role: string | number; address?: string | null };
+type ActiveCommunity = {
+  id: string;
+  name: string;
+  role: string | number;
+  address?: string | null;
+  household_count?: number | null;
+};
 
 interface AuthContextType {
   user: User | null;
@@ -66,6 +72,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 name: storedMembership.community.name,
                 role: storedMembership.role,
                 address: storedCommunity.address ?? storedMembership.community.address ?? null,
+                household_count:
+                  storedCommunity.household_count ?? storedMembership.community.household_count ?? null,
               };
               setActiveCommunityState(normalizedCommunity);
               await storageService.saveActiveCommunity(normalizedCommunity);
@@ -93,6 +101,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         name: userData.CommunitiesAndRole[0].community.name,
         role: userData.CommunitiesAndRole[0].role,
         address: userData.CommunitiesAndRole[0].community.address ?? null,
+        household_count: userData.CommunitiesAndRole[0].community.household_count ?? null,
       };
       setActiveCommunityState(firstCommunity);
       await storageService.saveActiveCommunity(firstCommunity);
@@ -144,6 +153,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             name: updatedMembership.community.name,
             role: updatedMembership.role,
             address: updatedMembership.community.address ?? null,
+            household_count: updatedMembership.community.household_count ?? null,
           };
           setActiveCommunityState(updatedCommunity);
           await storageService.saveActiveCommunity(updatedCommunity);

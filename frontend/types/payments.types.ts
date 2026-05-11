@@ -26,6 +26,11 @@ export type RegistrationOrderCreate = {
   household_count: number;
 };
 
+export type SubscriptionActivationOrderCreate = {
+  plan: PlanCode;
+  household_count: number;
+};
+
 export type RegistrationPaymentOrderResponse = {
   id: string;
   email: string;

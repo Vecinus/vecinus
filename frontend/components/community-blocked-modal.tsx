@@ -48,7 +48,7 @@ export function CommunityBlockedModal({ detail, onClose }: Props) {
   const roleId = membership ? Number(membership.role) : null;
   const isAdmin = roleId === ADMIN_ROLE;
   const isPresident = roleId === PRESIDENT_ROLE;
-  const canManage = isAdmin || isPresident;
+  const canManage = detail?.code === 'community_no_subscription' ? isAdmin : isAdmin || isPresident;
 
   const title = detail?.code === 'community_no_subscription'
     ? 'Sin suscripción activa'
@@ -64,7 +64,10 @@ export function CommunityBlockedModal({ detail, onClose }: Props) {
     if (!detail) return;
     onClose();
 
-    router.push((`/${detail.association_id}/subscription`) as never);
+    const destination = detail.code === 'community_no_subscription'
+      ? `/${detail.association_id}/activate-subscription`
+      : `/${detail.association_id}/subscription`;
+    router.push((destination) as never);
   }, [detail, onClose, router]);
 
 
@@ -100,8 +103,9 @@ export function CommunityBlockedModal({ detail, onClose }: Props) {
 
         {!canManage ? (
           <Text className="text-sm text-muted-foreground">
-            Avisa al administrador de la comunidad para que regularice la suscripción
-            desde el panel de pagos.
+            {detail?.code === 'community_no_subscription'
+              ? 'Avisa al administrador de la comunidad para que active la suscripción desde el panel de pagos.'
+              : 'Avisa al administrador de la comunidad para que regularice la suscripción desde el panel de pagos.'}
           </Text>
         ) : null}
 
@@ -113,7 +117,11 @@ export function CommunityBlockedModal({ detail, onClose }: Props) {
           {canManage ? (
             <Button onPress={handleOpenAdmin}>
               <Text className="text-primary-foreground font-semibold">
-                {isAdmin ? 'Abrir panel de administración' : 'Ver estado de la suscripción'}
+                {detail?.code === 'community_no_subscription'
+                  ? 'Activar suscripción'
+                  : isAdmin
+                    ? 'Abrir panel de administración'
+                    : 'Ver estado de la suscripción'}
               </Text>
             </Button>
           ) : null}

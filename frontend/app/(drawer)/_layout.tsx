@@ -205,6 +205,14 @@ export default function DrawerLayout() {
         }}
       />
       <Drawer.Screen
+        name="[communityId]/activate-subscription"
+        initialParams={{ communityId: activeCommunity?.id }}
+        options={{
+          title: 'Activar suscripción',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
         name="[communityId]/incidencia/[incidentId]"
         options={{
           headerTitle: 'Detalle de Incidencia',

@@ -26,7 +26,12 @@ from uuid import UUID, uuid4
 from core.config import settings
 from core.deps import get_current_user, get_supabase_admin
 from fastapi import APIRouter, Depends, HTTPException, status
-from schemas.payments import SubscriptionChangeRequest
+from schemas.payments import (
+    RegistrationPaymentOrderResponse,
+    SubscriptionActivationOrderCreate,
+    SubscriptionChangeRequest,
+)
+from services.payments import complete_subscription_activation_order, create_subscription_activation_order
 from services.payments.gocardless_service import (
     create_billing_request_flow,
     create_mandate_billing_request,
@@ -42,9 +47,34 @@ from services.payments.subscription_service import (
     load_subscription,
     resolve_operational_household_limit,
 )
+from services.payments.usage_counters_service import ensure_usage_counters_initialized
 from supabase import Client
 
 router = APIRouter(prefix="/payments/subscriptions", tags=["subscriptions"])
+
+
+@router.post(
+    "/{community_id}/activation-orders",
+    response_model=RegistrationPaymentOrderResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_activation_order(
+    community_id: UUID,
+    payload: SubscriptionActivationOrderCreate,
+    current_user: dict = Depends(get_current_user),
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
+    association_id = str(community_id)
+    return create_subscription_activation_order(supabase_admin, current_user, association_id, payload)
+
+
+@router.post("/activation-orders/{order_id}/complete", response_model=RegistrationPaymentOrderResponse)
+def complete_activation_order(
+    order_id: str,
+    current_user: dict = Depends(get_current_user),
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
+    return complete_subscription_activation_order(supabase_admin, current_user, order_id)
 
 
 def _now_iso() -> str:
@@ -228,6 +258,16 @@ def get_subscription_usage(
         .limit(1)
         .execute()
     )
+
+    if not counters_res.data:
+        ensure_usage_counters_initialized(supabase_admin, str(subscription["id"]))
+        counters_res = (
+            supabase_admin.table("community_usage_counters")
+            .select("*")
+            .eq("community_subscription_id", subscription["id"])
+            .limit(1)
+            .execute()
+        )
 
     if not counters_res.data:
         # Si falta la fila técnica de contadores, devolvemos la cuota base del

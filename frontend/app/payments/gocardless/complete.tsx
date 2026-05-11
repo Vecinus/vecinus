@@ -22,16 +22,19 @@ export default function GocardlessCompleteScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { refreshUserContext } = useAuth();
-  const params = useLocalSearchParams<{ order_id?: string | string[] }>();
+  const params = useLocalSearchParams<{ order_id?: string | string[]; activation_order_id?: string | string[] }>();
 
   const orderId = Array.isArray(params.order_id) ? params.order_id[0] : params.order_id;
+  const activationOrderId = Array.isArray(params.activation_order_id)
+    ? params.activation_order_id[0]
+    : params.activation_order_id;
 
   const [state, setState] = React.useState<ScreenState>({ kind: 'verifying' });
 
   const didRunRef = React.useRef(false);
 
   const runComplete = React.useCallback(async () => {
-    if (!orderId) {
+    if (!orderId && !activationOrderId) {
       setState({
         kind: 'error',
         message: 'No se encontró el identificador de la orden de pago en la URL.',
@@ -42,13 +45,18 @@ export default function GocardlessCompleteScreen() {
     setState({ kind: 'verifying' });
 
     try {
-      const updated = await paymentsApi.completeRegistrationOrder(orderId);
+      const updated = activationOrderId
+        ? await paymentsApi.completeSubscriptionActivationOrder(activationOrderId)
+        : await paymentsApi.completeRegistrationOrder(orderId as string);
 
       if (updated.created_subscription_id) {
 
         queryClient.clear();
         await refreshUserContext();
-        router.replace('/');
+        const destination = activationOrderId && updated.created_association_id
+          ? `/${updated.created_association_id}/subscription`
+          : '/';
+        router.replace(destination as never);
         return;
       }
 
@@ -65,7 +73,7 @@ export default function GocardlessCompleteScreen() {
       );
       setState({ kind: 'error', message });
     }
-  }, [orderId, queryClient, refreshUserContext, router]);
+  }, [activationOrderId, orderId, queryClient, refreshUserContext, router]);
 
   React.useEffect(() => {
     if (didRunRef.current) return;

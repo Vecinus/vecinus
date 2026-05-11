@@ -4,6 +4,7 @@ import type {
   RegistrationPaymentOrderResponse,
   RenewSubscriptionResponse,
   RetryPaymentResponse,
+  SubscriptionActivationOrderCreate,
   SubscriptionStatusResponse,
   SubscriptionUsageResponse,
   UpdateSubscriptionRequest,
@@ -24,11 +25,28 @@ export const paymentsApi = {
   completeRegistrationOrder: async (
     orderId: string,
   ): Promise<RegistrationPaymentOrderResponse> => {
-    // Sin body: el backend identifica al usuario por JWT (header Authorization
-    // que el interceptor de axios añade) y verifica el mandato en GoCardless
-    // a partir del order_id.
     const { data } = await apiClient.post<RegistrationPaymentOrderResponse>(
       `/registration/gocardless/orders/${encodeURIComponent(orderId)}/complete`,
+    );
+    return data;
+  },
+
+  createSubscriptionActivationOrder: async (
+    communityId: string,
+    body: SubscriptionActivationOrderCreate,
+  ): Promise<RegistrationPaymentOrderResponse> => {
+    const { data } = await apiClient.post<RegistrationPaymentOrderResponse>(
+      `/payments/subscriptions/${encodeURIComponent(communityId)}/activation-orders`,
+      body,
+    );
+    return data;
+  },
+
+  completeSubscriptionActivationOrder: async (
+    orderId: string,
+  ): Promise<RegistrationPaymentOrderResponse> => {
+    const { data } = await apiClient.post<RegistrationPaymentOrderResponse>(
+      `/payments/subscriptions/activation-orders/${encodeURIComponent(orderId)}/complete`,
     );
     return data;
   },

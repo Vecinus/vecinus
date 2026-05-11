@@ -80,6 +80,11 @@ class SubscriptionChangeRequest(BaseModel):
     household_count: int = Field(..., ge=0, le=10000)
 
 
+class SubscriptionActivationOrderCreate(BaseModel):
+    plan: PlanCode
+    household_count: int = Field(..., ge=0, le=10000)
+
+
 class RegistrationPaymentOrderResponse(BaseModel):
     id: UUID
     email: EmailStr

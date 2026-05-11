@@ -13,6 +13,7 @@ from services.payments.gocardless_service import (
     get_billing_request,
     get_mandate,
 )
+from services.payments.usage_counters_service import ensure_usage_counters_initialized
 from supabase import Client
 
 logger = logging.getLogger(__name__)
@@ -303,14 +304,6 @@ def _ensure_gocardless_subscription(
     return (update_res.data or [cs_row])[0]
 
 
-def _initialize_usage_counters(supabase_admin: Client, subscription_id: str) -> None:
-    try:
-        supabase_admin.rpc("reset_usage_counters", {"p_subscription_id": subscription_id}).execute()
-    except Exception:
-        # El cron diario `reset_stale_usage_counters` recuperará el estado.
-        logger.exception("reset_usage_counters RPC failed for subscription %s", subscription_id)
-
-
 def complete_registration_order(
     supabase_admin: Client,
     current_user: dict[str, Any],
@@ -400,7 +393,7 @@ def complete_registration_order(
         amount_cents=amount_cents,
     )
 
-    _initialize_usage_counters(supabase_admin, str(cs_row["id"]))
+    ensure_usage_counters_initialized(supabase_admin, str(cs_row["id"]))
 
     update_res = (
         supabase_admin.table("registration_payment_orders")

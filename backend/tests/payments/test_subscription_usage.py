@@ -24,7 +24,7 @@ class MockSupabaseTable:
         self._limit: int | None = None
 
     def select(self, *args, **kwargs):
-        if self._operation not in {"update"}:
+        if self._operation not in {"update", "insert"}:
             self._operation = "select"
         return self
 
@@ -41,10 +41,19 @@ class MockSupabaseTable:
         self._payload = payload
         return self
 
+    def insert(self, payload: dict[str, Any], *args, **kwargs):
+        self._operation = "insert"
+        self._payload = payload
+        return self
+
     def execute(self):
         rows = [
             row for row in self._storage[self._table_name] if all(row.get(col) == val for col, val in self._filters)
         ]
+        if self._operation == "insert":
+            row = dict(self._payload or {})
+            self._storage[self._table_name].append(row)
+            return MockResponse([dict(row)])
         if self._operation == "update":
             updated = []
             for row in rows:
@@ -64,6 +73,25 @@ class MockSupabaseClient:
         if name not in self.storage:
             raise AssertionError(f"Unexpected table requested: {name}")
         return MockSupabaseTable(name, self.storage)
+
+    def rpc(self, name: str, payload: dict[str, Any]):
+        if name != "reset_usage_counters":
+            raise AssertionError(f"Unexpected RPC requested: {name}")
+        subscription_id = payload["p_subscription_id"]
+        self.storage["community_usage_counters"].append(
+            {
+                "community_subscription_id": subscription_id,
+                "chatbot_messages_quota": 200,
+                "chatbot_messages_used": 0,
+                "minutes_seconds_balance": 7200,
+                "minutes_seconds_used": 0,
+                "minutes_seconds_cap": 21600,
+                "period_started_at": "2026-05-01T00:00:00+00:00",
+                "period_ends_at": "2026-06-01T00:00:00+00:00",
+                "last_reset_at": "2026-05-01T00:00:00+00:00",
+            }
+        )
+        return type("RPCResponse", (), {"execute": lambda _self: MockResponse([])})()
 
 
 def build_client(with_counters: bool) -> MockSupabaseClient:
@@ -176,6 +204,56 @@ def test_get_subscription_usage_prefers_persisted_counters_when_present():
     assert response["minutes"]["balance_seconds"] == 9000
     assert response["minutes"]["remaining_seconds"] == 8400
     assert response["period_ends_at"] == "2026-06-01T00:00:00+00:00"
+
+
+def test_get_subscription_usage_attempts_counter_recovery_before_fallback(monkeypatch):
+    client = build_client(with_counters=False)
+    reset_calls: list[str] = []
+
+    def fake_ensure(admin, subscription_id: str):
+        reset_calls.append(subscription_id)
+        admin.storage["community_usage_counters"].append(
+            {
+                "community_subscription_id": subscription_id,
+                "chatbot_messages_quota": 210,
+                "chatbot_messages_used": 5,
+                "minutes_seconds_balance": 8000,
+                "minutes_seconds_used": 100,
+                "minutes_seconds_cap": 21600,
+                "period_started_at": "2026-05-01T00:00:00+00:00",
+                "period_ends_at": "2026-06-01T00:00:00+00:00",
+                "last_reset_at": "2026-05-01T00:00:00+00:00",
+            }
+        )
+        return True
+
+    monkeypatch.setattr(subscriptions_api, "ensure_usage_counters_initialized", fake_ensure)
+
+    response = subscriptions_api.get_subscription_usage(
+        community_id=UUID("11111111-1111-1111-1111-111111111111"),
+        current_user={"id": "11111111-1111-1111-1111-111111111110"},
+        supabase_admin=client,
+    )
+
+    assert reset_calls == ["sub-1"]
+    assert response["chatbot"]["quota"] == 210
+    assert response["chatbot"]["remaining"] == 205
+    assert response["minutes"]["remaining_seconds"] == 7900
+
+
+def test_get_subscription_usage_bootstraps_counters_when_rpc_recovery_does_not_create_them(monkeypatch):
+    client = build_client(with_counters=False)
+    monkeypatch.setattr(subscriptions_api, "ensure_usage_counters_initialized", lambda admin, sub_id: True)
+
+    response = subscriptions_api.get_subscription_usage(
+        community_id=UUID("11111111-1111-1111-1111-111111111111"),
+        current_user={"id": "11111111-1111-1111-1111-111111111110"},
+        supabase_admin=client,
+    )
+
+    assert response["chatbot"]["quota"] == 200
+    assert response["minutes"]["balance_seconds"] == 7200
+    assert response["period_ends_at"] is None
 
 
 def test_schedule_subscription_change_persists_pending_values(monkeypatch):

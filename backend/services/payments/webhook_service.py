@@ -40,6 +40,12 @@ from services.payments.gocardless_service import (
     get_mandate,
     get_payment,
 )
+from services.payments.usage_counters_service import (
+    ensure_usage_counters_initialized as shared_ensure_usage_counters_initialized,
+)
+from services.payments.usage_counters_service import (
+    usage_counters_exist,
+)
 from supabase import Client
 
 logger = logging.getLogger(__name__)
@@ -166,39 +172,8 @@ def _set_subscription_status(
     supabase_admin.table("community_subscriptions").update(payload).eq("id", subscription_id).execute()
 
 
-def _reset_usage_counters(supabase_admin: Client, subscription_id: str) -> None:
-    try:
-        supabase_admin.rpc("reset_usage_counters", {"p_subscription_id": subscription_id}).execute()
-    except Exception:
-        logger.exception("reset_usage_counters RPC failed for subscription %s", subscription_id)
-
-
-def _usage_counters_exist(supabase_admin: Client, subscription_id: str) -> bool:
-    res = (
-        supabase_admin.table("community_usage_counters")
-        .select("community_subscription_id")
-        .eq("community_subscription_id", subscription_id)
-        .limit(1)
-        .execute()
-    )
-    return bool(res.data)
-
-
 def _ensure_usage_counters_initialized(supabase_admin: Client, subscription_id: str) -> None:
-    _reset_usage_counters(supabase_admin, subscription_id)
-    if _usage_counters_exist(supabase_admin, subscription_id):
-        return
-
-    logger.warning(
-        "Usage counters missing after reset for subscription %s; retrying once",
-        subscription_id,
-    )
-    _reset_usage_counters(supabase_admin, subscription_id)
-    if not _usage_counters_exist(supabase_admin, subscription_id):
-        logger.error(
-            "Usage counters still missing after retry for subscription %s",
-            subscription_id,
-        )
+    shared_ensure_usage_counters_initialized(supabase_admin, subscription_id)
 
 
 def _apply_pending_subscription_change(supabase_admin: Client, subscription: dict[str, Any]) -> dict[str, Any]:
@@ -549,7 +524,7 @@ def _handle_payment_confirmed(supabase_admin: Client, event: dict[str, Any]) -> 
 
     previous_invoice = _load_invoice_by_payment_id(supabase_admin, payment_id)
     previous_status = previous_invoice.get("status") if previous_invoice else None
-    has_usage_counters = _usage_counters_exist(supabase_admin, str(subscription["id"]))
+    has_usage_counters = usage_counters_exist(supabase_admin, str(subscription["id"]))
 
     _upsert_invoice_from_payment(
         supabase_admin,

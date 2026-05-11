@@ -135,6 +135,31 @@ export default function CommunitySubscriptionScreen() {
         ? 'Aún no hay una suscripción asociada a esta comunidad.'
         : 'No se pudo cargar el estado de la suscripción. Inténtalo de nuevo en unos segundos.';
 
+    if (httpStatus === 404) {
+      return (
+        <View className="flex-1 items-center justify-center bg-background p-8">
+          <View className="mb-4 size-16 items-center justify-center rounded-full bg-primary/10">
+            <Icon as={AlertTriangle} size={28} className="text-primary" />
+          </View>
+          <Text className="text-xl font-bold text-foreground text-center">
+            Esta comunidad aún no tiene suscripción
+          </Text>
+          <Text className="mt-2 text-sm text-muted-foreground text-center">
+            {detailMessage || fallback}
+          </Text>
+          {isAdmin ? (
+            <Button onPress={() => router.push(`/${communityId}/activate-subscription`)} className="mt-6">
+              <Text className="text-primary-foreground font-semibold">Activar suscripción</Text>
+            </Button>
+          ) : (
+            <Text className="mt-6 text-xs text-muted-foreground text-center">
+              Avisa al administrador de la comunidad para que configure el mandato bancario.
+            </Text>
+          )}
+        </View>
+      );
+    }
+
     return (
       <View className="flex-1 items-center justify-center bg-background p-8">
         <View className="mb-4 size-16 items-center justify-center rounded-full bg-destructive/10">

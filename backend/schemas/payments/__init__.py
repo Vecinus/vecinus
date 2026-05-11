@@ -5,6 +5,7 @@ from schemas.payments.payments import (
     CommunityPaymentOrderResponse,
     RegistrationOrderCreate,
     RegistrationPaymentOrderResponse,
+    SubscriptionActivationOrderCreate,
     SubscriptionChangeRequest,
 )
 
@@ -15,5 +16,6 @@ __all__ = [
     "CommunityPaymentOrderResponse",
     "RegistrationOrderCreate",
     "RegistrationPaymentOrderResponse",
+    "SubscriptionActivationOrderCreate",
     "SubscriptionChangeRequest",
 ]

@@ -91,7 +91,10 @@ def get_my_communities(
     user_id = current_user["id"]
     response = (
         supabase.table("memberships")
-        .select("id, association_id, role, property_id, joined_at, neighborhood_associations(id, name, address)")
+        .select(
+            "id, association_id, role, property_id, joined_at, "
+            "neighborhood_associations(id, name, address, household_count)"
+        )
         .eq("profile_id", user_id)
         .execute()
     )
