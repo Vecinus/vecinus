@@ -3,12 +3,15 @@ from typing import List
 from urllib.parse import quote
 from uuid import UUID
 
+from api.chat.chat_helpers import verify_association_admin
+from core.deps import get_current_user, get_supabase
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from schemas.transcription.minutes import MeetingType, MinutesReadResponse, MinutesResponse
 from services.transcription.document_service import DocumentService
 from services.transcription.minute_service import MinuteService
 from services.transcription.transcription_service import TranscriptionService
+from supabase import Client
 
 router = APIRouter(prefix="/api/minutes", tags=["Minutes"])
 
@@ -34,7 +37,10 @@ def get_service(db=Depends(MinuteService.get_supabase_client)):
 async def get_minutes(
     association_id: UUID,
     service: MinuteService = Depends(get_service),
+    user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
 ):
+    verify_association_admin(association_id, user["id"], supabase)
     try:
         db_results = await service.get_minutes_by_association(association_id)
         results = []
@@ -73,7 +79,10 @@ async def transcribe_meeting(
     scheduled_at: datetime = None,
     audio: UploadFile = File(...),
     service: MinuteService = Depends(get_service),
+    user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
 ):
+    verify_association_admin(association_id, user["id"], supabase)
     if not scheduled_at:
         scheduled_at = datetime.now()
     if audio.content_type not in ALLOWED_CONTENT_TYPES:
@@ -132,7 +141,10 @@ async def transcribe_meeting(
 
 
 @router.post("/generate-document-preview")
-async def generate_minutes_document_preview(minutes: MinutesResponse):
+async def generate_minutes_document_preview(
+    minutes: MinutesResponse,
+    user: dict = Depends(get_current_user),
+):
     try:
         buffer = DocumentService.generate_docx(minutes)
         filename = DocumentService.build_docx_filename(minutes.title)

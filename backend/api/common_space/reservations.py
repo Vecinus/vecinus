@@ -27,9 +27,10 @@ router = APIRouter(prefix="/reservations", tags=["reservations"])
 def create_reservation_endpoint(
     payload: ReservationCreate,
     current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
     supabase_admin: Client = Depends(get_supabase_admin),
 ):
-    return create_reservation(supabase_admin, current_user["id"], payload)
+    return create_reservation(supabase_admin, supabase, current_user["id"], payload)
 
 
 @router.get("/occupied-slots", response_model=list[OccupiedSlot])

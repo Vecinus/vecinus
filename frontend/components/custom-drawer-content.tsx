@@ -2,13 +2,24 @@ import {
   DrawerContentComponentProps,
   DrawerContentScrollView,
 } from '@react-navigation/drawer';
+import { Image } from 'expo-image';
 import { View, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePathname, useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   AlertTriangle,
   Bot,
@@ -19,6 +30,7 @@ import {
   LogOutIcon,
   MailIcon,
   MessageSquareIcon,
+  ShieldAlert,
   UserIcon,
   PlusCircle,
   Megaphone
@@ -33,14 +45,37 @@ import {
   SelectValue,
   type Option,
 } from '@/components/ui/select';
-import { useMemo } from 'react';
+import { updateMyAvatarUrl } from '@/api/auth';
+import { useEffect, useMemo, useState } from 'react';
 import { isAdminRole } from '@/utils/community-role';
 
+function looksLikeDirectImageUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(parsed.pathname);
+  } catch {
+    return false;
+  }
+}
+
 export default function CustomDrawerContent(props: DrawerContentComponentProps) {
-  const { user, currentRole, logoutContext, activeCommunity, setActiveCommunity } = useAuth();
+  const {
+    user,
+    token,
+    currentRole,
+    logoutContext,
+    activeCommunity,
+    setActiveCommunity,
+    refreshUserContext,
+  } = useAuth();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
+  const [avatarDialogOpen, setAvatarDialogOpen] = useState(false);
+  const [avatarUrlInput, setAvatarUrlInput] = useState('');
+  const [avatarError, setAvatarError] = useState('');
+  const [isSavingAvatar, setIsSavingAvatar] = useState(false);
+  const [pendingAvatarValidationUrl, setPendingAvatarValidationUrl] = useState<string | null>(null);
 
   const handleLogout = async () => {
     await logoutContext();
@@ -83,14 +118,18 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
     () =>
       activeCommunity
         ? {
-          label: activeCommunity.name,
-          value: activeCommunity.id,
-        }
+            label: activeCommunity.name,
+            value: activeCommunity.id,
+          }
         : undefined,
     [activeCommunity]
   );
 
   const isAdmin = isAdminRole(currentRole);
+
+  useEffect(() => {
+    setAvatarUrlInput(user?.avatarUrl ?? '');
+  }, [user?.avatarUrl]);
 
   const navigateToCommunityRoute = (
     pathnameTemplate:
@@ -116,15 +155,77 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
   const isAdminActive = pathname.endsWith('/admin');
   const isInvitationsActive = pathname.includes('/invitations');
   const isAnnouncementsActive = pathname.endsWith('/anuncios') || pathname.includes('/anuncios/');
+  const isAccountActive = pathname.includes('/account');
+
+  const handleAvatarDialogChange = (open: boolean) => {
+    setAvatarDialogOpen(open);
+    if (open) {
+      setAvatarUrlInput(user?.avatarUrl ?? '');
+      setAvatarError('');
+    }
+  };
+
+  const persistAvatar = async (avatarUrl: string | null) => {
+    try {
+      await updateMyAvatarUrl(token!, avatarUrl);
+      await refreshUserContext();
+      setAvatarDialogOpen(false);
+    } catch (error: any) {
+      setAvatarError(
+        error?.response?.data?.detail || 'No se pudo actualizar la imagen de perfil.'
+      );
+    } finally {
+      setIsSavingAvatar(false);
+    }
+  };
+
+  const handleSaveAvatar = async () => {
+    if (!token) {
+      setAvatarError('Tu sesión no es válida. Vuelve a iniciar sesión.');
+      return;
+    }
+
+    const normalizedAvatarUrl = avatarUrlInput.trim();
+    if (
+      normalizedAvatarUrl &&
+      !(
+        normalizedAvatarUrl.startsWith('http://') ||
+        normalizedAvatarUrl.startsWith('https://')
+      )
+    ) {
+      setAvatarError('La URL debe comenzar por http:// o https://');
+      return;
+    }
+
+    if (normalizedAvatarUrl && !looksLikeDirectImageUrl(normalizedAvatarUrl)) {
+      setAvatarError('Imagen no válida');
+      return;
+    }
+
+    setAvatarError('');
+    setIsSavingAvatar(true);
+
+    if (!normalizedAvatarUrl) {
+      await persistAvatar(null);
+      return;
+    }
+
+    setPendingAvatarValidationUrl(normalizedAvatarUrl);
+  };
 
   return (
     <View className="flex-1 bg-background">
       <DrawerContentScrollView {...props} contentContainerStyle={{ paddingTop: insets.top }}>
         <View className="mb-4 border-b border-border p-6">
           <View className="mb-6 flex-row items-center gap-4">
-            <View className="size-14 items-center justify-center rounded-full border border-border bg-muted">
-              <Icon as={UserIcon} size={28} className="text-muted-foreground" />
-            </View>
+            <TouchableOpacity onPress={() => handleAvatarDialogChange(true)} activeOpacity={0.8}>
+              <Avatar alt={user?.name || 'Usuario'} className="size-14 border border-border bg-muted">
+                {user?.avatarUrl ? <AvatarImage source={{ uri: user.avatarUrl }} /> : null}
+                <AvatarFallback className="bg-muted">
+                  <Icon as={UserIcon} size={28} className="text-muted-foreground" />
+                </AvatarFallback>
+              </Avatar>
+            </TouchableOpacity>
             <View className="flex-1">
               <Text className="text-xl font-bold text-foreground" numberOfLines={1}>
                 {user?.name || 'Usuario'}
@@ -149,11 +250,13 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
               <SelectContent className="w-[250px]">
                 <SelectGroup>
                   <SelectLabel>Tus Comunidades</SelectLabel>
-                  {communityOptions.map((option) => !option ? null : (
-                    <SelectItem key={option.value} label={option.label} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
+                  {communityOptions.map((option) =>
+                    !option ? null : (
+                      <SelectItem key={option.value} label={option.label} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    )
+                  )}
                 </SelectGroup>
               </SelectContent>
             </Select>
@@ -255,12 +358,21 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
               </View>
             </TouchableOpacity>
           ) : null}
+
           <TouchableOpacity
             onPress={() => router.push('/(drawer)/create-community')}
             className="rounded-lg px-4 py-3 active:bg-muted">
             <View className="flex-row items-center gap-3">
               <Icon as={PlusCircle} size={22} className="text-muted-foreground" />
               <Text className="font-medium text-foreground">Añadir Comunidad</Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push('/(drawer)/account')}
+            className={`rounded-lg px-4 py-3 ${isAccountActive ? 'bg-muted' : 'active:bg-muted'}`}>
+            <View className="flex-row items-center gap-3">
+              <Icon as={ShieldAlert} size={22} className="text-muted-foreground" />
+              <Text className="font-medium text-foreground">Cuenta</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -275,6 +387,66 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
           <Text className="font-semibold text-destructive-foreground">Cerrar Sesión</Text>
         </Button>
       </View>
+
+      <Dialog open={avatarDialogOpen} onOpenChange={handleAvatarDialogChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cambiar imagen de perfil</DialogTitle>
+            <DialogDescription>
+              Pega una URL directa de imagen. Si lo dejas vacío, se quitará el avatar actual.
+            </DialogDescription>
+          </DialogHeader>
+
+          <View className="gap-3">
+            <Input
+              value={avatarUrlInput}
+              onChangeText={(value) => {
+                setAvatarUrlInput(value);
+                if (avatarError === 'Imagen no válida') {
+                  setAvatarError('');
+                }
+              }}
+              placeholder="https://ejemplo.com/avatar.jpg"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              editable={!isSavingAvatar}
+            />
+            {avatarError ? (
+              <Text className="text-sm font-medium text-destructive">{avatarError}</Text>
+            ) : null}
+          </View>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onPress={() => handleAvatarDialogChange(false)}
+              disabled={isSavingAvatar}>
+              <Text>Cancelar</Text>
+            </Button>
+            <Button onPress={handleSaveAvatar} disabled={isSavingAvatar}>
+              <Text>{isSavingAvatar ? 'Guardando...' : 'Guardar'}</Text>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {pendingAvatarValidationUrl ? (
+        <Image
+          source={{ uri: pendingAvatarValidationUrl }}
+          style={{ width: 1, height: 1, opacity: 0 }}
+          onLoad={() => {
+            const validatedAvatarUrl = pendingAvatarValidationUrl;
+            setPendingAvatarValidationUrl(null);
+            void persistAvatar(validatedAvatarUrl);
+          }}
+          onError={() => {
+            setPendingAvatarValidationUrl(null);
+            setIsSavingAvatar(false);
+            setAvatarError('Imagen no válida');
+          }}
+        />
+      ) : null}
     </View>
   );
 }
