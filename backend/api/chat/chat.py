@@ -564,7 +564,7 @@ async def delete_message(
     broadcast_data = {
         "event": "message_deleted",
         "message_id": str(message_id),
-        "channel_id": channel_id,
+        "channel_id": str(channel_id),
     }
     await manager.broadcast(broadcast_data, str(channel_id))
 
