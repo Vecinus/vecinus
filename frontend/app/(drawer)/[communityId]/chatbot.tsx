@@ -57,9 +57,11 @@ import {
   FlatList,
   KeyboardAvoidingView,
   type NativeSyntheticEvent,
+  type NativeScrollEvent,
   Platform,
   Pressable,
   ScrollView,
+  TextInput,
   type TextInputContentSizeChangeEventData,
   View,
   useWindowDimensions,
@@ -373,7 +375,7 @@ export default function CommunityChatbotScreen() {
     }
   }, [normalizedCommunityId, question, sendQuestionMutation]);
 
-  const handleScroll = React.useCallback((event: any) => {
+  const handleScroll = React.useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
     const distanceToBottom = contentSize.height - (layoutMeasurement.height + contentOffset.y);
     const isAtBottom = distanceToBottom < 50;
@@ -446,14 +448,14 @@ export default function CommunityChatbotScreen() {
       const response = await uploadDocumentMutation.mutateAsync(
         selectedFile
           ? {
-              communityId: normalizedCommunityId,
-              file: selectedFile,
-            }
+            communityId: normalizedCommunityId,
+            file: selectedFile,
+          }
           : {
-              communityId: normalizedCommunityId,
-              title: documentTitle.trim(),
-              content: documentContent.trim(),
-            }
+            communityId: normalizedCommunityId,
+            title: documentTitle.trim(),
+            content: documentContent.trim(),
+          }
       );
 
       setFeedbackMessage(response.message);
@@ -610,7 +612,7 @@ export default function CommunityChatbotScreen() {
 
         <View className="gap-2 rounded-3xl border border-border bg-background px-3 py-2">
           <View className="flex-row items-end gap-3">
-            <Textarea
+            <TextInput
               value={question}
               onChangeText={setQuestion}
               onContentSizeChange={handleComposerSizeChange}
@@ -621,13 +623,14 @@ export default function CommunityChatbotScreen() {
                 }
               }}
               placeholder="Haz una pregunta sobre la comunidad..."
+            multiline
               numberOfLines={1}
               returnKeyType="send"
               enablesReturnKeyAutomatically
               maxLength={CHATBOT_INPUT_MAX_LENGTH}
               scrollEnabled={composerHeight >= CHAT_COMPOSER_MAX_HEIGHT}
               style={{ height: composerHeight, maxHeight: CHAT_COMPOSER_MAX_HEIGHT }}
-              className="min-h-0 flex-1 border-0 bg-transparent px-0 py-1 shadow-none"
+              className="min-h-0 flex-1 border-0 bg-transparent px-0 py-1 text-base text-foreground shadow-none"
             />
 
             <Button
