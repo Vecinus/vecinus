@@ -52,6 +52,7 @@ export default function EditPoll() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
+  const [totalCoefficient, setTotalCoefficient] = useState(0);
 
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertConfig, setAlertConfig] = useState({
@@ -114,6 +115,10 @@ export default function EditPoll() {
     }
     if (options.length < 2) {
       showAlert('Error', 'Debe haber al menos 2 opciones');
+      return;
+    }
+    if (Math.abs(totalCoefficient - 100) > 0.01) {
+      showAlert('Error', 'La suma total de los coeficientes de las propiedades debe ser exactamente 100%');
       return;
     }
 
@@ -266,7 +271,11 @@ export default function EditPoll() {
             <Text className="ml-1 text-xs text-muted-foreground">
               Marca las propiedades morosas para excluirlas del censo electoral (Art. 15.2 LPH).
             </Text>
-            <PropertyArrearsManager associationId={communityId} />
+            <PropertyArrearsManager
+              associationId={communityId}
+              pollId={pollId}
+              onCoefficientChange={setTotalCoefficient}
+            />
           </View>
 
           <View className="gap-3 mt-4">
@@ -337,7 +346,7 @@ export default function EditPoll() {
           </AlertDialogDescription>
           <AlertDialogFooter>
             <AlertDialogCancel onPress={() => setDeleteDialogOpen(false)}>
-              Cancelar
+              <Text>Cancelar</Text>
             </AlertDialogCancel>
             <AlertDialogAction onPress={handleDelete} className="bg-destructive">
               <Text className="text-destructive-foreground font-bold">Eliminar</Text>

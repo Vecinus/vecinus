@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { View, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { AlertTriangle, Building2, RefreshCw, Save, X, Pencil } from 'lucide-react-native';
 import { Text } from '@/components/ui/text';
@@ -15,16 +16,17 @@ import { cn } from '@/lib/utils';
 
 interface PropertyArrearsManagerProps {
   associationId: string;
+  pollId?: string;
   onCoefficientChange?: (total: number) => void;
+  forceEquitable?: boolean;
 }
 
-export function PropertyArrearsManager({ associationId, onCoefficientChange }: PropertyArrearsManagerProps) {
+export function PropertyArrearsManager({ associationId, pollId, onCoefficientChange, forceEquitable }: PropertyArrearsManagerProps) {
   const { colorScheme } = useColorScheme();
   const theme = NAV_THEME[colorScheme ?? 'light'];
 
   const [properties, setProperties] = useState<PropertyReadResponse[]>([]);
   const [loading, setLoading] = useState(true);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [refreshing, setRefreshing] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -32,24 +34,74 @@ export function PropertyArrearsManager({ associationId, onCoefficientChange }: P
   const [coefficientError, setCoefficientError] = useState<string | null>(null);
   const [distributing, setDistributing] = useState(false);
   const [isEquitableMode, setIsEquitableMode] = useState(true);
+  const storageKey = pollId ? `poll_coefficients_${pollId}` : null;
+
+  const detectAndSetMode = (props: PropertyReadResponse[]) => {
+    const eligible = props.filter((p) => !p.is_defaulter);
+    if (eligible.length > 1) {
+      const firstCoef = eligible[0].coefficient;
+      const isEq = eligible.every((p) => Math.abs(p.coefficient - firstCoef) < 0.01);
+      setIsEquitableMode(isEq);
+    }
+  };
 
   const loadProperties = useCallback(async () => {
     try {
       const data = await associationService.getVotingProperties(associationId);
-      setProperties(data);
-      // Distribuir equitativamente por defecto
-      await distributeEquitably(data);
+
+      if (forceEquitable) {
+        setProperties(data);
+        await distributeEquitably(data);
+        return;
+      }
+
+      if (storageKey) {
+        const stored = await AsyncStorage.getItem(storageKey);
+        if (stored) {
+          const savedCoefs: Record<string, number> = JSON.parse(stored);
+          const overridden = data.map((p) => ({
+            ...p,
+            coefficient: savedCoefs[p.id] ?? p.coefficient,
+          }));
+          setProperties(overridden);
+          detectAndSetMode(overridden);
+          return;
+        }
+      }
+
+      const totalSaved = data.reduce((sum, p) => sum + p.coefficient, 0);
+      if (totalSaved === 0) {
+        setProperties(data);
+        await distributeEquitably(data);
+      } else {
+        setProperties(data);
+        detectAndSetMode(data);
+      }
     } catch (error) {
       console.error('Error loading properties:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [associationId]);
+  }, [associationId, forceEquitable, storageKey]);
 
   useEffect(() => {
     loadProperties();
   }, [loadProperties]);
+
+  useEffect(() => {
+    if (properties.length > 0) {
+      const total = properties.reduce((sum, p) => sum + p.coefficient, 0);
+      onCoefficientChange?.(total);
+      if (storageKey) {
+        const map = properties.reduce<Record<string, number>>((acc, p) => {
+          acc[p.id] = p.coefficient;
+          return acc;
+        }, {});
+        AsyncStorage.setItem(storageKey, JSON.stringify(map));
+      }
+    }
+  }, [properties]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -72,7 +124,6 @@ export function PropertyArrearsManager({ associationId, onCoefficientChange }: P
       if (isEquitableMode) {
         await distributeEquitably(updatedProperties);
       }
-      onCoefficientChange?.(updatedProperties.reduce((sum, property) => sum + property.coefficient, 0));
     } catch (error: any) {
       const detail = error?.response?.data?.detail;
       console.error('Error updating property:', detail || error);
@@ -121,7 +172,6 @@ export function PropertyArrearsManager({ associationId, onCoefficientChange }: P
       );
       setProperties(updatedProperties);
       setCoefficientError(null);
-      onCoefficientChange?.(updatedProperties.reduce((sum, property) => sum + property.coefficient, 0));
     } catch (error: any) {
       const detail = error?.response?.data?.detail;
       console.error('Error distributing coefficients:', detail || error);
@@ -164,7 +214,6 @@ export function PropertyArrearsManager({ associationId, onCoefficientChange }: P
       );
       setProperties(updatedProperties);
       setCoefficientError(null);
-      onCoefficientChange?.(updatedProperties.reduce((sum, property) => sum + property.coefficient, 0));
     } catch (error: any) {
       const detail = error?.response?.data?.detail;
       console.error('Error distributing coefficients:', detail || error);
@@ -180,17 +229,9 @@ export function PropertyArrearsManager({ associationId, onCoefficientChange }: P
     }
 
     const value = parseFloat(editingCoefficient);
-    const otherTotal = properties
-      .filter((p) => p.id !== property.id)
-      .reduce((sum, p) => sum + p.coefficient, 0);
 
     if (isNaN(value) || value < 0 || value > 100) {
       setCoefficientError('El coeficiente debe estar entre 0 y 100.');
-      return;
-    }
-
-    if (otherTotal + value > 100) {
-      setCoefficientError('La suma total de coeficientes no puede superar 100%.');
       return;
     }
 
@@ -205,8 +246,6 @@ export function PropertyArrearsManager({ associationId, onCoefficientChange }: P
       setEditingId(null);
       setEditingCoefficient('');
       setCoefficientError(null);
-      const newTotal = properties.reduce((sum, p) => sum + (p.id === property.id ? updated.coefficient : p.coefficient), 0);
-      onCoefficientChange?.(newTotal);
     } catch (error: any) {
       const detail = error?.response?.data?.detail;
       console.error('Error updating coefficient:', detail || error);
@@ -271,16 +310,16 @@ export function PropertyArrearsManager({ associationId, onCoefficientChange }: P
         </Button>
       </View>
 
-      {totalCoefficient > 100 && (
-        <Text className="text-xs text-destructive">
-          La suma total de coeficientes no puede superar 100%.
+      {!isEquitableMode && Math.abs(totalCoefficient - 100) > 0.01 && (
+        <Text className="text-xs text-amber-600">
+          Suma actual: {totalCoefficient.toFixed(2)}%. Debe ser exactamente 100% para poder crear la votación.
         </Text>
       )}
 
       <Text className="text-xs text-muted-foreground">
         {isEquitableMode
           ? 'Los porcentajes se ajustan automáticamente de forma equitativa. Marca propiedades como morosas para excluirlas.'
-          : 'Ajusta manualmente los porcentajes de cada propiedad. La suma total no puede superar 100%.'}
+          : 'Ajusta manualmente los porcentajes de cada propiedad. La suma total debe ser exactamente 100% al crear la votación.'}
       </Text>
 
       <FlatList
@@ -341,7 +380,7 @@ export function PropertyArrearsManager({ associationId, onCoefficientChange }: P
                         </View>
                         {coefficientError && (
                           <Text className="text-[10px] text-destructive mt-1">
-                            El coeficiente debe estar entre 0 y 100
+                            {coefficientError}
                           </Text>
                         )}
                       </View>

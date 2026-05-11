@@ -19,7 +19,6 @@ class PollService:
             "options": poll_data.options,
             "status": "DRAFT",
         }
-
         response = self.supabase.table("poll").insert(data).execute()
         if not response.data:
             raise HTTPException(status_code=400, detail="Error al crear la votación")
@@ -31,7 +30,6 @@ class PollService:
             "description": poll_data.description,
             "options": poll_data.options,
         }
-
         response = self.supabase.table("poll").update(update_data).eq("id", str(poll_id)).execute()
         if not response.data:
             raise HTTPException(status_code=404, detail="Votación no encontrada")

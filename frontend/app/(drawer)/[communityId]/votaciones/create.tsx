@@ -214,7 +214,11 @@ export default function CreatePoll() {
             <Text className="ml-1 text-xs text-muted-foreground">
               Marca las propiedades morosas para excluirlas del censo electoral (Art. 15.2 LPH).
             </Text>
-            <PropertyArrearsManager associationId={communityId} onCoefficientChange={setTotalCoefficient} />
+            <PropertyArrearsManager
+              associationId={communityId}
+              onCoefficientChange={setTotalCoefficient}
+              forceEquitable
+            />
           </View>
         </View>
       </ScrollView>
@@ -223,7 +227,7 @@ export default function CreatePoll() {
         <Button
           className="h-14 w-full gap-2 rounded-xl"
           onPress={handleSubmit}
-          disabled={isSubmitting || !title.trim() || options.length < 2 || Math.abs(totalCoefficient - 100) > 0.01}>
+          disabled={isSubmitting || !title.trim() || options.length < 2}>
           {isSubmitting ? (
             <ActivityIndicator size="small" color="white" />
           ) : (
@@ -235,11 +239,6 @@ export default function CreatePoll() {
             </>
           )}
         </Button>
-        {Math.abs(totalCoefficient - 100) > 0.01 && (
-          <Text className="text-xs text-destructive text-center mt-2">
-            El total actual de ponderaciones debe ajustarse hasta alcanzar el 100%.
-          </Text>
-        )}
       </View>
 
       <Dialog open={alertOpen} onOpenChange={setAlertOpen}>
