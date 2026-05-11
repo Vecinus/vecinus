@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useEffect } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
@@ -53,7 +54,8 @@ export default function CommunitySubscriptionPlanScreen() {
   const isAdmin = role === ADMIN_ROLE;
 
   const [selectedPlan, setSelectedPlan] = React.useState<PlanCode>('basic');
-  const [householdCountText, setHouseholdCountText] = React.useState('0');
+  const [householdCountText, setHouseholdCountText] = React.useState('1');
+  const [householdCountError, setHouseholdCountError] = React.useState<string | null>(null);
   const [alertConfig, setAlertConfig] = React.useState<AlertConfig>({
     visible: false,
     title: '',
@@ -93,13 +95,21 @@ export default function CommunitySubscriptionPlanScreen() {
   React.useEffect(() => {
     if (!status?.plan?.code) return;
     setSelectedPlan(status.pending_plan?.code ?? status.plan.code);
-    setHouseholdCountText(String(status.pending_household_count ?? status.household_count ?? 0));
+    setHouseholdCountText(String(status.pending_household_count ?? status.household_count ?? 1));
   }, [status?.plan?.code, status?.pending_plan?.code, status?.pending_household_count, status?.household_count]);
 
   const parsedHouseholdCount = React.useMemo(() => {
     const parsed = Number.parseInt(householdCountText, 10);
-    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+    return Number.isFinite(parsed) ? parsed : 0;
   }, [householdCountText]);
+
+  useEffect(() => {
+    if (parsedHouseholdCount >= 1) {
+      setHouseholdCountError(null);
+    } else {
+      setHouseholdCountError('El nº de viviendas debe ser al menos 1.');
+    }
+  }, [parsedHouseholdCount]);
 
   if (!communityId) {
     return (
@@ -156,7 +166,7 @@ export default function CommunitySubscriptionPlanScreen() {
     : null;
   const hasChanges =
     selectedPlan !== (status.pending_plan?.code ?? status.plan?.code) ||
-    parsedHouseholdCount !== (status.pending_household_count ?? status.household_count ?? 0);
+    parsedHouseholdCount !== (status.pending_household_count ?? status.household_count ?? 1);
 
   const handleSaveSubscription = () => {
     if (!status.plan) return;
@@ -233,8 +243,12 @@ export default function CommunitySubscriptionPlanScreen() {
               onChangeText={(text) => setHouseholdCountText(text.replace(/[^0-9]/g, ''))}
               keyboardType="numeric"
               editable={!isSavingSubscription}
-              placeholder="0"
+              placeholder="1"
+              className={householdCountError ? 'border-2 border-destructive' : ''}
             />
+            {householdCountError ? (
+              <Text className="text-xs text-destructive">{householdCountError}</Text>
+            ) : null}
           </View>
 
           <View className="rounded-xl border border-border/60 bg-background p-4 gap-2">
@@ -275,7 +289,7 @@ export default function CommunitySubscriptionPlanScreen() {
 
           <Button
             onPress={handleSaveSubscription}
-            disabled={isSavingSubscription || !hasChanges}
+            disabled={isSavingSubscription || !hasChanges || !!householdCountError}
             className="h-12 rounded-xl"
           >
             <Text className="font-semibold text-primary-foreground">

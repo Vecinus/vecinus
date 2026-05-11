@@ -185,7 +185,7 @@ def _ensure_association(supabase_admin: Client, order: dict[str, Any]) -> str:
     if existing_assoc_id:
         return str(existing_assoc_id)
 
-    household_count = int(order.get("household_count") or 0)
+    household_count = int(order.get("household_count") or 1)
 
     association_res = (
         supabase_admin.table("neighborhood_associations")

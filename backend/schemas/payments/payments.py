@@ -2,9 +2,13 @@ from datetime import datetime
 from typing import List, Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+from pydantic_core import PydanticCustomError
 
 PlanCode = Literal["basic", "premium"]
+
+HOUSEHOLD_COUNT_ERROR = "household_count_min"
+HOUSEHOLD_COUNT_MSG = "El número de viviendas debe ser al menos 1"
 
 
 class CommunityDraft(BaseModel):
@@ -64,25 +68,35 @@ class RegistrationOrderCreate(BaseModel):
     community_name: str = Field(..., min_length=1, max_length=200)
     community_address: str = Field(..., min_length=1, max_length=300)
     plan: PlanCode = "basic"
-    household_count: int = Field(0, ge=0, le=10000)
+    household_count: int = Field(1, le=10000)
 
-    @field_validator("community_name", "community_address")
-    @classmethod
-    def strip_registration_text(cls, value: str) -> str:
-        stripped = value.strip()
-        if not stripped:
-            raise ValueError("Value cannot be empty")
-        return stripped
+    @model_validator(mode="after")
+    def validate_household_count(self) -> "RegistrationOrderCreate":
+        if self.household_count < 1:
+            raise PydanticCustomError(HOUSEHOLD_COUNT_ERROR, HOUSEHOLD_COUNT_MSG)
+        return self
 
 
 class SubscriptionChangeRequest(BaseModel):
     plan: PlanCode
-    household_count: int = Field(..., ge=0, le=10000)
+    household_count: int = Field(..., le=10000)
+
+    @model_validator(mode="after")
+    def validate_household_count(self) -> "SubscriptionChangeRequest":
+        if self.household_count < 1:
+            raise PydanticCustomError(HOUSEHOLD_COUNT_ERROR, HOUSEHOLD_COUNT_MSG)
+        return self
 
 
 class SubscriptionActivationOrderCreate(BaseModel):
     plan: PlanCode
-    household_count: int = Field(..., ge=0, le=10000)
+    household_count: int = Field(..., le=10000)
+
+    @model_validator(mode="after")
+    def validate_household_count(self) -> "SubscriptionActivationOrderCreate":
+        if self.household_count < 1:
+            raise PydanticCustomError(HOUSEHOLD_COUNT_ERROR, HOUSEHOLD_COUNT_MSG)
+        return self
 
 
 class RegistrationPaymentOrderResponse(BaseModel):

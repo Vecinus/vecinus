@@ -1,5 +1,5 @@
 // frontend/app/(drawer)/create-community.tsx
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     KeyboardAvoidingView,
     Linking,
@@ -44,12 +44,22 @@ export default function CrearComunidadScreen() {
     const [communityName, setCommunityName] = useState('');
     const [communityAddress, setCommunityAddress] = useState('');
     const [plan, setPlan] = useState<PlanCode>('basic');
-    const [householdCountText, setHouseholdCountText] = useState<string>('0');
+    const [householdCountText, setHouseholdCountText] = useState<string>('1');
 
     const householdCount = useMemo(() => {
         const parsed = parseInt(householdCountText, 10);
-        return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+        return Number.isFinite(parsed) ? parsed : 0;
     }, [householdCountText]);
+
+    const [householdCountError, setHouseholdCountError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (householdCount >= 1) {
+            setHouseholdCountError(null);
+        } else {
+            setHouseholdCountError('El nº de viviendas debe ser al menos 1.');
+        }
+    }, [householdCount]);
 
     const monthlyAmountCents = useMemo(
         () => calculateMonthlyAmountCents(PLAN_CATALOG[plan], householdCount),
@@ -70,7 +80,7 @@ export default function CrearComunidadScreen() {
     const validateForm = (): string | null => {
         if (!communityName.trim()) return 'El nombre de la comunidad es obligatorio.';
         if (!communityAddress.trim()) return 'La dirección es obligatoria.';
-        if (householdCount < 0) return 'El nº de viviendas no puede ser negativo.';
+        if (householdCount < 1) return 'El nº de viviendas debe ser al menos 1.';
         return null;
     };
 
@@ -179,11 +189,12 @@ export default function CrearComunidadScreen() {
                 <FormField
                     label="Nº de viviendas"
                     icon={Hash}
-                    placeholder="0"
+                    placeholder="1"
                     value={householdCountText}
                     onChangeText={(text) => setHouseholdCountText(text.replace(/[^0-9]/g, ''))}
                     keyboardType="numeric"
                     editable={!isSubmitting}
+                    error={householdCountError}
                 />
 
                 <View className="mt-2">
@@ -200,7 +211,7 @@ export default function CrearComunidadScreen() {
             </View>
 
             <View className="mt-8 gap-3">
-                <Button onPress={handleSubmitForm} disabled={isSubmitting} className="h-14 rounded-xl">
+                <Button onPress={handleSubmitForm} disabled={isSubmitting || !!householdCountError} className="h-14 rounded-xl">
                     <Text className="text-lg font-bold text-primary-foreground">
                         {isSubmitting ? 'Procesando...' : 'Continuar al pago'}
                     </Text>
@@ -291,6 +302,7 @@ type FormFieldProps = {
     keyboardType?: 'default' | 'email-address' | 'numeric';
     autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
     editable?: boolean;
+    error?: string | null;
 };
 
 function FormField({
@@ -303,6 +315,7 @@ function FormField({
     keyboardType = 'default',
     autoCapitalize = 'sentences',
     editable = true,
+    error,
 }: FormFieldProps) {
     return (
         <View className="gap-2">
@@ -320,9 +333,10 @@ function FormField({
                     keyboardType={keyboardType}
                     autoCapitalize={autoCapitalize}
                     editable={editable}
-                    className="h-12 pl-10"
+                    className={error ? 'h-12 pl-10 border-2 border-destructive' : 'h-12 pl-10'}
                 />
             </View>
+            {error ? <Text className="text-xs text-destructive ml-1">{error}</Text> : null}
         </View>
     );
 }

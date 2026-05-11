@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Linking, Platform, ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Building2, Hash } from 'lucide-react-native';
@@ -42,8 +42,8 @@ export default function ActivateSubscriptionScreen() {
 
   const communityName = membership?.community.name ?? activeCommunity?.name ?? 'Comunidad';
   const initialHouseholdCount = Math.max(
-    0,
-    Number(membership?.community.household_count ?? activeCommunity?.household_count ?? 0) || 0,
+    1,
+    Number(membership?.community.household_count ?? activeCommunity?.household_count ?? 0) || 1,
   );
 
   const [step, setStep] = useState<Step>('form');
@@ -60,8 +60,18 @@ export default function ActivateSubscriptionScreen() {
 
   const householdCount = useMemo(() => {
     const parsed = Number.parseInt(householdCountText, 10);
-    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+    return Number.isFinite(parsed) ? parsed : 0;
   }, [householdCountText]);
+
+  const [householdCountError, setHouseholdCountError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (householdCount >= 1) {
+      setHouseholdCountError(null);
+    } else {
+      setHouseholdCountError('El nº de viviendas debe ser al menos 1.');
+    }
+  }, [householdCount]);
 
   const monthlyAmountCents = useMemo(
     () => calculateMonthlyAmountCents(PLAN_CATALOG[plan], householdCount),
@@ -180,17 +190,20 @@ export default function ActivateSubscriptionScreen() {
               <Icon as={Hash} size={20} className="text-muted-foreground" />
             </View>
             <Input
-              placeholder="0"
+              placeholder="1"
               value={householdCountText}
               onChangeText={(text) => setHouseholdCountText(text.replace(/[^0-9]/g, ''))}
               keyboardType="numeric"
               editable={!isSubmitting}
-              className="h-12 pl-10"
+              className={householdCountError ? 'h-12 pl-10 border-2 border-destructive' : 'h-12 pl-10'}
             />
           </View>
           <Text className="text-xs text-muted-foreground ml-1">
             Este valor se usará para calcular la cuota mensual y actualizar la configuración de la comunidad.
           </Text>
+          {householdCountError ? (
+            <Text className="text-xs text-destructive ml-1">{householdCountError}</Text>
+          ) : null}
         </View>
 
         <View className="mt-2">
@@ -205,7 +218,7 @@ export default function ActivateSubscriptionScreen() {
       </View>
 
       <View className="mt-8 gap-3">
-        <Button onPress={handleSubmitForm} disabled={isSubmitting} className="h-14 rounded-xl">
+        <Button onPress={handleSubmitForm} disabled={isSubmitting || !!householdCountError} className="h-14 rounded-xl">
           <Text className="text-lg font-bold text-primary-foreground">
             {isSubmitting ? 'Procesando...' : 'Continuar al pago'}
           </Text>
