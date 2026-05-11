@@ -66,6 +66,7 @@ import {
 type ChatTabValue = 'chat' | 'documents';
 const CHAT_COMPOSER_MIN_HEIGHT = 24;
 const CHAT_COMPOSER_MAX_HEIGHT = 132;
+const CHATBOT_INPUT_MAX_LENGTH = 300;
 
 function toRoleId(role: string | number | null | undefined): number | null {
   if (typeof role === 'number' && Number.isFinite(role)) {
@@ -294,6 +295,13 @@ export default function CommunityChatbotScreen() {
     const trimmedQuestion = question.trim();
 
     if (!trimmedQuestion || !normalizedCommunityId || sendQuestionMutation.isPending) {
+      return;
+    }
+
+    if (trimmedQuestion.length > CHATBOT_INPUT_MAX_LENGTH) {
+      setFeedbackMessage(
+        `La pregunta no puede superar los ${CHATBOT_INPUT_MAX_LENGTH} caracteres.`
+      );
       return;
     }
 
@@ -534,39 +542,46 @@ export default function CommunityChatbotScreen() {
           </Alert>
         ) : null}
 
-        <View className="flex-row items-end gap-3 rounded-3xl border border-border bg-background px-3 py-2">
-          <Textarea
-            value={question}
-            onChangeText={setQuestion}
-            onContentSizeChange={handleComposerSizeChange}
-            onKeyPress={(e: { key?: string; shiftKey?: boolean; preventDefault?: () => void }) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault?.();
-                void handleSend();
-              }
-            }}
-            placeholder="Haz una pregunta sobre la comunidad..."
-            numberOfLines={1}
-            returnKeyType="send"
-            enablesReturnKeyAutomatically
-            scrollEnabled={composerHeight >= CHAT_COMPOSER_MAX_HEIGHT}
-            style={{ height: composerHeight, maxHeight: CHAT_COMPOSER_MAX_HEIGHT }}
-            className="min-h-0 flex-1 border-0 bg-transparent px-0 py-1 shadow-none"
-          />
+        <View className="gap-2 rounded-3xl border border-border bg-background px-3 py-2">
+          <View className="flex-row items-end gap-3">
+            <Textarea
+              value={question}
+              onChangeText={setQuestion}
+              onContentSizeChange={handleComposerSizeChange}
+              onKeyPress={(e: { key?: string; shiftKey?: boolean; preventDefault?: () => void }) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault?.();
+                  void handleSend();
+                }
+              }}
+              placeholder="Haz una pregunta sobre la comunidad..."
+              numberOfLines={1}
+              returnKeyType="send"
+              enablesReturnKeyAutomatically
+              maxLength={CHATBOT_INPUT_MAX_LENGTH}
+              scrollEnabled={composerHeight >= CHAT_COMPOSER_MAX_HEIGHT}
+              style={{ height: composerHeight, maxHeight: CHAT_COMPOSER_MAX_HEIGHT }}
+              className="min-h-0 flex-1 border-0 bg-transparent px-0 py-1 shadow-none"
+            />
 
-          <Button
-            onPress={() => {
-              void handleSend();
-            }}
-            disabled={!question.trim() || sendQuestionMutation.isPending}
-            size="icon"
-            className="size-11 rounded-full">
-            {sendQuestionMutation.isPending ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Icon as={SendIcon} size={16} className="text-primary-foreground" />
-            )}
-          </Button>
+            <Button
+              onPress={() => {
+                void handleSend();
+              }}
+              disabled={!question.trim() || sendQuestionMutation.isPending}
+              size="icon"
+              className="size-11 rounded-full">
+              {sendQuestionMutation.isPending ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Icon as={SendIcon} size={16} className="text-primary-foreground" />
+              )}
+            </Button>
+          </View>
+
+          <Text className="text-right text-xs text-muted-foreground">
+            {question.length}/{CHATBOT_INPUT_MAX_LENGTH}
+          </Text>
         </View>
       </CardContent>
     </Card>
