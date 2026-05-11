@@ -189,7 +189,7 @@ def test_get_subscription_usage_returns_plan_fallback_without_counters():
     assert response["minutes"]["balance_seconds"] == 7200
     assert response["minutes"]["remaining_seconds"] == 7200
     assert response["minutes"]["cap_seconds"] == 21600
-    assert response["period_ends_at"] is None
+    assert response["period_ends_at"] == "2026-06-01T00:00:00+00:00"
 
 
 def test_get_subscription_usage_prefers_persisted_counters_when_present():

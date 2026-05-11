@@ -291,10 +291,16 @@ class MockSupabaseReservationClient:
                     "role": 5,
                 },
             ],
+            "community_subscriptions": [
+                {
+                    "association_id": ASSOCIATION_ID,
+                    "status": "active",
+                }
+            ],
         }
 
     def table(self, name: str):
-        if name not in {"common_space", "reservation", "guest_pass", "memberships"}:
+        if name not in {"common_space", "reservation", "guest_pass", "memberships", "community_subscriptions"}:
             raise AssertionError(f"Unexpected table requested: {name}")
         return MockSupabaseTable(name, self.storage)
 

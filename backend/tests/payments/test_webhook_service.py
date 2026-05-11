@@ -149,7 +149,9 @@ def test_confirmed_new_payment_resets_usage_once(monkeypatch):
         },
     )
     monkeypatch.setattr(webhook_service, "_now_iso", lambda: "2026-05-10T12:00:00+00:00")
-    monkeypatch.setattr(webhook_service, "_reset_usage_counters", lambda _admin, sub_id: reset_calls.append(sub_id))
+    monkeypatch.setattr(
+        webhook_service, "_ensure_usage_counters_initialized", lambda _admin, sub_id: reset_calls.append(sub_id)
+    )
 
     webhook_service._handle_payment_confirmed(client, {"links": {"payment": "pay-1"}})
 
@@ -164,7 +166,9 @@ def test_confirmed_recovered_failed_payment_does_not_reset_usage(monkeypatch):
     reset_calls: list[str] = []
 
     monkeypatch.setattr(webhook_service, "_now_iso", lambda: "2026-05-10T12:00:00+00:00")
-    monkeypatch.setattr(webhook_service, "_reset_usage_counters", lambda _admin, sub_id: reset_calls.append(sub_id))
+    monkeypatch.setattr(
+        webhook_service, "_ensure_usage_counters_initialized", lambda _admin, sub_id: reset_calls.append(sub_id)
+    )
 
     webhook_service._handle_payment_confirmed(client, {"links": {"payment": "pay-1"}})
 
@@ -180,11 +184,13 @@ def test_confirmed_recovered_failed_payment_initializes_missing_usage_counters(m
     reset_calls: list[str] = []
 
     monkeypatch.setattr(webhook_service, "_now_iso", lambda: "2026-05-10T12:00:00+00:00")
-    monkeypatch.setattr(webhook_service, "_reset_usage_counters", lambda _admin, sub_id: reset_calls.append(sub_id))
+    monkeypatch.setattr(
+        webhook_service, "_ensure_usage_counters_initialized", lambda _admin, sub_id: reset_calls.append(sub_id)
+    )
 
     webhook_service._handle_payment_confirmed(client, {"links": {"payment": "pay-1"}})
 
-    assert reset_calls == ["sub-1", "sub-1"]
+    assert reset_calls == ["sub-1"]
     assert client.storage["community_subscriptions"][0]["status"] == "active"
     assert client.storage["community_subscriptions"][0]["failure_count"] == 0
     assert client.storage["subscription_invoices"][0]["status"] == "confirmed"
@@ -195,7 +201,9 @@ def test_confirmed_duplicate_webhook_does_not_reset_usage(monkeypatch):
     reset_calls: list[str] = []
 
     monkeypatch.setattr(webhook_service, "_now_iso", lambda: "2026-05-10T12:00:00+00:00")
-    monkeypatch.setattr(webhook_service, "_reset_usage_counters", lambda _admin, sub_id: reset_calls.append(sub_id))
+    monkeypatch.setattr(
+        webhook_service, "_ensure_usage_counters_initialized", lambda _admin, sub_id: reset_calls.append(sub_id)
+    )
 
     webhook_service._handle_payment_confirmed(client, {"links": {"payment": "pay-1"}})
 
@@ -216,10 +224,8 @@ def test_subscription_renewal_retries_missing_usage_counters(monkeypatch):
 
     def fake_reset(_admin, sub_id):
         reset_calls.append(sub_id)
-        if len(reset_calls) == 2:
-            client.storage["community_usage_counters"].append({"id": "counter-2", "community_subscription_id": sub_id})
 
-    monkeypatch.setattr(webhook_service, "_reset_usage_counters", fake_reset)
+    monkeypatch.setattr(webhook_service, "_ensure_usage_counters_initialized", fake_reset)
 
     webhook_service._process_subscription_renewal(client, "sub-1", "new-md")
 
@@ -260,7 +266,9 @@ def test_confirmed_payment_applies_pending_subscription_change(monkeypatch):
         },
     )
     monkeypatch.setattr(webhook_service, "_now_iso", lambda: "2026-05-10T12:00:00+00:00")
-    monkeypatch.setattr(webhook_service, "_reset_usage_counters", lambda _admin, sub_id: reset_calls.append(sub_id))
+    monkeypatch.setattr(
+        webhook_service, "_ensure_usage_counters_initialized", lambda _admin, sub_id: reset_calls.append(sub_id)
+    )
 
     webhook_service._handle_payment_confirmed(client, {"links": {"payment": "pay-1"}})
 

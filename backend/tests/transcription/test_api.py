@@ -1,16 +1,57 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import api.transcription.minutes as minutes_api
 import pytest
 from api.transcription.minutes import get_service
+from core.deps import get_current_user, get_supabase_admin
 from httpx import ASGITransport, AsyncClient
 from main import app
 from schemas.transcription.minutes import AIGeneratedContent
 from services.transcription.transcription_service import TranscriptionService
 
 
+class _MockResponse:
+    def __init__(self, data):
+        self.data = data
+
+
+class _MockSupabaseTable:
+    def __init__(self, rows):
+        self._rows = list(rows)
+
+    def select(self, *args, **kwargs):
+        return self
+
+    def eq(self, column, value, **kwargs):
+        self._rows = [row for row in self._rows if str(row.get(column)) == str(value)]
+        return self
+
+    def limit(self, *args, **kwargs):
+        return self
+
+    def execute(self):
+        return _MockResponse(self._rows)
+
+
+class _MockSupabaseAdmin:
+    def __init__(self):
+        self._community_subscriptions = [{"association_id": "11111111-1111-1111-1111-111111111111", "status": "active"}]
+
+    def table(self, name: str):
+        if name == "community_subscriptions":
+            return _MockSupabaseTable(self._community_subscriptions)
+        return _MockSupabaseTable([])
+
+
 @pytest.mark.anyio
 class TestMinutesAPI:
     async def test_transcribe_success(self):
+        app.dependency_overrides[get_current_user] = lambda: {
+            "id": "11111111-1111-1111-1111-111111111110",
+            "role": "authenticated",
+            "email": "admin@test.com",
+        }
+        app.dependency_overrides[get_supabase_admin] = lambda: _MockSupabaseAdmin()
         service = MagicMock()
         service.create_initial_draft = AsyncMock(
             return_value={
@@ -39,13 +80,19 @@ class TestMinutesAPI:
             new=AsyncMock(
                 return_value=AIGeneratedContent(transcription="Texto", summary="S", topics=[], agreements=[], tasks=[])
             ),
+        ), patch.object(minutes_api, "get_audio_duration_seconds", return_value=120), patch.object(
+            minutes_api,
+            "consume_minutes_seconds",
+            return_value={"allowed": True, "remaining_seconds": 7200, "resets_at": None},
+        ), patch.object(
+            minutes_api, "revert_minutes_seconds", return_value=None
         ):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 files = {"audio": ("reunion.mp3", b"fake-audio-data", "audio/mpeg")}
                 response = await ac.post(
-                    "/api/minutes/transcribe?association_id="
-                    "11111111-1111-1111-1111-111111111111&title=Junta%20ordinaria%20marzo%202026",
+                    "/api/minutes/11111111-1111-1111-1111-111111111111/transcribe",
                     files=files,
+                    data={"title": "Junta ordinaria marzo 2026"},
                 )
 
         app.dependency_overrides.clear()
@@ -58,12 +105,19 @@ class TestMinutesAPI:
             raise AssertionError(f"Titulo inesperado en la respuesta: {response_data['title']}")
 
     async def test_transcribe_unsupported_mime(self):
+        app.dependency_overrides[get_current_user] = lambda: {
+            "id": "11111111-1111-1111-1111-111111111110",
+            "role": "authenticated",
+            "email": "admin@test.com",
+        }
+        app.dependency_overrides[get_supabase_admin] = lambda: _MockSupabaseAdmin()
         app.dependency_overrides[get_service] = lambda: MagicMock()
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             files = {"audio": ("notas.txt", b"esto no es audio", "text/plain")}
             response = await ac.post(
-                "/api/minutes/transcribe?association_id=11111111-1111-1111-1111-111111111111&title=Acta",
+                "/api/minutes/11111111-1111-1111-1111-111111111111/transcribe",
                 files=files,
+                data={"title": "Acta"},
             )
         app.dependency_overrides.clear()
 
@@ -71,13 +125,20 @@ class TestMinutesAPI:
             raise AssertionError(f"Se esperaba 415 pero se obtuvo {response.status_code}")
 
     async def test_transcribe_file_exceeds_limit(self):
+        app.dependency_overrides[get_current_user] = lambda: {
+            "id": "11111111-1111-1111-1111-111111111110",
+            "role": "authenticated",
+            "email": "admin@test.com",
+        }
+        app.dependency_overrides[get_supabase_admin] = lambda: _MockSupabaseAdmin()
         app.dependency_overrides[get_service] = lambda: MagicMock()
         content = b"0" * (150 * 1024 * 1024 + 1)
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             files = {"audio": ("gigante.mp3", content, "audio/mpeg")}
             response = await ac.post(
-                "/api/minutes/transcribe?association_id=11111111-1111-1111-1111-111111111111&title=Acta",
+                "/api/minutes/11111111-1111-1111-1111-111111111111/transcribe",
                 files=files,
+                data={"title": "Acta"},
             )
         app.dependency_overrides.clear()
 

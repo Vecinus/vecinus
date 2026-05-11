@@ -1,5 +1,5 @@
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -20,12 +20,45 @@ ASSOC_ID = str(uuid4())
 POLL_ID = str(uuid4())
 
 
+class MockResponse:
+    def __init__(self, data):
+        self.data = data
+
+
+class MockSupabaseTable:
+    def __init__(self, rows):
+        self._rows = list(rows)
+
+    def select(self, *args, **kwargs):
+        return self
+
+    def eq(self, column, value, **kwargs):
+        self._rows = [row for row in self._rows if str(row.get(column)) == str(value)]
+        return self
+
+    def limit(self, *args, **kwargs):
+        return self
+
+    def execute(self):
+        return MockResponse(self._rows)
+
+
+class MockSupabaseClient:
+    def __init__(self):
+        self.storage = {
+            "community_subscriptions": [{"association_id": ASSOC_ID, "status": "active"}],
+        }
+
+    def table(self, name: str):
+        return MockSupabaseTable(self.storage.get(name, []))
+
+
 def override_get_current_user():
     return {"id": USER_ID, "role": "authenticated", "email": "admin@test.com"}
 
 
 def override_get_supabase():
-    return MagicMock()
+    return MockSupabaseClient()
 
 
 @pytest.fixture(autouse=True)

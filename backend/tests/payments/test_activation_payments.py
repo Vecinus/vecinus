@@ -52,6 +52,13 @@ app.include_router(subscriptions_router)
 client = TestClient(app)
 
 ASSOCIATION_ID = "11111111-1111-1111-1111-111111111111"
+PROFILE_ID = "11111111-1111-1111-1111-111111111110"
+PLAN_BASIC_ID = "22222222-2222-2222-2222-222222222222"
+ORDER_1_ID = "33333333-3333-3333-3333-333333333331"
+ORDER_2_ID = "33333333-3333-3333-3333-333333333332"
+ORDER_3_ID = "33333333-3333-3333-3333-333333333333"
+ORDER_4_ID = "33333333-3333-3333-3333-333333333334"
+EXISTING_SUBSCRIPTION_ID = "44444444-4444-4444-4444-444444444444"
 
 
 class MockResponse:
@@ -156,10 +163,10 @@ class MockSupabaseAdminClient:
 def setup_overrides(monkeypatch):
     state = {
         "admin_client": MockSupabaseAdminClient(),
-        "current_user": {"id": "user-1", "email": "admin@vecinus.test"},
+        "current_user": {"id": PROFILE_ID, "email": "admin@vecinus.test"},
     }
     admin_client: MockSupabaseAdminClient = state["admin_client"]
-    admin_client.storage["profiles"].append({"id": "user-1", "username": "admin"})
+    admin_client.storage["profiles"].append({"id": PROFILE_ID, "username": "admin"})
     admin_client.storage["neighborhood_associations"].append(
         {
             "id": ASSOCIATION_ID,
@@ -169,11 +176,11 @@ def setup_overrides(monkeypatch):
         }
     )
     admin_client.storage["memberships"].append(
-        {"id": "membership-1", "profile_id": "user-1", "association_id": ASSOCIATION_ID, "role": 1}
+        {"id": "membership-1", "profile_id": PROFILE_ID, "association_id": ASSOCIATION_ID, "role": 1}
     )
     admin_client.storage["subscription_plans"].append(
         {
-            "id": "plan-basic",
+            "id": PLAN_BASIC_ID,
             "code": "basic",
             "display_name": "Basic",
             "base_cents": 3000,
@@ -264,7 +271,7 @@ def test_complete_activation_order_creates_subscription_and_updates_household_co
     admin_client: MockSupabaseAdminClient = setup_overrides["admin_client"]
     admin_client.storage["registration_payment_orders"].append(
         {
-            "id": "order-1",
+            "id": ORDER_1_ID,
             "email": "admin@vecinus.test",
             "username": "admin",
             "community_name": "Comunidad Alameda",
@@ -274,11 +281,13 @@ def test_complete_activation_order_creates_subscription_and_updates_household_co
             "provider": "gocardless",
             "status": "redirect_created",
             "granted_role": 1,
-            "subscription_plan_id": "plan-basic",
+            "subscription_plan_id": PLAN_BASIC_ID,
             "household_count": 24,
-            "created_profile_id": "user-1",
+            "created_profile_id": PROFILE_ID,
             "created_association_id": ASSOCIATION_ID,
             "billing_request_id": "BR-LEG-1",
+            "created_at": "2026-04-08T10:00:00+00:00",
+            "updated_at": "2026-04-08T10:00:00+00:00",
         }
     )
 
@@ -302,7 +311,7 @@ def test_complete_activation_order_creates_subscription_and_updates_household_co
         ),
     )
 
-    response = client.post("/payments/subscriptions/activation-orders/order-1/complete")
+    response = client.post(f"/payments/subscriptions/activation-orders/{ORDER_1_ID}/complete")
 
     assert response.status_code == 200
     data = response.json()
@@ -311,14 +320,17 @@ def test_complete_activation_order_creates_subscription_and_updates_household_co
     assert admin_client.storage["neighborhood_associations"][0]["household_count"] == 24
     assert len(admin_client.storage["community_subscriptions"]) == 1
     assert admin_client.storage["community_subscriptions"][0]["status"] == "pending_first_payment"
-    assert admin_client.rpc_calls == [("reset_usage_counters", {"p_subscription_id": data["created_subscription_id"]})]
+    assert admin_client.rpc_calls == [
+        ("reset_usage_counters", {"p_subscription_id": data["created_subscription_id"]}),
+        ("reset_usage_counters", {"p_subscription_id": data["created_subscription_id"]}),
+    ]
 
 
 def test_complete_activation_order_is_idempotent(setup_overrides, monkeypatch):
     admin_client: MockSupabaseAdminClient = setup_overrides["admin_client"]
     admin_client.storage["registration_payment_orders"].append(
         {
-            "id": "order-2",
+            "id": ORDER_2_ID,
             "email": "admin@vecinus.test",
             "username": "admin",
             "community_name": "Comunidad Alameda",
@@ -328,12 +340,14 @@ def test_complete_activation_order_is_idempotent(setup_overrides, monkeypatch):
             "provider": "gocardless",
             "status": "completed",
             "granted_role": 1,
-            "subscription_plan_id": "plan-basic",
+            "subscription_plan_id": PLAN_BASIC_ID,
             "household_count": 24,
-            "created_profile_id": "user-1",
+            "created_profile_id": PROFILE_ID,
             "created_association_id": ASSOCIATION_ID,
-            "created_subscription_id": "sub-existing",
+            "created_subscription_id": EXISTING_SUBSCRIPTION_ID,
             "billing_request_id": "BR-LEG-2",
+            "created_at": "2026-04-08T10:00:00+00:00",
+            "updated_at": "2026-04-08T10:00:00+00:00",
         }
     )
 
@@ -345,10 +359,10 @@ def test_complete_activation_order_is_idempotent(setup_overrides, monkeypatch):
 
     monkeypatch.setattr(activation_service, "get_billing_request", fake_get_billing_request)
 
-    response = client.post("/payments/subscriptions/activation-orders/order-2/complete")
+    response = client.post(f"/payments/subscriptions/activation-orders/{ORDER_2_ID}/complete")
 
     assert response.status_code == 200
-    assert response.json()["created_subscription_id"] == "sub-existing"
+    assert response.json()["created_subscription_id"] == EXISTING_SUBSCRIPTION_ID
     assert called["count"] == 0
 
 
@@ -356,7 +370,7 @@ def test_complete_activation_order_retries_usage_counter_initialization(monkeypa
     admin_client: MockSupabaseAdminClient = setup_overrides["admin_client"]
     admin_client.storage["registration_payment_orders"].append(
         {
-            "id": "order-3",
+            "id": ORDER_3_ID,
             "email": "admin@vecinus.test",
             "username": "admin",
             "community_name": "Comunidad Alameda",
@@ -366,11 +380,13 @@ def test_complete_activation_order_retries_usage_counter_initialization(monkeypa
             "provider": "gocardless",
             "status": "redirect_created",
             "granted_role": 1,
-            "subscription_plan_id": "plan-basic",
+            "subscription_plan_id": PLAN_BASIC_ID,
             "household_count": 24,
-            "created_profile_id": "user-1",
+            "created_profile_id": PROFILE_ID,
             "created_association_id": ASSOCIATION_ID,
             "billing_request_id": "BR-LEG-3",
+            "created_at": "2026-04-08T10:00:00+00:00",
+            "updated_at": "2026-04-08T10:00:00+00:00",
         }
     )
 
@@ -405,7 +421,7 @@ def test_complete_activation_order_retries_usage_counter_initialization(monkeypa
 
     monkeypatch.setattr(usage_counters_service, "reset_usage_counters", fake_reset)
 
-    response = client.post("/payments/subscriptions/activation-orders/order-3/complete")
+    response = client.post(f"/payments/subscriptions/activation-orders/{ORDER_3_ID}/complete")
 
     assert response.status_code == 200
     assert attempts["count"] == 2
@@ -415,7 +431,7 @@ def test_complete_activation_order_bootstraps_usage_counters_when_rpc_never_crea
     admin_client: MockSupabaseAdminClient = setup_overrides["admin_client"]
     admin_client.storage["registration_payment_orders"].append(
         {
-            "id": "order-4",
+            "id": ORDER_4_ID,
             "email": "admin@vecinus.test",
             "username": "admin",
             "community_name": "Comunidad Alameda",
@@ -425,11 +441,13 @@ def test_complete_activation_order_bootstraps_usage_counters_when_rpc_never_crea
             "provider": "gocardless",
             "status": "redirect_created",
             "granted_role": 1,
-            "subscription_plan_id": "plan-basic",
+            "subscription_plan_id": PLAN_BASIC_ID,
             "household_count": 24,
-            "created_profile_id": "user-1",
+            "created_profile_id": PROFILE_ID,
             "created_association_id": ASSOCIATION_ID,
             "billing_request_id": "BR-LEG-4",
+            "created_at": "2026-04-08T10:00:00+00:00",
+            "updated_at": "2026-04-08T10:00:00+00:00",
         }
     )
 
@@ -454,10 +472,10 @@ def test_complete_activation_order_bootstraps_usage_counters_when_rpc_never_crea
     )
     monkeypatch.setattr(usage_counters_service, "reset_usage_counters", lambda *_args, **_kwargs: None)
 
-    response = client.post("/payments/subscriptions/activation-orders/order-4/complete")
+    response = client.post(f"/payments/subscriptions/activation-orders/{ORDER_4_ID}/complete")
 
     assert response.status_code == 200
     assert len(admin_client.storage["community_usage_counters"]) == 1
     counters = admin_client.storage["community_usage_counters"][0]
-    assert counters["chatbot_messages_quota"] == 420
+    assert counters["chatbot_messages_quota"] == 220
     assert counters["minutes_seconds_balance"] == 7200

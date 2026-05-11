@@ -41,15 +41,23 @@ def patched_version(distribution_name: str) -> str:
 metadata.version = patched_version
 pydantic.networks.version = patched_version
 
-import services.payments.gocardless_service as gocardless_service  # noqa: E402
 import services.payments.registration_gocardless_service as registration_service  # noqa: E402
 from api.auth.registration import router as registration_router  # noqa: E402
 from core.config import settings  # noqa: E402
-from core.deps import get_supabase_admin, get_supabase_anon  # noqa: E402
+from core.deps import (  # noqa: E402
+    get_current_user,
+    get_supabase_admin,
+    get_supabase_anon,
+)
 
 app = FastAPI()
 app.include_router(registration_router)
 client = TestClient(app)
+
+PROFILE_ID = "11111111-1111-1111-1111-111111111110"
+OTHER_PROFILE_ID = "11111111-1111-1111-1111-111111111119"
+PLAN_BASIC_ID = "22222222-2222-2222-2222-222222222222"
+SUBSCRIPTION_ID = "33333333-3333-3333-3333-333333333333"
 
 
 def expect_equal(actual, expected, message: str) -> None:
@@ -175,6 +183,9 @@ class MockSupabaseAdminClient:
             "profiles": [],
             "neighborhood_associations": [],
             "memberships": [],
+            "subscription_plans": [],
+            "community_subscriptions": [],
+            "community_usage_counters": [],
         }
         self.auth = types.SimpleNamespace(admin=MockAuthAdmin())
 
@@ -198,6 +209,7 @@ def setup_overrides(monkeypatch):
     state = {
         "admin_client": MockSupabaseAdminClient(),
         "anon_client": MockSupabaseAnonClient(),
+        "current_user": {"id": PROFILE_ID, "email": "nuevo@vecinus.test", "role": "authenticated"},
     }
 
     monkeypatch.setattr(settings, "GOCARDLESS_ACCESS_TOKEN", "sandbox-token")
@@ -206,8 +218,27 @@ def setup_overrides(monkeypatch):
     monkeypatch.setattr(settings, "MULTICOMMUNITY_CURRENCY", "EUR")
     monkeypatch.setattr(settings, "REGISTRATION_PAYMENT_AMOUNT_CENTS", 1499)
 
+    state["admin_client"].storage["profiles"].append({"id": PROFILE_ID, "username": "nuevo_admin"})
+    state["admin_client"].storage["subscription_plans"].append(
+        {
+            "id": PLAN_BASIC_ID,
+            "code": "basic",
+            "display_name": "Basic",
+            "base_cents": 1499,
+            "per_household_cents": 0,
+            "minutes_seconds_per_month": 7200,
+            "minutes_seconds_cap": 21600,
+            "chatbot_base_msg": 100,
+            "chatbot_per_household_msg": 5,
+            "chatbot_input_chars": 1000,
+            "chatbot_output_chars": 1000,
+            "is_active": True,
+        }
+    )
+
     app.dependency_overrides[get_supabase_admin] = lambda: state["admin_client"]
     app.dependency_overrides[get_supabase_anon] = lambda: state["anon_client"]
+    app.dependency_overrides[get_current_user] = lambda: state["current_user"]
 
     yield state
 
@@ -215,28 +246,27 @@ def setup_overrides(monkeypatch):
 
 
 def test_create_registration_order_returns_gocardless_redirect(setup_overrides, monkeypatch):
-    def fake_gocardless_request(method: str, path: str, payload=None, idempotency_key=None):
-        if path == "/billing_requests":
-            return {"billing_requests": {"id": "BR-REG-1", "status": "pending"}}
-        if path == "/billing_request_flows":
-            return {
-                "billing_request_flows": {
-                    "id": "BRF-REG-1",
-                    "authorisation_url": "https://sandbox.gocardless.test/flow/register-1",
-                }
-            }
-        raise AssertionError(f"Unexpected GoCardless request: {method} {path}")
-
-    monkeypatch.setattr(registration_service, "_gocardless_request", fake_gocardless_request)
-    monkeypatch.setattr(gocardless_service, "_gocardless_request", fake_gocardless_request)
+    monkeypatch.setattr(
+        registration_service,
+        "create_mandate_billing_request",
+        lambda metadata=None, idempotency_key=None: {"id": "BR-REG-1", "status": "pending"},
+    )
+    monkeypatch.setattr(
+        registration_service,
+        "create_billing_request_flow",
+        lambda billing_request_id, redirect_uri, idempotency_key=None: {
+            "id": "BRF-REG-1",
+            "authorisation_url": "https://sandbox.gocardless.test/flow/register-1",
+        },
+    )
 
     response = client.post(
         "/registration/gocardless/orders",
         json={
-            "email": "nuevo@vecinus.test",
-            "username": "nuevo_admin",
             "community_name": "Comunidad Alameda",
             "community_address": "Calle Alameda 10",
+            "plan": "basic",
+            "household_count": 0,
         },
     )
 
@@ -256,29 +286,18 @@ def test_create_registration_order_returns_gocardless_redirect(setup_overrides, 
 
 
 def test_create_registration_order_fails_if_email_already_used(setup_overrides, monkeypatch):
-    admin_client: MockSupabaseAdminClient = setup_overrides["admin_client"]
-    admin_client.storage["registration_payment_orders"] = [
-        {
-            "id": str(uuid4()),
-            "email": "nuevo@vecinus.test",
-            "username": "nuevo_admin",
-            "community_name": "Comunidad Alameda",
-            "community_address": "Calle Alameda 10",
-        }
-    ]
+    setup_overrides["current_user"]["email"] = None
 
     response = client.post(
         "/registration/gocardless/orders",
         json={
-            "email": "nuevo@vecinus.test",
-            "username": "otro_admin",
             "community_name": "Comunidad Alatrillo",
             "community_address": "Calle Varvo 33",
         },
     )
     expect_equal(response.status_code, 400, "Expected status code 400")
     data = response.json()
-    expect_equal(data["detail"], "There is already a registered user with that email", "Expected error message")
+    expect_equal(data["detail"], "Authenticated user has no email available in the JWT", "Expected error message")
 
 
 def test_complete_registration_order_creates_user_community_and_membership(setup_overrides, monkeypatch):
@@ -300,46 +319,41 @@ def test_complete_registration_order_creates_user_community_and_membership(setup
             "authorisation_url": "https://sandbox.gocardless.test/flow/register-1",
             "mandate_id": None,
             "payment_id": None,
-            "created_profile_id": None,
+            "created_profile_id": PROFILE_ID,
             "created_association_id": None,
             "granted_role": 1,
+            "subscription_plan_id": PLAN_BASIC_ID,
+            "household_count": 0,
             "created_at": "2026-04-08T10:00:00+00:00",
             "updated_at": "2026-04-08T10:00:00+00:00",
         }
     ]
-
-    def fake_gocardless_request(method: str, path: str, payload=None, idempotency_key=None):
-        if method == "GET" and path == "/billing_requests/BR-REG-1":
-            return {
-                "billing_requests": {
-                    "id": "BR-REG-1",
-                    "status": "fulfilled",
-                    "links": {"mandate": "MD-REG-1"},
-                }
-            }
-        if method == "POST" and path == "/payments":
-            return {"payments": {"id": "PM-REG-1"}}
-        raise AssertionError(f"Unexpected GoCardless request: {method} {path}")
-
-    monkeypatch.setattr(registration_service, "_gocardless_request", fake_gocardless_request)
-    monkeypatch.setattr(gocardless_service, "_gocardless_request", fake_gocardless_request)
-
-    response = client.post(
-        f"/registration/gocardless/orders/{order_id}/complete",
-        json={"email": "nuevo@vecinus.test", "password": "supersecreta1"},
+    monkeypatch.setattr(
+        registration_service,
+        "get_billing_request",
+        lambda _billing_request_id: {
+            "id": "BR-REG-1",
+            "status": "fulfilled",
+            "links": {"mandate_request_mandate": "MD-REG-1"},
+        },
     )
+    monkeypatch.setattr(registration_service, "get_mandate", lambda _mandate_id: {"links": {"customer": "CUS-1"}})
+    monkeypatch.setattr(registration_service, "create_subscription", lambda **_kwargs: {"id": "GC-SUB-1"})
+    monkeypatch.setattr(registration_service, "ensure_usage_counters_initialized", lambda *_args, **_kwargs: True)
+
+    response = client.post(f"/registration/gocardless/orders/{order_id}/complete")
 
     expect_equal(response.status_code, 200, "Expected status code 200")
     data = response.json()
     expect_equal(data["status"], "completed", "Expected completed status")
     expect_equal(data["mandate_id"], "MD-REG-1", "Expected mandate id")
-    expect_equal(data["payment_id"], "PM-REG-1", "Expected payment id")
     expect_equal(data["granted_role"], 1, "Expected admin role")
     expect_equal(data["granted_role_label"], "admin", "Expected admin role label")
-    expect_true(data["created_profile_id"] is not None, "Expected created profile id")
+    expect_equal(data["created_profile_id"], PROFILE_ID, "Expected current profile id")
     expect_true(data["created_association_id"] is not None, "Expected created association id")
-    expect_equal(data["token"], "token-for-nuevo@vecinus.test", "Expected auth token")
-    expect_equal(len(state["admin_client"].storage["profiles"]), 1, "Expected one created profile")
+    expect_true(data["created_subscription_id"] is not None, "Expected created subscription id")
+    expect_equal(data["token"], None, "Expected no auth token")
+    expect_equal(len(state["admin_client"].storage["profiles"]), 1, "Expected no extra profiles")
     expect_equal(
         len(state["admin_client"].storage["neighborhood_associations"]),
         1,
@@ -347,11 +361,12 @@ def test_complete_registration_order_creates_user_community_and_membership(setup
     )
     expect_equal(len(state["admin_client"].storage["memberships"]), 1, "Expected one created membership")
     expect_equal(state["admin_client"].storage["memberships"][0]["role"], 1, "Expected created admin membership")
+    expect_equal(len(state["admin_client"].storage["community_subscriptions"]), 1, "Expected one subscription row")
 
 
 def test_complete_registration_order_completed(setup_overrides, monkeypatch):
     order_id = str(uuid4())
-    created_profile_id = str(uuid4())
+    str(uuid4())
     created_association_id = str(uuid4())
     setup_overrides["admin_client"].storage["registration_payment_orders"] = [
         {
@@ -369,34 +384,32 @@ def test_complete_registration_order_completed(setup_overrides, monkeypatch):
             "authorisation_url": "https://sandbox.gocardless.test/flow/register-1",
             "mandate_id": "MD-REG-1",
             "payment_id": "PM-REG-1",
-            "created_profile_id": created_profile_id,
+            "created_profile_id": PROFILE_ID,
             "created_association_id": created_association_id,
             "granted_role": 1,
+            "subscription_plan_id": PLAN_BASIC_ID,
+            "household_count": 0,
+            "created_subscription_id": SUBSCRIPTION_ID,
             "created_at": "2026-04-08T10:00:00+00:00",
             "updated_at": "2026-04-08T10:00:00+00:00",
         }
     ]
 
-    response = client.post(
-        f"/registration/gocardless/orders/{order_id}/complete",
-        json={"email": "nuevo@vecinus.test", "password": "supersecreta1"},
-    )
+    response = client.post(f"/registration/gocardless/orders/{order_id}/complete")
     expect_equal(response.status_code, 200, "Expected status code 200")
     data = response.json()
     expect_equal(data["status"], "completed", "Expected completed status")
     expect_equal(data["mandate_id"], "MD-REG-1", "Expected existing mandate id")
-    expect_equal(data["payment_id"], "PM-REG-1", "Expected existing payment id")
     expect_equal(data["granted_role"], 1, "Expected admin role")
     expect_equal(data["granted_role_label"], "admin", "Expected admin role label")
-    expect_equal(data["created_profile_id"], created_profile_id, "Expected existing created profile id")
+    expect_equal(data["created_profile_id"], PROFILE_ID, "Expected existing created profile id")
     expect_equal(data["created_association_id"], created_association_id, "Expected existing created association id")
-    expect_equal(data["token"], "token-for-nuevo@vecinus.test", "Expected auth token")
+    expect_equal(data["token"], None, "Expected no auth token")
 
 
 def test_complete_registration_order_fails_if_order_not_found(setup_overrides, monkeypatch):
     response = client.post(
         f"/registration/gocardless/orders/{str(uuid4())}/complete",
-        json={"email": "nuevo@vecinus.test", "password": "supersecreta1"},
     )
     expect_equal(response.status_code, 404, "Expected status code 404")
     data = response.json()
@@ -419,13 +432,14 @@ def test_complete_registration_order_fails_if_order_lacks_billing_request(setup_
             "billing_request_id": None,
             "billing_request_flow_id": None,
             "authorisation_url": None,
+            "subscription_plan_id": PLAN_BASIC_ID,
+            "household_count": 0,
+            "created_at": "2026-04-08T10:00:00+00:00",
+            "updated_at": "2026-04-08T10:00:00+00:00",
         }
     ]
 
-    response = client.post(
-        f"/registration/gocardless/orders/{order_id}/complete",
-        json={"email": "nuevo@vecinus.test", "password": "supersecreta1"},
-    )
+    response = client.post(f"/registration/gocardless/orders/{order_id}/complete")
     expect_equal(response.status_code, 400, "Expected status code 400")
     data = response.json()
     expect_equal(
@@ -436,20 +450,6 @@ def test_complete_registration_order_fails_if_order_lacks_billing_request(setup_
 def test_complete_registration_order_fails_if_email_already_used(setup_overrides, monkeypatch):
     order_id = str(uuid4())
     setup_overrides["admin_client"].storage["registration_payment_orders"] = [
-        {
-            "id": str(uuid4()),
-            "email": "nuevo@vecinus.test",
-            "username": "nuevo_admin",
-            "community_name": "Comunidad Alameda",
-            "community_address": "Calle Alameda 10",
-            "amount_cents": 1499,
-            "currency": "EUR",
-            "provider": "gocardless",
-            "status": "completed",
-            "billing_request_id": "BR-REG-1",
-            "billing_request_flow_id": "BF-REG-1",
-            "authorisation_url": "https://example.com/authorise",
-        },
         {
             "id": order_id,
             "email": "nuevo@vecinus.test",
@@ -463,17 +463,18 @@ def test_complete_registration_order_fails_if_email_already_used(setup_overrides
             "billing_request_id": "BR-REG-2",
             "billing_request_flow_id": "BF-REG-2",
             "authorisation_url": "https://example.com/authorise2",
+            "subscription_plan_id": PLAN_BASIC_ID,
+            "household_count": 0,
+            "created_profile_id": OTHER_PROFILE_ID,
+            "created_at": "2026-04-08T10:00:00+00:00",
+            "updated_at": "2026-04-08T10:00:00+00:00",
         },
     ]
 
-    setup_overrides["admin_client"].auth.admin.create_user({"email": "nuevo@vecinus.test", "password": "supersecreta1"})
-    response = client.post(
-        f"/registration/gocardless/orders/{order_id}/complete",
-        json={"email": "nuevo@vecinus.test", "password": "supersecreta1"},
-    )
-    expect_equal(response.status_code, 400, "Expected status code 400")
+    response = client.post(f"/registration/gocardless/orders/{order_id}/complete")
+    expect_equal(response.status_code, 403, "Expected status code 403")
     data = response.json()
-    expect_equal(data["detail"], "There is already a registered user with that email", "Expected error message")
+    expect_equal(data["detail"], "This order belongs to another user", "Expected error message")
 
 
 def test_complete_registration_order_fails_if_email_mismatch(setup_overrides, monkeypatch):
@@ -492,13 +493,25 @@ def test_complete_registration_order_fails_if_email_mismatch(setup_overrides, mo
             "billing_request_id": "BR-REG-1",
             "billing_request_flow_id": "BF-REG-1",
             "authorisation_url": "https://example.com/authorise",
+            "subscription_plan_id": PLAN_BASIC_ID,
+            "household_count": 0,
+            "created_profile_id": PROFILE_ID,
+            "created_at": "2026-04-08T10:00:00+00:00",
+            "updated_at": "2026-04-08T10:00:00+00:00",
         }
     ]
 
-    response = client.post(
-        f"/registration/gocardless/orders/{order_id}/complete",
-        json={"email": "otro@vecinus.test", "password": "supersecreta1"},
+    monkeypatch.setattr(
+        registration_service,
+        "get_billing_request",
+        lambda _billing_request_id: {
+            "id": "BR-REG-1",
+            "status": "pending",
+            "links": {},
+        },
     )
-    expect_equal(response.status_code, 403, "Expected status code 403")
+
+    response = client.post(f"/registration/gocardless/orders/{order_id}/complete")
+    expect_equal(response.status_code, 200, "Expected status code 200")
     data = response.json()
-    expect_equal(data["detail"], "The email does not match the registration order", "Expected error message")
+    expect_equal(data["status"], "pending", "Expected pending status")

@@ -11,7 +11,8 @@ os.environ["SUPABASE_KEY"] = "dummy"
 os.environ["SUPABASE_SERVICE_KEY"] = "dummy"
 os.environ["SUPABASE_SCHEMA"] = "public"
 
-from core.deps import get_current_user, get_supabase  # noqa: E402
+import api.chatBot.chatBot as chatbot_api  # noqa: E402
+from core.deps import get_current_user, get_supabase, get_supabase_admin  # noqa: E402
 from main import app  # noqa: E402
 from services.chatBot.chatBotService import DISCLAIMER  # noqa: E402
 
@@ -33,6 +34,9 @@ class MockSupabaseTable:
         self._data = [row for row in self._data if str(row.get(column)) == str(value)]
         return self
 
+    def limit(self, *args, **kwargs):
+        return self
+
     def execute(self):
         class MockResponse:
             def __init__(self, data):
@@ -47,10 +51,13 @@ class MockSupabaseClient:
             {"association_id": COMMUNITY_ID, "profile_id": USER_ADMIN_ID, "role": 1},
             {"association_id": COMMUNITY_ID, "profile_id": USER_NON_ADMIN_ID, "role": 2},
         ]
+        self._community_subscriptions = [{"association_id": COMMUNITY_ID, "status": "active"}]
 
     def table(self, name: str):
         if name == "memberships":
             return MockSupabaseTable(self._memberships.copy())
+        if name == "community_subscriptions":
+            return MockSupabaseTable(self._community_subscriptions.copy())
         return MockSupabaseTable([])
 
 
@@ -66,6 +73,13 @@ def override_get_supabase():
 def setup_overrides():
     app.dependency_overrides[get_current_user] = override_get_current_user_admin
     app.dependency_overrides[get_supabase] = override_get_supabase
+    app.dependency_overrides[get_supabase_admin] = override_get_supabase
+    chatbot_api.consume_chatbot_message = lambda *_args, **_kwargs: {
+        "allowed": True,
+        "remaining": 99,
+        "resets_at": None,
+    }
+    chatbot_api.revert_chatbot_message = lambda *_args, **_kwargs: None
     yield
     app.dependency_overrides.clear()
 

@@ -10,7 +10,7 @@ os.environ["SUPABASE_URL"] = "http://localhost:8000"
 os.environ["SUPABASE_KEY"] = "dummy"
 os.environ["SUPABASE_SERVICE_KEY"] = "dummy-service"
 
-from core.deps import get_current_user, get_supabase  # noqa: E402
+from core.deps import get_current_user, get_supabase, get_supabase_admin  # noqa: E402
 from main import app  # noqa: E402
 
 client = TestClient(app)
@@ -394,6 +394,10 @@ def make_mock_supabase(extra=None, rls_blocked=None):
             mock_incident_state_8_1,
             mock_incident_state_8_2,
         ],
+        "community_subscriptions": [
+            {"association_id": mock_association_id, "status": "active"},
+            {"association_id": mock_other_association_id, "status": "active"},
+        ],
     }
 
     # Build incidents with embedded memberships
@@ -447,6 +451,13 @@ def make_mock_supabase(extra=None, rls_blocked=None):
             else:
                 base[key] = base.get(key, []) + value
     return MockSupabaseClient(base, rls_blocked=rls_blocked)
+
+
+@pytest.fixture(autouse=True)
+def override_supabase_admin():
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
+    yield
+    app.dependency_overrides.pop(get_supabase_admin, None)
 
 
 # ------------------- GET incidents/{association_id} ------------------
@@ -698,9 +709,9 @@ def test_get_incident_wrong_association():
     app.dependency_overrides[get_current_user] = lambda: mock_admin
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
     response = client.get(f"/incidents/{str(uuid4())}/{mock_incident_other_association_id}")
-    assert response.status_code == 403
+    assert response.status_code == 402
     data = response.json()
-    assert data["detail"] == "Access denied to this community"
+    assert data["detail"]["code"] == "community_no_subscription"
 
 
 # ------------------- POST incidents/{association_id} ------------------
