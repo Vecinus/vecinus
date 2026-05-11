@@ -14,7 +14,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import { ADMIN_ROLE_ID } from '@/utils/role.util';
@@ -38,6 +37,9 @@ import {
   Platform,
   RefreshControl,
   View,
+  TextInput,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
 } from 'react-native';
 
 const CHAT_COMPOSER_MIN_HEIGHT = 24;
@@ -280,7 +282,7 @@ export default function CommunityChatScreen() {
     }
   }, [channel?.id, loadMessages]);
 
-  const handleScroll = React.useCallback((event: any) => {
+  const handleScroll = React.useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
     const distanceToBottom = contentSize.height - (layoutMeasurement.height + contentOffset.y);
 
@@ -458,7 +460,7 @@ export default function CommunityChatScreen() {
               ) : null}
 
               <View className="flex-row items-end gap-3 rounded-3xl border border-border bg-background px-3 py-2">
-                <Textarea
+                <TextInput
                   value={messageText}
                   onChangeText={setMessageText}
                   onContentSizeChange={(event) => {
@@ -472,10 +474,11 @@ export default function CommunityChatScreen() {
                     setComposerHeight(nextHeight);
                   }}
                   placeholder="Escribe tu mensaje"
+                  multiline
                   numberOfLines={1}
                   scrollEnabled={composerHeight >= CHAT_COMPOSER_MAX_HEIGHT}
                   style={{ height: composerHeight, maxHeight: CHAT_COMPOSER_MAX_HEIGHT }}
-                  className="min-h-0 flex-1 border-0 bg-transparent px-0 py-1 shadow-none"
+                  className="min-h-0 flex-1 border-0 bg-transparent px-0 py-1 text-base text-foreground shadow-none"
                 />
 
                 <Button
