@@ -19,7 +19,6 @@ import { cn } from '@/lib/utils';
 import { isAdminOrPresident } from '@/utils/role.util';
 import { useLocalSearchParams } from 'expo-router';
 import {
-  ChevronDownIcon,
   CircleAlertIcon,
   SendIcon,
   ShieldAlertIcon,
@@ -27,7 +26,6 @@ import {
   UserIcon,
   UsersIcon,
   ChevronDownIcon,
-  ArrowDownIcon,
 } from 'lucide-react-native';
 import * as React from 'react';
 import {
@@ -160,35 +158,6 @@ export default function CommunityChatScreen() {
   const [composerHeight, setComposerHeight] = React.useState(CHAT_COMPOSER_MIN_HEIGHT);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [isSending, setIsSending] = React.useState(false);
-  const [isAtBottom, setIsAtBottom] = React.useState(true);
-
-  const handleScroll = React.useCallback(
-    (event: {
-      nativeEvent: {
-        contentOffset: { y: number };
-        layoutMeasurement: { height: number };
-        contentSize: { height: number };
-      };
-    }) => {
-      const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
-      const isBottom = contentOffset.y + layoutMeasurement.height >= contentSize.height - 50;
-      setIsAtBottom(isBottom);
-    },
-    []
-  );
-
-  const handleContentSizeChange = React.useCallback(
-    (width: number, height: number) => {
-      if (isAtBottom) {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }
-    },
-    [isAtBottom]
-  );
-
-  const scrollToBottom = React.useCallback(() => {
-    flatListRef.current?.scrollToEnd({ animated: true });
-  }, []);
   const [showScrollToBottom, setShowScrollToBottom] = React.useState(false);
   const [hasNewMessages, setHasNewMessages] = React.useState(false);
   const isAtBottomRef = React.useRef(true);
@@ -329,6 +298,15 @@ export default function CommunityChatScreen() {
     }
   }, []);
 
+  const handleContentSizeChange = React.useCallback(
+    (width: number, height: number) => {
+      if (isAtBottomRef.current) {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }
+    },
+    []
+  );
+
   const scrollToBottom = React.useCallback(() => {
     flatListRef.current?.scrollToEnd({ animated: true });
     setHasNewMessages(false);
@@ -465,7 +443,7 @@ export default function CommunityChatScreen() {
               />
             ) : null}
 
-            {state === 'ready' && !isAtBottom && messages.length > 0 ? (
+            {state === 'ready' && showScrollToBottom && messages.length > 0 ? (
               <View className="absolute bottom-4 right-4 z-10">
                 <Button
                   onPress={scrollToBottom}
