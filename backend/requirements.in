@@ -54,7 +54,7 @@ python-dateutil==2.9.0.post0
 python-dotenv==1.2.2
 PyYAML==6.0.3
 realtime==2.28.0
-requests==2.33.1
+requests==2.34.0
 rich==14.3.4
 six==1.17.0
 starlette==1.0.0
@@ -75,7 +75,7 @@ websockets==14.1
 yarl==1.23.0
 zstandard==0.25.0
 pre-commit==4.6.0
-commitizen==4.15.1
+commitizen==4.16.0
 autoflake==2.3.3
 google-genai==1.74.0
 python-docx==1.2.0
