@@ -33,7 +33,8 @@ import {
   ShieldAlert,
   UserIcon,
   PlusCircle,
-  Megaphone
+  Megaphone,
+  Scale,
 } from 'lucide-react-native';
 import {
   Select,
@@ -134,6 +135,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
   const navigateToCommunityRoute = (
     pathnameTemplate:
       | '/[communityId]/actas'
+      | '/[communityId]/votaciones'
       | '/[communityId]/chat'
       | '/[communityId]/chatbot'
       | '/[communityId]/booking'
@@ -142,13 +144,15 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
   ) => {
     if (!activeCommunity?.id) return;
     router.push({
-      pathname: pathnameTemplate,
+       
+      pathname: pathnameTemplate as any,
       params: { communityId: activeCommunity.id },
     });
   };
 
   const isHomeActive = pathname === '/';
   const isActasActive = pathname.endsWith('/actas') || pathname.includes('/actas/');
+  const isVotacionesActive = pathname.endsWith('/votaciones') || pathname.includes('/votaciones/');
   const isChatActive = pathname.endsWith('/chat');
   const isChatbotActive = pathname.endsWith('/chatbot');
   const isBookingActive = pathname.endsWith('/booking') || pathname.includes('/mis-reservas');
@@ -281,6 +285,15 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
                 <View className="flex-row items-center gap-3">
                   <Icon as={FileTextIcon} size={22} className="text-muted-foreground" />
                   <Text className="font-medium text-foreground">Actas</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => navigateToCommunityRoute('/[communityId]/votaciones')}
+                className={`rounded-lg px-4 py-3 ${isVotacionesActive ? 'bg-muted' : 'active:bg-muted'}`}>
+                <View className="flex-row items-center gap-3">
+                  <Icon as={Scale} size={22} className="text-muted-foreground" />
+                  <Text className="font-medium text-foreground">Votaciones</Text>
                 </View>
               </TouchableOpacity>
 
