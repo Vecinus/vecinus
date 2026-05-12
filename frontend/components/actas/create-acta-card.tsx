@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { View, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
-import * as DocumentPicker from 'expo-document-picker';
-import { Mic, Upload, X, Save, AlertCircle, Circle } from 'lucide-react-native';
-import { useAudioRecorder } from '@/hooks/useAudioRecorder';
-import { AudioPlayer } from './audio-player';
 import { minutesService } from '@/api/services/minutes.service';
-import { getLegalWarning } from '@/utils/legal-warnings';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
-import { Icon } from '@/components/ui/icon';
+import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { formatTime } from '@/lib/utils';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { getLegalWarning } from '@/utils/legal-warnings';
+import * as DocumentPicker from 'expo-document-picker';
+import { AlertCircle, Circle, Mic, Save, Upload, X } from 'lucide-react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Platform, TouchableOpacity, View } from 'react-native';
+import { AudioPlayer } from './audio-player';
 
 interface CreateActaCardProps {
   communityId: string;
@@ -172,6 +172,7 @@ export function CreateActaCard({
                 value={title}
                 onChangeText={setTitle}
                 editable={!isUploading && !isRecording}
+                maxLength={120}
                 className="h-12 text-base"
               />
             </View>

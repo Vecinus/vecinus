@@ -5,7 +5,7 @@ from uuid import UUID
 
 from api.chat.chat_helpers import verify_association_admin_or_president, verify_association_membership
 from core.deps import get_current_user, get_supabase
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from schemas.transcription.minutes import MeetingType, MinutesReadResponse, MinutesResponse
 from services.transcription.document_service import DocumentService
@@ -73,7 +73,7 @@ async def get_minutes(
 @router.post("/transcribe", response_model=MinutesReadResponse)
 async def transcribe_meeting(
     association_id: UUID,
-    title: str,
+    title: str = Query(..., max_length=120),
     location: str = "Residencial Vecinus",
     meeting_type: MeetingType = MeetingType.ORDINARY,
     scheduled_at: datetime = None,
