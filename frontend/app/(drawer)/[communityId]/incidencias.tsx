@@ -77,7 +77,7 @@ export default function IncidenciasScreen() {
 
   const canCreateIncident = roleToken !== '1';
   const canManageStatus = roleToken === '1' || roleToken === '4' || roleToken === '5';
-  const canSeeDiscardedFilter = roleToken === '1';
+  const canSeeDiscardedFilter = roleToken === '1' || roleToken === '4';
   const isDesktop = windowWidth >= DESKTOP_BREAKPOINT;
   const hasCompactActions = windowWidth < COMPACT_ACTIONS_BREAKPOINT;
 
@@ -125,13 +125,16 @@ export default function IncidenciasScreen() {
     staleTime: 1000 * 60 * 5,
   });
 
+  const { refetch: refetchAllIncidents } = allIncidentsQuery;
+  const { refetch: refetchMyIncidents } = myIncidentsQuery;
+
   useFocusEffect(
     useCallback(() => {
       if (communityId) {
-        allIncidentsQuery.refetch();
-        myIncidentsQuery.refetch();
+        refetchAllIncidents();
+        refetchMyIncidents();
       }
-    }, [communityId, allIncidentsQuery, myIncidentsQuery])
+    }, [communityId, refetchAllIncidents, refetchMyIncidents])
   );
 
   const createIncidentMutation = useCreateIncident(communityId);
@@ -303,20 +306,11 @@ export default function IncidenciasScreen() {
   }
 
   const renderIncidentItem = ({ item }: { item: Incident }) => {
-    const isOwner =
-      myIncidentIds.has(item.id) ||
-      !!(myMembershipId && String(item.membershipId) === String(myMembershipId));
-    const isAdminOrPresident = roleToken === '1' || roleToken === '4';
-    const canDeleteThis =
-      (isAdminOrPresident || isOwner) &&
-      ['PENDING', 'SOLVED', 'DISCARDED'].includes(item.status);
-
     return (
       <IncidentCard
         incident={item}
         reporterText={getReporterText(item)}
         canManageStatus={canManageStatus}
-        showDelete={canDeleteThis}
         onDelete={() => { handleDeleteConfirm(item.id); }}
         onPress={() => onOpenDetail(item.id)}
       />

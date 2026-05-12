@@ -1,6 +1,4 @@
 import os
-import sys
-import types
 from importlib import metadata
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
@@ -10,32 +8,7 @@ os.environ["SUPABASE_URL"] = "http://localhost:8000"
 os.environ["SUPABASE_KEY"] = "dummy"
 os.environ["SUPABASE_SERVICE_KEY"] = "dummy-service"
 
-# Stub email_validator to avoid incompatible version issues
-email_validator_stub = types.ModuleType("email_validator")
-
-
-class EmailNotValidError(ValueError):
-    pass
-
-
-def validate_email(email, *args, **kwargs):
-    local = email.split("@")[0] if "@" in email else email
-    domain = email.split("@")[1] if "@" in email else ""
-    return types.SimpleNamespace(
-        email=email,
-        normalized=email,
-        local_part=local,
-        domain=domain,
-        ascii_email=email,
-        ascii_local_part=local,
-        ascii_domain=domain,
-    )
-
-
-email_validator_stub.EmailNotValidError = EmailNotValidError
-email_validator_stub.validate_email = validate_email
-sys.modules["email_validator"] = email_validator_stub
-
+# No email_validator stub, we only need the version patch
 import pydantic.networks  # noqa: E402
 
 original_version = metadata.version
@@ -503,7 +476,7 @@ def test_accept_invitation_not_found():
             },
         )
         assert response.status_code == 404  # nosec B101
-        assert response.json()["detail"] == "La invitación no existe o ya ha sido utilizada"  # nosec B101
+        assert response.json()["detail"] == "La invitación no existe."  # nosec B101
     finally:
         app.dependency_overrides.clear()
 

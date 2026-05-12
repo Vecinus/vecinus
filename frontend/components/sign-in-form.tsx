@@ -6,7 +6,7 @@ import { Text } from '@/components/ui/text';
 import * as React from 'react';
 import { useState } from 'react';
 import { Pressable, type TextInput, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, Href } from 'expo-router';
 
 import { useLoginMutation } from '@/api/auth';
 
@@ -138,6 +138,22 @@ export function SignInForm() {
               <Text className="text-sm underline underline-offset-4">Regístrate</Text>
             </Pressable>
           </Text>
+          <Text className="text-center text-sm text-muted-foreground">
+            ¿Tu cuenta fue anonimizada?{' '}
+            <Pressable
+              onPress={() => {
+                router.push('/recover-account');
+              }}>
+              <Text className="text-sm underline underline-offset-4">Recupérala aquí</Text>
+            </Pressable>
+          </Text>
+          <View className="border-t border-border pt-4 mt-4">
+            <Pressable onPress={() => router.push('/(auth)/legal' as Href)}>
+              <Text className="text-center text-xs text-muted-foreground underline">
+                Consulta nuestros Términos y Condiciones
+              </Text>
+            </Pressable>
+          </View>
         </CardContent>
       </Card>
     </View>

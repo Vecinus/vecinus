@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -61,11 +61,13 @@ const GENERATE_BASE_SLOTS = (startTime?: string, endTime?: string) => {
 
 export default function Reservas() {
   const router = useRouter();
+  const { communityId: routeCommunityIdRaw } = useLocalSearchParams<{ communityId?: string | string[] }>();
+  const routeCommunityId = Array.isArray(routeCommunityIdRaw) ? routeCommunityIdRaw[0] : routeCommunityIdRaw;
   const currentRole = useRole();
   const isWorker = currentRole === 5;
   const isAdminOrPresident = currentRole === 1 || currentRole === 4;
   const { activeCommunity } = useAuth();
-  const associationId = activeCommunity ? activeCommunity.id : '';
+  const associationId = routeCommunityId || activeCommunity?.id || '';
 
   const [zonas, setZonas] = useState<CommonSpace[]>([]);
   const [zonaActivaId, setZonaActivaId] = useState<number | null>(null);
@@ -105,7 +107,7 @@ export default function Reservas() {
         }
         return data.length > 0 ? data[0].id : null;
       });
-    } catch (error) {
+    } catch {
       // Manejo silencioso de error en consola si se desea
     }
   }, [associationId]);
@@ -174,7 +176,7 @@ export default function Reservas() {
         setHoraSeleccionada('');
       }
 
-    } catch (error) {
+    } catch {
       setSlotsDisponibles([]);
     } finally {
       setIsLoadingSlots(false);
@@ -283,7 +285,7 @@ export default function Reservas() {
       });
 
       await fetchZonas();
-    } catch (error) {
+    } catch {
       setAlertConfig({
         visible: true,
         title: 'Error',

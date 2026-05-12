@@ -23,7 +23,7 @@ from schemas.chat.chat import (
 from supabase import Client, create_client  # noqa: F401
 
 from .chat_helpers import (
-    verify_association_admin,
+    verify_association_admin_or_president,
     verify_channel_access,
     verify_message_ownership,
 )
@@ -41,10 +41,10 @@ def create_group_channel(
 ):
     """
     Crea un nuevo canal de chat grupal.
-    Solo los administradores de la comunidad pueden hacerlo.
+    Solo los administradores o presidentes de la comunidad pueden hacerlo.
     """
-    # Verificar que el usuario es admin de la comunidad (role=1 en memberships)
-    verify_association_admin(channel_in.association_id, current_user["id"], supabase)
+    # Verificar que el usuario es admin o presidente de la comunidad (role=1 o role=4 en memberships)
+    verify_association_admin_or_president(channel_in.association_id, current_user["id"], supabase)
 
     new_channel_data = {
         "association_id": str(channel_in.association_id),
@@ -122,8 +122,8 @@ def update_group_channel(
 
     association_id = channel_data["association_id"]
 
-    # 2. Verificar que el usuario es admin de la comunidad
-    verify_association_admin(association_id, current_user["id"], supabase)
+    # 2. Verificar que el usuario es admin o presidente de la comunidad
+    verify_association_admin_or_president(association_id, current_user["id"], supabase)
 
     # 3. Actualizar
     update_data = {
@@ -165,8 +165,8 @@ def delete_group_channel(
 
     association_id = channel_data["association_id"]
 
-    # 2. Verificar que el usuario es admin de la comunidad
-    verify_association_admin(association_id, current_user["id"], supabase)
+    # 2. Verificar que el usuario es admin o presidente de la comunidad
+    verify_association_admin_or_president(association_id, current_user["id"], supabase)
 
     # 3. Eliminar el canal (Postgres elimina en cascada automáticamente
     # los mensajes y participantes ligados)
@@ -563,7 +563,7 @@ async def delete_message(
     broadcast_data = {
         "event": "message_deleted",
         "message_id": str(message_id),
-        "channel_id": channel_id,
+        "channel_id": str(channel_id),
     }
     await manager.broadcast(broadcast_data, str(channel_id))
 

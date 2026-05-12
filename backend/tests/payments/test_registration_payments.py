@@ -1,5 +1,4 @@
 import os
-import sys
 import types
 from importlib import metadata
 from typing import Any
@@ -14,20 +13,7 @@ os.environ["SUPABASE_URL"] = "http://localhost:8000"
 os.environ["SUPABASE_KEY"] = "dummy"
 os.environ["SUPABASE_SERVICE_KEY"] = "dummy-service"
 
-email_validator_stub = types.ModuleType("email_validator")
-
-
-class EmailNotValidError(ValueError):
-    pass
-
-
-def validate_email(email, *args, **kwargs):
-    return types.SimpleNamespace(email=email, normalized=email, local_part=email.split("@")[0])
-
-
-email_validator_stub.EmailNotValidError = EmailNotValidError
-email_validator_stub.validate_email = validate_email
-sys.modules["email_validator"] = email_validator_stub
+# email_validator_stub removed
 
 original_version = metadata.version
 
@@ -52,8 +38,10 @@ app.include_router(registration_router)
 client = TestClient(app)
 
 
-def expect_equal(actual, expected, message: str) -> None:
+def expect_equal(actual, expected, message: str, response=None) -> None:
     if actual != expected:
+        if response:
+            print("Response body:", response.json())
         pytest.fail(f"{message} (actual={actual!r}, expected={expected!r})")
 
 
@@ -233,14 +221,15 @@ def test_create_registration_order_returns_gocardless_redirect(setup_overrides, 
     response = client.post(
         "/registration/gocardless/orders",
         json={
-            "email": "nuevo@vecinus.test",
+            "email": "nuevo@example.com",
             "username": "nuevo_admin",
             "community_name": "Comunidad Alameda",
             "community_address": "Calle Alameda 10",
         },
     )
 
-    expect_equal(response.status_code, 201, "Expected status code 201")
+    print("--- RESPONSE JSON ---", response.json())
+    expect_equal(response.status_code, 201, "Expected status code 201", response=response)
     data = response.json()
     expect_equal(data["status"], "redirect_created", "Expected redirect status")
     expect_equal(data["billing_request_id"], "BR-REG-1", "Expected billing request id")
@@ -260,7 +249,7 @@ def test_create_registration_order_fails_if_email_already_used(setup_overrides, 
     admin_client.storage["registration_payment_orders"] = [
         {
             "id": str(uuid4()),
-            "email": "nuevo@vecinus.test",
+            "email": "nuevo@example.com",
             "username": "nuevo_admin",
             "community_name": "Comunidad Alameda",
             "community_address": "Calle Alameda 10",
@@ -270,7 +259,7 @@ def test_create_registration_order_fails_if_email_already_used(setup_overrides, 
     response = client.post(
         "/registration/gocardless/orders",
         json={
-            "email": "nuevo@vecinus.test",
+            "email": "nuevo@example.com",
             "username": "otro_admin",
             "community_name": "Comunidad Alatrillo",
             "community_address": "Calle Varvo 33",
@@ -287,7 +276,7 @@ def test_complete_registration_order_creates_user_community_and_membership(setup
     state["admin_client"].storage["registration_payment_orders"] = [
         {
             "id": order_id,
-            "email": "nuevo@vecinus.test",
+            "email": "nuevo@example.com",
             "username": "nuevo_admin",
             "community_name": "Comunidad Alameda",
             "community_address": "Calle Alameda 10",
@@ -326,7 +315,7 @@ def test_complete_registration_order_creates_user_community_and_membership(setup
 
     response = client.post(
         f"/registration/gocardless/orders/{order_id}/complete",
-        json={"email": "nuevo@vecinus.test", "password": "supersecreta1"},
+        json={"email": "nuevo@example.com", "password": "supersecreta1"},
     )
 
     expect_equal(response.status_code, 200, "Expected status code 200")
@@ -338,7 +327,7 @@ def test_complete_registration_order_creates_user_community_and_membership(setup
     expect_equal(data["granted_role_label"], "admin", "Expected admin role label")
     expect_true(data["created_profile_id"] is not None, "Expected created profile id")
     expect_true(data["created_association_id"] is not None, "Expected created association id")
-    expect_equal(data["token"], "token-for-nuevo@vecinus.test", "Expected auth token")
+    expect_equal(data["token"], "token-for-nuevo@example.com", "Expected auth token")
     expect_equal(len(state["admin_client"].storage["profiles"]), 1, "Expected one created profile")
     expect_equal(
         len(state["admin_client"].storage["neighborhood_associations"]),
@@ -356,7 +345,7 @@ def test_complete_registration_order_completed(setup_overrides, monkeypatch):
     setup_overrides["admin_client"].storage["registration_payment_orders"] = [
         {
             "id": order_id,
-            "email": "nuevo@vecinus.test",
+            "email": "nuevo@example.com",
             "username": "nuevo_admin",
             "community_name": "Comunidad Alameda",
             "community_address": "Calle Alameda 10",
@@ -379,7 +368,7 @@ def test_complete_registration_order_completed(setup_overrides, monkeypatch):
 
     response = client.post(
         f"/registration/gocardless/orders/{order_id}/complete",
-        json={"email": "nuevo@vecinus.test", "password": "supersecreta1"},
+        json={"email": "nuevo@example.com", "password": "supersecreta1"},
     )
     expect_equal(response.status_code, 200, "Expected status code 200")
     data = response.json()
@@ -390,13 +379,13 @@ def test_complete_registration_order_completed(setup_overrides, monkeypatch):
     expect_equal(data["granted_role_label"], "admin", "Expected admin role label")
     expect_equal(data["created_profile_id"], created_profile_id, "Expected existing created profile id")
     expect_equal(data["created_association_id"], created_association_id, "Expected existing created association id")
-    expect_equal(data["token"], "token-for-nuevo@vecinus.test", "Expected auth token")
+    expect_equal(data["token"], "token-for-nuevo@example.com", "Expected auth token")
 
 
 def test_complete_registration_order_fails_if_order_not_found(setup_overrides, monkeypatch):
     response = client.post(
         f"/registration/gocardless/orders/{str(uuid4())}/complete",
-        json={"email": "nuevo@vecinus.test", "password": "supersecreta1"},
+        json={"email": "nuevo@example.com", "password": "supersecreta1"},
     )
     expect_equal(response.status_code, 404, "Expected status code 404")
     data = response.json()
@@ -408,7 +397,7 @@ def test_complete_registration_order_fails_if_order_lacks_billing_request(setup_
     setup_overrides["admin_client"].storage["registration_payment_orders"] = [
         {
             "id": order_id,
-            "email": "nuevo@vecinus.test",
+            "email": "nuevo@example.com",
             "username": "nuevo_admin",
             "community_name": "Comunidad Alameda",
             "community_address": "Calle Alameda 10",
@@ -424,7 +413,7 @@ def test_complete_registration_order_fails_if_order_lacks_billing_request(setup_
 
     response = client.post(
         f"/registration/gocardless/orders/{order_id}/complete",
-        json={"email": "nuevo@vecinus.test", "password": "supersecreta1"},
+        json={"email": "nuevo@example.com", "password": "supersecreta1"},
     )
     expect_equal(response.status_code, 400, "Expected status code 400")
     data = response.json()
@@ -438,7 +427,7 @@ def test_complete_registration_order_fails_if_email_already_used(setup_overrides
     setup_overrides["admin_client"].storage["registration_payment_orders"] = [
         {
             "id": str(uuid4()),
-            "email": "nuevo@vecinus.test",
+            "email": "nuevo@example.com",
             "username": "nuevo_admin",
             "community_name": "Comunidad Alameda",
             "community_address": "Calle Alameda 10",
@@ -452,7 +441,7 @@ def test_complete_registration_order_fails_if_email_already_used(setup_overrides
         },
         {
             "id": order_id,
-            "email": "nuevo@vecinus.test",
+            "email": "nuevo@example.com",
             "username": "otro admin",
             "community_name": "Comunidad Alatrillo",
             "community_address": "Calle Varvo 33",
@@ -466,10 +455,10 @@ def test_complete_registration_order_fails_if_email_already_used(setup_overrides
         },
     ]
 
-    setup_overrides["admin_client"].auth.admin.create_user({"email": "nuevo@vecinus.test", "password": "supersecreta1"})
+    setup_overrides["admin_client"].auth.admin.create_user({"email": "nuevo@example.com", "password": "supersecreta1"})
     response = client.post(
         f"/registration/gocardless/orders/{order_id}/complete",
-        json={"email": "nuevo@vecinus.test", "password": "supersecreta1"},
+        json={"email": "nuevo@example.com", "password": "supersecreta1"},
     )
     expect_equal(response.status_code, 400, "Expected status code 400")
     data = response.json()
@@ -481,7 +470,7 @@ def test_complete_registration_order_fails_if_email_mismatch(setup_overrides, mo
     setup_overrides["admin_client"].storage["registration_payment_orders"] = [
         {
             "id": order_id,
-            "email": "nuevo@vecinus.test",
+            "email": "nuevo@example.com",
             "username": "nuevo_admin",
             "community_name": "Comunidad Alameda",
             "community_address": "Calle Alameda 10",
@@ -497,7 +486,7 @@ def test_complete_registration_order_fails_if_email_mismatch(setup_overrides, mo
 
     response = client.post(
         f"/registration/gocardless/orders/{order_id}/complete",
-        json={"email": "otro@vecinus.test", "password": "supersecreta1"},
+        json={"email": "otro@example.com", "password": "supersecreta1"},
     )
     expect_equal(response.status_code, 403, "Expected status code 403")
     data = response.json()

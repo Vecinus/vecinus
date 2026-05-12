@@ -112,3 +112,4 @@ def test_api_cast_vote(mock_vote_service_class):
     assert data["coefficient_snapshot"] == 15.5
 
     mock_service.cast_vote.assert_called_once()
+    mock_service.cast_vote.assert_called_once()
