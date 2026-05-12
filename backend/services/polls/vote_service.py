@@ -47,6 +47,14 @@ class VoteService:
             if token_info["is_used"]:
                 raise HTTPException(status_code=403, detail="Este token ya ha sido utilizado para votar")
 
+            expires_at_str = token_info.get("expires_at")
+            if expires_at_str:
+                expires_at = datetime.fromisoformat(expires_at_str)
+                if expires_at.tzinfo is None:
+                    expires_at = expires_at.replace(tzinfo=timezone.utc)
+                if expires_at < datetime.now(timezone.utc):
+                    raise HTTPException(status_code=403, detail="El token de votación ha expirado")
+
             membership_id = token_info["membership_id"]
         except HTTPException:
             raise

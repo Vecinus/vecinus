@@ -125,13 +125,16 @@ export default function IncidenciasScreen() {
     staleTime: 1000 * 60 * 5,
   });
 
+  const { refetch: refetchAllIncidents } = allIncidentsQuery;
+  const { refetch: refetchMyIncidents } = myIncidentsQuery;
+
   useFocusEffect(
     useCallback(() => {
       if (communityId) {
-        allIncidentsQuery.refetch();
-        myIncidentsQuery.refetch();
+        refetchAllIncidents();
+        refetchMyIncidents();
       }
-    }, [communityId, allIncidentsQuery, myIncidentsQuery])
+    }, [communityId, refetchAllIncidents, refetchMyIncidents])
   );
 
   const createIncidentMutation = useCreateIncident(communityId);
