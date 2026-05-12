@@ -1,22 +1,22 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { View, ScrollView, ActivityIndicator, Image, Modal, TouchableOpacity } from 'react-native';
-import { useLocalSearchParams, useRouter , useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Image, Modal, ScrollView, TouchableOpacity, View } from 'react-native';
 
-import { Drawer } from 'expo-router/drawer';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { ArrowLeft } from 'lucide-react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { type DocumentPickerAsset } from 'expo-document-picker';
+import { Drawer } from 'expo-router/drawer';
+import { ArrowLeft } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Text } from '@/components/ui/text';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { useAuth } from '@/context/AuthContext';
-import { useAnnouncementDetail, useUpdateAnnouncement } from '@/hooks/useAnnouncements';
-import { normalizeRoleToBackendToken, getUserFacingErrorMessage } from '@/components/community/incidents/utils';
 import { type AnnouncementStatus } from '@/api/announcements';
 import { DateTimePickerModal } from '@/components/community/announcements/DateTimePickerModal';
+import { getUserFacingErrorMessage, normalizeRoleToBackendToken } from '@/components/community/incidents/utils';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Text } from '@/components/ui/text';
+import { useAuth } from '@/context/AuthContext';
+import { useAnnouncementDetail, useUpdateAnnouncement } from '@/hooks/useAnnouncements';
 
 interface DocumentPickerAssetWithFile extends DocumentPickerAsset {
   file?: Blob;
@@ -51,7 +51,7 @@ export default function AnuncioDetailScreen() {
   const handleGoBack = (): void => {
     if (communityId) {
       router.push({
-        pathname: '/[communityId]/anuncios',
+        pathname: '/[communityId]/anuncios' as any,
         params: { communityId },
       });
     } else {

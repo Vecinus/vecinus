@@ -265,7 +265,7 @@ export default function AnunciosScreen() {
               canManage={canManage}
               onPress={() => {
                 router.push({
-                  pathname: '/[communityId]/anuncio/[id]',
+                  pathname: '/[communityId]/anuncio/[id]' as any,
                   params: { communityId, id: item.id },
                 });
               }}
