@@ -43,7 +43,7 @@ Muy insatisfecho | Insatisfecho | Neutral | Satisfecho | Muy satisfecho
 | Persona | 24-30 Abril | 1-7 Mayo | 8-14 Mayo |
 |---------|-----------|-----------|-----------|
 | Esteban L. |  |  |  |
-| Joaquín B. |  |  |  |
+| Joaquín B. | 🙂 | 🙂 | 😄 |
 | Ariel E. |  |  |  |
 | Alejandro M. |  |  |  |
 | José Ángel R. | 🙂 | 😄 | 🙂 |
