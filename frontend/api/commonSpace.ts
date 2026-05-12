@@ -8,7 +8,6 @@ export interface CommonSpace {
   requires_qr?: boolean;
   capacity?: number;
   max_guests_per_reservation?: number;
-  photo_url?: string | null;
   usage_mode?: string | 'exclusive_reservation';
   start_time?: string;
   end_time?: string;

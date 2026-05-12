@@ -15,6 +15,7 @@ import {
   MailIcon,
   AlertTriangle,
   CalendarCheck,
+  Megaphone,
   Scale,
 } from 'lucide-react-native';
 
@@ -120,6 +121,24 @@ export default function DrawerLayout() {
           drawerIcon: ({ size, color }) => (
             <Icon as={AlertTriangle} size={size} className="text-foreground" />
           ),
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/anuncios"
+        initialParams={{ communityId: activeCommunity?.id }}
+        options={{
+          title: 'Anuncios',
+          drawerLabel: 'Anuncios',
+          drawerIcon: ({ size }) => (
+            <Icon as={Megaphone} size={size} className="text-foreground" />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/anuncio/[id]"
+        options={{
+          title: 'Detalle de Anuncio',
           drawerItemStyle: { display: 'none' },
         }}
       />

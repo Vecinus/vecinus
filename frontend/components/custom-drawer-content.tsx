@@ -5,7 +5,7 @@ import {
 import { Image } from 'expo-image';
 import { View, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { usePathname, useRouter } from 'expo-router';
+import { usePathname, useRouter, type Href } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
@@ -33,6 +33,7 @@ import {
   ShieldAlert,
   UserIcon,
   PlusCircle,
+  Megaphone,
   Scale,
 } from 'lucide-react-native';
 import {
@@ -139,12 +140,13 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       | '/[communityId]/chatbot'
       | '/[communityId]/booking'
       | '/[communityId]/admin'
+      | '/[communityId]/anuncios'
   ) => {
     if (!activeCommunity?.id) return;
     router.push({
       pathname: pathnameTemplate,
       params: { communityId: activeCommunity.id },
-    });
+    } as unknown as Href);
   };
 
   const isHomeActive = pathname === '/';
@@ -155,6 +157,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
   const isBookingActive = pathname.endsWith('/booking') || pathname.includes('/mis-reservas');
   const isAdminActive = pathname.endsWith('/admin');
   const isInvitationsActive = pathname.includes('/invitations');
+  const isAnnouncementsActive = pathname.endsWith('/anuncios') || pathname.includes('/anuncios/');
   const isAccountActive = pathname.includes('/account');
 
   const handleAvatarDialogChange = (open: boolean) => {
@@ -317,6 +320,16 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
                 <View className="flex-row items-center gap-3">
                   <Icon as={CalendarCheck} size={22} className="text-muted-foreground" />
                   <Text className="font-medium text-foreground">Reservas</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => { navigateToCommunityRoute('/[communityId]/anuncios'); }}
+                className={`rounded-lg px-4 py-3 ${isAnnouncementsActive ? 'bg-muted' : 'active:bg-muted'}`}
+              >
+                <View className="flex-row items-center gap-3">
+                  <Icon as={Megaphone} size={22} className="text-muted-foreground" />
+                  <Text className="font-medium text-foreground">Anuncios</Text>
                 </View>
               </TouchableOpacity>
 

@@ -11,7 +11,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/context/AuthContext';
@@ -20,7 +20,6 @@ import { ADMIN_ROLE_ID } from '@/utils/role.util';
 import { useLocalSearchParams } from 'expo-router';
 import {
   CircleAlertIcon,
-  MessageSquareIcon,
   SendIcon,
   ShieldAlertIcon,
   SparklesIcon,
@@ -34,11 +33,12 @@ import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
+  NativeSyntheticEvent,
   Platform,
   RefreshControl,
+  type TextInputContentSizeChangeEventData,
   View,
   TextInput,
-  type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from 'react-native';
 
@@ -164,13 +164,13 @@ export default function CommunityChatScreen() {
   const [hasNewMessages, setHasNewMessages] = React.useState(false);
   const isAtBottomRef = React.useRef(true);
 
-  const loadMessages = React.useCallback(async (channelId: string) => {
+  const loadMessages = React.useCallback(async (channelId: string): Promise<void> => {
     const nextMessages = await fetchChannelMessages(channelId);
     setMessages(nextMessages);
     setState('ready');
   }, []);
 
-  const resolveChannel = React.useCallback(async () => {
+  const resolveChannel = React.useCallback(async (): Promise<void> => {
     if (!normalizedCommunityId || !membership) {
       setState('error');
       setFeedbackMessage('No encontramos una comunidad válida para este chat.');
@@ -231,9 +231,9 @@ export default function CommunityChatScreen() {
 
     const socket = new WebSocket(buildChatWebSocketUrl(channel.id));
 
-    socket.onmessage = (event) => {
+    socket.onmessage = (event: MessageEvent) => {
       try {
-        const payload = JSON.parse(event.data) as
+        const payload = JSON.parse(event.data as string) as
           | ChannelMessage
           | { event: 'message_edited'; message: ChannelMessage }
           | { event: 'message_deleted'; message_id: string };
@@ -273,7 +273,7 @@ export default function CommunityChatScreen() {
     return () => socket.close();
   }, [channel?.id]);
 
-  const handleRefresh = React.useCallback(async () => {
+  const handleRefresh = React.useCallback(async (): Promise<void> => {
     if (!channel?.id) return;
 
     setIsRefreshing(true);
@@ -286,7 +286,7 @@ export default function CommunityChatScreen() {
     }
   }, [channel?.id, loadMessages]);
 
-  const handleScroll = React.useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+  const handleScroll = React.useCallback((event: NativeSyntheticEvent<NativeScrollEvent>): void => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
     const distanceToBottom = contentSize.height - (layoutMeasurement.height + contentOffset.y);
 
@@ -300,13 +300,13 @@ export default function CommunityChatScreen() {
     }
   }, []);
 
-  const scrollToBottom = React.useCallback(() => {
+  const scrollToBottom = React.useCallback((): void => {
     flatListRef.current?.scrollToEnd({ animated: true });
     setHasNewMessages(false);
     isAtBottomRef.current = true;
   }, []);
 
-  const handleSend = React.useCallback(async () => {
+  const handleSend = React.useCallback(async (): Promise<void> => {
     const trimmedMessage = messageText.trim();
 
     if (!trimmedMessage || !channel?.id || isSending) {
@@ -471,7 +471,7 @@ export default function CommunityChatScreen() {
                 <TextInput
                   value={messageText}
                   onChangeText={setMessageText}
-                  onContentSizeChange={(event) => {
+                  onContentSizeChange={(event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>) => {
                     const nextHeight = Math.max(
                       CHAT_COMPOSER_MIN_HEIGHT,
                       Math.min(
