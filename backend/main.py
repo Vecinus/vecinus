@@ -45,7 +45,7 @@ origins = [
     "https://vecinus-s3.onrender.com",
     "https://vecinus-ppl.onrender.com",
     "https://vecinus.onrender.com",
-    "http://192.168.1.235:8081",  # Expo Go (dev local)
+    "http://192.168.1.234:8081",  # Expo Go (dev local)
 ]
 
 app.add_middleware(

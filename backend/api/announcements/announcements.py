@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timezone
+from io import BytesIO
 
 import cloudinary
 import cloudinary.uploader
@@ -13,7 +14,6 @@ from supabase import Client
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/announcements", tags=["announcements"])
-cloudinary.config(cloudinary_url=settings.CLOUDINARY_URL, secure=True)
 
 ALLOWED_STATUSES = {"DRAFT", "PUBLISHED"}
 
@@ -167,9 +167,25 @@ def create_announcement(
 
     if file and file.filename:
         try:
+            if cloudinary is None:
+                raise HTTPException(status_code=500, detail="La dependencia de Cloudinary no está instalada")
             if not settings.CLOUDINARY_URL:
-                raise HTTPException(status_code=500, detail="Cloudinary configuration is missing")
-            upload = cloudinary.uploader.upload(file.file, folder=f"announcements/{association_id}")
+                raise HTTPException(status_code=500, detail="Cloudinary no está configurado")
+
+            file_content = file.file.read()
+            if len(file_content) == 0:
+                raise HTTPException(status_code=400, detail="El archivo de imagen está vacío.")
+
+            cloudinary.config(cloudinary_url=settings.CLOUDINARY_URL, secure=True)
+
+            upload_options = {
+                "folder": f"announcements/{association_id}",
+                "resource_type": "image",
+                "use_filename": True,
+                "unique_filename": True,
+            }
+
+            upload = cloudinary.uploader.upload(BytesIO(file_content), **upload_options)
             image_url = upload.get("secure_url")
         except HTTPException:
             raise
@@ -273,9 +289,25 @@ def update_announcement(
 
     if file and file.filename:
         try:
+            if cloudinary is None:
+                raise HTTPException(status_code=500, detail="La dependencia de Cloudinary no está instalada")
             if not settings.CLOUDINARY_URL:
-                raise HTTPException(status_code=500, detail="Cloudinary configuration is missing")
-            upload = cloudinary.uploader.upload(file.file, folder=f"announcements/{association_id}")
+                raise HTTPException(status_code=500, detail="Cloudinary no está configurado")
+
+            file_content = file.file.read()
+            if len(file_content) == 0:
+                raise HTTPException(status_code=400, detail="El archivo de imagen está vacío.")
+
+            cloudinary.config(cloudinary_url=settings.CLOUDINARY_URL, secure=True)
+
+            upload_options = {
+                "folder": f"announcements/{association_id}",
+                "resource_type": "image",
+                "use_filename": True,
+                "unique_filename": True,
+            }
+
+            upload = cloudinary.uploader.upload(BytesIO(file_content), **upload_options)
             update_data["image_url"] = upload.get("secure_url")
         except HTTPException:
             raise
