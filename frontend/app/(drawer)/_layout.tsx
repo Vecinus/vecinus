@@ -13,7 +13,9 @@ import {
   Bot,
   Building2,
   MailIcon,
-  AlertTriangle, CalendarCheck,
+  AlertTriangle,
+  CalendarCheck,
+  Scale,
 } from 'lucide-react-native';
 
 import { useAuth } from '@/context/AuthContext';
@@ -105,9 +107,7 @@ export default function DrawerLayout() {
         options={{
           title: 'Chatbot',
           drawerLabel: 'Chatbot',
-          drawerIcon: ({ size }) => (
-            <Icon as={Bot} size={size} className="text-foreground" />
-          ),
+          drawerIcon: ({ size }) => <Icon as={Bot} size={size} className="text-foreground" />,
         }}
       />
 
@@ -118,11 +118,7 @@ export default function DrawerLayout() {
           title: 'Incidencias',
           drawerLabel: 'Incidencias',
           drawerIcon: ({ size, color }) => (
-            <Icon
-              as={AlertTriangle}
-              size={size}
-              className="text-foreground"
-            />
+            <Icon as={AlertTriangle} size={size} className="text-foreground" />
           ),
           drawerItemStyle: { display: 'none' },
         }}
@@ -131,6 +127,38 @@ export default function DrawerLayout() {
         name="[communityId]/actas/[actaId]"
         options={{
           title: 'Detalle de Acta',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/votaciones/index"
+        initialParams={{ communityId: activeCommunity?.id }}
+        options={{
+          title: 'Votaciones',
+          drawerLabel: 'Votaciones',
+          drawerIcon: ({ size }) => (
+            <Icon as={Scale} size={size} className="text-foreground" />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/votaciones/[pollId]"
+        options={{
+          title: 'Detalle de Votación',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/votaciones/create"
+        options={{
+          title: 'Nueva Votación',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="[communityId]/votaciones/edit"
+        options={{
+          title: 'Editar Votación',
           drawerItemStyle: { display: 'none' },
         }}
       />
@@ -213,6 +241,13 @@ export default function DrawerLayout() {
         name="create-community"
         options={{
           title: 'Crear Comunidad',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="account"
+        options={{
+          title: 'Cuenta',
           drawerItemStyle: { display: 'none' },
         }}
       />

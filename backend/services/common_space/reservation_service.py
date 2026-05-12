@@ -67,7 +67,11 @@ def _ensure_within_opening_hours(space: dict, start_at: datetime, end_at: dateti
     start_time = localized_start.time().replace(tzinfo=None)
     end_time = localized_end.time().replace(tzinfo=None)
 
-    if start_time < opening_time or end_time > closing_time:
+    # When closing_time is midnight (00:00), it represents end-of-day,
+    # so any end_time within the same day is valid.
+    is_midnight_closing = closing_time == time(0, 0)
+
+    if start_time < opening_time or (not is_midnight_closing and end_time > closing_time):
         raise HTTPException(
             status_code=400,
             detail="La reserva debe estar comprendida entre la hora de apertura y la de cierre de la zona comun",
@@ -142,7 +146,7 @@ def _count_user_daily_reservations(supabase: Client, user_id: str, space_id: int
     return count
 
 
-def create_reservation(supabase: Client, user_id: str, payload: ReservationCreate) -> dict:
+def create_reservation(supabase: Client, supabase_user: Client, user_id: str, payload: ReservationCreate) -> dict:
     space = _get_common_space(supabase, payload.space_id)
     _ensure_user_belongs_to_association(supabase, str(space["association_id"]), user_id)
     if space.get("usage_mode") != EXCLUSIVE_RESERVATION_MODE:
@@ -173,7 +177,7 @@ def create_reservation(supabase: Client, user_id: str, payload: ReservationCreat
         "guests_count": payload.guests_count,
     }
 
-    response = supabase.table(RESERVATION_TABLE).insert(insert_data).execute()
+    response = supabase_user.table(RESERVATION_TABLE).insert(insert_data).execute()
 
     if not response.data:
         raise HTTPException(status_code=500, detail="No se ha podido crear la reserva")
@@ -298,6 +302,7 @@ def validate_reservation_qr_and_check_in(
     current_user_id: str,
     active_association_id: str,
     qr_token: str,
+    space_id: int | None = None,
 ) -> dict | None:
     reservation_response = (
         supabase_admin.table(RESERVATION_TABLE)
@@ -318,6 +323,12 @@ def validate_reservation_qr_and_check_in(
 
     if str(association_id) != active_association_id:
         raise HTTPException(status_code=403, detail="Este codigo QR no pertenece a la comunidad seleccionada")
+
+    if space_id is not None and int(reservation["space_id"]) != space_id:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Este codigo QR es para '{common_space.get('name')}' y no para la zona actual",
+        )
 
     _verify_employee_membership(supabase_admin, str(association_id), current_user_id)
 
@@ -367,6 +378,7 @@ def validate_qr_and_check_in(
         current_user_id,
         active_association_id,
         qr_token,
+        payload.space_id,
     )
     if reservation_result:
         return reservation_result
@@ -376,6 +388,7 @@ def validate_qr_and_check_in(
         current_user_id,
         active_association_id,
         qr_token,
+        payload.space_id,
     )
     if guest_pass_result:
         return guest_pass_result

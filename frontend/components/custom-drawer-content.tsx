@@ -30,8 +30,10 @@ import {
   LogOutIcon,
   MailIcon,
   MessageSquareIcon,
+  ShieldAlert,
   UserIcon,
   PlusCircle,
+  Scale,
 } from 'lucide-react-native';
 import {
   Select,
@@ -132,6 +134,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
   const navigateToCommunityRoute = (
     pathnameTemplate:
       | '/[communityId]/actas'
+      | '/[communityId]/votaciones'
       | '/[communityId]/chat'
       | '/[communityId]/chatbot'
       | '/[communityId]/booking'
@@ -146,11 +149,13 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
 
   const isHomeActive = pathname === '/';
   const isActasActive = pathname.endsWith('/actas') || pathname.includes('/actas/');
+  const isVotacionesActive = pathname.endsWith('/votaciones') || pathname.includes('/votaciones/');
   const isChatActive = pathname.endsWith('/chat');
   const isChatbotActive = pathname.endsWith('/chatbot');
   const isBookingActive = pathname.endsWith('/booking') || pathname.includes('/mis-reservas');
   const isAdminActive = pathname.endsWith('/admin');
   const isInvitationsActive = pathname.includes('/invitations');
+  const isAccountActive = pathname.includes('/account');
 
   const handleAvatarDialogChange = (open: boolean) => {
     setAvatarDialogOpen(open);
@@ -280,6 +285,15 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
               </TouchableOpacity>
 
               <TouchableOpacity
+                onPress={() => navigateToCommunityRoute('/[communityId]/votaciones')}
+                className={`rounded-lg px-4 py-3 ${isVotacionesActive ? 'bg-muted' : 'active:bg-muted'}`}>
+                <View className="flex-row items-center gap-3">
+                  <Icon as={Scale} size={22} className="text-muted-foreground" />
+                  <Text className="font-medium text-foreground">Votaciones</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 onPress={() => navigateToCommunityRoute('/[communityId]/chat')}
                 className={`rounded-lg px-4 py-3 ${isChatActive ? 'bg-muted' : 'active:bg-muted'}`}>
                 <View className="flex-row items-center gap-3">
@@ -350,6 +364,14 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
             <View className="flex-row items-center gap-3">
               <Icon as={PlusCircle} size={22} className="text-muted-foreground" />
               <Text className="font-medium text-foreground">Añadir Comunidad</Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push('/(drawer)/account')}
+            className={`rounded-lg px-4 py-3 ${isAccountActive ? 'bg-muted' : 'active:bg-muted'}`}>
+            <View className="flex-row items-center gap-3">
+              <Icon as={ShieldAlert} size={22} className="text-muted-foreground" />
+              <Text className="font-medium text-foreground">Cuenta</Text>
             </View>
           </TouchableOpacity>
         </View>

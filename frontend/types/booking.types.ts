@@ -9,6 +9,7 @@ export interface ReservationCreate {
 export interface QRValidateRequest {
     qr_token: string;
     association_id: string;
+    space_id?: number;
 }
 
 export interface Reservation {

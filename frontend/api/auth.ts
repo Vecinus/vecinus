@@ -2,12 +2,31 @@ import { useMutation } from '@tanstack/react-query';
 import { apiClient } from './client';
 import { useAuth } from '@/context/AuthContext';
 import { LoginCredentials, User } from '@/types/auth.types';
+import { fetchUserWithCommunities, MembershipItem } from './user';
 
 export interface RegisterCredentials {
   email: string;
   password: string;
   password_confirm: string;
   username: string;
+  avatar_url?: string | null;
+}
+
+export interface RemoveAccountCredentials {
+  email: string;
+  password: string;
+}
+
+export interface RecoverAccountCredentials {
+  account_id: string;
+  password: string;
+}
+
+export interface RecoverAccountProfilePayload {
+  id: string;
+  password: string;
+  username: string;
+  email: string;
   avatar_url?: string | null;
 }
 
@@ -18,43 +37,7 @@ interface UserProfile {
   avatar_url?: string | null;
 }
 
-interface MembershipItem {
-  role: string | number;
-  neighborhood_associations: {
-    id: string;
-    name: string;
-    address?: string | null;
-  };
-}
-
-export const fetchUserWithCommunities = async (jwtToken: string): Promise<User> => {
-  const [userResponse, communitiesResponse] = await Promise.all([
-    apiClient.get<UserProfile>('/users/me', {
-      headers: { Authorization: `Bearer ${jwtToken}` },
-    }),
-    apiClient.get<MembershipItem[]>('/users/me/communities', {
-      headers: { Authorization: `Bearer ${jwtToken}` },
-    }),
-  ]);
-
-  const profile = userResponse.data;
-  const communitiesData = communitiesResponse.data;
-
-  return {
-    id: profile.id,
-    name: profile.username,
-    email: profile.email,
-    avatarUrl: profile.avatar_url ?? null,
-    CommunitiesAndRole: communitiesData.map((membership: MembershipItem) => ({
-      community: {
-        id: membership.neighborhood_associations.id,
-        name: membership.neighborhood_associations.name,
-        address: membership.neighborhood_associations.address ?? null,
-      },
-      role: membership.role,
-    })),
-  };
-};
+export { fetchUserWithCommunities };
 
 export const useAcceptInvitationMutation = () => {
   const { loginContext } = useAuth();
@@ -133,6 +116,32 @@ export const useRegisterMutation = () => {
   });
 };
 
+export const removeAccount = async (credentials: RemoveAccountCredentials): Promise<{ id: string }> => {
+  const response = await apiClient.post<{ id: string }>('/remove', credentials);
+  return response.data;
+};
+
+export const recoverDeletedAccount = async (
+  credentials: RecoverAccountCredentials
+): Promise<{ id: string; message: string }> => {
+  const response = await apiClient.post<{ id: string; message: string }>('/recover', null, {
+    params: credentials,
+  });
+  return response.data;
+};
+
+export const unanonymizeRecoveredAccount = async (
+  payload: RecoverAccountProfilePayload
+): Promise<{ id: string; message: string }> => {
+  const response = await apiClient.post<{ id: string; message: string }>('/recover/unanonymize', payload);
+  return response.data;
+};
+
+export const useRemoveAccountMutation = () => {
+  return useMutation({
+    mutationFn: removeAccount,
+  });
+};
 export const updateMyAvatarUrl = async (token: string, avatarUrl?: string | null) => {
   const response = await apiClient.put(
     '/users/me/avatar',
