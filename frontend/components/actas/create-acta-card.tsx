@@ -103,10 +103,46 @@ export function CreateActaCard({
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
+
+        const maxSizeInBytes = 150 * 1024 * 1024; // 150 MB
+        if (asset.size && asset.size > maxSizeInBytes) {
+          showAlert('Archivo demasiado grande', 'El archivo de audio supera el límite de 150 MB. Por favor, selecciona o graba un archivo más pequeño.');
+          return;
+        }
+
+        const allowedMimeTypes = ['audio/mpeg', 'audio/wav', 'audio/x-m4a', 'audio/mp4', 'audio/ogg', 'audio/flac', 'audio/webm'];
+        const allowedExtensions = ['mp3', 'wav', 'm4a', 'mp4', 'ogg', 'flac', 'webm'];
+
+        const fileExtension = asset.name.split('.').pop()?.toLowerCase() || '';
+        const mimeType = asset.mimeType?.toLowerCase() || '';
+
+        const isMimeTypeValid = allowedMimeTypes.includes(mimeType);
+        const isExtensionValid = allowedExtensions.includes(fileExtension);
+
+        if (!isMimeTypeValid && !isExtensionValid) {
+          showAlert('Formato no soportado', 'Por favor, selecciona un archivo de audio válido (MP3, WAV, M4A, MP4, OGG, FLAC, WEBM).');
+          return;
+        }
+
         setAudioUri(asset.uri);
         setAudioDuration(null); // Reset duration for picked files as we don't know it yet
         setAudioName(asset.name);
-        setAudioMimeType(asset.mimeType ?? 'audio/mpeg');
+
+        let finalMimeType = mimeType;
+        if (!finalMimeType || finalMimeType === 'application/octet-stream' || !allowedMimeTypes.includes(finalMimeType)) {
+          const mimeMap: Record<string, string> = {
+            mp3: 'audio/mpeg',
+            wav: 'audio/wav',
+            m4a: 'audio/x-m4a',
+            mp4: 'audio/mp4',
+            ogg: 'audio/ogg',
+            flac: 'audio/flac',
+            webm: 'audio/webm',
+          };
+          finalMimeType = mimeMap[fileExtension] || 'audio/mpeg';
+        }
+
+        setAudioMimeType(finalMimeType);
       }
     } catch (error) {
       console.error('Error picking document:', error);
