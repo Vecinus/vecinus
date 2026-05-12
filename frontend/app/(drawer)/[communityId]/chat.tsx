@@ -53,7 +53,6 @@ import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
-  NativeSyntheticEvent,
   Platform,
   RefreshControl,
   type TextInputContentSizeChangeEventData,
