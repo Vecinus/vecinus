@@ -2,15 +2,14 @@ from typing import List
 from uuid import UUID
 
 from api.chat.chat_helpers import verify_association_membership
-from core.deps import get_current_user, get_supabase, get_supabase_admin
-from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
+from core.deps import get_current_user, get_supabase
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from schemas.common_space import CommonSpace, CommonSpaceCreate, CommonSpaceUpdate
 from services.common_space.common_space_service import create_common_space as create_common_space_service
 from services.common_space.common_space_service import delete_common_space as delete_common_space_service
 from services.common_space.common_space_service import get_common_space_by_id as get_common_space_by_id_service
 from services.common_space.common_space_service import list_common_spaces as list_common_spaces_service
 from services.common_space.common_space_service import update_common_space as update_common_space_service
-from services.common_space.common_space_service import upload_common_space_photo as upload_common_space_photo_service
 from supabase import Client
 
 router = APIRouter(prefix="/common-spaces", tags=["common_spaces"])
@@ -37,33 +36,15 @@ def verify_association_admin_or_president(association_id: UUID, user_id: str, su
     return membership
 
 
-@router.post("/upload-photo")
-async def upload_common_space_photo_endpoint(
-    file: UploadFile,
-    current_user: dict = Depends(get_current_user),
-):
-    del current_user
-
-    if not file.content_type or not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="Solo se permiten subidas de imágenes")
-
-    file_bytes = await file.read()
-    if not file_bytes:
-        raise HTTPException(status_code=400, detail="El archivo subido está vacío")
-
-    return upload_common_space_photo_service(file_bytes, file.filename or "common-space", file.content_type)
-
-
 @router.post("/{association_id}", response_model=CommonSpace, status_code=status.HTTP_201_CREATED)
 def create_common_space_endpoint(
     association_id: UUID,
     payload: CommonSpaceCreate,
     current_user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
-    supabase_admin: Client = Depends(get_supabase_admin),
 ):
     verify_association_admin_or_president(association_id, current_user["id"], supabase)
-    return create_common_space_service(supabase_admin, payload, association_id)
+    return create_common_space_service(supabase, payload, association_id)
 
 
 @router.get("/{association_id}", response_model=List[CommonSpace])
@@ -94,10 +75,9 @@ def update_common_space_endpoint(
     payload: CommonSpaceUpdate,
     current_user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
-    supabase_admin: Client = Depends(get_supabase_admin),
 ):
     verify_association_admin_or_president(association_id, current_user["id"], supabase)
-    return update_common_space_service(supabase_admin, association_id, common_space_id, payload)
+    return update_common_space_service(supabase, association_id, common_space_id, payload)
 
 
 @router.delete("/{association_id}/{common_space_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -106,8 +86,7 @@ def delete_common_space_endpoint(
     common_space_id: int,
     current_user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
-    supabase_admin: Client = Depends(get_supabase_admin),
 ):
     verify_association_admin_or_president(association_id, current_user["id"], supabase)
-    delete_common_space_service(supabase_admin, association_id, common_space_id)
+    delete_common_space_service(supabase, association_id, common_space_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

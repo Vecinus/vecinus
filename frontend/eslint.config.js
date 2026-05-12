@@ -8,6 +8,9 @@ module.exports = defineConfig([
     // Aplicar esta configuración a archivos TS/TSX
     files: ['**/*.ts', '**/*.tsx'],
     settings: {
+      react: {
+        version: '19.2.5',
+      },
       'import/resolver': {
         typescript: {
           alwaysTryTypes: true,

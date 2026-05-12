@@ -13,7 +13,7 @@ import { useAuth } from '@/context/AuthContext';
 
 export default function CrearComunidadScreen() {
     const router = useRouter();
-    const { user, refreshUserContext } = useAuth();
+    const { refreshUserContext } = useAuth();
 
     const [name, setName] = useState('');
     const [address, setAddress] = useState('');
