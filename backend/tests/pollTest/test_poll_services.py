@@ -36,6 +36,16 @@ class MockSupabaseQueryBuilder:
     def in_(self, *args, **kwargs):
         return self
 
+    def order(self, *args, **kwargs):
+        return self
+
+    def is_(self, *args, **kwargs):
+        return self
+
+    @property
+    def not_(self):
+        return self
+
     def execute(self):
         mock_response = MagicMock()
         mock_response.data = self._data
@@ -96,8 +106,9 @@ def test_publish_poll_sends_emails_and_excludes_defaulters():
     now = datetime.now(timezone.utc)
     pub_data = PollPublish(start_at=now, end_at=now + timedelta(days=1), absentees_end_at=now + timedelta(days=14))
 
+    poll_id = uuid4()
     with patch("services.polls.poll_service.send_voting_email") as mock_send_email:
-        result = service.publish_poll(uuid4(), pub_data)
+        result = service.publish_poll(poll_id, pub_data)
 
         assert result["title"] == "Votación Vinculante"
         mock_send_email.assert_called_once_with(
@@ -105,6 +116,8 @@ def test_publish_poll_sends_emails_and_excludes_defaulters():
             association_name="Comunidad Vecinus",
             poll_title="Votación Vinculante",
             token=mock_send_email.call_args.kwargs["token"],
+            poll_id=str(poll_id),
+            association_id="assoc-123",
         )
 
 
@@ -123,7 +136,7 @@ def test_cast_vote_success():
         "voting_tokens": [
             {"is_used": False, "expires_at": (now + timedelta(days=1)).isoformat(), "membership_id": "mem-1"}
         ],
-        "poll": [{"options": ["A Favor", "En Contra"]}],
+        "poll": [{"options": ["A Favor", "En Contra"], "association_id": "assoc-1"}],
         "memberships": [{"property_id": "prop-1"}],
         "properties": [{"coefficient": 15.5, "is_defaulter": False}],
         "vote": [],
@@ -131,7 +144,7 @@ def test_cast_vote_success():
     client = MockSupabaseClient(db_state)
     service = VoteService(client)
 
-    vote_data = VoteCreate(selected_option="A Favor", voting_token=uuid4(), rgpd_accepted=True)
+    vote_data = VoteCreate(selected_option="A Favor", voting_token=str(uuid4()), rgpd_accepted=True)
     result = service.cast_vote(uuid4(), vote_data)
 
     assert result["selected_option"] == "A Favor"
@@ -141,7 +154,7 @@ def test_cast_vote_success():
 def test_cast_vote_rgpd_required():
     client = MockSupabaseClient({})
     service = VoteService(client)
-    vote_data = VoteCreate(selected_option="A Favor", voting_token=uuid4(), rgpd_accepted=False)
+    vote_data = VoteCreate(selected_option="A Favor", voting_token=str(uuid4()), rgpd_accepted=False)
 
     with pytest.raises(HTTPException) as exc:
         service.cast_vote(uuid4(), vote_data)
@@ -150,10 +163,13 @@ def test_cast_vote_rgpd_required():
 
 
 def test_cast_vote_token_invalid():
-    db_state = {"voting_tokens": []}
+    db_state = {
+        "voting_tokens": [],
+        "poll": [{"options": ["A Favor", "En Contra"], "association_id": "assoc-1"}],
+    }
     client = MockSupabaseClient(db_state)
     service = VoteService(client)
-    vote_data = VoteCreate(selected_option="A Favor", voting_token=uuid4(), rgpd_accepted=True)
+    vote_data = VoteCreate(selected_option="A Favor", voting_token=str(uuid4()), rgpd_accepted=True)
 
     with pytest.raises(HTTPException) as exc:
         service.cast_vote(uuid4(), vote_data)
@@ -166,11 +182,12 @@ def test_cast_vote_token_used():
     db_state = {
         "voting_tokens": [
             {"is_used": True, "expires_at": (now + timedelta(days=1)).isoformat(), "membership_id": "mem-1"}
-        ]
+        ],
+        "poll": [{"options": ["A Favor", "En Contra"], "association_id": "assoc-1"}],
     }
     client = MockSupabaseClient(db_state)
     service = VoteService(client)
-    vote_data = VoteCreate(selected_option="A Favor", voting_token=uuid4(), rgpd_accepted=True)
+    vote_data = VoteCreate(selected_option="A Favor", voting_token=str(uuid4()), rgpd_accepted=True)
 
     with pytest.raises(HTTPException) as exc:
         service.cast_vote(uuid4(), vote_data)
@@ -187,11 +204,12 @@ def test_cast_vote_token_expired():
                 "expires_at": (now - timedelta(days=1)).isoformat(),
                 "membership_id": "mem-1",
             }
-        ]
+        ],
+        "poll": [{"options": ["A Favor", "En Contra"], "association_id": "assoc-1"}],
     }
     client = MockSupabaseClient(db_state)
     service = VoteService(client)
-    vote_data = VoteCreate(selected_option="A Favor", voting_token=uuid4(), rgpd_accepted=True)
+    vote_data = VoteCreate(selected_option="A Favor", voting_token=str(uuid4()), rgpd_accepted=True)
 
     with pytest.raises(HTTPException) as exc:
         service.cast_vote(uuid4(), vote_data)
@@ -205,13 +223,13 @@ def test_cast_vote_defaulter_forbidden_by_lph():
         "voting_tokens": [
             {"is_used": False, "expires_at": (now + timedelta(days=1)).isoformat(), "membership_id": "mem-1"}
         ],
-        "poll": [{"options": ["A Favor", "En Contra"]}],
+        "poll": [{"options": ["A Favor", "En Contra"], "association_id": "assoc-1"}],
         "memberships": [{"property_id": "prop-1"}],
         "properties": [{"coefficient": 10.0, "is_defaulter": True}],
     }
     client = MockSupabaseClient(db_state)
     service = VoteService(client)
-    vote_data = VoteCreate(selected_option="A Favor", voting_token=uuid4(), rgpd_accepted=True)
+    vote_data = VoteCreate(selected_option="A Favor", voting_token=str(uuid4()), rgpd_accepted=True)
 
     with pytest.raises(HTTPException) as exc:
         service.cast_vote(uuid4(), vote_data)
@@ -222,10 +240,10 @@ def test_cast_vote_defaulter_forbidden_by_lph():
 def test_calculate_results_success():
     db_state = {
         "poll": [{"options": ["A Favor", "En Contra", "Abstención"]}],
-        "properties": [
-            {"coefficient": 10.0, "is_defaulter": False},
-            {"coefficient": 20.0, "is_defaulter": False},
-            {"coefficient": 5.0, "is_defaulter": True},
+        "memberships": [
+            {"property_id": "p1", "properties": {"coefficient": 10.0, "is_defaulter": False}},
+            {"property_id": "p2", "properties": {"coefficient": 20.0, "is_defaulter": False}},
+            {"property_id": "p3", "properties": {"coefficient": 5.0, "is_defaulter": True}},
         ],
         "vote": [
             {

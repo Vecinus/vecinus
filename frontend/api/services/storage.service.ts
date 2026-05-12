@@ -4,7 +4,6 @@ import { User } from '@/types/auth.types';
 import { Platform } from 'react-native';
 import { MinutesReadResponse } from '@/types/minutes.types';
 
-
 const TOKEN_KEY = 'jwt_token'; // nosemgrep
 const USER_KEY = 'user_data'; // nosemgrep
 const COMMUNITY_KEY = 'community_data'; // nosemgrep
@@ -77,7 +76,6 @@ export const storageService = {
   removeRecoveryAccountId: async (): Promise<void> => {
     await AsyncStorage.removeItem(RECOVERY_ACCOUNT_ID_KEY);
   },
-
 
   clearAll: async (): Promise<void> => {
     await storageService.removeToken();

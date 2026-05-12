@@ -30,8 +30,9 @@ function RootLayoutNav() {
     if (isLoading) return; // Espera a que termine el hydrate()
 
     const inAuthGroup = segments[0] === '(auth)';
+    const isVoteRoute = (segments[0] as string) === 'votar';
 
-    if (!isAuthenticated && !inAuthGroup) {
+    if (!isAuthenticated && !inAuthGroup && !isVoteRoute) {
       router.replace('/(auth)/sign-in');
     } else if (isAuthenticated && inAuthGroup) {
       router.replace('/');

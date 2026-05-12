@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { storageService } from '@/api/services/storage.service';
-import { fetchUserWithCommunities } from '@/api/auth';
+import { fetchUserWithCommunities } from '@/api/user';
 import { User } from '@/types/auth.types';
 
 type ActiveCommunity = { id: string; name: string; role: string | number; address?: string | null };

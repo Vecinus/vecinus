@@ -1,4 +1,3 @@
-import io
 import os
 import sys
 import types
@@ -17,21 +16,7 @@ os.environ["SUPABASE_URL"] = "http://localhost:8000"
 os.environ["SUPABASE_KEY"] = "dummy"
 os.environ["SUPABASE_SERVICE_KEY"] = "dummy-service"
 
-email_validator_stub = types.ModuleType("email_validator")
-
-
-class EmailNotValidError(ValueError):
-    pass
-
-
-def validate_email(email, *args, **kwargs):
-    return types.SimpleNamespace(email=email, normalized=email)
-
-
-email_validator_stub.EmailNotValidError = EmailNotValidError
-email_validator_stub.validate_email = validate_email
-sys.modules["email_validator"] = email_validator_stub
-
+# email_validator stub removed
 resend_stub = types.ModuleType("resend")
 resend_stub.api_key = None
 
@@ -57,7 +42,6 @@ def patched_version(distribution_name: str) -> str:
 metadata.version = patched_version
 pydantic.networks.version = patched_version
 
-import api.common_space.common_space as common_space_api  # noqa: E402
 from api.common_space.common_space import router as common_space_router  # noqa: E402
 from api.common_space.guest_passes import router as guest_passes_router  # noqa: E402
 from api.common_space.reservations import router as reservations_router  # noqa: E402
@@ -215,7 +199,6 @@ class MockSupabaseReservationClient:
                     "requires_qr": True,
                     "capacity": None,
                     "max_guests_per_reservation": 2,
-                    "photo_url": None,
                     "start_time": "09:00:00",
                     "end_time": "23:00:00",
                     "usage_mode": "guest_pass",
@@ -227,7 +210,6 @@ class MockSupabaseReservationClient:
                     "requires_qr": True,
                     "capacity": 1,
                     "max_guests_per_reservation": 3,
-                    "photo_url": None,
                     "start_time": "09:00:00",
                     "end_time": "23:00:00",
                     "usage_mode": "exclusive_reservation",
@@ -239,7 +221,6 @@ class MockSupabaseReservationClient:
                     "requires_qr": False,
                     "capacity": 10,
                     "max_guests_per_reservation": 6,
-                    "photo_url": None,
                     "start_time": "09:00:00",
                     "end_time": "23:00:00",
                     "usage_mode": "exclusive_reservation",
@@ -319,25 +300,9 @@ def setup_overrides(monkeypatch):
     app.dependency_overrides[get_supabase] = lambda: state["client"]
     app.dependency_overrides[get_supabase_admin] = lambda: state["client"]
 
-    monkeypatch.setattr(
-        common_space_api,
-        "upload_common_space_photo_service",
-        lambda file_bytes, filename, content_type: {"secure_url": f"https://cdn.test/{filename}"},
-    )
-
     yield state
 
     app.dependency_overrides.clear()
-
-
-def test_upload_common_space_photo(setup_overrides):
-    response = client.post(
-        "/common-spaces/upload-photo",
-        files={"file": ("photo.png", io.BytesIO(b"fake-image"), "image/png")},
-    )
-
-    assert response.status_code == 200
-    assert response.json()["secure_url"] == "https://cdn.test/photo.png"
 
 
 def test_create_common_space_with_association_in_path(setup_overrides):
@@ -348,7 +313,6 @@ def test_create_common_space_with_association_in_path(setup_overrides):
             "requires_qr": False,
             "max_capacity": 20,
             "max_guests_per_reservation": 4,
-            "photo_url": "https://cdn.test/azotea.png",
             "usage_mode": "exclusive_reservation",
         },
     )
