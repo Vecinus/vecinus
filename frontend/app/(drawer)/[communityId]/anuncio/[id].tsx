@@ -51,7 +51,7 @@ export default function AnuncioDetailScreen() {
   const handleGoBack = (): void => {
     if (communityId) {
       router.push({
-        pathname: '/[communityId]/anuncios' as any,
+        pathname: '/[communityId]/anuncios' as never,
         params: { communityId },
       });
     } else {

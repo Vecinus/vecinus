@@ -130,16 +130,16 @@ export function CreateActaCard({
 
         let finalMimeType = mimeType;
         if (!finalMimeType || finalMimeType === 'application/octet-stream' || !allowedMimeTypes.includes(finalMimeType)) {
-          const mimeMap: Record<string, string> = {
-            mp3: 'audio/mpeg',
-            wav: 'audio/wav',
-            m4a: 'audio/x-m4a',
-            mp4: 'audio/mp4',
-            ogg: 'audio/ogg',
-            flac: 'audio/flac',
-            webm: 'audio/webm',
-          };
-          finalMimeType = mimeMap[fileExtension] || 'audio/mpeg';
+          const mimeMap = new Map<string, string>([
+            ['mp3', 'audio/mpeg'],
+            ['wav', 'audio/wav'],
+            ['m4a', 'audio/x-m4a'],
+            ['mp4', 'audio/mp4'],
+            ['ogg', 'audio/ogg'],
+            ['flac', 'audio/flac'],
+            ['webm', 'audio/webm'],
+          ]);
+          finalMimeType = mimeMap.get(fileExtension) || 'audio/mpeg';
         }
 
         setAudioMimeType(finalMimeType);
@@ -176,14 +176,15 @@ export function CreateActaCard({
         type: audioMimeType || 'audio/mpeg',
       });
       showAlert('Éxito', 'El acta se ha creado correctamente y se está procesando', true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.warn('Error saving minute:', error);
 
       let errorMessage = 'No se pudo crear el acta. Por favor, inténtalo de nuevo.';
-      if (error?.response?.data?.detail) {
-        errorMessage = typeof error.response.data.detail === 'string'
-          ? error.response.data.detail
-          : JSON.stringify(error.response.data.detail);
+      const err = error as { response?: { data?: { detail?: string | object } } };
+      if (err?.response?.data?.detail) {
+        errorMessage = typeof err.response.data.detail === 'string'
+          ? err.response.data.detail
+          : JSON.stringify(err.response.data.detail);
       }
 
       showAlert('Error', errorMessage);

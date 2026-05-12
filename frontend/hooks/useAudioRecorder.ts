@@ -98,11 +98,11 @@ export function useAudioRecorder(
       }
 
       onRecordingCompleteRef.current?.({ uri, durationMs });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.log(error);
       setIsRecordingManual(false);
       onRecordingCompleteRef.current?.({
-        error: error?.message || 'No se pudo obtener la grabación de audio'
+        error: error instanceof Error ? error.message : 'No se pudo obtener la grabación de audio'
       });
     }
   }, [audioRecorder, recorderState.durationMillis]);
