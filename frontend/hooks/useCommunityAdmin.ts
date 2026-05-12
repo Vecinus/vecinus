@@ -65,6 +65,21 @@ export const useInviteMember = (communityId: string | undefined) => {
   });
 };
 
+export const useDeleteInvitation = (communityId: string | undefined) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (invitationId: string) =>
+      communityApi.deleteInvitation(communityId as string, invitationId),
+    onSuccess: () => {
+      if (communityId) {
+        void queryClient.invalidateQueries({ queryKey: communityQueryKeys.pendingInvitations(communityId) });
+        void queryClient.invalidateQueries({ queryKey: communityQueryKeys.availableProperties(communityId) });
+      }
+    },
+  });
+};
+
 export const useAddProperty = (communityId: string | undefined) => {
   const queryClient = useQueryClient();
 

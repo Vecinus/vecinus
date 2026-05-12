@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ActivityIndicator,
@@ -62,14 +62,13 @@ export default function IncidentDetailScreen() {
   const routeIncidentIdRaw = params.incidentId;
   const incidentId = (Array.isArray(routeIncidentIdRaw) ? routeIncidentIdRaw[0] : routeIncidentIdRaw) as string;
 
-  const handleGoBack = () => {
+  const handleGoBack = useCallback(() => {
     if (communityId) {
-      router.push(`/${communityId}/incidencias`);
+      router.replace(`/${communityId}/incidencias`);
     } else {
       router.back();
     }
-  };
-
+  }, [communityId, router]);
   const roleToken = useMemo(() => {
     if (!communityId) return normalizeRoleToBackendToken(currentRole);
     const membership = user?.CommunitiesAndRole.find((entry) => String(entry.community.id) === String(communityId));
@@ -97,6 +96,8 @@ export default function IncidentDetailScreen() {
 
   const [draftStatus, setDraftStatus] = useState<IncidentStatus>('PENDING');
 
+  const [isIncidentDeleted, setIsIncidentDeleted] = useState(false);
+
   const membersQuery = useQuery<Member[], Error>({
     queryKey: ['incidents', 'members', communityId, user?.id],
     queryFn: () => communityApi.getMembers(communityId as string),
@@ -104,7 +105,7 @@ export default function IncidentDetailScreen() {
     staleTime: 1000 * 60 * 5,
   });
 
-  const detailQuery = useIncidentDetail(communityId, incidentId, !!communityId && !!incidentId, user?.id);
+  const detailQuery = useIncidentDetail(communityId, incidentId, !!communityId && !!incidentId && !isIncidentDeleted, user?.id);
 
   const myIncidentsQuery = useIncidentsList(communityId, true, !!communityId, user?.id);
   const myIncidentIds = useMemo(
@@ -141,8 +142,9 @@ export default function IncidentDetailScreen() {
   const canDiscardSelectedIncident = useMemo(() => {
     if (!selectedIncident) return false;
     const isReviewed = selectedIncident.status === 'SOLVED' || selectedIncident.status === 'DISCARDED';
-    return isReviewed && isSelectedIncidentOwned;
-  }, [isSelectedIncidentOwned, selectedIncident]);
+    const isAdminOrPresident = roleToken === '1' || roleToken === '4';
+    return isReviewed && (isAdminOrPresident || isSelectedIncidentOwned);
+  }, [isSelectedIncidentOwned, selectedIncident, roleToken]);
 
   const isSelectedIncidentReviewed = useMemo(() => {
     if (!selectedIncident) return false;
@@ -168,6 +170,16 @@ export default function IncidentDetailScreen() {
       setDraftStatus(selectedIncident.status);
     }
   }, [selectedIncident?.id, selectedIncident?.status]);
+
+  // Manejar error 404 cuando la incidencia fue borrada
+  useEffect(() => {
+    if (detailQuery.isError) {
+      const error = detailQuery.error as any;
+      if (error?.response?.status === 404 || error?.message?.includes('404')) {
+        handleGoBack();
+      }
+    }
+  }, [detailQuery.isError, detailQuery.error, handleGoBack]);
 
   const incidentHistory = useMemo(() => {
     if (detailQuery.data?.history?.length) return detailQuery.data.history;
@@ -213,6 +225,8 @@ export default function IncidentDetailScreen() {
     if (!selectedIncident) return;
     try {
       await discardIncidentMutation.mutateAsync({ incidentId: selectedIncident.id });
+      // Marcar como borrada para deshabilitar la query y evitar refetches
+      setIsIncidentDeleted(true);
       showAlert('Incidencia eliminada', 'La incidencia se ha eliminado correctamente.', () => {
         handleGoBack();
       });
@@ -222,6 +236,8 @@ export default function IncidentDetailScreen() {
         await refreshUserContext();
         try {
           await discardIncidentMutation.mutateAsync({ incidentId: selectedIncident.id });
+          // Marcar como borrada para deshabilitar la query
+          setIsIncidentDeleted(true);
           showAlert('Incidencia eliminada', 'La incidencia se ha eliminado correctamente.', () => {
             handleGoBack();
           });
@@ -270,6 +286,17 @@ export default function IncidentDetailScreen() {
             <View className="items-center py-10">
               <ActivityIndicator color="#4f46e5" />
               <Text className="mt-3 text-slate-500 dark:text-zinc-400">Cargando detalle...</Text>
+            </View>
+          ) : detailQuery.isError && !selectedIncident ? (
+            <View className="items-center py-10">
+              <Text className="text-red-600 dark:text-red-400 font-semibold">Error al cargar la incidencia</Text>
+              <Button
+                variant="outline"
+                className="mt-4"
+                onPress={handleGoBack}
+              >
+                <Text>Volver</Text>
+              </Button>
             </View>
           ) : (
             <>
