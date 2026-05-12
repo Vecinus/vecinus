@@ -5,6 +5,7 @@ interface UserProfile {
   id: string;
   username: string;
   email: string;
+  avatar_url?: string | null;
 }
 
 export interface MembershipItem {
@@ -33,6 +34,7 @@ export const fetchUserWithCommunities = async (jwtToken: string): Promise<User> 
     id: profile.id,
     name: profile.username,
     email: profile.email,
+    avatarUrl: profile.avatar_url ?? null,
     CommunitiesAndRole: communitiesData.map((membership: MembershipItem) => ({
       community: {
         id: membership.neighborhood_associations.id,

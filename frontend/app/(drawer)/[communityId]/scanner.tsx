@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -10,12 +10,13 @@ import { AlertConfig, CustomAlertDialog } from '@/components/custom-alert';
 
 export default function ScannerScreen() {
   const router = useRouter();
-  const { communityId } = useLocalSearchParams();
+  const { communityId, zoneId } = useLocalSearchParams();
   const isFocused = useIsFocused();
   
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
+  const scanningLock = useRef(false);
   
   const [alertConfig, setAlertConfig] = useState<AlertConfig>({
     visible: false,
@@ -25,15 +26,17 @@ export default function ScannerScreen() {
   });
 
   const handleBarCodeScanned = async ({ data }: { data: string }) => {
-    if (scanned || isValidating) return;
+    if (scanned || isValidating || scanningLock.current) return;
     
+    scanningLock.current = true;
     setScanned(true);
     setIsValidating(true);
     
     try {
       const response = await bookingApi.validateQr({
         qr_token: data,
-        association_id: communityId as string
+        association_id: communityId as string,
+        space_id: zoneId ? parseInt(zoneId as string, 10) : undefined
       });
       
       setIsValidating(false);
@@ -78,6 +81,7 @@ export default function ScannerScreen() {
 
   const handleNextScan = () => {
     setAlertConfig(prev => ({ ...prev, visible: false }));
+    scanningLock.current = false;
     setScanned(false);
     setIsValidating(false);
   };
@@ -128,7 +132,7 @@ export default function ScannerScreen() {
 
       {scanned && !isValidating && (
         <View className="absolute bottom-32 bg-card rounded-xl">
-          <Button onPress={() => setScanned(false)} variant="secondary">
+          <Button onPress={handleNextScan} variant="secondary">
             <Text className="text-secondary-foreground">Toca para escanear de nuevo</Text>
           </Button>
         </View>
