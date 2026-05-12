@@ -19,14 +19,36 @@ class PollService:
             "options": poll_data.options,
             "status": "DRAFT",
         }
-
         response = self.supabase.table("poll").insert(data).execute()
         if not response.data:
             raise HTTPException(status_code=400, detail="Error al crear la votación")
         return response.data[0]
 
+    def edit_poll(self, poll_id: UUID, poll_data: PollCreate):
+        update_data = {
+            "title": poll_data.title,
+            "description": poll_data.description,
+            "options": poll_data.options,
+        }
+        response = self.supabase.table("poll").update(update_data).eq("id", str(poll_id)).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Votación no encontrada")
+        return response.data[0]
+
+    def get_poll_by_id(self, poll_id: UUID):
+        response = self.supabase.table("poll").select("*").eq("id", str(poll_id)).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Votación no encontrada")
+        return response.data[0]
+
     def get_polls_by_community(self, association_id: UUID):
-        response = self.supabase.table("poll").select("*").eq("association_id", str(association_id)).execute()
+        response = (
+            self.supabase.table("poll")
+            .select("*")
+            .eq("association_id", str(association_id))
+            .order("created_at", desc=True)
+            .execute()
+        )
         return response.data
 
     def publish_poll(self, poll_id: UUID, publish_data: PollPublish):
@@ -53,6 +75,8 @@ class PollService:
             self.supabase.table("memberships")
             .select("id, profiles(email, username), properties(is_defaulter)")
             .eq("association_id", association_id)
+            .in_("role", [2, 4])
+            .not_.is_("property_id", "null")
             .execute()
         )
 
@@ -86,6 +110,12 @@ class PollService:
 
                 emails_to_send.append({"email": email, "token": new_token})
 
+        print(
+            f"[PUBLISH] Total members: {len(voters_res.data)}, "
+            f"Tokens created: {len(tokens_to_insert)}, "
+            f"Emails to send: {len(emails_to_send)}"
+        )
+
         if tokens_to_insert:
             self.supabase.table("voting_tokens").insert(tokens_to_insert).execute()
 
@@ -96,6 +126,8 @@ class PollService:
                         association_name=association_name,
                         poll_title=poll_title,
                         token=data["token"],
+                        poll_id=str(poll_id),
+                        association_id=association_id,
                     )
                 except Exception as e:
                     print(f"Error enviando correo a {data['email']}: {e}")
@@ -107,3 +139,7 @@ class PollService:
         if not response.data:
             raise HTTPException(status_code=404, detail="Votación no encontrada")
         return response.data[0]
+
+    def delete_poll(self, poll_id: UUID):
+        self.supabase.table("poll").delete().eq("id", str(poll_id)).execute()
+        return {"message": "Votación eliminada correctamente"}
