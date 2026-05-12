@@ -26,6 +26,7 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
     return config;
   },
   (error) => {
@@ -41,11 +42,11 @@ apiClient.interceptors.response.use(
     const status = error?.response?.status;
     const requestUrl = String(error?.config?.url ?? '').toLowerCase();
     const isAuthPublicEndpoint = requestUrl.includes('/login') || requestUrl.includes('/logout');
+
     if (status === 401 && !isAuthPublicEndpoint) {
       await notifyUnauthorized();
     }
 
-    // Axios rechaza la promesa automáticamente, TanStack Query lo detectará como error
     return Promise.reject(error);
   }
 );

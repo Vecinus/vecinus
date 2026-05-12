@@ -120,5 +120,8 @@
     "eslint-config-expo": "~55.0.0",
     "typescript": "~6.0.2"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "@radix-ui/react-slot": "1.2.4"
+  }
 }
