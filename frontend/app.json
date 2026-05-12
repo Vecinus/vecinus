@@ -33,7 +33,8 @@
       "expo-router",
       "expo-secure-store",
       "expo-sharing",
-      "expo-audio"
+      "expo-audio",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

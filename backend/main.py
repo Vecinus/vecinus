@@ -38,11 +38,14 @@ app = FastAPI(
 # Set up CORS
 origins = [
     settings.APP_BASE_URL,
+    "http://localhost:8081",
+    "http://127.0.0.1:8081",
     "https://vecinus-s1.onrender.com",
     "https://vecinus-s2.onrender.com",
     "https://vecinus-s3.onrender.com",
     "https://vecinus-ppl.onrender.com",
     "https://vecinus.onrender.com",
+    "http://192.168.1.235:8081",  # Expo Go (dev local)
 ]
 
 app.add_middleware(
