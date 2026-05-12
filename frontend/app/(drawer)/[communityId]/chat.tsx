@@ -122,7 +122,9 @@ function ChatBubble({
                 align="end"
                 className="min-w-[11rem] rounded-2xl p-1.5">
                 <DropdownMenuItem
-                  onPress={() => onEditMessage(message)}
+                  onPress={() => {
+                    onEditMessage(message);
+                  }}
                   className="rounded-xl px-3 py-2.5">
                   <Icon as={PencilIcon} size={14} className="text-foreground" />
                   <Text className="text-sm text-foreground">Editar mensaje</Text>
@@ -133,7 +135,9 @@ function ChatBubble({
                 <DropdownMenuItem
                   variant="destructive"
                   disabled={isDeleting}
-                  onPress={() => onDeleteMessage(message)}
+                  onPress={() => {
+                    onDeleteMessage(message);
+                  }}
                   className="rounded-xl px-3 py-2.5">
                   <Icon as={Trash2Icon} size={14} className="text-destructive" />
                   <Text className="text-sm text-destructive">
@@ -723,7 +727,9 @@ export default function CommunityChatScreen() {
           <DialogFooter className="mt-2">
             <Button
               variant="outline"
-              onPress={() => setMessagePendingDelete(null)}
+              onPress={() => {
+                setMessagePendingDelete(null);
+              }}
               className="rounded-2xl">
               <Text>Cancelar</Text>
             </Button>
