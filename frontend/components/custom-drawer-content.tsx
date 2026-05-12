@@ -5,7 +5,7 @@ import {
 import { Image } from 'expo-image';
 import { View, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { usePathname, useRouter } from 'expo-router';
+import { usePathname, useRouter, type Href } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
@@ -144,10 +144,9 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
   ) => {
     if (!activeCommunity?.id) return;
     router.push({
-       
-      pathname: pathnameTemplate as any,
+      pathname: pathnameTemplate,
       params: { communityId: activeCommunity.id },
-    });
+    } as unknown as Href);
   };
 
   const isHomeActive = pathname === '/';
