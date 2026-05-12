@@ -1,15 +1,16 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  useAudioRecorder as useExpoAudioRecorder,
-  useAudioRecorderState,
   AudioModule,
   RecordingPresets,
   setAudioModeAsync,
+  useAudioRecorderState,
+  useAudioRecorder as useExpoAudioRecorder,
 } from 'expo-audio';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface RecordingResult {
-  uri: string;
-  durationMs: number;
+  uri?: string;
+  durationMs?: number;
+  error?: string;
 }
 
 export interface AudioRecorderState {
@@ -97,9 +98,12 @@ export function useAudioRecorder(
       }
 
       onRecordingCompleteRef.current?.({ uri, durationMs });
-    } catch (error) {
+    } catch (error: any) {
       console.log(error);
       setIsRecordingManual(false);
+      onRecordingCompleteRef.current?.({
+        error: error?.message || 'No se pudo obtener la grabación de audio'
+      });
     }
   }, [audioRecorder, recorderState.durationMillis]);
 

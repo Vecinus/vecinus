@@ -60,8 +60,8 @@ export function CreateActaCard({
     isPermissionDenied,
     resetPermissionDenied,
   } = useAudioRecorder((result) => {
-    if (!result.uri) {
-      showAlert('Error', 'No se pudo obtener la grabación de audio');
+    if (result.error || !result.uri) {
+      showAlert('Error', result.error || 'No se pudo obtener la grabación de audio');
       return;
     }
 
@@ -79,7 +79,7 @@ export function CreateActaCard({
     const mimeType = mimeMap[extension]; // nosemgrep
 
     setAudioUri(result.uri);
-    setAudioDuration(result.durationMs);
+    setAudioDuration(result.durationMs ?? null);
     setAudioName(`grabacion_${new Date().getTime()}.${extension}`);
     setAudioMimeType(mimeType);
   });
@@ -140,9 +140,17 @@ export function CreateActaCard({
         type: audioMimeType || 'audio/mpeg',
       });
       showAlert('Éxito', 'El acta se ha creado correctamente y se está procesando', true);
-    } catch (error) {
-      console.error('Error saving minute:', error);
-      showAlert('Error', 'No se pudo crear el acta. Por favor, inténtalo de nuevo.');
+    } catch (error: any) {
+      console.warn('Error saving minute:', error);
+
+      let errorMessage = 'No se pudo crear el acta. Por favor, inténtalo de nuevo.';
+      if (error?.response?.data?.detail) {
+        errorMessage = typeof error.response.data.detail === 'string'
+          ? error.response.data.detail
+          : JSON.stringify(error.response.data.detail);
+      }
+
+      showAlert('Error', errorMessage);
     } finally {
       setIsUploading(false);
     }
