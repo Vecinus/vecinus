@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict
 
 class VoteCreate(BaseModel):
     selected_option: str
-    voting_token: UUID
+    voting_token: str
     rgpd_accepted: bool
 
 

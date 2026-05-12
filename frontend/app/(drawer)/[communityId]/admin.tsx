@@ -55,6 +55,7 @@ export default function CommunityAdminScreen() {
   const [propertyModalVisible, setPropertyModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState({ id: '', name: '' });
+  const [deleteError, setDeleteError] = useState('');
 
   const [deleteInvModalVisible, setDeleteInvModalVisible] = useState(false);
   const [invitationToDelete, setInvitationToDelete] = useState({ id: '', email: '' });
@@ -136,13 +137,18 @@ export default function CommunityAdminScreen() {
   // --- Handlers ---
   const handleDeleteTrigger = (membershipId: string, name: string) => {
     setMemberToDelete({ id: membershipId, name });
+    setDeleteError('');
     setDeleteModalVisible(true);
   };
 
   const confirmDelete = () => {
+    setDeleteError('');
     deleteMember(memberToDelete.id, {
       onSuccess: () => setDeleteModalVisible(false),
-      onError: () => setDeleteModalVisible(false)
+      onError: (error: unknown) => {
+        const err = error as { response?: { data?: { detail?: string } } };
+        setDeleteError(err?.response?.data?.detail || 'Error al expulsar vecino. Comprueba tu conexión.');
+      }
     });
   };
 
@@ -533,6 +539,11 @@ export default function CommunityAdminScreen() {
             <Text className="text-sm text-slate-500 dark:text-muted-foreground text-center leading-relaxed mb-6">
               ¿Estás seguro de expulsar a <Text className="font-bold text-slate-800 dark:text-foreground">{memberToDelete.name}</Text>? Se le revocará todo el acceso.
             </Text>
+            {!!deleteError && (
+              <View className="bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-100 dark:border-red-900/30 p-3 mb-4">
+                <Text className="text-red-600 dark:text-red-400 font-semibold text-xs text-center">{deleteError}</Text>
+              </View>
+            )}
             <View className="flex-row gap-3 mt-1">
               <Button
                 variant="outline"
