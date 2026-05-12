@@ -2,14 +2,18 @@ import logging
 from datetime import datetime, timezone
 from io import BytesIO
 
-import cloudinary
-import cloudinary.uploader
 from core.config import settings
 from core.deps import get_current_user, get_supabase, get_supabase_admin
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi import status as http_status
 from schemas.announcements.announcements import AnnouncementResponse
 from supabase import Client
+
+try:
+    import cloudinary
+    import cloudinary.uploader
+except ImportError:  # pragma: no cover - handled at runtime if dependency is missing
+    cloudinary = None
 
 logger = logging.getLogger(__name__)
 
