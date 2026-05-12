@@ -12,7 +12,6 @@ class CommonSpaceBase(BaseModel):
     requires_qr: bool = False
     capacity: Optional[int] = None
     max_guests_per_reservation: Optional[int] = None
-    photo_url: Optional[str] = None
     start_time: Optional[time] = None
     end_time: Optional[time] = None
     usage_mode: UsageMode = "exclusive_reservation"
@@ -27,7 +26,6 @@ class CommonSpaceUpdate(BaseModel):
     requires_qr: Optional[bool] = None
     capacity: Optional[int] = None
     max_guests_per_reservation: Optional[int] = None
-    photo_url: Optional[str] = None
     start_time: Optional[time] = None
     end_time: Optional[time] = None
     usage_mode: Optional[UsageMode] = None
