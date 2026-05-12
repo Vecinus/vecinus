@@ -70,8 +70,8 @@ export function AnnouncementCard({ announcement, onPress, onDelete, canManage }:
           </Text>
         </View>
 
-        {/* Scheduled indicator */}
-        {announcement.scheduled_date && (
+        {/* Scheduled indicator — only show when still a draft */}
+        {isDraft && announcement.scheduled_date && (
           <View className="bg-indigo-500/95 px-2 py-1 rounded-full shadow-sm flex-row items-center gap-1">
             <Ionicons name="time-outline" size={10} color="white" />
             <Text className="text-white text-[10px] font-bold uppercase">Programado</Text>

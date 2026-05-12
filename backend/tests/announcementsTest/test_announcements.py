@@ -264,7 +264,7 @@ def test_get_announcement_not_found():
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-@patch("cloudinary.uploader.upload")
+@patch("api.announcements.announcements.cloudinary.uploader.upload")
 def test_create_announcement_success(mock_upload):
     mock_upload.return_value = {"secure_url": "https://fake.url/img.png"}
 

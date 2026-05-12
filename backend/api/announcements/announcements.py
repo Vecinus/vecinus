@@ -169,10 +169,7 @@ def create_announcement(
         try:
             if not settings.CLOUDINARY_URL:
                 raise HTTPException(status_code=500, detail="Cloudinary configuration is missing")
-            file_content = file.file.read()
-            if len(file_content) == 0:
-                raise HTTPException(status_code=400, detail="El archivo de imagen está vacío.")
-            upload = cloudinary.uploader.upload(file_content, folder=f"announcements/{association_id}")
+            upload = cloudinary.uploader.upload(file.file, folder=f"announcements/{association_id}")
             image_url = upload.get("secure_url")
         except HTTPException:
             raise
@@ -278,10 +275,7 @@ def update_announcement(
         try:
             if not settings.CLOUDINARY_URL:
                 raise HTTPException(status_code=500, detail="Cloudinary configuration is missing")
-            file_content = file.file.read()
-            if len(file_content) == 0:
-                raise HTTPException(status_code=400, detail="El archivo de imagen está vacío.")
-            upload = cloudinary.uploader.upload(file_content, folder=f"announcements/{association_id}")
+            upload = cloudinary.uploader.upload(file.file, folder=f"announcements/{association_id}")
             update_data["image_url"] = upload.get("secure_url")
         except HTTPException:
             raise

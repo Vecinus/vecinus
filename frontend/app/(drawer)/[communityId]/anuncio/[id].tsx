@@ -269,8 +269,8 @@ export default function AnuncioDetailScreen() {
                 {announcement.content}
               </Text>
 
-              {/* Scheduled date badge */}
-              {announcement.scheduled_date && (
+              {/* Scheduled date badge — only show when still a draft */}
+              {announcement.status === 'DRAFT' && announcement.scheduled_date && (
                 <View className="flex-row items-center gap-2.5 mt-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-800/30">
                   <View className="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-800/40 items-center justify-center">
                     <Ionicons name="time-outline" size={18} color="#6366f1" />
