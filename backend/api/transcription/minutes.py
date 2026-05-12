@@ -3,7 +3,7 @@ from typing import List
 from urllib.parse import quote
 from uuid import UUID
 
-from api.chat.chat_helpers import verify_association_admin
+from api.chat.chat_helpers import verify_association_admin_or_president, verify_association_membership
 from core.deps import get_current_user, get_supabase
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
@@ -40,7 +40,7 @@ async def get_minutes(
     user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
 ):
-    verify_association_admin(association_id, user["id"], supabase)
+    verify_association_membership(association_id, user["id"], supabase)
     try:
         db_results = await service.get_minutes_by_association(association_id)
         results = []
@@ -82,7 +82,7 @@ async def transcribe_meeting(
     user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
 ):
-    verify_association_admin(association_id, user["id"], supabase)
+    verify_association_admin_or_president(association_id, user["id"], supabase)
     if not scheduled_at:
         scheduled_at = datetime.now()
     if audio.content_type not in ALLOWED_CONTENT_TYPES:
@@ -131,9 +131,16 @@ async def transcribe_meeting(
             **db_result["content_json"],
         )
     except Exception as e:
+        error_str = str(e)
+        if "503" in error_str or "429" in error_str:
+            raise HTTPException(
+                status_code=503,
+                detail="El servicio de inteligencia artificial está saturado o temporalmente no disponible. "
+                "Por favor, inténtalo de nuevo en unos minutos.",
+            )
         raise HTTPException(
             status_code=500,
-            detail=f"Error processing audio: {str(e)}",
+            detail=f"Error processing audio: {error_str}",
         )
     finally:
         del audio_bytes
