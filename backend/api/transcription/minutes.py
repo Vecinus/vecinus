@@ -1,3 +1,4 @@
+import math
 from datetime import datetime
 from typing import List
 from urllib.parse import quote
@@ -38,6 +39,12 @@ ALLOWED_CONTENT_TYPES = {
 }
 
 MAX_FILE_SIZE = 150 * 1024 * 1024
+
+
+def _duration_seconds_from_client_ms(duration_ms: int | None) -> int | None:
+    if duration_ms is None or duration_ms <= 0:
+        return None
+    return max(1, math.ceil(duration_ms / 1000))
 
 
 def get_service(db=Depends(MinuteService.get_supabase_client)):
@@ -97,6 +104,7 @@ async def transcribe_meeting(
     location: str = Form("Residencial Vecinus"),
     meeting_type: MeetingType = Form(MeetingType.ORDINARY),
     scheduled_at: datetime | None = Form(None),
+    duration_ms: int | None = Form(None),
     supabase_admin: Client = Depends(get_supabase_admin),
     service: MinuteService = Depends(get_service),
     user: dict = Depends(get_current_user),
@@ -129,13 +137,24 @@ async def transcribe_meeting(
     audio_bytes = b"".join(audio_chunks)
     del audio_chunks
 
-    # Calcular la duración real ANTES de tocar Gemini para descontar cupo.
+    # Calcular la duracion antes de tocar Gemini para descontar cupo. En
+    # WebM de navegador movil algunos entornos no pueden leer la metadata; si
+    # el cliente envio la duracion medida por la grabadora, se usa de respaldo.
+    client_duration_seconds = _duration_seconds_from_client_ms(duration_ms)
     try:
         duration_seconds = get_audio_duration_seconds(audio_bytes, audio.content_type)
     except ValueError as exc:
+        if client_duration_seconds is None:
+            raise HTTPException(
+                status_code=422,
+                detail=f"No se pudo determinar la duración del audio: {exc}",
+            )
+        duration_seconds = client_duration_seconds
+
+    if duration_seconds <= 0:
         raise HTTPException(
             status_code=422,
-            detail=f"No se pudo determinar la duración del audio: {exc}",
+            detail="No se pudo determinar la duración del audio: duracion no valida",
         )
 
     # Reservar cuota de actas (segundos). Atómico vía RPC.
