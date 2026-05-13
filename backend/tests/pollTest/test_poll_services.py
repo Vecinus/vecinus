@@ -36,6 +36,16 @@ class MockSupabaseQueryBuilder:
     def in_(self, *args, **kwargs):
         return self
 
+    def order(self, *args, **kwargs):
+        return self
+
+    def is_(self, *args, **kwargs):
+        return self
+
+    @property
+    def not_(self):
+        return self
+
     def execute(self):
         mock_response = MagicMock()
         mock_response.data = self._data
@@ -48,6 +58,16 @@ class MockSupabaseClient:
 
     def table(self, table_name):
         return MockSupabaseQueryBuilder(self.db_state.get(table_name, []))
+
+
+def make_active_poll(now):
+    return {
+        "options": ["A Favor", "En Contra"],
+        "association_id": "assoc-1",
+        "status": "PUBLISHED",
+        "start_at": (now - timedelta(hours=1)).isoformat(),
+        "end_at": (now + timedelta(hours=1)).isoformat(),
+    }
 
 
 def test_create_poll_success():
@@ -96,8 +116,9 @@ def test_publish_poll_sends_emails_and_excludes_defaulters():
     now = datetime.now(timezone.utc)
     pub_data = PollPublish(start_at=now, end_at=now + timedelta(days=1), absentees_end_at=now + timedelta(days=14))
 
+    poll_id = uuid4()
     with patch("services.polls.poll_service.send_voting_email") as mock_send_email:
-        result = service.publish_poll(uuid4(), pub_data)
+        result = service.publish_poll(poll_id, pub_data)
 
         assert result["title"] == "Votación Vinculante"
         mock_send_email.assert_called_once_with(
@@ -105,6 +126,8 @@ def test_publish_poll_sends_emails_and_excludes_defaulters():
             association_name="Comunidad Vecinus",
             poll_title="Votación Vinculante",
             token=mock_send_email.call_args.kwargs["token"],
+            poll_id=str(poll_id),
+            association_id="assoc-123",
         )
 
 
@@ -123,7 +146,7 @@ def test_cast_vote_success():
         "voting_tokens": [
             {"is_used": False, "expires_at": (now + timedelta(days=1)).isoformat(), "membership_id": "mem-1"}
         ],
-        "poll": [{"options": ["A Favor", "En Contra"]}],
+        "poll": [make_active_poll(now)],
         "memberships": [{"property_id": "prop-1"}],
         "properties": [{"coefficient": 15.5, "is_defaulter": False}],
         "vote": [],
@@ -131,7 +154,7 @@ def test_cast_vote_success():
     client = MockSupabaseClient(db_state)
     service = VoteService(client)
 
-    vote_data = VoteCreate(selected_option="A Favor", voting_token=uuid4(), rgpd_accepted=True)
+    vote_data = VoteCreate(selected_option="A Favor", voting_token=str(uuid4()), rgpd_accepted=True)
     result = service.cast_vote(uuid4(), vote_data)
 
     assert result["selected_option"] == "A Favor"
@@ -141,7 +164,7 @@ def test_cast_vote_success():
 def test_cast_vote_rgpd_required():
     client = MockSupabaseClient({})
     service = VoteService(client)
-    vote_data = VoteCreate(selected_option="A Favor", voting_token=uuid4(), rgpd_accepted=False)
+    vote_data = VoteCreate(selected_option="A Favor", voting_token=str(uuid4()), rgpd_accepted=False)
 
     with pytest.raises(HTTPException) as exc:
         service.cast_vote(uuid4(), vote_data)
@@ -149,11 +172,38 @@ def test_cast_vote_rgpd_required():
     assert "RGPD" in exc.value.detail
 
 
+@pytest.mark.parametrize(
+    ("poll_overrides", "expected_detail"),
+    [
+        ({"status": "MANUALLY_CLOSED"}, "no esta abierta"),
+        ({"start_at": None, "end_at": None}, "ventana valida"),
+        ({"start_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()}, "aun no ha comenzado"),
+        ({"end_at": (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()}, "ya ha finalizado"),
+    ],
+)
+def test_cast_vote_rejects_poll_outside_voting_window(poll_overrides, expected_detail):
+    now = datetime.now(timezone.utc)
+    poll = make_active_poll(now)
+    poll.update(poll_overrides)
+    client = MockSupabaseClient({"poll": [poll]})
+    service = VoteService(client)
+    vote_data = VoteCreate(selected_option="A Favor", voting_token=str(uuid4()), rgpd_accepted=True)
+
+    with pytest.raises(HTTPException) as exc:
+        service.cast_vote(uuid4(), vote_data)
+    assert exc.value.status_code == 403
+    assert expected_detail in exc.value.detail
+
+
 def test_cast_vote_token_invalid():
-    db_state = {"voting_tokens": []}
+    now = datetime.now(timezone.utc)
+    db_state = {
+        "voting_tokens": [],
+        "poll": [make_active_poll(now)],
+    }
     client = MockSupabaseClient(db_state)
     service = VoteService(client)
-    vote_data = VoteCreate(selected_option="A Favor", voting_token=uuid4(), rgpd_accepted=True)
+    vote_data = VoteCreate(selected_option="A Favor", voting_token=str(uuid4()), rgpd_accepted=True)
 
     with pytest.raises(HTTPException) as exc:
         service.cast_vote(uuid4(), vote_data)
@@ -166,11 +216,12 @@ def test_cast_vote_token_used():
     db_state = {
         "voting_tokens": [
             {"is_used": True, "expires_at": (now + timedelta(days=1)).isoformat(), "membership_id": "mem-1"}
-        ]
+        ],
+        "poll": [make_active_poll(now)],
     }
     client = MockSupabaseClient(db_state)
     service = VoteService(client)
-    vote_data = VoteCreate(selected_option="A Favor", voting_token=uuid4(), rgpd_accepted=True)
+    vote_data = VoteCreate(selected_option="A Favor", voting_token=str(uuid4()), rgpd_accepted=True)
 
     with pytest.raises(HTTPException) as exc:
         service.cast_vote(uuid4(), vote_data)
@@ -187,11 +238,12 @@ def test_cast_vote_token_expired():
                 "expires_at": (now - timedelta(days=1)).isoformat(),
                 "membership_id": "mem-1",
             }
-        ]
+        ],
+        "poll": [make_active_poll(now)],
     }
     client = MockSupabaseClient(db_state)
     service = VoteService(client)
-    vote_data = VoteCreate(selected_option="A Favor", voting_token=uuid4(), rgpd_accepted=True)
+    vote_data = VoteCreate(selected_option="A Favor", voting_token=str(uuid4()), rgpd_accepted=True)
 
     with pytest.raises(HTTPException) as exc:
         service.cast_vote(uuid4(), vote_data)
@@ -205,13 +257,13 @@ def test_cast_vote_defaulter_forbidden_by_lph():
         "voting_tokens": [
             {"is_used": False, "expires_at": (now + timedelta(days=1)).isoformat(), "membership_id": "mem-1"}
         ],
-        "poll": [{"options": ["A Favor", "En Contra"]}],
+        "poll": [make_active_poll(now)],
         "memberships": [{"property_id": "prop-1"}],
         "properties": [{"coefficient": 10.0, "is_defaulter": True}],
     }
     client = MockSupabaseClient(db_state)
     service = VoteService(client)
-    vote_data = VoteCreate(selected_option="A Favor", voting_token=uuid4(), rgpd_accepted=True)
+    vote_data = VoteCreate(selected_option="A Favor", voting_token=str(uuid4()), rgpd_accepted=True)
 
     with pytest.raises(HTTPException) as exc:
         service.cast_vote(uuid4(), vote_data)
@@ -222,10 +274,10 @@ def test_cast_vote_defaulter_forbidden_by_lph():
 def test_calculate_results_success():
     db_state = {
         "poll": [{"options": ["A Favor", "En Contra", "Abstención"]}],
-        "properties": [
-            {"coefficient": 10.0, "is_defaulter": False},
-            {"coefficient": 20.0, "is_defaulter": False},
-            {"coefficient": 5.0, "is_defaulter": True},
+        "memberships": [
+            {"property_id": "p1", "properties": {"coefficient": 10.0, "is_defaulter": False}},
+            {"property_id": "p2", "properties": {"coefficient": 20.0, "is_defaulter": False}},
+            {"property_id": "p3", "properties": {"coefficient": 5.0, "is_defaulter": True}},
         ],
         "vote": [
             {

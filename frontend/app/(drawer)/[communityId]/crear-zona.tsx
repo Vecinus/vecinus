@@ -18,7 +18,6 @@ export default function CrearZona() {
     name: '',
     start_time: '09:00',
     end_time: '21:00',
-    requires_qr: false,
     capacity: 1,
     usage_mode: 'exclusive_reservation',
   };
@@ -52,7 +51,11 @@ export default function CrearZona() {
       return 'Formato de hora de fin inválido (Usa HH:MM).';
     }
 
-    if (timeToMinutes(endTime) <= timeToMinutes(startTime)) {
+    const endMinutes = timeToMinutes(endTime);
+    // Treat 00:00 as midnight (end of day = 1440 minutes)
+    const effectiveEndMinutes = endMinutes === 0 ? 1440 : endMinutes;
+
+    if (effectiveEndMinutes <= timeToMinutes(startTime)) {
       return 'La hora de fin debe ser posterior a la hora de inicio.';
     }
 
@@ -98,7 +101,7 @@ export default function CrearZona() {
         name: data.name?.trim() || '',
         start_time: data.start_time,
         end_time: data.end_time,
-        requires_qr: !!data.requires_qr,
+        requires_qr: data.requires_qr,
         capacity: Number(data.capacity),
         usage_mode: data.usage_mode as "exclusive_reservation" | "guest_pass",
         max_guests_per_reservation: data.max_guests_per_reservation !== undefined

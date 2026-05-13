@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { ScrollView, View, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { useNavigation, ParamListBase } from '@react-navigation/native';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
+import { useRouter, Href } from 'expo-router';
 import { FileText, MessageSquare, CalendarDays, BellRing, ChevronRight } from 'lucide-react-native';
 
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ import { apiClient } from '@/api/client';
 
 export default function HomeScreen() {
   const navigation = useNavigation<DrawerNavigationProp<ParamListBase>>();
+  const router = useRouter();
   const [feedback, setFeedback] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -72,13 +74,6 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        <FeedbackSection
-          feedback={feedback}
-          setFeedback={setFeedback}
-          isSubmitting={isSubmitting}
-          onSubmit={handleFeedbackSubmit}
-        />
-
         <View className="mb-6 gap-4">
           <Text className="text-center text-xl font-bold">Qué puedes hacer</Text>
 
@@ -89,15 +84,29 @@ export default function HomeScreen() {
             <Feature Icon={BellRing} title="Avisos" desc="Mantente informado." />
           </View>
         </View>
+
+        <Button className="mb-10 self-center" onPress={() => navigation.openDrawer()} size={'lg'}>
+          <View className="flex-row items-center gap-2">
+            <Text>Explorar</Text>
+            <ChevronRight size={18} color="white" />
+          </View>
+        </Button>
+
+        <FeedbackSection
+          feedback={feedback}
+          setFeedback={setFeedback}
+          isSubmitting={isSubmitting}
+          onSubmit={handleFeedbackSubmit}
+        />
       </View>
 
-      <View className="h-16" />
-      <Button className="self-center" onPress={() => navigation.openDrawer()} size={'lg'}>
-        <View className="flex-row items-center gap-2">
-          <Text>Explorar</Text>
-          <ChevronRight size={18} color="white" />
-        </View>
-      </Button>
+      <View className="border-t border-border px-5 py-6">
+        <Pressable onPress={() => router.push('/legal' as Href)}>
+          <Text className="text-center text-xs text-muted-foreground underline">
+            Ver Términos y Condiciones
+          </Text>
+        </Pressable>
+      </View>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>

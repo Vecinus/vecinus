@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -33,9 +33,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import type { ChatMessage, UploadDocumentFile } from '@/types/chatbot.types';
-import { ADMIN_ROLE_ID } from '@/utils/role.util';
+import { isAdminOrPresident } from '@/utils/role.util';
+import { getLegalWarning } from '@/utils/legal-warnings';
+import { apiClient } from '@/api/client';
+import { isAxiosError } from 'axios';
 import * as DocumentPicker from 'expo-document-picker';
-import { useLocalSearchParams, useNavigation } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
 import {
   CircleAlertIcon,
   FileTextIcon,
@@ -45,6 +48,7 @@ import {
   Trash2Icon,
   UploadCloudIcon,
   UserIcon,
+  ArrowDownIcon,
 } from 'lucide-react-native';
 import * as React from 'react';
 import {
@@ -52,10 +56,13 @@ import {
   FlatList,
   KeyboardAvoidingView,
   type NativeSyntheticEvent,
+  type NativeScrollEvent,
   Platform,
   Pressable,
   ScrollView,
+  TextInput,
   type TextInputContentSizeChangeEventData,
+  type TextInputKeyPressEventData,
   View,
   useWindowDimensions,
 } from 'react-native';
@@ -63,23 +70,7 @@ import {
 type ChatTabValue = 'chat' | 'documents';
 const CHAT_COMPOSER_MIN_HEIGHT = 24;
 const CHAT_COMPOSER_MAX_HEIGHT = 132;
-
-function toRoleId(role: string | number | null | undefined): number | null {
-  if (typeof role === 'number' && Number.isFinite(role)) {
-    return role;
-  }
-
-  if (typeof role === 'string') {
-    const parsedRole = Number.parseInt(role, 10);
-    return Number.isNaN(parsedRole) ? null : parsedRole;
-  }
-
-  return null;
-}
-
-function isAdministratorRole(role: string | number | null | undefined): boolean {
-  return toRoleId(role) === ADMIN_ROLE_ID;
-}
+const CHATBOT_INPUT_MAX_LENGTH = 300;
 
 function buildMessage(
   partial: Omit<ChatMessage, 'id' | 'createdAt'> & { id?: string; createdAt?: string }
@@ -132,7 +123,13 @@ function normalizeDocumentAsset(
   };
 }
 
-function ChatMessageBubble({ message }: { message: ChatMessage }) {
+function ChatMessageBubble({
+  message,
+  userAvatarUrl,
+}: {
+  message: ChatMessage;
+  userAvatarUrl?: string | null;
+}) {
   const isUser = message.role === 'user';
 
   return (
@@ -150,18 +147,20 @@ function ChatMessageBubble({ message }: { message: ChatMessage }) {
           'max-w-[85%] rounded-3xl border px-4 py-3',
           isUser ? 'border-primary bg-primary' : 'border-border bg-card'
         )}>
-        <Text
+        <FormattedText
+          content={message.content}
           className={cn(
             'text-sm leading-6',
             isUser ? 'text-primary-foreground' : 'text-card-foreground'
-          )}>
-          {message.content}
-        </Text>
+          )}
+        />
 
         {message.source ? (
           <View className="mt-3 flex-row flex-wrap items-center gap-2">
             <Badge variant="outline" className="border-primary/30 bg-primary/5">
-              <Text className="text-xs text-primary">Fuente: {message.source.type}</Text>
+              <Text className="text-xs text-primary">
+                Fuente: {formatSourceType(message.source.type)}
+              </Text>
             </Badge>
             {message.source.reference ? (
               <Text className="text-xs text-muted-foreground">{message.source.reference}</Text>
@@ -176,12 +175,44 @@ function ChatMessageBubble({ message }: { message: ChatMessage }) {
 
       {isUser ? (
         <Avatar alt="Usuario" className="mt-1 size-9 border border-border bg-secondary">
+          {userAvatarUrl ? <AvatarImage source={{ uri: userAvatarUrl }} /> : null}
           <AvatarFallback className="bg-secondary">
             <Icon as={UserIcon} size={16} className="text-secondary-foreground" />
           </AvatarFallback>
         </Avatar>
       ) : null}
     </View>
+  );
+}
+
+function formatSourceType(type: string | null | undefined): string {
+  if (!type) return 'Desconocida';
+  if (type === 'RAG_PINECONE') return 'Base de conocimientos';
+  return type.charAt(0).toUpperCase() + type.slice(1);
+}
+
+function FormattedText({ content, className }: { content: string; className?: string }) {
+  const parts = content.split(/(\*\*.*?\*\*|\n)/g);
+
+  return (
+    <Text className={className}>
+      {parts.map((part, index) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+          return (
+            <Text key={index} className="font-bold">
+              {part.slice(2, -2)}
+            </Text>
+          );
+        }
+        if (part === '\n') {
+          return '\n';
+        }
+        if (part.trim().startsWith('* ')) {
+          return `  • ${part.trim().slice(2)}`;
+        }
+        return part;
+      })}
+    </Text>
   );
 }
 
@@ -200,6 +231,23 @@ export default function CommunityChatbotScreen() {
     return communityId ?? '';
   }, [communityId]);
 
+  const verifyCommunityAccess = React.useCallback(async () => {
+    if (!normalizedCommunityId) return;
+    try {
+      await apiClient.get(`/communities/${normalizedCommunityId}/verify-access`);
+    } catch (error) {
+      if (!isAxiosError(error) || error?.response?.status !== 402) {
+        console.error('verify-access (chatbot) failed:', error);
+      }
+    }
+  }, [normalizedCommunityId]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      void verifyCommunityAccess();
+    }, [verifyCommunityAccess])
+  );
+
   const isDesktop = width >= 1024;
   const [activeTab, setActiveTab] = React.useState<ChatTabValue>('chat');
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
@@ -210,6 +258,8 @@ export default function CommunityChatbotScreen() {
   const [feedbackMessage, setFeedbackMessage] = React.useState<string | null>(null);
   const [pendingDeleteTitle, setPendingDeleteTitle] = React.useState<string | null>(null);
   const [composerHeight, setComposerHeight] = React.useState(CHAT_COMPOSER_MIN_HEIGHT);
+  const [showScrollToBottom, setShowScrollToBottom] = React.useState(false);
+  const isAtBottomRef = React.useRef(true);
 
   const membership = React.useMemo(() => {
     return (
@@ -220,7 +270,7 @@ export default function CommunityChatbotScreen() {
   }, [normalizedCommunityId, user]);
 
   const communityName = membership?.community.name ?? activeCommunity?.name ?? 'tu comunidad';
-  const canManageDocuments = isAdministratorRole(membership?.role);
+  const canManageDocuments = isAdminOrPresident(membership?.role ?? null);
 
   React.useEffect(() => {
     if (!normalizedCommunityId) {
@@ -270,6 +320,13 @@ export default function CommunityChatbotScreen() {
       return;
     }
 
+    if (trimmedQuestion.length > CHATBOT_INPUT_MAX_LENGTH) {
+      setFeedbackMessage(
+        `La pregunta no puede superar los ${CHATBOT_INPUT_MAX_LENGTH} caracteres.`
+      );
+      return;
+    }
+
     const userMessage = buildMessage({
       role: 'user',
       content: trimmedQuestion,
@@ -300,6 +357,19 @@ export default function CommunityChatbotScreen() {
       );
     }
   }, [normalizedCommunityId, question, sendQuestionMutation]);
+
+  const handleScroll = React.useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const distanceToBottom = contentSize.height - (layoutMeasurement.height + contentOffset.y);
+    const isAtBottom = distanceToBottom < 50;
+    setShowScrollToBottom(!isAtBottom);
+    isAtBottomRef.current = isAtBottom;
+  }, []);
+
+  const scrollToBottom = React.useCallback(() => {
+    flatListRef.current?.scrollToEnd({ animated: true });
+    isAtBottomRef.current = true;
+  }, []);
 
   const handleComposerSizeChange = React.useCallback(
     (event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>) => {
@@ -361,14 +431,14 @@ export default function CommunityChatbotScreen() {
       const response = await uploadDocumentMutation.mutateAsync(
         selectedFile
           ? {
-              communityId: normalizedCommunityId,
-              file: selectedFile,
-            }
+            communityId: normalizedCommunityId,
+            file: selectedFile,
+          }
           : {
-              communityId: normalizedCommunityId,
-              title: documentTitle.trim(),
-              content: documentContent.trim(),
-            }
+            communityId: normalizedCommunityId,
+            title: documentTitle.trim(),
+            content: documentContent.trim(),
+          }
       );
 
       setFeedbackMessage(response.message);
@@ -376,7 +446,7 @@ export default function CommunityChatbotScreen() {
       setDocumentTitle('');
       setDocumentContent('');
     } catch (error) {
-      setFeedbackMessage(getErrorMessage(error, 'No se pudo indexar el documento.'));
+      setFeedbackMessage(getErrorMessage(error, 'No se pudo añadir el documento.'));
     }
   }, [documentContent, documentTitle, normalizedCommunityId, selectedFile, uploadDocumentMutation]);
 
@@ -470,11 +540,19 @@ export default function CommunityChatbotScreen() {
           ref={flatListRef}
           data={messages}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <ChatMessageBubble message={item} />}
+          renderItem={({ item }) => (
+            <ChatMessageBubble message={item} userAvatarUrl={user?.avatarUrl} />
+          )}
           contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
           className="flex-1"
           showsVerticalScrollIndicator={false}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          onContentSizeChange={() => {
+            if (isAtBottomRef.current) {
+              flatListRef.current?.scrollToEnd({ animated: true });
+            }
+          }}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
           ListFooterComponent={
             sendQuestionMutation.isPending ? (
               <View className="flex-row items-center gap-3 px-2 py-2">
@@ -495,6 +573,16 @@ export default function CommunityChatbotScreen() {
             ) : null
           }
         />
+        {showScrollToBottom && (
+          <View className="absolute bottom-4 left-0 right-0 z-50 items-center">
+            <Button
+              onPress={scrollToBottom}
+              size="icon"
+              className="size-12 rounded-full bg-primary shadow-lg">
+              <Icon as={ArrowDownIcon} size={20} className="text-primary-foreground" />
+            </Button>
+          </View>
+        )}
       </View>
 
       <CardContent className="gap-3 border-t border-border px-4 py-4">
@@ -505,39 +593,52 @@ export default function CommunityChatbotScreen() {
           </Alert>
         ) : null}
 
-        <View className="flex-row items-end gap-3 rounded-3xl border border-border bg-background px-3 py-2">
-          <Textarea
-            value={question}
-            onChangeText={setQuestion}
-            onContentSizeChange={handleComposerSizeChange}
-            onKeyPress={(e: { key?: string; shiftKey?: boolean; preventDefault?: () => void }) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault?.();
-                void handleSend();
-              }
-            }}
-            placeholder="Haz una pregunta sobre la comunidad..."
-            numberOfLines={1}
-            returnKeyType="send"
-            enablesReturnKeyAutomatically
-            scrollEnabled={composerHeight >= CHAT_COMPOSER_MAX_HEIGHT}
-            style={{ height: composerHeight, maxHeight: CHAT_COMPOSER_MAX_HEIGHT }}
-            className="min-h-0 flex-1 border-0 bg-transparent px-0 py-1 shadow-none"
-          />
+        <View className="gap-2 rounded-3xl border border-border bg-background px-3 py-2">
+          <View className="flex-row items-end gap-3">
+            <TextInput
+              value={question}
+              onChangeText={setQuestion}
+              onContentSizeChange={handleComposerSizeChange}
+              onKeyPress={(e: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
+                if (e.nativeEvent.key === 'Enter' && Platform.OS === 'web') {
+                  const nativeEvent = e.nativeEvent as unknown as { shiftKey?: boolean };
+                  if (!nativeEvent.shiftKey) {
+                    if ('preventDefault' in e) {
+                      (e as unknown as { preventDefault: () => void }).preventDefault();
+                    }
+                    void handleSend();
+                  }
+                }
+              }}
+              placeholder="Haz una pregunta sobre la comunidad..."
+              multiline
+              numberOfLines={1}
+              returnKeyType="send"
+              enablesReturnKeyAutomatically
+              maxLength={CHATBOT_INPUT_MAX_LENGTH}
+              scrollEnabled={composerHeight >= CHAT_COMPOSER_MAX_HEIGHT}
+              style={{ height: composerHeight, maxHeight: CHAT_COMPOSER_MAX_HEIGHT }}
+              className="min-h-0 flex-1 border-0 bg-transparent px-0 py-1 text-base text-foreground shadow-none"
+            />
 
-          <Button
-            onPress={() => {
-              void handleSend();
-            }}
-            disabled={!question.trim() || sendQuestionMutation.isPending}
-            size="icon"
-            className="size-11 rounded-full">
-            {sendQuestionMutation.isPending ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Icon as={SendIcon} size={16} className="text-primary-foreground" />
-            )}
-          </Button>
+            <Button
+              onPress={() => {
+                void handleSend();
+              }}
+              disabled={!question.trim() || sendQuestionMutation.isPending}
+              size="icon"
+              className="size-11 rounded-full">
+              {sendQuestionMutation.isPending ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Icon as={SendIcon} size={16} className="text-primary-foreground" />
+              )}
+            </Button>
+          </View>
+
+          <Text className="text-right text-xs text-muted-foreground">
+            {question.length}/{CHATBOT_INPUT_MAX_LENGTH}
+          </Text>
         </View>
       </CardContent>
     </Card>
@@ -554,6 +655,9 @@ export default function CommunityChatbotScreen() {
         contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
         showsVerticalScrollIndicator>
         <View className="gap-3">
+          <Text className="text-xs italic text-muted-foreground">
+            {getLegalWarning('document_upload')}
+          </Text>
           <Button
             variant="outline"
             onPress={() => {
@@ -614,7 +718,7 @@ export default function CommunityChatbotScreen() {
             ) : (
               <>
                 <Icon as={UploadCloudIcon} size={16} className="text-primary-foreground" />
-                <Text>Indexar información</Text>
+                <Text>Añadir a la base de conocimientos</Text>
               </>
             )}
           </Button>
@@ -622,7 +726,7 @@ export default function CommunityChatbotScreen() {
 
         <View className="mt-6 gap-3">
           <View className="flex-row items-center justify-between gap-3">
-            <Text className="text-base font-semibold text-foreground">Documentos indexados</Text>
+            <Text className="text-base font-semibold text-foreground">Base de conocimientos</Text>
             <Badge variant="secondary">
               <Text>{documents.length}</Text>
             </Badge>
@@ -649,7 +753,7 @@ export default function CommunityChatbotScreen() {
           {!documentsQuery.isLoading && !documentsQuery.error && documents.length === 0 ? (
             <View className="rounded-2xl border border-dashed border-border bg-muted/30 px-4 py-6">
               <Text className="text-sm text-muted-foreground">
-                Todavía no hay documentos indexados para esta comunidad.
+                Todavía no hay documentos en la base de conocimientos para esta comunidad.
               </Text>
             </View>
           ) : null}
@@ -717,8 +821,8 @@ export default function CommunityChatbotScreen() {
             <DialogTitle>Eliminar documento</DialogTitle>
             <DialogDescription>
               {pendingDeleteTitle
-                ? `Se eliminará "${pendingDeleteTitle}" del índice del chatbot para esta comunidad.`
-                : 'Se eliminará el documento del índice del chatbot.'}
+                ? `Se eliminará "${pendingDeleteTitle}" de la base de conocimientos para esta comunidad.`
+                : 'Se eliminará el documento de la base de conocimientos.'}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

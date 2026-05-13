@@ -3,8 +3,18 @@ import { apiClient } from '../client';
 import { MinutesReadResponse } from '@/types/minutes.types';
 
 export const minutesService = {
-  getMinutes: async (associationId: string): Promise<MinutesReadResponse[]> => {
-    const response = await apiClient.get<MinutesReadResponse[]>(`/api/minutes/${associationId}`);
+  getMinutes: async (
+    associationId: string,
+    token?: string | null
+  ): Promise<MinutesReadResponse[]> => {
+    const response = await apiClient.get<MinutesReadResponse[]>(
+      `/api/minutes/${associationId}`,
+      token
+        ? {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        : undefined
+    );
     return response.data;
   },
 
@@ -14,6 +24,7 @@ export const minutesService = {
     audioFile: { uri: string; name: string; type: string }
   ): Promise<MinutesReadResponse> => {
     const formData = new FormData();
+    formData.append('title', title);
 
     if (Platform.OS === 'web') {
       const response = await fetch(audioFile.uri);
@@ -28,7 +39,7 @@ export const minutesService = {
       } as unknown as Blob);
     }
     const response = await apiClient.post<MinutesReadResponse>(
-      `/api/minutes/transcribe?association_id=${encodeURIComponent(associationId)}&title=${encodeURIComponent(title)}`,
+      `/api/minutes/${encodeURIComponent(associationId)}/transcribe`,
       formData,
       {
         headers: {

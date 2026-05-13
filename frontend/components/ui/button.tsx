@@ -1,7 +1,8 @@
+import * as React from 'react';
 import { TextClassContext } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { Platform, Pressable } from 'react-native';
+import { Platform, Pressable, Text as RNText } from 'react-native';
 
 const buttonVariants = cva(
   cn(
@@ -92,14 +93,30 @@ type ButtonProps = React.ComponentProps<typeof Pressable> &
   React.RefAttributes<typeof Pressable> &
   VariantProps<typeof buttonVariants>;
 
-function Button({ className, variant, size, ...props }: ButtonProps) {
+function wrapChild(child: React.ReactNode): React.ReactNode {
+  if (typeof child === 'string' || typeof child === 'number') {
+    return <RNText>{child}</RNText>;
+  }
+
+  if (Array.isArray(child)) {
+    return child.map((nestedChild, index) => (
+      <React.Fragment key={index}>{wrapChild(nestedChild)}</React.Fragment>
+    ));
+  }
+
+  return child;
+}
+
+function Button({ className, variant, size, children, ...props }: ButtonProps) {
   return (
     <TextClassContext.Provider value={buttonTextVariants({ variant, size })}>
       <Pressable
         className={cn(props.disabled && 'opacity-50', buttonVariants({ variant, size }), className)}
         role="button"
         {...props}
-      />
+      >
+        {typeof children === 'function' ? children : wrapChild(children)}
+      </Pressable>
     </TextClassContext.Provider>
   );
 }

@@ -2,13 +2,14 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 class AssociationInfo(BaseModel):
     id: UUID
     name: str
     address: str
+    household_count: int | None = None
 
 
 class MembershipWithCommunity(BaseModel):
@@ -68,8 +69,8 @@ class PropertyUpdate(BaseModel):
 
 
 class CreateCommunityRequest(BaseModel):
-    name: str
-    address: str
+    name: str = Field(min_length=2, max_length=120)
+    address: str = Field(min_length=2, max_length=250)
 
 
 class CommunityResponse(BaseModel):

@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Dict, List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
@@ -15,6 +15,7 @@ class PollCreate(PollBase):
     start_at: Optional[datetime] = None
     end_at: Optional[datetime] = None
     absentees_end_at: Optional[datetime] = None
+    property_coefficients: Optional[Dict[str, float]] = None
 
 
 class PollPublish(BaseModel):
@@ -33,6 +34,7 @@ class PollResponse(PollBase):
     start_at: Optional[datetime] = None
     end_at: Optional[datetime] = None
     absentees_end_at: Optional[datetime] = None
+    property_coefficients: Optional[Dict[str, float]] = None
 
     @computed_field
     @property

@@ -1,16 +1,114 @@
 import asyncio
+import io
 import json
 import logging
+import math
 import os
 import re
+import subprocess
 import tempfile
 
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+from mutagen import File as MutagenFile
 from schemas.transcription.minutes import AIGeneratedContent
 
 logger = logging.getLogger(__name__)
+
+
+def _suffix_for_content_type(content_type: str | None) -> str:
+    ext_map = {
+        "audio/mpeg": ".mp3",
+        "audio/wav": ".wav",
+        "audio/x-wav": ".wav",
+        "audio/ogg": ".ogg",
+        "audio/flac": ".flac",
+        "audio/mp4": ".mp4",
+        "audio/webm": ".webm",
+        "audio/x-m4a": ".m4a",
+    }
+    return ext_map.get(content_type, ".bin")
+
+
+def _get_audio_duration_seconds_ffprobe(audio_bytes: bytes, content_type: str | None = None) -> int:
+    suffix = _suffix_for_content_type(content_type)
+    tmp_path = ""
+    try:
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_file:
+            tmp_file.write(audio_bytes)
+            tmp_path = tmp_file.name
+
+        result = subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                tmp_path,
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            raise ValueError(result.stderr.strip() or "ffprobe failed")
+
+        duration_text = result.stdout.strip()
+        if not duration_text:
+            raise ValueError("ffprobe returned empty duration")
+
+        seconds = math.ceil(float(duration_text))
+        if seconds <= 0:
+            raise ValueError("Audio duration resolved to 0 seconds")
+        return seconds
+    except Exception as exc:
+        raise ValueError(f"Could not determine duration via ffprobe: {exc}") from exc
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
+def get_audio_duration_seconds(audio_bytes: bytes, content_type: str | None = None) -> int:
+    """
+    Devuelve la duración del audio en segundos, redondeada hacia arriba.
+
+    Usa `mutagen` para leer la metadata; si no consigue determinarla (archivo
+    corrupto, formato sin metadata fiable, etc.) lanza ValueError para que el
+    caller responda HTTP 422 antes de descontar segundos del cupo a ciegas.
+    """
+    if not audio_bytes:
+        raise ValueError("Empty audio payload")
+
+    try:
+        audio = MutagenFile(io.BytesIO(audio_bytes))
+    except Exception as exc:
+        audio = None
+        mutagen_error = exc
+    else:
+        mutagen_error = None
+
+    if audio is not None and audio.info is not None and getattr(audio.info, "length", None):
+        seconds = math.ceil(float(audio.info.length))
+        if seconds <= 0:
+            raise ValueError("Audio duration resolved to 0 seconds")
+        return seconds
+
+    try:
+        return _get_audio_duration_seconds_ffprobe(audio_bytes, content_type)
+    except ValueError as exc:
+        if mutagen_error is not None:
+            raise ValueError(
+                f"Audio duration could not be determined (content_type={content_type},"
+                + f" mutagen_error={mutagen_error}, ffprobe_error={exc})"
+            ) from exc
+        raise ValueError(
+            f"Audio duration could not be determined (content_type={content_type}, ffprobe_error={exc})"
+        ) from exc
+
 
 TRANSCRIPTION_PROMPT = """
 Actua como un Secretario Juridico. Procesa el audio y devuelve un JSON estricto en español.
@@ -233,17 +331,7 @@ class TranscriptionService:
     @staticmethod
     async def process_audio_to_minutes(audio_bytes: bytes, mime_type: str = "audio/mpeg") -> AIGeneratedContent:
         client = get_genai_client()
-        ext_map = {
-            "audio/mpeg": ".mp3",
-            "audio/wav": ".wav",
-            "audio/x-wav": ".wav",
-            "audio/ogg": ".ogg",
-            "audio/flac": ".flac",
-            "audio/mp4": ".mp4",
-            "audio/webm": ".webm",
-            "audio/x-m4a": ".m4a",
-        }
-        suffix = ext_map.get(mime_type, ".mp3")
+        suffix = _suffix_for_content_type(mime_type)
 
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_file:
             tmp_file.write(audio_bytes)
