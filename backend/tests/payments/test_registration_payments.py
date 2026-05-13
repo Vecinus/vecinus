@@ -1,5 +1,4 @@
 import os
-import sys
 import types
 from importlib import metadata
 from typing import Any
@@ -14,20 +13,7 @@ os.environ["SUPABASE_URL"] = "http://localhost:8000"
 os.environ["SUPABASE_KEY"] = "dummy"
 os.environ["SUPABASE_SERVICE_KEY"] = "dummy-service"
 
-email_validator_stub = types.ModuleType("email_validator")
-
-
-class EmailNotValidError(ValueError):
-    pass
-
-
-def validate_email(email, *args, **kwargs):
-    return types.SimpleNamespace(email=email, normalized=email, local_part=email.split("@")[0])
-
-
-email_validator_stub.EmailNotValidError = EmailNotValidError
-email_validator_stub.validate_email = validate_email
-sys.modules["email_validator"] = email_validator_stub
+# email_validator_stub removed
 
 original_version = metadata.version
 
@@ -60,8 +46,10 @@ PLAN_BASIC_ID = "22222222-2222-2222-2222-222222222222"
 SUBSCRIPTION_ID = "33333333-3333-3333-3333-333333333333"
 
 
-def expect_equal(actual, expected, message: str) -> None:
+def expect_equal(actual, expected, message: str, response=None) -> None:
     if actual != expected:
+        if response:
+            print("Response body:", response.json())
         pytest.fail(f"{message} (actual={actual!r}, expected={expected!r})")
 
 
@@ -209,7 +197,7 @@ def setup_overrides(monkeypatch):
     state = {
         "admin_client": MockSupabaseAdminClient(),
         "anon_client": MockSupabaseAnonClient(),
-        "current_user": {"id": PROFILE_ID, "email": "nuevo@vecinus.test", "role": "authenticated"},
+        "current_user": {"id": PROFILE_ID, "email": "nuevo@vecinus.com", "role": "authenticated"},
     }
 
     monkeypatch.setattr(settings, "GOCARDLESS_ACCESS_TOKEN", "sandbox-token")
@@ -270,7 +258,8 @@ def test_create_registration_order_returns_gocardless_redirect(setup_overrides, 
         },
     )
 
-    expect_equal(response.status_code, 201, "Expected status code 201")
+    print("--- RESPONSE JSON ---", response.json())
+    expect_equal(response.status_code, 201, "Expected status code 201", response=response)
     data = response.json()
     expect_equal(data["status"], "redirect_created", "Expected redirect status")
     expect_equal(data["billing_request_id"], "BR-REG-1", "Expected billing request id")
@@ -306,7 +295,7 @@ def test_complete_registration_order_creates_user_community_and_membership(setup
     state["admin_client"].storage["registration_payment_orders"] = [
         {
             "id": order_id,
-            "email": "nuevo@vecinus.test",
+            "email": "nuevo@example.com",
             "username": "nuevo_admin",
             "community_name": "Comunidad Alameda",
             "community_address": "Calle Alameda 10",
@@ -371,7 +360,7 @@ def test_complete_registration_order_completed(setup_overrides, monkeypatch):
     setup_overrides["admin_client"].storage["registration_payment_orders"] = [
         {
             "id": order_id,
-            "email": "nuevo@vecinus.test",
+            "email": "nuevo@example.com",
             "username": "nuevo_admin",
             "community_name": "Comunidad Alameda",
             "community_address": "Calle Alameda 10",
@@ -421,7 +410,7 @@ def test_complete_registration_order_fails_if_order_lacks_billing_request(setup_
     setup_overrides["admin_client"].storage["registration_payment_orders"] = [
         {
             "id": order_id,
-            "email": "nuevo@vecinus.test",
+            "email": "nuevo@example.com",
             "username": "nuevo_admin",
             "community_name": "Comunidad Alameda",
             "community_address": "Calle Alameda 10",
@@ -452,7 +441,7 @@ def test_complete_registration_order_fails_if_email_already_used(setup_overrides
     setup_overrides["admin_client"].storage["registration_payment_orders"] = [
         {
             "id": order_id,
-            "email": "nuevo@vecinus.test",
+            "email": "nuevo@example.com",
             "username": "otro admin",
             "community_name": "Comunidad Alatrillo",
             "community_address": "Calle Varvo 33",
@@ -482,7 +471,7 @@ def test_complete_registration_order_fails_if_email_mismatch(setup_overrides, mo
     setup_overrides["admin_client"].storage["registration_payment_orders"] = [
         {
             "id": order_id,
-            "email": "nuevo@vecinus.test",
+            "email": "nuevo@example.com",
             "username": "nuevo_admin",
             "community_name": "Comunidad Alameda",
             "community_address": "Calle Alameda 10",

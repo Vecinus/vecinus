@@ -20,7 +20,8 @@ client = TestClient(app)
 
 COMMUNITY_ID = "1"
 USER_ADMIN_ID = str(uuid4())
-USER_NON_ADMIN_ID = str(uuid4())
+USER_PRESIDENT_ID = str(uuid4())
+USER_NON_ADMIN_PRESIDENTE_ID = str(uuid4())
 
 
 class MockSupabaseTable:
@@ -49,7 +50,8 @@ class MockSupabaseClient:
     def __init__(self):
         self._memberships = [
             {"association_id": COMMUNITY_ID, "profile_id": USER_ADMIN_ID, "role": 1},
-            {"association_id": COMMUNITY_ID, "profile_id": USER_NON_ADMIN_ID, "role": 2},
+            {"association_id": COMMUNITY_ID, "profile_id": USER_PRESIDENT_ID, "role": 4},
+            {"association_id": COMMUNITY_ID, "profile_id": USER_NON_ADMIN_PRESIDENTE_ID, "role": 2},
         ]
         self._community_subscriptions = [{"association_id": COMMUNITY_ID, "status": "active"}]
 
@@ -230,9 +232,69 @@ def test_chatbot_flujo_completo_con_subida_documento_admin():
         assert "Acta_Secreta.txt" in data["source"]["reference"]  # nosec B101
 
 
-def test_upload_documento_no_admin_devuelve_403():
+def test_upload_documento_presidente():
     app.dependency_overrides[get_current_user] = lambda: {
-        "id": USER_NON_ADMIN_ID,
+        "id": USER_PRESIDENT_ID,
+        "role": "authenticated",
+        "email": "president@test.com",
+    }
+
+    archivos = {
+        "file": (
+            "acta.txt",
+            b"Contenido del acta",
+            "text/plain",
+        ),
+    }
+
+    with patch("services.chatBot.documents_ChatBotService._get_index"), patch(
+        "services.chatBot.documents_ChatBotService._get_client"
+    ):
+        response = client.post(f"/comunities/{COMMUNITY_ID}/documents", files=archivos)
+        assert response.status_code == 200  # nosec B101
+
+
+def test_listar_documentos_presidente():
+    app.dependency_overrides[get_current_user] = lambda: {
+        "id": USER_PRESIDENT_ID,
+        "role": "authenticated",
+        "email": "president@test.com",
+    }
+
+    mocked_response = {
+        "documents": [{"document_title": "prueba.txt"}],
+        "namespace": COMMUNITY_ID,
+        "vector_count": 3,
+        "queried_vectors": 3,
+        "truncated": False,
+    }
+
+    with patch("api.chatBot.documents.list_documents", return_value=mocked_response):
+        response = client.get(f"/comunities/{COMMUNITY_ID}/documents")
+        assert response.status_code == 200  # nosec B101
+
+
+def test_borrar_documento_presidente():
+    app.dependency_overrides[get_current_user] = lambda: {
+        "id": USER_PRESIDENT_ID,
+        "role": "authenticated",
+        "email": "president@test.com",
+    }
+
+    mocked_delete_response = {
+        "deleted_chunks": 2,
+        "namespace": COMMUNITY_ID,
+        "document_title": "prueba.txt",
+    }
+
+    with patch("api.chatBot.documents.delete_document", return_value=mocked_delete_response):
+        response = client.delete(f"/comunities/{COMMUNITY_ID}/documents?document_title=prueba.txt")
+        assert response.status_code == 200  # nosec B101
+
+
+def test_upload_documento_no_admin_presidente_devuelve_403():
+    app.dependency_overrides[get_current_user] = lambda: {
+        "id": USER_NON_ADMIN_PRESIDENTE_ID,
         "role": "authenticated",
         "email": "owner@test.com",
     }
@@ -317,9 +379,9 @@ def test_borrar_documento_admin():
         mocked_delete.assert_called_once_with(COMMUNITY_ID, "prueba.txt")
 
 
-def test_borrar_documento_no_admin_devuelve_403():
+def test_borrar_documento_no_admin_presidente_devuelve_403():
     app.dependency_overrides[get_current_user] = lambda: {
-        "id": USER_NON_ADMIN_ID,
+        "id": USER_NON_ADMIN_PRESIDENTE_ID,
         "role": "authenticated",
         "email": "owner@test.com",
     }
@@ -329,9 +391,9 @@ def test_borrar_documento_no_admin_devuelve_403():
     assert response.json()["detail"] == "Admin or president access required for this action"  # nosec B101
 
 
-def test_listar_documentos_no_admin_devuelve_403():
+def test_listar_documentos_no_admin_presidente_devuelve_403():
     app.dependency_overrides[get_current_user] = lambda: {
-        "id": USER_NON_ADMIN_ID,
+        "id": USER_NON_ADMIN_PRESIDENTE_ID,
         "role": "authenticated",
         "email": "owner@test.com",
     }

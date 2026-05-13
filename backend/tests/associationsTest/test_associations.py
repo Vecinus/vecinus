@@ -1,6 +1,4 @@
 import os
-import sys
-import types
 from importlib import metadata
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
@@ -10,32 +8,7 @@ os.environ["SUPABASE_URL"] = "http://localhost:8000"
 os.environ["SUPABASE_KEY"] = "dummy"
 os.environ["SUPABASE_SERVICE_KEY"] = "dummy-service"
 
-# Stub email_validator to avoid incompatible version issues
-email_validator_stub = types.ModuleType("email_validator")
-
-
-class EmailNotValidError(ValueError):
-    pass
-
-
-def validate_email(email, *args, **kwargs):
-    local = email.split("@")[0] if "@" in email else email
-    domain = email.split("@")[1] if "@" in email else ""
-    return types.SimpleNamespace(
-        email=email,
-        normalized=email,
-        local_part=local,
-        domain=domain,
-        ascii_email=email,
-        ascii_local_part=local,
-        ascii_domain=domain,
-    )
-
-
-email_validator_stub.EmailNotValidError = EmailNotValidError
-email_validator_stub.validate_email = validate_email
-sys.modules["email_validator"] = email_validator_stub
-
+# No email_validator stub, we only need the version patch
 import pydantic.networks  # noqa: E402
 
 original_version = metadata.version
@@ -363,7 +336,9 @@ def test_invite_admin_cannot_grant_admin_role():
             },
         )
         assert response.status_code == 400  # nosec B101
-        assert response.json()["detail"] == "Cannot grant ADMIN role via invitation"  # nosec B101
+        assert (
+            response.json()["detail"] == "No se puede otorgar el rol de Administrador mediante invitación"
+        )  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -544,7 +519,7 @@ def test_remove_member_not_admin_fails():
     try:
         response = client.delete(f"/members/{mock_membership_id}")
         assert response.status_code == 403  # nosec B101
-        assert response.json()["detail"] == "Admin or Presidente access required for this action"  # nosec B101
+        assert response.json()["detail"] == "Acceso denegado. Se requiere ser Administrador o Presidente."  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -560,7 +535,7 @@ def test_remove_member_different_association_fails():
     try:
         response = client.delete(f"/members/{mock_membership2_id}")
         assert response.status_code == 404  # nosec B101
-        assert response.json()["detail"] == "Membership not found"  # nosec B101
+        assert response.json()["detail"] == "Membresía no encontrada"  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -573,7 +548,7 @@ def test_remove_member_not_found():
     try:
         response = client.delete(f"/members/{wrong_membership_id}")
         assert response.status_code == 404  # nosec B101
-        assert response.json()["detail"] == "Membership not found"  # nosec B101
+        assert response.json()["detail"] == "Membresía no encontrada"  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -736,6 +711,38 @@ def test_create_property_already_exists():
 #     )
 #     delete_res = admin_client.table("invitations").delete().eq("id", invitation_id).execute()
 #     assert delete_res.data is not None  # nosec B101
+
+
+def test_get_community_users_rejects_non_member():
+    app.dependency_overrides[get_current_user] = lambda: {
+        "id": mock_target_user_id,
+        "role": "authenticated",
+        "email": "outsider@test.com",
+    }
+    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+    try:
+        response = client.get(f"/{mock_association_id}/users")
+        assert response.status_code == 403
+        assert response.json()["detail"] == "Access denied to this community"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_get_available_properties_rejects_non_member():
+    app.dependency_overrides[get_current_user] = lambda: {
+        "id": mock_target_user_id,
+        "role": "authenticated",
+        "email": "outsider@test.com",
+    }
+    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+    try:
+        response = client.get(f"/{mock_association_id}/properties/available")
+        assert response.status_code == 403
+        assert response.json()["detail"] == "Access denied to this community"
+    finally:
+        app.dependency_overrides.clear()
+
+
 #
 #     # 4. Verificar que ya no existe
 #     check_res = admin_client.table("invitations").select("id").eq("id", invitation_id).execute()

@@ -31,9 +31,6 @@ export const getUserFacingErrorMessage = (error: unknown, fallback: string): str
   }
 
   if (status === 403) {
-    if (detail.includes('Admins cannot create incidents')) {
-      return 'Como administrador no puedes crear incidencias en esta comunidad.';
-    }
     if (detail.includes('Admin, president or employee access required for this action')) {
       return 'Tu rol actual no permite cambiar el estado de esta incidencia.';  
     }

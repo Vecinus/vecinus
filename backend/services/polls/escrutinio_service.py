@@ -10,19 +10,30 @@ class EscrutinioService:
         options = poll_res.data[0]["options"]
 
         props_res = (
-            self.supabase.table("properties")
-            .select("coefficient, is_defaulter")
+            self.supabase.table("memberships")
+            .select("property_id, properties(coefficient, is_defaulter)")
             .eq("association_id", str(association_id))
+            .in_("role", [2, 4])
+            .not_.is_("property_id", "null")
             .execute()
         )
 
         eligible_voters = 0
         eligible_coefficient = 0.0
+        seen_properties = set()
 
-        for prop in props_res.data:
-            if not prop["is_defaulter"]:
-                eligible_voters += 1
-                eligible_coefficient += float(prop["coefficient"])
+        for membership in props_res.data:
+            property_id = membership.get("property_id")
+            if not property_id or property_id in seen_properties:
+                continue
+
+            prop = membership.get("properties") or {}
+            if prop.get("is_defaulter"):
+                continue
+
+            seen_properties.add(property_id)
+            eligible_voters += 1
+            eligible_coefficient += float(prop.get("coefficient", 0))
 
         votes_res = (
             self.supabase.table("vote")

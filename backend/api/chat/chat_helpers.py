@@ -66,6 +66,28 @@ def verify_association_admin(association_id: UUID | str, user_id: str, supabase:
     return membership_res.data[0]
 
 
+def verify_association_admin_or_president(association_id: UUID | str, user_id: str, supabase: Client):
+    """Verifica que un usuario tiene rol de administrador (role=1)
+    o presidente (role=4) en la comunidad dada. Lanza 403 o 404."""
+    membership_res = (
+        supabase.table("memberships")
+        .select("role")
+        .eq("association_id", str(association_id))
+        .eq("profile_id", str(user_id))
+        .execute()
+    )
+
+    if not membership_res.data:
+        raise HTTPException(status_code=403, detail="Membership not found in this community")
+
+    user_role = membership_res.data[0].get("role")
+
+    if str(user_role) not in ["1", "4"]:
+        raise HTTPException(status_code=403, detail="Admin or president access required for this action")
+
+    return membership_res.data[0]
+
+
 def verify_association_membership(association_id: UUID | str, user_id: str, supabase: Client):
     """Verifica que un usuario pertenece a la comunidad dada. Lanza 403 si no."""
     membership_res = (

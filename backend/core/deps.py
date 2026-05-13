@@ -1,8 +1,8 @@
 import base64
 import json
 import logging
-from datetime import datetime, timezone
 
+import jwt as pyjwt
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from supabase import Client, ClientOptions, create_client
@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 # Authentication scheme
 security = HTTPBearer()
+security_optional = HTTPBearer(auto_error=False)
 
 ACTIVE_SUBSCRIPTION_STATUSES = frozenset({"active", "pending_first_payment"})
 
@@ -108,37 +109,105 @@ def get_supabase_admin() -> Client:
     return create_client(settings.SUPABASE_URL, get_supabase_admin_key(), options=options)
 
 
+def _verify_jwt_hs256(token: str) -> dict | None:
+    """Intenta validar un JWT con HS256 usando SUPABASE_JWT_SECRET.
+
+    Devuelve el payload si la verificación tiene éxito, None si el secreto no
+    está configurado o el token no es HS256. Lanza HTTPException si el token es
+    HS256 pero está expirado.
+    """
+    jwt_secret = _normalize_supabase_key(settings.SUPABASE_JWT_SECRET)
+    if not jwt_secret:
+        return None
+
+    try:
+        return pyjwt.decode(
+            token,
+            jwt_secret,
+            algorithms=["HS256"],
+            audience="authenticated",
+            options={"require": ["sub", "exp", "role"]},
+        )
+    except pyjwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token expired",
+        )
+    except pyjwt.InvalidTokenError:
+        return None
+
+
+def _verify_jwt_with_supabase(token: str) -> dict:
+    """Valida JWTs firmados asimétricamente (ES256/RS256) mediante el JWKS de Supabase."""
+    options = ClientOptions(schema=settings.SUPABASE_SCHEMA)
+    client = create_client(
+        settings.SUPABASE_URL,
+        _normalize_supabase_key(settings.SUPABASE_KEY),
+        options=options,
+    )
+    claims_response = client.auth.get_claims(token)
+    if not claims_response:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+        )
+    claims = claims_response.get("claims") or {}
+    if not claims.get("sub"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+        )
+    return dict(claims)
+
+
+def _verify_jwt(token: str) -> dict:
+    """Verifica la firma del JWT y devuelve el payload.
+
+    Soporta tanto JWTs HS256 (legacy) firmados con SUPABASE_JWT_SECRET como
+    JWTs firmados asimétricamente (ES256/RS256) usando el JWKS de Supabase.
+    """
+    try:
+        header = pyjwt.get_unverified_header(token)
+    except pyjwt.DecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+        )
+
+    if header.get("alg") == "HS256":
+        payload = _verify_jwt_hs256(token)
+        if payload is not None:
+            return payload
+
+    try:
+        return _verify_jwt_with_supabase(token)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("Asymmetric JWT verification failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+        )
+
+
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> dict:
-    """Valida el JWT localmente y extrae datos del usuario."""
+    """Valida el JWT (con firma si SUPABASE_JWT_SECRET está configurado) y extrae datos del usuario."""
     token = credentials.credentials
     try:
-        payload = _extract_jwt_payload(token)
-        if not payload:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication credentials",
-            )
+        payload = _verify_jwt(token)
 
         user_id = payload.get("sub")
         user_role = payload.get("role")
         user_email = payload.get("email")
-        exp = payload.get("exp")
 
         if not user_id or user_role != "authenticated":
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication credentials",
             )
-
-        if exp is not None:
-            expiration = datetime.fromtimestamp(int(exp), tz=timezone.utc)
-            if expiration <= datetime.now(timezone.utc):
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Token expired",
-                )
 
         return {
             "id": str(user_id),
@@ -148,10 +217,10 @@ def get_current_user(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Authentication failed: {str(e)}",
+            detail="Authentication failed",
         )
 
 
@@ -291,3 +360,31 @@ def require_active_community_for_channel(
         return None
 
     return check_subscription_active(supabase_admin, str(association_id))
+
+
+def get_current_user_optional(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security_optional),
+) -> dict | None:
+    """Extrae datos del usuario si está autenticado, sino retorna None."""
+    if not credentials:
+        return None
+
+    token = credentials.credentials
+    try:
+        payload = _verify_jwt(token)
+
+        user_id = payload.get("sub")
+        user_role = payload.get("role")
+        user_email = payload.get("email")
+
+        if not user_id or user_role != "authenticated":
+            return None
+
+        return {
+            "id": str(user_id),
+            "role": str(user_role),
+            "email": user_email,
+        }
+
+    except Exception:
+        return None

@@ -1,7 +1,7 @@
-import os
 from uuid import UUID
 
 from core.config import settings
+from core.deps import get_supabase_admin_key
 from schemas.transcription.minutes import MinutesResponse
 from supabase import Client, ClientOptions, create_client
 
@@ -11,9 +11,11 @@ class MinuteService:
         self.db = db_client
 
     def get_supabase_client() -> Client:
-        url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_SERVICE_KEY")
-        return create_client(url, key, options=ClientOptions(schema=settings.SUPABASE_SCHEMA))
+        return create_client(
+            settings.SUPABASE_URL,
+            get_supabase_admin_key(),
+            options=ClientOptions(schema=settings.SUPABASE_SCHEMA),
+        )
 
     async def get_minutes_by_association(self, association_id: UUID):
         res = (

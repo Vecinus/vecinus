@@ -3,6 +3,7 @@ from typing import Dict, List
 from uuid import UUID
 
 from core.deps import (
+    _verify_jwt,
     check_subscription_active,
     get_current_user,
     get_supabase,
@@ -29,7 +30,7 @@ from schemas.chat.chat import (
 from supabase import Client, create_client  # noqa: F401
 
 from .chat_helpers import (
-    verify_association_admin,
+    verify_association_admin_or_president,
     verify_channel_access,
     verify_message_ownership,
 )
@@ -48,15 +49,15 @@ def create_group_channel(
 ):
     """
     Crea un nuevo canal de chat grupal.
-    Solo los administradores de la comunidad pueden hacerlo.
+    Solo los administradores o presidentes de la comunidad pueden hacerlo.
     """
     # `association_id` viaja en el body; no podemos usar la dep de path. Hacemos
     # la comprobación inline antes de tocar nada en BD para que un admin de una
     # comunidad bloqueada no pueda crear nuevos canales.
     check_subscription_active(supabase_admin, str(channel_in.association_id))
 
-    # Verificar que el usuario es admin de la comunidad (role=1 en memberships)
-    verify_association_admin(channel_in.association_id, current_user["id"], supabase)
+    # Verificar que el usuario es admin o presidente de la comunidad.
+    verify_association_admin_or_president(channel_in.association_id, current_user["id"], supabase)
 
     new_channel_data = {
         "association_id": str(channel_in.association_id),
@@ -138,8 +139,8 @@ def update_group_channel(
 
     association_id = channel_data["association_id"]
 
-    # 2. Verificar que el usuario es admin de la comunidad
-    verify_association_admin(association_id, current_user["id"], supabase)
+    # 2. Verificar que el usuario es admin o presidente de la comunidad
+    verify_association_admin_or_president(association_id, current_user["id"], supabase)
 
     # 3. Actualizar
     update_data = {
@@ -185,8 +186,8 @@ def delete_group_channel(
 
     association_id = channel_data["association_id"]
 
-    # 2. Verificar que el usuario es admin de la comunidad
-    verify_association_admin(association_id, current_user["id"], supabase)
+    # 2. Verificar que el usuario es admin o presidente de la comunidad
+    verify_association_admin_or_president(association_id, current_user["id"], supabase)
 
     # 3. Eliminar el canal (Postgres elimina en cascada automáticamente
     # los mensajes y participantes ligados)
@@ -606,7 +607,7 @@ async def delete_message(
     broadcast_data = {
         "event": "message_deleted",
         "message_id": str(message_id),
-        "channel_id": channel_id,
+        "channel_id": str(channel_id),
     }
     await manager.broadcast(broadcast_data, str(channel_id))
 
@@ -651,17 +652,27 @@ async def websocket_endpoint(websocket: WebSocket, channel_id: UUID):
     gestor de conexiones (ConnectionManager) les escupa los mensajes nuevos
     que se han guardado desde la API POST.
     """
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    try:
+        payload = _verify_jwt(token)
+        user_id = str(payload.get("sub") or "")
+        user_role = payload.get("role")
+        if not user_id or user_role != "authenticated":
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+
+        verify_channel_access(str(channel_id), user_id, get_supabase_admin())
+    except HTTPException:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
     await manager.connect(websocket, str(channel_id))
     try:
         while True:
-            data = await websocket.receive_text()
-            await manager.broadcast(
-                {
-                    "channel_id": str(str(channel_id)),
-                    "data": data,
-                    "type": "echo_test",
-                },
-                str(channel_id),
-            )
+            await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket, str(channel_id))

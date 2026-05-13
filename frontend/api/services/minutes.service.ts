@@ -3,8 +3,18 @@ import { apiClient } from '../client';
 import { MinutesReadResponse } from '@/types/minutes.types';
 
 export const minutesService = {
-  getMinutes: async (associationId: string): Promise<MinutesReadResponse[]> => {
-    const response = await apiClient.get<MinutesReadResponse[]>(`/api/minutes/${associationId}`);
+  getMinutes: async (
+    associationId: string,
+    token?: string | null
+  ): Promise<MinutesReadResponse[]> => {
+    const response = await apiClient.get<MinutesReadResponse[]>(
+      `/api/minutes/${associationId}`,
+      token
+        ? {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        : undefined
+    );
     return response.data;
   },
 

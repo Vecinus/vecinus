@@ -5,11 +5,14 @@ import { notifyCommunityBlocked } from '@/lib/payment-events';
 import type { CommunityBlockedDetail } from '@/types/payments.types';
 
 const getBackendUrl = () => {
-  if (process.env.EXPO_PUBLIC_BACKEND_URL) {
-    return process.env.EXPO_PUBLIC_BACKEND_URL;
+  const url = process.env.EXPO_PUBLIC_BACKEND_URL;
+  if (!url) {
+    if (__DEV__) {
+      return 'http://localhost:8000';
+    }
+    throw new Error('EXPO_PUBLIC_BACKEND_URL is required in production');
   }
-  // Fallback por defecto si se te olvida crear el archivo .env
-  return 'http://localhost:8000';
+  return url;
 };
 
 const BASE_URL = getBackendUrl();
@@ -28,6 +31,7 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
     return config;
   },
   (error) => {
@@ -53,6 +57,7 @@ apiClient.interceptors.response.use(
     const status = error?.response?.status;
     const requestUrl = String(error?.config?.url ?? '').toLowerCase();
     const isAuthPublicEndpoint = requestUrl.includes('/login') || requestUrl.includes('/logout');
+
     if (status === 401 && !isAuthPublicEndpoint) {
       await notifyUnauthorized();
     }

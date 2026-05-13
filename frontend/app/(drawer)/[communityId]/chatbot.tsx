@@ -33,7 +33,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import type { ChatMessage, UploadDocumentFile } from '@/types/chatbot.types';
-import { ADMIN_ROLE_ID, isAdminOrPresident } from '@/utils/role.util';
+import { isAdminOrPresident } from '@/utils/role.util';
 import { getLegalWarning } from '@/utils/legal-warnings';
 import { apiClient } from '@/api/client';
 import { isAxiosError } from 'axios';
@@ -49,7 +49,6 @@ import {
   UploadCloudIcon,
   UserIcon,
   ArrowDownIcon,
-  ChevronDownIcon,
 } from 'lucide-react-native';
 import * as React from 'react';
 import {
@@ -63,6 +62,7 @@ import {
   ScrollView,
   TextInput,
   type TextInputContentSizeChangeEventData,
+  type TextInputKeyPressEventData,
   View,
   useWindowDimensions,
 } from 'react-native';
@@ -71,23 +71,6 @@ type ChatTabValue = 'chat' | 'documents';
 const CHAT_COMPOSER_MIN_HEIGHT = 24;
 const CHAT_COMPOSER_MAX_HEIGHT = 132;
 const CHATBOT_INPUT_MAX_LENGTH = 300;
-
-function toRoleId(role: string | number | null | undefined): number | null {
-  if (typeof role === 'number' && Number.isFinite(role)) {
-    return role;
-  }
-
-  if (typeof role === 'string') {
-    const parsedRole = Number.parseInt(role, 10);
-    return Number.isNaN(parsedRole) ? null : parsedRole;
-  }
-
-  return null;
-}
-
-function isAdministratorRole(role: string | number | null | undefined): boolean {
-  return toRoleId(role) === ADMIN_ROLE_ID;
-}
 
 function buildMessage(
   partial: Omit<ChatMessage, 'id' | 'createdAt'> & { id?: string; createdAt?: string }
@@ -616,10 +599,15 @@ export default function CommunityChatbotScreen() {
               value={question}
               onChangeText={setQuestion}
               onContentSizeChange={handleComposerSizeChange}
-              onKeyPress={(e: { key?: string; shiftKey?: boolean; preventDefault?: () => void }) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault?.();
-                  void handleSend();
+              onKeyPress={(e: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
+                if (e.nativeEvent.key === 'Enter' && Platform.OS === 'web') {
+                  const nativeEvent = e.nativeEvent as unknown as { shiftKey?: boolean };
+                  if (!nativeEvent.shiftKey) {
+                    if ('preventDefault' in e) {
+                      (e as unknown as { preventDefault: () => void }).preventDefault();
+                    }
+                    void handleSend();
+                  }
                 }
               }}
               placeholder="Haz una pregunta sobre la comunidad..."

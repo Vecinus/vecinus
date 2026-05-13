@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/context/AuthContext';
 import { bookingApi } from '@/api/booking';
 import { guestPassApi } from '@/api/guestPass';
+import type { ReservationSummary } from '@/types/booking.types';
+import type { GuestPassSummary } from '@/types/guess_pass.types';
 import { useRouter, useNavigation } from 'expo-router';
 import { AlertConfig, CustomAlertDialog, UnifiedBookingItem } from '@/components/custom-alert';
 import { ChevronLeft } from 'lucide-react-native';
@@ -55,7 +57,7 @@ export default function MisReservas() {
         guestPassApi.listGuestPasses(associationId),
       ]);
 
-      const mappedReservations: UnifiedBookingItem[] = reservations.map(r => ({
+      const mappedReservations: UnifiedBookingItem[] = reservations.map((r: ReservationSummary) => ({
         uniqueId: `res_${r.id}`,
         realId: r.id,
         type: 'reservation',
@@ -63,15 +65,17 @@ export default function MisReservas() {
         startDate: r.start_at,
         endDate: r.end_at,
         statusId: r.status_id,
+        requiresQr: r.requires_qr,
       }));
 
-      const mappedGuestPasses: UnifiedBookingItem[] = guestPasses.map(gp => ({
+      const mappedGuestPasses: UnifiedBookingItem[] = guestPasses.map((gp: GuestPassSummary) => ({
         uniqueId: `gp_${gp.id}`,
         realId: gp.id,
         type: 'guest_pass',
         spaceName: gp.space_name,
         startDate: gp.valid_for_date,
         statusId: gp.status_id,
+        requiresQr: gp.requires_qr,
       }));
 
       const combined = [...mappedReservations, ...mappedGuestPasses];
@@ -298,9 +302,11 @@ function BookingCard({
               {isCancelling ? 'Cancelando...' : 'Cancelar'}
             </Text>
           </Button>
-          <Button variant="default" size="sm" onPress={onViewQr}>
-            <Text className="text-primary-foreground text-sm">Ver QR</Text>
-          </Button>
+          {item.requiresQr && (
+            <Button variant="default" size="sm" onPress={onViewQr}>
+              <Text className="text-primary-foreground text-sm">Ver QR</Text>
+            </Button>
+          )}
         </CardFooter>
       )}
     </Card>

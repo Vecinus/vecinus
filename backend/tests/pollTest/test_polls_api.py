@@ -47,6 +47,7 @@ class MockSupabaseClient:
     def __init__(self):
         self.storage = {
             "community_subscriptions": [{"association_id": ASSOC_ID, "status": "active"}],
+            "memberships": [{"association_id": ASSOC_ID, "profile_id": USER_ID, "role": 1}],
         }
 
     def table(self, name: str):
@@ -144,4 +145,5 @@ def test_api_cast_vote(mock_vote_service_class):
     assert data["selected_option"] == "Sí"
     assert data["coefficient_snapshot"] == 15.5
 
+    mock_service.cast_vote.assert_called_once()
     mock_service.cast_vote.assert_called_once()

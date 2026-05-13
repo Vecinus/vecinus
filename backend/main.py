@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 
+from api.announcements.announcements import router as announcements_router
 from api.associations.associations import router as associations_router
 from api.auth.login import router as auth_router
 from api.auth.registration import router as registration_router
@@ -39,11 +40,14 @@ app = FastAPI(
 # Set up CORS
 origins = [
     settings.APP_BASE_URL,
+    "http://localhost:8081",
+    "http://127.0.0.1:8081",
     "https://vecinus-s1.onrender.com",
     "https://vecinus-s2.onrender.com",
     "https://vecinus-s3.onrender.com",
     "https://vecinus-ppl.onrender.com",
     "https://vecinus.onrender.com",
+    "http://192.168.1.234:8081",  # Expo Go (dev local)
 ]
 
 app.add_middleware(
@@ -71,6 +75,7 @@ app.include_router(community_payments_router)
 app.include_router(gocardless_webhook_router)
 app.include_router(subscriptions_router)
 app.include_router(polls_router)
+app.include_router(announcements_router)
 
 
 @app.get("/health")

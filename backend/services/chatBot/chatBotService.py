@@ -1,7 +1,10 @@
 import asyncio
+import logging
 import time
 
 from core.config import settings
+
+logger = logging.getLogger(__name__)
 
 # Lazy singletons -- se crean la primera vez que se usan,
 # no al importar el modulo (evita llamadas de red en tests).
@@ -59,29 +62,31 @@ def _retrieve_and_rerank(comunidad_id: str, question: str):
 
     matches = res.get("matches", [])
 
-    print(f"\n[DEBUG RAG] Busqueda para comunidad_id: {namespace}")
-    print(f"[DEBUG RAG] Pregunta: {question}")
-    print(f"[DEBUG RAG] Resultados encontrados: {len(matches)}")
+    logger.debug("RAG busqueda para comunidad_id: %s", namespace)
+    logger.debug("RAG pregunta: %s", question)
+    logger.debug("RAG resultados encontrados: %d", len(matches))
 
     if matches:
-        print(f"[DEBUG RAG] Score mas alto: {matches[0].get('score', 0.0):.4f}")
-        print(f"[DEBUG RAG] Threshold configurado: {CONFIDENCE_THRESHOLD}")
+        logger.debug("RAG score mas alto: %.4f", matches[0].get("score", 0.0))
+        logger.debug("RAG threshold configurado: %s", CONFIDENCE_THRESHOLD)
         for i, match in enumerate(matches, 1):
             score = match.get("score", 0.0)
             doc_title = match.get("metadata", {}).get("document_title", "unknown")
-            print(f"[RAG]Match {i}: score={score:.4f} doc='{doc_title}' pasa_threshold={score > CONFIDENCE_THRESHOLD}")
+            logger.debug(
+                "RAG match %d: score=%.4f doc='%s' pasa_threshold=%s", i, score, doc_title, score > CONFIDENCE_THRESHOLD
+            )
     else:
-        print(f"[DEBUG RAG] No se encontraron vectores en el namespace '{namespace}'")
+        logger.debug("RAG no se encontraron vectores en el namespace '%s'", namespace)
 
     valid_chunks = [match for match in matches if match.get("score", 0.0) > CONFIDENCE_THRESHOLD]
 
     if not valid_chunks:
-        print(f"[DEBUG RAG] Ningun resultado supera el threshold de {CONFIDENCE_THRESHOLD}")
+        logger.debug("RAG ningun resultado supera el threshold de %s", CONFIDENCE_THRESHOLD)
         return []
 
     valid_chunks = sorted(valid_chunks, key=lambda x: x["score"], reverse=True)[:2]
 
-    print(f"[DEBUG RAG] Usando {len(valid_chunks)} chunks validos")
+    logger.debug("RAG usando %d chunks validos", len(valid_chunks))
 
     return [
         {
@@ -171,7 +176,7 @@ async def _ask_gemini_with_timeout(context: str, question: str, history: list[di
         except asyncio.TimeoutError:
             if attempt < _LLM_MAX_RETRIES - 1:
                 delay = _LLM_RETRY_BASE_DELAY * (2**attempt)
-                print(f"[RETRY] Gemini timeout, reintentando en {delay}s...")
+                logger.warning("Gemini timeout, reintentando en %ds...", delay)
                 time.sleep(delay)
                 continue
             return "El servicio está tardando demasiado. Por favor, inténtalo de nuevo en unos segundos."
@@ -180,10 +185,10 @@ async def _ask_gemini_with_timeout(context: str, question: str, history: list[di
             is_transient = any(kw in error_str for kw in ("503", "unavailable", "overloaded", "429", "rate"))
             if is_transient and attempt < _LLM_MAX_RETRIES - 1:
                 delay = _LLM_RETRY_BASE_DELAY * (2**attempt)
-                print(f"[RETRY] Gemini error transitorio ({e}), reintentando en {delay}s...")
+                logger.warning("Gemini error transitorio (%s), reintentando en %ds...", e, delay)
                 time.sleep(delay)
                 continue
-            print(f"[ERROR] Fallo en Gemini: {e}")
+            logger.error("Fallo en Gemini: %s", e)
             return "El servicio de IA está temporalmente saturado."
     try:
         resp = await asyncio.wait_for(
@@ -198,7 +203,7 @@ async def _ask_gemini_with_timeout(context: str, question: str, history: list[di
     except asyncio.TimeoutError:
         return "El servicio esta tardando demasiado. Por favor, intentalo de nuevo en unos segundos."
     except Exception as e:
-        print(f"[ERROR] Fallo en Gemini: {e}")
+        logger.error("Fallo en Gemini: %s", e)
         return "El servicio de IA esta temporalmente saturado."
 
 

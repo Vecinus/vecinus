@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
 from typing import Any
 
 import httpx
@@ -9,6 +10,8 @@ from core.config import settings
 from fastapi import HTTPException, status
 from schemas.payments import CommunityPaymentOrderCreate
 from supabase import Client
+
+logger = logging.getLogger(__name__)
 
 
 def _ensure_gocardless_configured() -> None:
@@ -52,15 +55,16 @@ def _gocardless_request(
             return {}
         return response.json()
     except httpx.HTTPStatusError as exc:
-        detail = exc.response.text or exc.response.reason_phrase
+        logger.error("GoCardless request failed: %s", exc.response.text or exc.response.reason_phrase)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"GoCardless request failed: {detail}",
+            detail="GoCardless request failed",
         )
     except httpx.HTTPError as exc:
+        logger.error("Could not connect to GoCardless: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Could not connect to GoCardless: {str(exc)}",
+            detail="Could not connect to GoCardless",
         )
 
 

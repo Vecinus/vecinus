@@ -199,7 +199,7 @@ export default function DetalleReservaOPase() {
         </View>
 
         <Card className="mb-6 border-border">
-          {item.requiresQr && (
+          {item.requiresQr ? (
             <CardHeader className="items-center bg-secondary/20 pb-8 pt-8 rounded-t-xl">
               <View className="bg-white p-4 rounded-xl shadow-sm border border-border">
                 <QRCode
@@ -212,6 +212,12 @@ export default function DetalleReservaOPase() {
               <Text className="text-sm text-muted-foreground mt-4 font-mono">
                 {item.qrToken}
               </Text>
+            </CardHeader>
+          ) : (
+            <CardHeader className="items-center bg-secondary/20 pb-8 pt-8 rounded-t-xl">
+              <View className="bg-white p-4 rounded-xl shadow-sm border border-border items-center justify-center" style={{ width: 180, height: 180 }}>
+                <Text className="text-center text-muted-foreground font-medium">Esta reserva no requiere código QR</Text>
+              </View>
             </CardHeader>
           )}
 

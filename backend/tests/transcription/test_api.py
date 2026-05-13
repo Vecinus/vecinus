@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import api.transcription.minutes as minutes_api
 import pytest
 from api.transcription.minutes import get_service
-from core.deps import get_current_user, get_supabase, get_supabase_admin
+from core.deps import get_current_user, get_supabase, get_supabase_admin, require_active_community
 from fastapi import HTTPException
 from httpx import ASGITransport, AsyncClient
 from main import app
@@ -80,7 +80,7 @@ class TestMinutesAPI:
         app.dependency_overrides[get_current_user] = lambda: MOCK_USER
         app.dependency_overrides[get_supabase] = lambda: MagicMock()
 
-        with patch("api.transcription.minutes.verify_association_admin"), patch.object(
+        with patch("api.transcription.minutes.verify_association_admin_or_president"), patch.object(
             TranscriptionService,
             "process_audio_to_minutes",
             new=AsyncMock(
@@ -120,7 +120,8 @@ class TestMinutesAPI:
         app.dependency_overrides[get_current_user] = lambda: MOCK_USER
         app.dependency_overrides[get_supabase] = lambda: MagicMock()
         app.dependency_overrides[get_service] = lambda: MagicMock()
-        with patch("api.transcription.minutes.verify_association_admin"):
+
+        with patch("api.transcription.minutes.verify_association_admin_or_president"):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 files = {"audio": ("notas.txt", b"esto no es audio", "text/plain")}
                 response = await ac.post(
@@ -144,7 +145,8 @@ class TestMinutesAPI:
         app.dependency_overrides[get_supabase] = lambda: MagicMock()
         app.dependency_overrides[get_service] = lambda: MagicMock()
         content = b"0" * (150 * 1024 * 1024 + 1)
-        with patch("api.transcription.minutes.verify_association_admin"):
+
+        with patch("api.transcription.minutes.verify_association_admin_or_president"):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 files = {"audio": ("gigante.mp3", content, "audio/mpeg")}
                 response = await ac.post(
@@ -156,6 +158,24 @@ class TestMinutesAPI:
 
         if response.status_code != 413:
             raise AssertionError(f"Se esperaba 413 pero se obtuvo {response.status_code}")
+
+    async def test_get_minutes_non_admin_returns_403(self):
+        app.dependency_overrides[get_service] = lambda: MagicMock()
+        app.dependency_overrides[get_current_user] = lambda: MOCK_USER
+        app.dependency_overrides[get_supabase] = lambda: MagicMock()
+        app.dependency_overrides[require_active_community] = lambda: ASSOCIATION_ID
+
+        with patch(
+            "api.transcription.minutes.verify_association_membership",
+            side_effect=HTTPException(status_code=403, detail="Access denied to this community"),
+        ):
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+                response = await ac.get(f"/api/minutes/{ASSOCIATION_ID}")
+
+        app.dependency_overrides.clear()
+
+        if response.status_code != 403:
+            raise AssertionError(f"Se esperaba 403 pero se obtuvo {response.status_code}")
 
     async def test_generate_document_preview_uses_minutes_title_as_filename(self):
         app.dependency_overrides[get_current_user] = lambda: MOCK_USER
@@ -183,49 +203,10 @@ class TestMinutesAPI:
         if 'filename="Junta ordinaria marzo 2026.docx"' not in content_disposition:
             raise AssertionError(f"Cabecera Content-Disposition inesperada: {content_disposition}")
 
-    async def test_transcribe_non_admin_returns_403(self):
-        app.dependency_overrides[get_service] = lambda: MagicMock()
-        app.dependency_overrides[get_supabase_admin] = lambda: _MockSupabaseAdmin()
-        app.dependency_overrides[get_current_user] = lambda: MOCK_USER
-        app.dependency_overrides[get_supabase] = lambda: MagicMock()
-
-        with patch(
-            "api.transcription.minutes.verify_association_admin",
-            side_effect=HTTPException(status_code=403, detail="Admin access required for this action"),
-        ):
-            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-                files = {"audio": ("reunion.mp3", b"fake-audio-data", "audio/mpeg")}
-                response = await ac.post(
-                    f"/api/minutes/{ASSOCIATION_ID}/transcribe",
-                    files=files,
-                    data={"title": "Acta"},
-                )
-
-        app.dependency_overrides.clear()
-
-        if response.status_code != 403:
-            raise AssertionError(f"Se esperaba 403 pero se obtuvo {response.status_code}")
-
-    async def test_get_minutes_non_admin_returns_403(self):
-        app.dependency_overrides[get_service] = lambda: MagicMock()
-        app.dependency_overrides[get_supabase_admin] = lambda: _MockSupabaseAdmin()
-        app.dependency_overrides[get_current_user] = lambda: MOCK_USER
-        app.dependency_overrides[get_supabase] = lambda: MagicMock()
-
-        with patch(
-            "api.transcription.minutes.verify_association_admin",
-            side_effect=HTTPException(status_code=403, detail="Admin access required for this action"),
-        ):
-            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-                response = await ac.get(f"/api/minutes/{ASSOCIATION_ID}")
-
-        app.dependency_overrides.clear()
-
-        if response.status_code != 403:
-            raise AssertionError(f"Se esperaba 403 pero se obtuvo {response.status_code}")
-
     async def test_unauthenticated_request_returns_401(self):
         app.dependency_overrides[get_supabase_admin] = lambda: _MockSupabaseAdmin()
+        app.dependency_overrides[get_service] = lambda: MagicMock()
+        app.dependency_overrides[require_active_community] = lambda: ASSOCIATION_ID
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             response = await ac.get(f"/api/minutes/{ASSOCIATION_ID}")
 

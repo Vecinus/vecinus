@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { apiClient } from './client';
 import { useAuth } from '@/context/AuthContext';
 import { LoginCredentials, User } from '@/types/auth.types';
+import { fetchUserWithCommunities, MembershipItem } from './user';
 
 export interface RegisterCredentials {
   email: string;
@@ -36,45 +37,7 @@ interface UserProfile {
   avatar_url?: string | null;
 }
 
-interface MembershipItem {
-  role: string | number;
-  neighborhood_associations: {
-    id: string;
-    name: string;
-    address?: string | null;
-    household_count?: number | null;
-  };
-}
-
-export const fetchUserWithCommunities = async (jwtToken: string): Promise<User> => {
-  const [userResponse, communitiesResponse] = await Promise.all([
-    apiClient.get<UserProfile>('/users/me', {
-      headers: { Authorization: `Bearer ${jwtToken}` },
-    }),
-    apiClient.get<MembershipItem[]>('/users/me/communities', {
-      headers: { Authorization: `Bearer ${jwtToken}` },
-    }),
-  ]);
-
-  const profile = userResponse.data;
-  const communitiesData = communitiesResponse.data;
-
-  return {
-    id: profile.id,
-    name: profile.username,
-    email: profile.email,
-    avatarUrl: profile.avatar_url ?? null,
-    CommunitiesAndRole: communitiesData.map((membership: MembershipItem) => ({
-      community: {
-        id: membership.neighborhood_associations.id,
-        name: membership.neighborhood_associations.name,
-        address: membership.neighborhood_associations.address ?? null,
-        household_count: membership.neighborhood_associations.household_count ?? null,
-      },
-      role: membership.role,
-    })),
-  };
-};
+export { fetchUserWithCommunities };
 
 export const useAcceptInvitationMutation = () => {
   const { loginContext } = useAuth();
@@ -111,14 +74,15 @@ export const useLoginMutation = () => {
       const { session } = loginResponse.data;
       const token = session.access_token;
 
-      const userResponse = await apiClient.get<UserProfile>('/users/me', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const [userResponse, communitiesResponse] = await Promise.all([
+        apiClient.get<UserProfile>('/users/me', {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        apiClient.get<MembershipItem[]>('/users/me/communities', {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
       const profile = userResponse.data;
-
-      const communitiesResponse = await apiClient.get<MembershipItem[]>('/users/me/communities', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
       const communitiesData = communitiesResponse.data;
 
       const fullUser: User = {
@@ -189,4 +153,3 @@ export const updateMyAvatarUrl = async (token: string, avatarUrl?: string | null
 
   return response.data;
 };
-

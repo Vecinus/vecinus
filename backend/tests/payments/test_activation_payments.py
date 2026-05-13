@@ -1,5 +1,4 @@
 import os
-import sys
 import types
 from importlib import metadata
 from typing import Any
@@ -13,21 +12,6 @@ from fastapi.testclient import TestClient
 os.environ["SUPABASE_URL"] = "http://localhost:8000"
 os.environ["SUPABASE_KEY"] = "dummy"
 os.environ["SUPABASE_SERVICE_KEY"] = "dummy-service"
-
-email_validator_stub = types.ModuleType("email_validator")
-
-
-class EmailNotValidError(ValueError):
-    pass
-
-
-def validate_email(email, *args, **kwargs):
-    return types.SimpleNamespace(email=email, normalized=email, local_part=email.split("@")[0])
-
-
-email_validator_stub.EmailNotValidError = EmailNotValidError
-email_validator_stub.validate_email = validate_email
-sys.modules["email_validator"] = email_validator_stub
 
 original_version = metadata.version
 
@@ -163,7 +147,7 @@ class MockSupabaseAdminClient:
 def setup_overrides(monkeypatch):
     state = {
         "admin_client": MockSupabaseAdminClient(),
-        "current_user": {"id": PROFILE_ID, "email": "admin@vecinus.test"},
+        "current_user": {"id": PROFILE_ID, "email": "admin@vecinus.com"},
     }
     admin_client: MockSupabaseAdminClient = state["admin_client"]
     admin_client.storage["profiles"].append({"id": PROFILE_ID, "username": "admin"})
@@ -272,7 +256,7 @@ def test_complete_activation_order_creates_subscription_and_updates_household_co
     admin_client.storage["registration_payment_orders"].append(
         {
             "id": ORDER_1_ID,
-            "email": "admin@vecinus.test",
+            "email": "admin@vecinus.com",
             "username": "admin",
             "community_name": "Comunidad Alameda",
             "community_address": "Calle Alameda 10",
@@ -331,7 +315,7 @@ def test_complete_activation_order_is_idempotent(setup_overrides, monkeypatch):
     admin_client.storage["registration_payment_orders"].append(
         {
             "id": ORDER_2_ID,
-            "email": "admin@vecinus.test",
+            "email": "admin@vecinus.com",
             "username": "admin",
             "community_name": "Comunidad Alameda",
             "community_address": "Calle Alameda 10",
@@ -371,7 +355,7 @@ def test_complete_activation_order_retries_usage_counter_initialization(monkeypa
     admin_client.storage["registration_payment_orders"].append(
         {
             "id": ORDER_3_ID,
-            "email": "admin@vecinus.test",
+            "email": "admin@vecinus.com",
             "username": "admin",
             "community_name": "Comunidad Alameda",
             "community_address": "Calle Alameda 10",
@@ -432,7 +416,7 @@ def test_complete_activation_order_bootstraps_usage_counters_when_rpc_never_crea
     admin_client.storage["registration_payment_orders"].append(
         {
             "id": ORDER_4_ID,
-            "email": "admin@vecinus.test",
+            "email": "admin@vecinus.com",
             "username": "admin",
             "community_name": "Comunidad Alameda",
             "community_address": "Calle Alameda 10",
