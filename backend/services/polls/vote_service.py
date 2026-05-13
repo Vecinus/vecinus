@@ -1,8 +1,11 @@
+import logging
 from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import HTTPException
 from schemas.polls.votes import VoteCreate
+
+logger = logging.getLogger(__name__)
 
 
 class VoteService:
@@ -30,7 +33,8 @@ class VoteService:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Error validando votación: {str(e)}")
+            logger.error("Error validando votación: %s", e)
+            raise HTTPException(status_code=400, detail="Error validando votación")
 
         try:
             token_res = (
@@ -59,7 +63,8 @@ class VoteService:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Error validando token: {str(e)}")
+            logger.error("Error validando token: %s", e)
+            raise HTTPException(status_code=400, detail="Error validando token")
 
         try:
             member_res = self.supabase.table("memberships").select("property_id").eq("id", membership_id).execute()
@@ -83,7 +88,8 @@ class VoteService:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Error verificando propiedad: {str(e)}")
+            logger.error("Error verificando propiedad: %s", e)
+            raise HTTPException(status_code=400, detail="Error verificando propiedad")
 
         now = datetime.now(timezone.utc)
         vote_insert_data = {
@@ -103,13 +109,15 @@ class VoteService:
                     status_code=400,
                     detail="Ya has votado en esta votación. No se puede cambiar el voto una vez registrado.",
                 )
-            raise HTTPException(status_code=400, detail=f"Error al registrar el voto: {str(e)}")
+            logger.error("Error al registrar el voto: %s", e)
+            raise HTTPException(status_code=400, detail="Error al registrar el voto")
 
         try:
             self.supabase.table("voting_tokens").update({"is_used": True}).eq(
                 "token", str(vote_data.voting_token)
             ).execute()
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Error marcando token como usado: {str(e)}")
+            logger.error("Error marcando token como usado: %s", e)
+            raise HTTPException(status_code=400, detail="Error marcando token como usado")
 
         return vote_res.data[0]
