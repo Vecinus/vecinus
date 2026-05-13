@@ -328,7 +328,9 @@ def test_invite_admin_cannot_grant_admin_role():
             },
         )
         assert response.status_code == 400  # nosec B101
-        assert response.json()["detail"] == "Cannot grant ADMIN role via invitation"  # nosec B101
+        assert (
+            response.json()["detail"] == "No se puede otorgar el rol de Administrador mediante invitación"
+        )  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -509,7 +511,7 @@ def test_remove_member_not_admin_fails():
     try:
         response = client.delete(f"/members/{mock_membership_id}")
         assert response.status_code == 403  # nosec B101
-        assert response.json()["detail"] == "Admin or Presidente access required for this action"  # nosec B101
+        assert response.json()["detail"] == "Acceso denegado. Se requiere ser Administrador o Presidente."  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -525,7 +527,7 @@ def test_remove_member_different_association_fails():
     try:
         response = client.delete(f"/members/{mock_membership2_id}")
         assert response.status_code == 404  # nosec B101
-        assert response.json()["detail"] == "Membership not found"  # nosec B101
+        assert response.json()["detail"] == "Membresía no encontrada"  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -538,7 +540,7 @@ def test_remove_member_not_found():
     try:
         response = client.delete(f"/members/{wrong_membership_id}")
         assert response.status_code == 404  # nosec B101
-        assert response.json()["detail"] == "Membership not found"  # nosec B101
+        assert response.json()["detail"] == "Membresía no encontrada"  # nosec B101
     finally:
         app.dependency_overrides.clear()
 
@@ -723,6 +725,8 @@ def test_get_available_properties_rejects_non_member():
         assert response.json()["detail"] == "Access denied to this community"
     finally:
         app.dependency_overrides.clear()
+
+
 #
 #     # 4. Verificar que ya no existe
 #     check_res = admin_client.table("invitations").select("id").eq("id", invitation_id).execute()

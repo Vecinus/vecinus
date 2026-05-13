@@ -80,7 +80,7 @@ export default function VoteScreen() {
         }
       } catch (err: any) {
         const detail = err?.response?.data?.detail;
-        setError(detail ? (typeof detail === 'string' ? detail : JSON.stringify(detail)) : 'No se pudo cargar la votación.');
+        setError(typeof detail === 'string' && detail ? detail : 'No se pudo cargar la votación.');
       } finally {
         setLoading(false);
       }
@@ -100,10 +100,8 @@ export default function VoteScreen() {
       const detail = err?.response?.data?.detail;
       setDialogTitle('Error al votar');
       setDialogMessage(
-        detail
-          ? typeof detail === 'string'
-            ? detail
-            : JSON.stringify(detail)
+        typeof detail === 'string' && detail
+          ? detail
           : 'No se pudo registrar su voto. Inténtelo de nuevo.'
       );
       setDialogOpen(true);
