@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { View, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
-import * as DocumentPicker from 'expo-document-picker';
-import { Mic, Upload, X, Save, AlertCircle, Circle } from 'lucide-react-native';
-import { useAudioRecorder } from '@/hooks/useAudioRecorder';
-import { AudioPlayer } from './audio-player';
 import { minutesService } from '@/api/services/minutes.service';
-import { getLegalWarning } from '@/utils/legal-warnings';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
-import { Icon } from '@/components/ui/icon';
+import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { formatTime } from '@/lib/utils';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { getLegalWarning } from '@/utils/legal-warnings';
+import * as DocumentPicker from 'expo-document-picker';
+import { AlertCircle, Circle, Mic, Save, Upload, X } from 'lucide-react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Platform, TouchableOpacity, View } from 'react-native';
+import { AudioPlayer } from './audio-player';
 
 interface CreateActaCardProps {
   communityId: string;
@@ -60,8 +60,8 @@ export function CreateActaCard({
     isPermissionDenied,
     resetPermissionDenied,
   } = useAudioRecorder((result) => {
-    if (!result.uri) {
-      showAlert('Error', 'No se pudo obtener la grabación de audio');
+    if (result.error || !result.uri) {
+      showAlert('Error', result.error || 'No se pudo obtener la grabación de audio');
       return;
     }
 
@@ -79,7 +79,7 @@ export function CreateActaCard({
     const mimeType = mimeMap[extension]; // nosemgrep
 
     setAudioUri(result.uri);
-    setAudioDuration(result.durationMs);
+    setAudioDuration(result.durationMs ?? null);
     setAudioName(`grabacion_${new Date().getTime()}.${extension}`);
     setAudioMimeType(mimeType);
   });
@@ -103,10 +103,46 @@ export function CreateActaCard({
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
+
+        const maxSizeInBytes = 150 * 1024 * 1024; // 150 MB
+        if (asset.size && asset.size > maxSizeInBytes) {
+          showAlert('Archivo demasiado grande', 'El archivo de audio supera el límite de 150 MB. Por favor, selecciona o graba un archivo más pequeño.');
+          return;
+        }
+
+        const allowedMimeTypes = ['audio/mpeg', 'audio/wav', 'audio/x-m4a', 'audio/mp4', 'audio/ogg', 'audio/flac', 'audio/webm'];
+        const allowedExtensions = ['mp3', 'wav', 'm4a', 'mp4', 'ogg', 'flac', 'webm'];
+
+        const fileExtension = asset.name.split('.').pop()?.toLowerCase() || '';
+        const mimeType = asset.mimeType?.toLowerCase() || '';
+
+        const isMimeTypeValid = allowedMimeTypes.includes(mimeType);
+        const isExtensionValid = allowedExtensions.includes(fileExtension);
+
+        if (!isMimeTypeValid && !isExtensionValid) {
+          showAlert('Formato no soportado', 'Por favor, selecciona un archivo de audio válido (MP3, WAV, M4A, MP4, OGG, FLAC, WEBM).');
+          return;
+        }
+
         setAudioUri(asset.uri);
         setAudioDuration(null); // Reset duration for picked files as we don't know it yet
         setAudioName(asset.name);
-        setAudioMimeType(asset.mimeType ?? 'audio/mpeg');
+
+        let finalMimeType = mimeType;
+        if (!finalMimeType || finalMimeType === 'application/octet-stream' || !allowedMimeTypes.includes(finalMimeType)) {
+          const mimeMap = new Map<string, string>([
+            ['mp3', 'audio/mpeg'],
+            ['wav', 'audio/wav'],
+            ['m4a', 'audio/x-m4a'],
+            ['mp4', 'audio/mp4'],
+            ['ogg', 'audio/ogg'],
+            ['flac', 'audio/flac'],
+            ['webm', 'audio/webm'],
+          ]);
+          finalMimeType = mimeMap.get(fileExtension) || 'audio/mpeg';
+        }
+
+        setAudioMimeType(finalMimeType);
       }
     } catch (error) {
       console.error('Error picking document:', error);
@@ -140,9 +176,18 @@ export function CreateActaCard({
         type: audioMimeType || 'audio/mpeg',
       });
       showAlert('Éxito', 'El acta se ha creado correctamente y se está procesando', true);
-    } catch (error) {
-      console.error('Error saving minute:', error);
-      showAlert('Error', 'No se pudo crear el acta. Por favor, inténtalo de nuevo.');
+    } catch (error: unknown) {
+      console.warn('Error saving minute:', error);
+
+      let errorMessage = 'No se pudo crear el acta. Por favor, inténtalo de nuevo.';
+      const err = error as { response?: { data?: { detail?: string | object } } };
+      if (err?.response?.data?.detail) {
+        errorMessage = typeof err.response.data.detail === 'string'
+          ? err.response.data.detail
+          : JSON.stringify(err.response.data.detail);
+      }
+
+      showAlert('Error', errorMessage);
     } finally {
       setIsUploading(false);
     }
@@ -172,6 +217,7 @@ export function CreateActaCard({
                 value={title}
                 onChangeText={setTitle}
                 editable={!isUploading && !isRecording}
+                maxLength={120}
                 className="h-12 text-base"
               />
             </View>
