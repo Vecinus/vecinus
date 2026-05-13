@@ -104,7 +104,7 @@ def get_supabase_admin() -> Client:
 
 def _verify_jwt(token: str) -> dict:
     """Verifica la firma del JWT y devuelve el payload. Lanza excepción si falla."""
-    jwt_secret = settings.SUPABASE_JWT_SECRET
+    jwt_secret = _normalize_supabase_key(settings.SUPABASE_JWT_SECRET)
 
     if not jwt_secret:
         logger.error("SUPABASE_JWT_SECRET is not configured; refusing unverified JWT authentication")
