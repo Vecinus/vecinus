@@ -148,7 +148,7 @@ def remove_account(
             or updated_profile.data[0].get("email") != f"deleted_{current_id}@deleted.com"
             or not updated_profile.data[0].get("deleted_at")
         ):
-            raise HTTPException(status_code=500, detail="Error anonimizing user profile")
+            raise HTTPException(status_code=500, detail="Error deleting user profile")
         supabase_admin.auth.admin.update_user_by_id(str(current_id), {"email": f"deleted_{current_id}@deleted.com"})
 
         return {"id": str(current_id)}

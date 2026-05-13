@@ -112,7 +112,7 @@ export function SignInForm() {
             </Pressable>
           </Text>
           <Text className="text-center text-sm text-muted-foreground">
-            ¿Tu cuenta fue anonimizada?{' '}
+            ¿Tu cuenta fue eliminada?{' '}
             <Pressable
               onPress={() => {
                 router.push('/recover-account');
