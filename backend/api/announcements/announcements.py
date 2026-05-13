@@ -194,7 +194,7 @@ def create_announcement(
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to upload image: {str(e)}")
+            raise HTTPException(status_code=500, detail="Error al subir la imagen")
 
     try:
         # Usamos supabase_admin para insertar saltando RLS
@@ -219,7 +219,7 @@ def create_announcement(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno al crear el anuncio: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error interno al crear el anuncio")
 
 
 @router.put("/{association_id}/{announcement_id}", response_model=AnnouncementResponse)
@@ -316,7 +316,7 @@ def update_announcement(
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to upload image: {str(e)}")
+            raise HTTPException(status_code=500, detail="Error al subir la imagen")
 
     if not update_data:
         raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="No fields to update provided")
@@ -337,7 +337,7 @@ def update_announcement(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno al actualizar el anuncio: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error interno al actualizar el anuncio")
 
 
 @router.delete("/{association_id}/{announcement_id}", status_code=http_status.HTTP_204_NO_CONTENT)
@@ -385,4 +385,4 @@ def delete_announcement(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno al eliminar el anuncio: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error interno al eliminar el anuncio")

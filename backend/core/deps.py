@@ -1,12 +1,16 @@
 import base64
 import json
+import logging
 from datetime import datetime, timezone
 
+import jwt as pyjwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from supabase import Client, ClientOptions, create_client
 
 from .config import settings
+
+logger = logging.getLogger(__name__)
 
 # Authentication scheme
 security = HTTPBearer()
@@ -98,37 +102,58 @@ def get_supabase_admin() -> Client:
     return create_client(settings.SUPABASE_URL, get_supabase_admin_key(), options=options)
 
 
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-) -> dict:
-    """Valida el JWT localmente y extrae datos del usuario."""
-    token = credentials.credentials
-    try:
+def _verify_jwt(token: str) -> dict:
+    """Verifica la firma del JWT y devuelve el payload. Lanza excepción si falla."""
+    jwt_secret = settings.SUPABASE_JWT_SECRET
+
+    if jwt_secret:
+        try:
+            payload = pyjwt.decode(
+                token,
+                jwt_secret,
+                algorithms=["HS256"],
+                audience="authenticated",
+                options={"require": ["sub", "exp", "role"]},
+            )
+            return payload
+        except pyjwt.ExpiredSignatureError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token expired",
+            )
+        except pyjwt.InvalidTokenError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication credentials",
+            )
+    else:
+        logger.warning("SUPABASE_JWT_SECRET not configured — falling back to unverified JWT decode")
         payload = _extract_jwt_payload(token)
         if not payload:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication credentials",
             )
+        return payload
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> dict:
+    """Valida el JWT (con firma si SUPABASE_JWT_SECRET está configurado) y extrae datos del usuario."""
+    token = credentials.credentials
+    try:
+        payload = _verify_jwt(token)
 
         user_id = payload.get("sub")
         user_role = payload.get("role")
         user_email = payload.get("email")
-        exp = payload.get("exp")
 
         if not user_id or user_role != "authenticated":
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication credentials",
             )
-
-        if exp is not None:
-            expiration = datetime.fromtimestamp(int(exp), tz=timezone.utc)
-            if expiration <= datetime.now(timezone.utc):
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Token expired",
-                )
 
         return {
             "id": str(user_id),
@@ -138,10 +163,10 @@ def get_current_user(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Authentication failed: {str(e)}",
+            detail="Authentication failed",
         )
 
 
@@ -154,22 +179,14 @@ def get_current_user_optional(
 
     token = credentials.credentials
     try:
-        payload = _extract_jwt_payload(token)
-        if not payload:
-            return None
+        payload = _verify_jwt(token)
 
         user_id = payload.get("sub")
         user_role = payload.get("role")
         user_email = payload.get("email")
-        exp = payload.get("exp")
 
         if not user_id or user_role != "authenticated":
             return None
-
-        if exp is not None:
-            expiration = datetime.fromtimestamp(int(exp), tz=timezone.utc)
-            if expiration <= datetime.now(timezone.utc):
-                return None
 
         return {
             "id": str(user_id),

@@ -63,10 +63,10 @@ async def get_minutes(
                 )
             )
         return results
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=500,
-            detail=f"Error fetching minutes: {str(e)}",
+            detail="Error al obtener las actas",
         )
 
 
@@ -91,14 +91,23 @@ async def transcribe_meeting(
             detail=f"Unsupported audio format: {audio.content_type}",
         )
 
-    audio_bytes = await audio.read()
-
-    if len(audio_bytes) > MAX_FILE_SIZE:
-        del audio_bytes
-        raise HTTPException(
-            status_code=413,
-            detail="File size exceeds the 150 MB limit",
-        )
+    chunk_size = 1024 * 1024
+    audio_chunks = []
+    total_size = 0
+    while True:
+        chunk = await audio.read(chunk_size)
+        if not chunk:
+            break
+        total_size += len(chunk)
+        if total_size > MAX_FILE_SIZE:
+            del audio_chunks
+            raise HTTPException(
+                status_code=413,
+                detail="File size exceeds the 150 MB limit",
+            )
+        audio_chunks.append(chunk)
+    audio_bytes = b"".join(audio_chunks)
+    del audio_chunks
 
     try:
         ai_service = TranscriptionService()
@@ -140,7 +149,7 @@ async def transcribe_meeting(
             )
         raise HTTPException(
             status_code=500,
-            detail=f"Error processing audio: {error_str}",
+            detail="Error al procesar el audio",
         )
     finally:
         del audio_bytes
@@ -160,8 +169,8 @@ async def generate_minutes_document_preview(
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             headers={"Content-Disposition": f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"},
         )
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=500,
-            detail=f"Error generating document: {str(e)}",
+            detail="Error al generar el documento",
         )

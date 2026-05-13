@@ -282,6 +282,9 @@ export default function CommunityChatScreen() {
   }, [roleId, loadMessages, membership, normalizedCommunityId]);
 
   React.useEffect(() => {
+    setMessages([]);
+    setChannel(null);
+    setState('loading');
     void resolveChannel();
   }, [resolveChannel]);
 
@@ -646,6 +649,7 @@ export default function CommunityChatScreen() {
                   ref={composerRef}
                   value={messageText}
                   onChangeText={setMessageText}
+                  maxLength={2000}
                   onContentSizeChange={(event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>) => {
                     const nextHeight = Math.max(
                       CHAT_COMPOSER_MIN_HEIGHT,

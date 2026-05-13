@@ -1,9 +1,9 @@
 from typing import List
 from uuid import UUID
 
-from api.chat.chat_helpers import verify_association_membership
+from api.chat.chat_helpers import verify_association_admin_or_president, verify_association_membership
 from core.deps import get_current_user, get_supabase
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Response, status
 from schemas.common_space import CommonSpace, CommonSpaceCreate, CommonSpaceUpdate
 from services.common_space.common_space_service import create_common_space as create_common_space_service
 from services.common_space.common_space_service import delete_common_space as delete_common_space_service
@@ -13,27 +13,6 @@ from services.common_space.common_space_service import update_common_space as up
 from supabase import Client
 
 router = APIRouter(prefix="/common-spaces", tags=["common_spaces"])
-
-
-def verify_association_admin_or_president(association_id: UUID, user_id: str, supabase: Client) -> dict:
-    membership_res = (
-        supabase.table("memberships").select("association_id, role").eq("profile_id", str(user_id)).execute()
-    )
-
-    target_association_id = str(association_id)
-    membership = next(
-        (item for item in (membership_res.data or []) if str(item.get("association_id")) == target_association_id),
-        None,
-    )
-
-    if not membership:
-        raise HTTPException(status_code=403, detail="No tienes acceso a esta comunidad")
-
-    role = str(membership.get("role"))
-    if role not in {"1", "4"}:
-        raise HTTPException(status_code=403, detail="Se requiere rol de administrador o presidente para esta acción")
-
-    return membership
 
 
 @router.post("/{association_id}", response_model=CommonSpace, status_code=status.HTTP_201_CREATED)

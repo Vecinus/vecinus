@@ -104,6 +104,11 @@ def create_community(
     El usuario que la crea se convierte automáticamente en el Administrador (rol 1).
     """
     try:
+        # 0. Verificar duplicados por dirección
+        existing = supabase_admin.table("neighborhood_associations").select("id").eq("address", body.address).execute()
+        if existing.data:
+            raise HTTPException(status_code=409, detail="Ya existe una comunidad con esa dirección")
+
         # 1. Crear la comunidad en la tabla neighborhood_associations
         community_data = {
             "name": body.name,
@@ -142,7 +147,7 @@ def create_community(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno al crear la comunidad: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error interno al crear la comunidad")
 
 
 @router.get("/users/me", response_model=UserMeResponse)
@@ -361,7 +366,7 @@ def accept_invitation(
     try:
         inv_res = supabase_anon.table("invitations").select("*").eq("id", str(body.invitation_token)).execute()
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"El formato del token de invitación es inválido. ({str(e)})")
+        raise HTTPException(status_code=400, detail="El formato del token de invitación es inválido.")
 
     if not inv_res.data:
         raise HTTPException(status_code=404, detail="La invitación no existe.")
@@ -416,7 +421,7 @@ def accept_invitation(
         except Exception as signup_error:
             # C. Si falla el registro admin, significa que el usuario YA existía pero se equivocó de contraseña
             raise HTTPException(
-                status_code=400, detail=f"La contraseña es incorrecta o hubo un error: {str(signup_error)}"
+                status_code=400, detail="La contraseña es incorrecta o hubo un error al procesar la invitación"
             )
 
     # 4. Configurar perfiles y membresías (Envuelto en try-catch para capturar el Error 500)
@@ -459,7 +464,7 @@ def accept_invitation(
 
     except Exception as db_error:
         # Este es el log que te revelará la causa si vuelve a fallar la BD
-        raise HTTPException(status_code=500, detail=f"Error interno configurando la comunidad: {str(db_error)}")
+        raise HTTPException(status_code=500, detail="Error interno configurando la comunidad")
 
     return {
         "message": "Invitación aceptada con éxito",
@@ -519,7 +524,7 @@ def accept_invitation_internal(
     try:
         inv_res = supabase.table("invitations").select("*").eq("id", invitation_id).execute()
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Formato de invitación inválido. ({str(e)})")
+        raise HTTPException(status_code=400, detail="Formato de invitación inválido.")
 
     if not inv_res.data:
         raise HTTPException(status_code=404, detail="La invitación no existe.")
@@ -573,7 +578,7 @@ def reject_invitation_internal(
     try:
         inv_res = supabase_admin.table("invitations").select("target_email, status").eq("id", invitation_id).execute()
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Formato de invitación inválido. ({str(e)})")
+        raise HTTPException(status_code=400, detail="Formato de invitación inválido.")
 
     if not inv_res.data:
         raise HTTPException(status_code=404, detail="La invitación no existe")
@@ -589,7 +594,7 @@ def reject_invitation_internal(
     try:
         supabase_admin.table("invitations").update({"status": 3}).eq("id", invitation_id).execute()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al actualizar la base de datos: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error al actualizar la base de datos")
 
     return {"message": "Invitación rechazada"}
 
@@ -645,7 +650,7 @@ def delete_member(
             raise HTTPException(status_code=500, detail="No se pudo eliminar el registro de la base de datos")
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error al eliminar el miembro")
 
     return {"message": f"Membership {membership_id} deleted successfully"}
 
@@ -892,7 +897,7 @@ def delete_pending_invitation(
             supabase_admin.table("invitations").select("id, status, association_id").eq("id", invitation_id).execute()
         )
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Formato de invitación inválido. ({str(e)})")
+        raise HTTPException(status_code=400, detail="Formato de invitación inválido.")
 
     if not inv_res.data:
         raise HTTPException(status_code=404, detail="La invitación no existe.")
@@ -913,7 +918,7 @@ def delete_pending_invitation(
     try:
         supabase_admin.table("invitations").update({"status": 3}).eq("id", invitation_id).execute()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al cancelar la invitación: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error al cancelar la invitación")
 
     return {"message": "Invitación eliminada correctamente"}
 

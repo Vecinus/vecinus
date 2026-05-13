@@ -197,7 +197,7 @@ def create_incident(
                 upload = cloudinary.uploader.upload(file.file, folder=f"incidents/{association_id}")
                 image_url = upload.get("secure_url")
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to upload image: {str(e)}")
+            raise HTTPException(status_code=500, detail="Error al subir la imagen")
 
     new_incident = (
         supabase.table("incidents")
@@ -278,7 +278,7 @@ def discard_incident(
     if role not in {"1", "4"} and not is_owner:
         raise HTTPException(status_code=403, detail="El usuario no tiene permisos para eliminar esta incidencia")
 
-    latest_state = get_latest_state(supabase, incident_id)
+    latest_state = get_latest_state(supabase_admin, incident_id)
 
     if not latest_state:
         raise HTTPException(status_code=404, detail="Incidencia no encontrada")
@@ -292,4 +292,4 @@ def discard_incident(
         # Luego borrar la incidencia
         supabase_admin.table("incidents").delete().eq("id", str(incident_id)).execute()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al eliminar la incidencia: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error al eliminar la incidencia")

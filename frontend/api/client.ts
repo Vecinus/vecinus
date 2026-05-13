@@ -3,11 +3,14 @@ import { storageService } from './services/storage.service';
 import { notifyUnauthorized } from '@/lib/auth-events';
 
 const getBackendUrl = () => {
-  if (process.env.EXPO_PUBLIC_BACKEND_URL) {
-    return process.env.EXPO_PUBLIC_BACKEND_URL;
+  const url = process.env.EXPO_PUBLIC_BACKEND_URL;
+  if (!url) {
+    if (__DEV__) {
+      return 'http://localhost:8000';
+    }
+    throw new Error('EXPO_PUBLIC_BACKEND_URL is required in production');
   }
-  // Fallback por defecto si se te olvida crear el archivo .env
-  return 'http://localhost:8000';
+  return url;
 };
 
 const BASE_URL = getBackendUrl();

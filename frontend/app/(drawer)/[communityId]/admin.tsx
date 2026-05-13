@@ -189,6 +189,10 @@ export default function CommunityAdminScreen() {
       setInviteError('Por favor, indica un correo electrónico y el rol a asignar.');
       return;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setInviteError('Introduce un correo electrónico válido.');
+      return;
+    }
     if (roleToGrant !== '5' && !propertyId) {
       setInviteError('Debes asignar una propiedad libre para este rol.');
       return;

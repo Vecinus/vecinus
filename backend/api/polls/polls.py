@@ -1,3 +1,4 @@
+import logging
 from typing import List
 from uuid import UUID
 
@@ -11,6 +12,8 @@ from services.polls.escrutinio_service import EscrutinioService
 from services.polls.poll_service import PollService
 from services.polls.vote_service import VoteService
 from supabase import Client
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/polls", tags=["Votaciones"])
 
@@ -245,7 +248,7 @@ def request_voting_auth_token(
     try:
         supabase.table("voting_auth_tokens").insert(token_data).execute()
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error al crear el token: {str(e)}")
+        raise HTTPException(status_code=400, detail="Error al crear el token de votación")
 
     assoc_res = supabase.table("neighborhood_associations").select("name").eq("id", association_id).execute()
     association_name = assoc_res.data[0]["name"] if assoc_res.data else "Tu Comunidad"
@@ -260,7 +263,7 @@ def request_voting_auth_token(
             auth_token=auth_token,
         )
     except Exception as e:
-        print(f"Error enviando correo de autenticación a {user_email}: {e}")
+        logger.error("Error enviando correo de autenticación a %s: %s", user_email, e)
         raise HTTPException(status_code=500, detail="Error al enviar el correo de autenticación")
 
     return {"message": f"Se ha enviado un código de autenticación a {user_email}", "email": user_email}

@@ -1,9 +1,12 @@
+import logging
 import uuid
 from uuid import UUID
 
 from fastapi import HTTPException
 from schemas.polls.polls import PollCreate, PollPublish
 from services.email_service import send_voting_email
+
+logger = logging.getLogger(__name__)
 
 
 class PollService:
@@ -110,10 +113,11 @@ class PollService:
 
                 emails_to_send.append({"email": email, "token": new_token})
 
-        print(
-            f"[PUBLISH] Total members: {len(voters_res.data)}, "
-            f"Tokens created: {len(tokens_to_insert)}, "
-            f"Emails to send: {len(emails_to_send)}"
+        logger.info(
+            "PUBLISH total members: %d, tokens created: %d, emails to send: %d",
+            len(voters_res.data),
+            len(tokens_to_insert),
+            len(emails_to_send),
         )
 
         if tokens_to_insert:
@@ -130,7 +134,7 @@ class PollService:
                         association_id=association_id,
                     )
                 except Exception as e:
-                    print(f"Error enviando correo a {data['email']}: {e}")
+                    logger.error("Error enviando correo a %s: %s", data["email"], e)
 
         return poll_info
 
