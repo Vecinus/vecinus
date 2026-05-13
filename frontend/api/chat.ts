@@ -24,13 +24,23 @@ export interface ChannelMessage {
 }
 
 interface ErrorPayload {
-  detail?: string;
+  detail?: string | { message?: unknown; [key: string]: unknown };
   message?: string;
 }
 
 export function getChatErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError<ErrorPayload>(error)) {
-    return error.response?.data.detail ?? error.response?.data?.message ?? error.message;
+    const detail = error.response?.data?.detail;
+
+    if (typeof detail === 'string') {
+      return detail;
+    }
+
+    if (detail && typeof detail === 'object' && 'message' in detail && detail.message != null) {
+      return String(detail.message);
+    }
+
+    return error.response?.data?.message ?? error.message ?? fallback;
   }
 
   if (error instanceof Error) {
@@ -76,7 +86,37 @@ export async function sendChannelMessage({
   return response.data;
 }
 
-export function buildChatWebSocketUrl(channelId: string): string {
+export async function updateChannelMessage({
+  channelId,
+  messageId,
+  content,
+}: {
+  channelId: string;
+  messageId: string;
+  content: string;
+}): Promise<ChannelMessage> {
+  const response = await apiClient.put<ChannelMessage>(
+    `/chat/channels/${channelId}/messages/${messageId}`,
+    {
+      content,
+    }
+  );
+
+  return response.data;
+}
+
+export async function deleteChannelMessage({
+  channelId,
+  messageId,
+}: {
+  channelId: string;
+  messageId: string;
+}): Promise<void> {
+  await apiClient.delete(`/chat/channels/${channelId}/messages/${messageId}`);
+}
+
+export function buildChatWebSocketUrl(channelId: string, token: string): string {
   const baseUrl = apiClient.defaults.baseURL ?? '';
-  return baseUrl.replace(/^http/i, 'ws').replace(/\/$/, '') + `/chat/ws/${channelId}`;
+  const wsBaseUrl = baseUrl.replace(/^http/i, 'ws').replace(/\/$/, '');
+  return `${wsBaseUrl}/chat/ws/${channelId}?token=${encodeURIComponent(token)}`;
 }

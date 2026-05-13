@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 # Models para la tabla dev.profiles (simplified)
@@ -40,7 +40,7 @@ class ChatChannel(ChatChannelBase):
 
 # Models para la tabla dev.messages
 class MessageBase(BaseModel):
-    content: str
+    content: str = Field(max_length=2000)
     channel_id: UUID
     updated_at: Optional[datetime] = None
     is_edited: bool = False
@@ -51,7 +51,7 @@ class MessageCreate(MessageBase):
 
 
 class MessageUpdate(BaseModel):
-    content: str
+    content: str = Field(max_length=2000)
 
 
 class Message(MessageBase):

@@ -27,13 +27,12 @@ cachetools==6.2.6
     # via
     #   -r requirements.in
     #   pyiceberg
-certifi==2026.2.25
+certifi==2026.4.22
     # via
     #   -r requirements.in
     #   cloudinary
     #   httpcore
     #   httpx
-    #   pinecone
     #   requests
 cffi==2.0.0
     # via
@@ -46,20 +45,20 @@ charset-normalizer==3.4.7
     #   -r requirements.in
     #   commitizen
     #   requests
-click==8.3.2
+click==8.3.3
     # via
     #   -r requirements.in
     #   pyiceberg
     #   uvicorn
-cloudinary==1.44.1
+cloudinary==1.44.2
     # via -r requirements.in
 colorama==0.4.6
     # via
     #   -r requirements.in
     #   commitizen
-commitizen==4.13.10
+commitizen==4.16.0
     # via -r requirements.in
-cryptography==46.0.7
+cryptography==48.0.0
     # via
     #   -r requirements.in
     #   google-auth
@@ -81,19 +80,19 @@ dnspython==2.8.0
     # via email-validator
 email-validator==2.3.0
     # via -r requirements.in
-fastapi==0.135.3
+fastapi==0.136.1
     # via -r requirements.in
 filelock==3.25.2
     # via
     #   python-discovery
     #   virtualenv
-fsspec==2026.3.0
+fsspec==2026.4.0
     # via
     #   -r requirements.in
     #   pyiceberg
 google-auth[requests]==2.49.1
     # via google-genai
-google-genai==1.73.1
+google-genai==2.2.0
     # via -r requirements.in
 h11==0.16.0
     # via
@@ -120,6 +119,7 @@ httpx[http2]==0.28.1
     #   google-genai
     #   langgraph-sdk
     #   langsmith
+    #   pinecone
     #   postgrest
     #   storage3
     #   supabase
@@ -131,7 +131,7 @@ hyperframe==6.1.0
     #   h2
 identify==2.6.18
     # via pre-commit
-idna==3.11
+idna==3.15
     # via
     #   -r requirements.in
     #   anyio
@@ -147,29 +147,31 @@ jsonpatch==1.33
     # via langchain-core
 jsonpointer==3.0.0
     # via jsonpatch
-langchain==1.2.15
+langchain==1.3.0
     # via -r requirements.in
-langchain-core==1.2.28
+langchain-core==1.4.0
     # via
     #   langchain
     #   langgraph
     #   langgraph-checkpoint
     #   langgraph-prebuilt
-langgraph==1.1.6
+langchain-protocol==0.0.15
+    # via langchain-core
+langgraph==1.2.0
     # via langchain
-langgraph-checkpoint==4.0.1
+langgraph-checkpoint==4.1.0
     # via
     #   langgraph
     #   langgraph-prebuilt
-langgraph-prebuilt==1.0.9
+langgraph-prebuilt==1.1.0
     # via langgraph
 langgraph-sdk==0.3.11
     # via langgraph
-langsmith==0.7.20
+langsmith==0.7.31
     # via langchain-core
-lxml==6.0.2
+lxml==6.1.0
     # via python-docx
-markdown-it-py==4.0.0
+markdown-it-py==4.2.0
     # via
     #   -r requirements.in
     #   rich
@@ -183,19 +185,24 @@ mmh3==5.2.1
     # via
     #   -r requirements.in
     #   pyiceberg
+msgspec==0.21.1
+    # via pinecone
 multidict==6.7.1
     # via
     #   -r requirements.in
     #   yarl
+mutagen==1.47.0
+    # via -r requirements.in
 nodeenv==1.10.0
     # via pre-commit
 orjson==3.11.7
     # via
     #   langgraph-sdk
     #   langsmith
+    #   pinecone
 ormsgpack==1.12.2
     # via langgraph-checkpoint
-packaging==26.1
+packaging==26.2
     # via
     #   -r requirements.in
     #   commitizen
@@ -205,10 +212,8 @@ packaging==26.1
     #   pytest
 pillow==12.2.0
     # via -r requirements.in
-pinecone==6.0.0
+pinecone==9.0.0
     # via -r requirements.in
-pinecone-plugin-interface==0.0.7
-    # via pinecone
 platformdirs==4.9.4
     # via
     #   python-discovery
@@ -219,13 +224,13 @@ postgrest==2.28.0
     # via
     #   -r requirements.in
     #   supabase
-pre-commit==4.5.1
+pre-commit==4.6.0
     # via -r requirements.in
 prompt-toolkit==3.0.51
     # via
     #   commitizen
     #   questionary
-propcache==0.4.1
+propcache==0.5.2
     # via
     #   -r requirements.in
     #   yarl
@@ -256,7 +261,7 @@ pydantic-core==2.41.5
     # via
     #   -r requirements.in
     #   pydantic
-pydantic-settings==2.13.1
+pydantic-settings==2.14.1
     # via -r requirements.in
 pyflakes==3.4.0
     # via autoflake
@@ -277,9 +282,9 @@ pyparsing==3.3.2
     # via
     #   -r requirements.in
     #   pyiceberg
-pypdf==6.10.1
+pypdf==6.11.0
     # via -r requirements.in
-pyroaring==1.0.4
+pyroaring==1.1.0
     # via
     #   -r requirements.in
     #   pyiceberg
@@ -288,7 +293,6 @@ pytest==9.0.3
 python-dateutil==2.9.0.post0
     # via
     #   -r requirements.in
-    #   pinecone
     #   strictyaml
 python-discovery==1.1.3
     # via virtualenv
@@ -298,7 +302,7 @@ python-dotenv==1.2.2
     # via
     #   -r requirements.in
     #   pydantic-settings
-python-multipart==0.0.26
+python-multipart==0.0.28
     # via -r requirements.in
 pyyaml==6.0.3
     # via
@@ -314,7 +318,7 @@ realtime==2.28.0
     #   supabase
 regex==2026.2.28
     # via tiktoken
-requests==2.33.1
+requests==2.34.0
     # via
     #   -r requirements.in
     #   google-auth
@@ -326,7 +330,7 @@ requests==2.33.1
     #   tiktoken
 requests-toolbelt==1.0.0
     # via langsmith
-resend==2.28.0
+resend==2.30.0
     # via -r requirements.in
 rich==14.3.4
     # via
@@ -383,7 +387,7 @@ typing-extensions==4.15.0
     #   fastapi
     #   google-genai
     #   langchain-core
-    #   pinecone
+    #   langchain-protocol
     #   pydantic
     #   pydantic-core
     #   python-docx
@@ -396,19 +400,18 @@ typing-inspection==0.4.2
     #   fastapi
     #   pydantic
     #   pydantic-settings
-tzdata==2026.1
-    # via -r backend/requirements.in
-urllib3==2.6.3
+tzdata==2026.2
+    # via -r requirements.in
+urllib3==2.7.0
     # via
     #   -r requirements.in
     #   cloudinary
-    #   pinecone
     #   requests
 uuid-utils==0.14.1
     # via
     #   langchain-core
     #   langsmith
-uvicorn==0.44.0
+uvicorn==0.46.0
     # via -r requirements.in
 virtualenv==21.2.0
     # via pre-commit

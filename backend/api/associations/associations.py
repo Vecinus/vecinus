@@ -2,8 +2,15 @@ from datetime import datetime, timedelta, timezone
 from typing import List
 from uuid import UUID
 
-from core.deps import get_current_user, get_supabase, get_supabase_admin, get_supabase_anon
-from fastapi import APIRouter, Depends, HTTPException, status
+from api.chat.chat_helpers import verify_association_membership
+from core.deps import (
+    get_current_user,
+    get_supabase,
+    get_supabase_admin,
+    get_supabase_anon,
+    require_active_community,
+)
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel  # <-- NUEVO IMPORT
 from schemas.associations import (
     AcceptInvitationRequest,
@@ -18,9 +25,45 @@ from schemas.associations import (
     UserMeResponse,
 )
 from services.email_service import ROLE_LABELS, send_invitation_email
+from services.payments.subscription_service import load_association_household_count as load_active_household_count
+from services.payments.subscription_service import (
+    load_subscription,
+    resolve_operational_household_limit,
+)
 from supabase import Client
 
 router = APIRouter()
+
+
+def _add_user_to_group_chats(supabase_admin: Client, user_id: str, association_id: str):
+    channels_res = (
+        supabase_admin.table("chat_channels")
+        .select("id")
+        .eq("association_id", association_id)
+        .eq("is_direct_message", False)
+        .execute()
+    )
+    if channels_res.data:
+        channel_ids = [c["id"] for c in channels_res.data]
+        existing_res = (
+            supabase_admin.table("channel_participants")
+            .select("channel_id")
+            .eq("user_id", user_id)
+            .in_("channel_id", channel_ids)
+            .execute()
+        )
+        existing_channels = [str(e["channel_id"]) for e in existing_res.data] if existing_res.data else []
+
+        participants_data = [
+            {
+                "channel_id": c_id,
+                "user_id": user_id,
+            }
+            for c_id in channel_ids
+            if str(c_id) not in existing_channels
+        ]
+        if participants_data:
+            supabase_admin.table("channel_participants").insert(participants_data).execute()
 
 
 # --- NUEVO MODELO PARA CREAR PROPIEDADES ---
@@ -28,7 +71,70 @@ class CreatePropertyRequest(BaseModel):
     number: str
 
 
+def is_user_admin_or_president(supabase: Client, user_id: str, association_id: str) -> bool:
+    """Verifica si un usuario es Administrador (1) o Presidente (4) en una comunidad."""
+    admin_check = (
+        supabase.table("memberships")
+        .select("role")
+        .eq("profile_id", user_id)
+        .eq("association_id", str(association_id))
+        .execute()
+    )
+    return bool(admin_check.data and int(admin_check.data[0].get("role", 0)) in [1, 4])
+
+
 # -------------------------------------------
+
+
+class UpdateAvatarRequest(BaseModel):
+    avatar_url: str | None = None
+
+
+def _load_association_household_count(supabase_admin: Client, association_id: str) -> int:
+    association_res = (
+        supabase_admin.table("neighborhood_associations")
+        .select("id, household_count")
+        .eq("id", association_id)
+        .limit(1)
+        .execute()
+    )
+    if not association_res.data:
+        raise HTTPException(status_code=404, detail="Comunidad no encontrada.")
+
+    limit = load_active_household_count(supabase_admin, association_id)
+    if limit <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "community_household_count_invalid",
+                "message": "La comunidad no tiene configurado un numero de viviendas valido.",
+                "association_id": association_id,
+            },
+        )
+    return limit
+
+
+def _load_operational_household_limit(supabase_admin: Client, association_id: str) -> int:
+    active_limit = _load_association_household_count(supabase_admin, association_id)
+
+    try:
+        subscription = load_subscription(supabase_admin, association_id)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_404_NOT_FOUND:
+            return active_limit
+        raise
+
+    limit = resolve_operational_household_limit(subscription, active_limit)
+    if limit <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "community_household_count_invalid",
+                "message": "La comunidad no tiene configurado un numero de viviendas valido.",
+                "association_id": association_id,
+            },
+        )
+    return limit
 
 
 @router.get("/users/me/communities", response_model=List[MembershipWithCommunity])
@@ -39,7 +145,10 @@ def get_my_communities(
     user_id = current_user["id"]
     response = (
         supabase.table("memberships")
-        .select("id, association_id, role, property_id, joined_at, neighborhood_associations(id, name, address)")
+        .select(
+            "id, association_id, role, property_id, joined_at, "
+            "neighborhood_associations(id, name, address, household_count)"
+        )
         .eq("profile_id", user_id)
         .execute()
     )
@@ -53,49 +162,47 @@ def create_community(
     supabase_admin: Client = Depends(get_supabase_admin),
 ):
     """
-    Crea una nueva comunidad (asociación de vecinos).
-    El usuario que la crea se convierte automáticamente en el Administrador (rol 1).
+    DEPRECATED — la creación libre de comunidades está deshabilitada.
+
+    Toda comunidad debe nacer de una orden de pago/suscripción a través del
+    flujo `POST /registration/gocardless/orders` + `/{id}/complete`. Permitir
+    `POST /communities` directamente dejaría comunidades sin `community_subscriptions`
+    asociada, lo que rompería el middleware de bloqueo por impago y la
+    facturación mensual.
+
+    Cuando exista un rol de SuperAdmin global (p.ej. role=99 en `memberships`)
+    este endpoint puede re-habilitarse condicionado a esa comprobación.
+    Hasta entonces responde 410 Gone.
     """
-    try:
-        # 1. Crear la comunidad en la tabla neighborhood_associations
-        community_data = {
-            "name": body.name,
-            "address": body.address,
-            "created_at": datetime.utcnow().isoformat(),
-        }
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail=(
+            "La creación directa de comunidades está deshabilitada. "
+            "Inicia el alta a través de POST /registration/gocardless/orders."
+        ),
+    )
 
-        community_result = supabase_admin.table("neighborhood_associations").insert(community_data).execute()
 
-        if not community_result.data:
-            raise HTTPException(status_code=500, detail="Error al crear la comunidad")
+@router.get(
+    "/communities/{association_id}/verify-access",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_active_community)],
+)
+def verify_community_access(association_id: str):
+    """
+    Endpoint ligero de verificación de suscripción.
 
-        community = community_result.data[0]
-        community_id = community["id"]
-
-        # 2. Crear la membresía del creador como Administrador (rol = 1)
-        membership_data = {
-            "profile_id": str(current_user["id"]),
-            "association_id": community_id,
-            "role": 1,  # ADMIN
-            "joined_at": datetime.utcnow().isoformat(),
-        }
-
-        membership_result = supabase_admin.table("memberships").insert(membership_data).execute()
-
-        if not membership_result.data:
-            raise HTTPException(status_code=500, detail="Error al crear la membresía del administrador")
-
-        return {
-            "id": community["id"],
-            "name": community["name"],
-            "address": community["address"],
-            "created_at": community["created_at"],
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno al crear la comunidad: {str(e)}")
+    Su único propósito es servir como "ping" desde el frontend (típicamente
+    desde un useFocusEffect) para forzar la evaluación del middleware
+    `require_active_community` sin tener que disparar un endpoint pesado.
+    Si la suscripción está al corriente devuelve 204; si no, la dependency
+    inyectada lanza 402 con el detail estándar y el interceptor global del
+    frontend desencadena el redirect + modal.
+    """
+    # `association_id` queda sin uso intencionalmente: la dependency lo lee
+    # del path. Lo declaramos aquí para que aparezca en el OpenAPI.
+    del association_id
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/users/me", response_model=UserMeResponse)
@@ -123,6 +230,39 @@ def get_current_user_profile(
     }
 
 
+@router.put("/users/me/avatar", response_model=UserMeResponse)
+def update_current_user_avatar(
+    body: UpdateAvatarRequest,
+    current_user: dict = Depends(get_current_user),
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
+    avatar_url = body.avatar_url.strip() if isinstance(body.avatar_url, str) else None
+
+    if avatar_url == "":
+        avatar_url = None
+
+    if avatar_url is not None and not (avatar_url.startswith("http://") or avatar_url.startswith("https://")):
+        raise HTTPException(status_code=400, detail="La URL de la imagen debe comenzar por http:// o https://")
+
+    update_result = (
+        supabase_admin.table("profiles").update({"avatar_url": avatar_url}).eq("id", current_user["id"]).execute()
+    )
+
+    if not update_result.data:
+        raise HTTPException(status_code=500, detail="No se pudo actualizar la imagen de perfil")
+
+    profile_data = update_result.data[0]
+
+    return {
+        "id": current_user["id"],
+        "email": current_user["email"],
+        "role": current_user["role"],
+        "username": profile_data.get("username"),
+        "avatar_url": profile_data.get("avatar_url"),
+        "created_at": profile_data.get("created_at"),
+    }
+
+
 @router.post("/invite/admin", response_model=InvitationResponse)
 def invite_admin(
     body: InviteAdminRequest,
@@ -132,7 +272,7 @@ def invite_admin(
 ):
     # 1. Evitar conceder rol de Admin Global por invitación si tu lógica lo restringe
     if body.role_to_grant == 1:
-        raise HTTPException(status_code=400, detail="Cannot grant ADMIN role via invitation")
+        raise HTTPException(status_code=400, detail="No se puede otorgar el rol de Administrador mediante invitación")
 
     # 2. Validar que el usuario que invita es Admin (1) o Presidente (4) de la comunidad
     # 2. Validar que el usuario que invita es Admin (1) o Presidente (4) de la comunidad
@@ -208,7 +348,7 @@ def invite_admin(
     result = supabase_admin.table("invitations").insert(insert_data).execute()
 
     if not result.data:
-        raise HTTPException(status_code=500, detail="Failed to create invitation")
+        raise HTTPException(status_code=500, detail="No se pudo crear la invitación")
 
     invitation = result.data[0]
     role_label = ROLE_LABELS.get(body.role_to_grant, "Miembro")
@@ -240,7 +380,7 @@ def invite_tenant(
         .execute()
     )
     if not membership.data:
-        raise HTTPException(status_code=403, detail="Property owner access required for this action")
+        raise HTTPException(status_code=403, detail="Acceso denegado. Se requiere ser propietario para esta acción.")
 
     result = (
         supabase_admin.table("invitations")
@@ -258,7 +398,7 @@ def invite_tenant(
     )
 
     if not result.data:
-        raise HTTPException(status_code=500, detail="Failed to create invitation")
+        raise HTTPException(status_code=500, detail="No se pudo crear la invitación")
 
     invitation = result.data[0]
 
@@ -279,20 +419,17 @@ def accept_invitation(
 ):
     # 1. Leer invitación PENDING por token
     try:
-        inv_res = (
-            supabase_anon.table("invitations")
-            .select("*")
-            .eq("id", str(body.invitation_token))
-            .eq("status", 1)
-            .execute()
-        )
+        inv_res = supabase_anon.table("invitations").select("*").eq("id", str(body.invitation_token)).execute()
     except Exception:
         raise HTTPException(status_code=400, detail="El formato del token de invitación es inválido.")
 
     if not inv_res.data:
-        raise HTTPException(status_code=404, detail="La invitación no existe o ya ha sido utilizada")
+        raise HTTPException(status_code=404, detail="La invitación no existe.")
 
     invitation = inv_res.data[0]
+
+    if invitation["status"] != 1:
+        raise HTTPException(status_code=400, detail="La invitación ya fue procesada o utilizada anteriormente.")
 
     # 2. Comprobar caducidad de 24 horas
     if "created_at" in invitation and invitation["created_at"]:
@@ -336,10 +473,10 @@ def accept_invitation(
             if login_response.session:
                 access_token = login_response.session.access_token
 
-        except Exception as signup_error:
+        except Exception:
             # C. Si falla el registro admin, significa que el usuario YA existía pero se equivocó de contraseña
             raise HTTPException(
-                status_code=400, detail=f"La contraseña es incorrecta o hubo un error: {str(signup_error)}"
+                status_code=400, detail="La contraseña es incorrecta o hubo un error al procesar la invitación"
             )
 
     # 4. Configurar perfiles y membresías (Envuelto en try-catch para capturar el Error 500)
@@ -374,12 +511,15 @@ def accept_invitation(
         if not existing_member.data:
             supabase_admin.table("memberships").insert(membership_data).execute()
 
+        # Añadir al usuario a los chats grupales de la comunidad
+        _add_user_to_group_chats(supabase_admin, user_id, membership_data["association_id"])
+
         # Marcar invitación como ACCEPTED
         (supabase_admin.table("invitations").update({"status": 2}).eq("id", str(body.invitation_token)).execute())
 
-    except Exception as db_error:
+    except Exception:
         # Este es el log que te revelará la causa si vuelve a fallar la BD
-        raise HTTPException(status_code=500, detail=f"Error interno configurando la comunidad: {str(db_error)}")
+        raise HTTPException(status_code=500, detail="Error interno configurando la comunidad")
 
     return {
         "message": "Invitación aceptada con éxito",
@@ -436,15 +576,21 @@ def accept_invitation_internal(
     user_id = current_user.get("id")
 
     # Verificar que la invitación existe, es para este usuario y está pendiente
-    inv_res = supabase.table("invitations").select("*").eq("id", invitation_id).eq("status", 1).execute()
+    try:
+        inv_res = supabase.table("invitations").select("*").eq("id", invitation_id).execute()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Formato de invitación inválido.")
 
     if not inv_res.data:
-        raise HTTPException(status_code=404, detail="Invitación no encontrada o ya procesada")
+        raise HTTPException(status_code=404, detail="La invitación no existe.")
 
     invitation = inv_res.data[0]
 
     if invitation["target_email"] != user_email:
-        raise HTTPException(status_code=403, detail="No tienes permiso para aceptar esta invitación")
+        raise HTTPException(status_code=403, detail="No tienes permiso para aceptar esta invitación.")
+
+    if invitation["status"] != 1:
+        raise HTTPException(status_code=400, detail="La invitación ya fue procesada anteriormente.")
 
     # 1. Crear la membresía
     membership_data = {
@@ -466,6 +612,9 @@ def accept_invitation_internal(
     if not existing.data:
         supabase_admin.table("memberships").insert(membership_data).execute()
 
+    # Añadir al usuario a los chats grupales de la comunidad
+    _add_user_to_group_chats(supabase_admin, user_id, membership_data["association_id"])
+
     # 2. Marcar invitación como ACCEPTED (status = 2)
     supabase_admin.table("invitations").update({"status": 2}).eq("id", invitation_id).execute()
 
@@ -481,7 +630,10 @@ def reject_invitation_internal(
     """Rechaza la invitación marcándola con status 3"""
     user_email = current_user.get("email")
 
-    inv_res = supabase_admin.table("invitations").select("target_email, status").eq("id", invitation_id).execute()
+    try:
+        inv_res = supabase_admin.table("invitations").select("target_email, status").eq("id", invitation_id).execute()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Formato de invitación inválido.")
 
     if not inv_res.data:
         raise HTTPException(status_code=404, detail="La invitación no existe")
@@ -496,8 +648,8 @@ def reject_invitation_internal(
 
     try:
         supabase_admin.table("invitations").update({"status": 3}).eq("id", invitation_id).execute()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al actualizar la base de datos: {str(e)}")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error al actualizar la base de datos")
 
     return {"message": "Invitación rechazada"}
 
@@ -511,7 +663,7 @@ def delete_member(
 ):
     membership_res = supabase.table("memberships").select("*").eq("id", membership_id).execute()
     if not membership_res.data:
-        raise HTTPException(status_code=404, detail="Membership not found")
+        raise HTTPException(status_code=404, detail="Membresía no encontrada")
 
     membership_to_delete = membership_res.data[0]
     association_id = membership_to_delete["association_id"]
@@ -530,16 +682,30 @@ def delete_member(
     is_self = membership_to_delete["profile_id"] == current_user["id"]
 
     if not is_admin and not is_self:
-        raise HTTPException(status_code=403, detail="Admin or Presidente access required for this action")
+        raise HTTPException(status_code=403, detail="Acceso denegado. Se requiere ser Administrador o Presidente.")
 
     try:
+        # Prevent foreign key constraint violation
+        supabase_admin.table("voting_tokens").delete().eq("membership_id", membership_id).execute()
+        supabase_admin.table("vote").delete().eq("membership_id", membership_id).execute()
+
+        # Obtener incidentes para borrar sus estados y luego los incidentes
+        incidents_res = supabase_admin.table("incidents").select("id").eq("membership_id", membership_id).execute()
+        if incidents_res.data:
+            inc_ids = [inc["id"] for inc in incidents_res.data]
+            supabase_admin.table("incident_states").delete().in_("incident_id", inc_ids).execute()
+            supabase_admin.table("incidents").delete().eq("membership_id", membership_id).execute()
+
+        # Evitar que se elimine la propiedad si hay una regla CASCADE mal configurada en la BD
+        supabase_admin.table("memberships").update({"property_id": None}).eq("id", membership_id).execute()
+
         delete_res = supabase_admin.table("memberships").delete().eq("id", membership_id).execute()
 
         if not delete_res.data:
             raise HTTPException(status_code=500, detail="No se pudo eliminar el registro de la base de datos")
 
     except Exception:
-        raise HTTPException(status_code=500, detail="Database error")
+        raise HTTPException(status_code=500, detail="Error al eliminar el miembro")
 
     return {"message": f"Membership {membership_id} deleted successfully"}
 
@@ -553,6 +719,8 @@ def get_community_users(
     """
     Obtiene todos los usuarios miembros de una comunidad específica.
     """
+    verify_association_membership(association_id, current_user["id"], supabase)
+
     response = (
         supabase.table("memberships")
         .select("id,role, profiles(id, username)")
@@ -579,12 +747,96 @@ def get_community_users(
     return users_list
 
 
+@router.get("/{association_id}/properties")
+def get_all_properties(
+    association_id: str,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
+    """
+    Lista todas las propiedades de una comunidad con su coeficiente y estado de morosidad.
+    Solo accesible para Administradores o Presidentes (Roles 1 y 4).
+    """
+    admin_check = (
+        supabase.table("memberships")
+        .select("role")
+        .eq("profile_id", current_user["id"])
+        .eq("association_id", association_id)
+        .execute()
+    )
+
+    is_admin = admin_check.data and admin_check.data[0].get("role") in [1, 4]
+
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Acceso denegado. Se requiere ser Administrador o Presidente.")
+
+    properties_res = (
+        supabase_admin.table("properties")
+        .select("id, number, coefficient, is_defaulter, association_id")
+        .eq("association_id", association_id)
+        .execute()
+    )
+
+    return properties_res.data
+
+
+@router.get("/{association_id}/properties/eligible")
+def get_eligible_voting_properties(
+    association_id: str,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
+    """
+    Lista las propiedades asignadas a propietarios o presidentes para votaciones.
+    Solo accesible para Administradores o Presidentes (Roles 1 y 4).
+    """
+    admin_check = (
+        supabase.table("memberships")
+        .select("role")
+        .eq("profile_id", current_user["id"])
+        .eq("association_id", association_id)
+        .execute()
+    )
+
+    is_admin = admin_check.data and admin_check.data[0].get("role") in [1, 4]
+
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Acceso denegado. Se requiere ser Administrador o Presidente.")
+
+    memberships_res = (
+        supabase_admin.table("memberships")
+        .select("properties(id, number, coefficient, is_defaulter, association_id)")
+        .eq("association_id", association_id)
+        .in_("role", [2, 4])
+        .not_.is_("property_id", "null")
+        .execute()
+    )
+
+    properties = []
+    seen_property_ids = set()
+    for item in memberships_res.data or []:
+        prop = item.get("properties")
+        if not prop:
+            continue
+        prop_id = prop.get("id")
+        if not prop_id or prop_id in seen_property_ids:
+            continue
+        seen_property_ids.add(prop_id)
+        properties.append(prop)
+
+    return properties
+
+
 @router.get("/{association_id}/properties/available")
 def get_available_properties(
     association_id: str,
     current_user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
 ):
+    verify_association_membership(association_id, current_user["id"], supabase)
+
     properties_res = supabase.table("properties").select("id, number").eq("association_id", association_id).execute()
 
     memberships_res = (
@@ -640,6 +892,22 @@ def create_property(
     if existing_prop.data:
         raise HTTPException(status_code=400, detail="Esta propiedad ya existe en la comunidad.")
 
+    household_limit = _load_operational_household_limit(supabase_admin, association_id)
+    properties_res = supabase_admin.table("properties").select("id").eq("association_id", association_id).execute()
+    current_count = len(properties_res.data or [])
+
+    if current_count >= household_limit:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "property_limit_reached",
+                "message": "Has alcanzado el numero maximo de viviendas de esta comunidad.",
+                "association_id": association_id,
+                "limit": household_limit,
+                "current_count": current_count,
+            },
+        )
+
     # Insertar la propiedad
     insert_data = {"association_id": association_id, "number": body.number}
 
@@ -665,18 +933,8 @@ def get_pending_community_invitations(
     Obtiene todas las invitaciones pendientes (status=1) para una comunidad específica.
     Solo accesible para Administradores o Presidentes.
     """
-    admin_check = (
-        supabase.table("memberships")
-        .select("role")
-        .eq("profile_id", current_user["id"])
-        .eq("association_id", association_id)
-        .execute()
-    )
-
-    is_admin = admin_check.data and admin_check.data[0].get("role") in [1, 4]
-
-    if not is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required for this action")
+    if not is_user_admin_or_president(supabase, current_user["id"], association_id):
+        raise HTTPException(status_code=403, detail="Acceso denegado. Se requiere ser Administrador.")
 
     # 2. Usamos supabase_admin para leer la tabla sin que el RLS nos bloquee
     response = (
@@ -689,6 +947,55 @@ def get_pending_community_invitations(
     )
 
     return response.data
+
+
+@router.delete("/{association_id}/invitations/{invitation_id}")
+def delete_pending_invitation(
+    association_id: str,
+    invitation_id: str,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
+    """
+    Elimina (cancela) una invitación pendiente de una comunidad.
+    Solo accesible para Administradores o Presidentes (Roles 1 y 4).
+    La invitación se marca con status=4 (CANCELLED) para invalidarla definitivamente.
+    """
+    # 1. Verificar que el usuario es Admin (1) o Presidente (4) de la comunidad
+    if not is_user_admin_or_president(supabase, current_user["id"], association_id):
+        raise HTTPException(status_code=403, detail="Acceso denegado. Se requiere ser Administrador o Presidente.")
+
+    # 2. Verificar que la invitación existe, pertenece a esta comunidad y está pendiente
+    try:
+        inv_res = (
+            supabase_admin.table("invitations").select("id, status, association_id").eq("id", invitation_id).execute()
+        )
+    except Exception:
+        raise HTTPException(status_code=400, detail="Formato de invitación inválido.")
+
+    if not inv_res.data:
+        raise HTTPException(status_code=404, detail="La invitación no existe.")
+
+    invitation = inv_res.data[0]
+
+    if str(invitation["association_id"]) != str(association_id):
+        raise HTTPException(status_code=403, detail="La invitación no pertenece a esta comunidad.")
+
+    if invitation["status"] == 2:
+        raise HTTPException(status_code=400, detail="La invitación ya fue aceptada.")
+    elif invitation["status"] == 3:
+        raise HTTPException(status_code=400, detail="La invitación ya fue rechazada.")
+    elif invitation["status"] != 1:
+        raise HTTPException(status_code=400, detail="La invitación ya fue procesada anteriormente.")
+
+    # 3. Marcar la invitación como REJECTED/CANCELLED (status=3) para invalidarla
+    try:
+        supabase_admin.table("invitations").update({"status": 3}).eq("id", invitation_id).execute()
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error al cancelar la invitación")
+
+    return {"message": "Invitación eliminada correctamente"}
 
 
 @router.patch("/properties/{property_id}")
@@ -710,17 +1017,7 @@ def update_property(
 
     association_id = prop_res.data[0]["association_id"]
 
-    admin_check = (
-        supabase.table("memberships")
-        .select("role")
-        .eq("profile_id", current_user["id"])
-        .eq("association_id", association_id)
-        .execute()
-    )
-
-    is_admin = admin_check.data and admin_check.data[0].get("role") in [1, 4]
-
-    if not is_admin:
+    if not is_user_admin_or_president(supabase, current_user["id"], association_id):
         raise HTTPException(
             status_code=403, detail="Acceso denegado. Solo un administrador puede modificar las cuotas y morosidad."
         )

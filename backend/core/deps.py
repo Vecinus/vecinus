@@ -1,15 +1,27 @@
 import base64
 import json
-from datetime import datetime, timezone
+import logging
 
-from fastapi import Depends, HTTPException, status
+import jwt as pyjwt
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from supabase import Client, ClientOptions, create_client
 
 from .config import settings
 
+logger = logging.getLogger(__name__)
+
 # Authentication scheme
 security = HTTPBearer()
+security_optional = HTTPBearer(auto_error=False)
+
+ACTIVE_SUBSCRIPTION_STATUSES = frozenset({"active", "pending_first_payment"})
+
+_ASSOCIATION_PATH_PARAM_NAMES = (
+    "association_id",
+    "comunidad_id",
+    "community_id",
+)
 
 
 def _normalize_supabase_key(value: str) -> str:
@@ -97,37 +109,105 @@ def get_supabase_admin() -> Client:
     return create_client(settings.SUPABASE_URL, get_supabase_admin_key(), options=options)
 
 
+def _verify_jwt_hs256(token: str) -> dict | None:
+    """Intenta validar un JWT con HS256 usando SUPABASE_JWT_SECRET.
+
+    Devuelve el payload si la verificación tiene éxito, None si el secreto no
+    está configurado o el token no es HS256. Lanza HTTPException si el token es
+    HS256 pero está expirado.
+    """
+    jwt_secret = _normalize_supabase_key(settings.SUPABASE_JWT_SECRET)
+    if not jwt_secret:
+        return None
+
+    try:
+        return pyjwt.decode(
+            token,
+            jwt_secret,
+            algorithms=["HS256"],
+            audience="authenticated",
+            options={"require": ["sub", "exp", "role"]},
+        )
+    except pyjwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token expired",
+        )
+    except pyjwt.InvalidTokenError:
+        return None
+
+
+def _verify_jwt_with_supabase(token: str) -> dict:
+    """Valida JWTs firmados asimétricamente (ES256/RS256) mediante el JWKS de Supabase."""
+    options = ClientOptions(schema=settings.SUPABASE_SCHEMA)
+    client = create_client(
+        settings.SUPABASE_URL,
+        _normalize_supabase_key(settings.SUPABASE_KEY),
+        options=options,
+    )
+    claims_response = client.auth.get_claims(token)
+    if not claims_response:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+        )
+    claims = claims_response.get("claims") or {}
+    if not claims.get("sub"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+        )
+    return dict(claims)
+
+
+def _verify_jwt(token: str) -> dict:
+    """Verifica la firma del JWT y devuelve el payload.
+
+    Soporta tanto JWTs HS256 (legacy) firmados con SUPABASE_JWT_SECRET como
+    JWTs firmados asimétricamente (ES256/RS256) usando el JWKS de Supabase.
+    """
+    try:
+        header = pyjwt.get_unverified_header(token)
+    except pyjwt.DecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+        )
+
+    if header.get("alg") == "HS256":
+        payload = _verify_jwt_hs256(token)
+        if payload is not None:
+            return payload
+
+    try:
+        return _verify_jwt_with_supabase(token)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("Asymmetric JWT verification failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+        )
+
+
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> dict:
-    """Valida el JWT localmente y extrae datos del usuario."""
+    """Valida el JWT (con firma si SUPABASE_JWT_SECRET está configurado) y extrae datos del usuario."""
     token = credentials.credentials
     try:
-        payload = _extract_jwt_payload(token)
-        if not payload:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication credentials",
-            )
+        payload = _verify_jwt(token)
 
         user_id = payload.get("sub")
         user_role = payload.get("role")
         user_email = payload.get("email")
-        exp = payload.get("exp")
 
         if not user_id or user_role != "authenticated":
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication credentials",
             )
-
-        if exp is not None:
-            expiration = datetime.fromtimestamp(int(exp), tz=timezone.utc)
-            if expiration <= datetime.now(timezone.utc):
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Token expired",
-                )
 
         return {
             "id": str(user_id),
@@ -137,8 +217,210 @@ def get_current_user(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Authentication failed: {str(e)}",
+            detail="Authentication failed",
         )
+
+
+def _extract_association_id_from_path(request: Request) -> str | None:
+    for name in _ASSOCIATION_PATH_PARAM_NAMES:
+        value = request.path_params.get(name)
+        if value:
+            return str(value)
+    return None
+
+
+def check_subscription_active(supabase_admin: Client, association_id: str) -> str:
+    """
+    Helper público con la lógica de validación de suscripción.
+
+    Lo extraemos de `require_active_community` para que las dependencies que
+    derivan el `association_id` por otras vías (p. ej. lookup channel→asoc en
+    chat) puedan reutilizarlo sin duplicar la query ni los mensajes de error.
+
+    Lanza HTTP 402 si la comunidad no tiene fila de suscripción o si su
+    estado no está en `ACTIVE_SUBSCRIPTION_STATUSES`. Devuelve la propia
+    `association_id` cuando todo está OK, para encadenarla en deps.
+    """
+    res = (
+        supabase_admin.table("community_subscriptions")
+        .select("status, gocardless_subscription_id, last_failure_at, cancelled_at")
+        .eq("association_id", association_id)
+        .limit(1)
+        .execute()
+    )
+
+    if not res.data:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail={
+                "code": "community_no_subscription",
+                "reason": "no_subscription_found",
+                # Mensaje neutro respecto al rol: el frontend (modal de bloqueo)
+                # añade el call-to-action en función del rol del usuario.
+                "message": "Esta comunidad no tiene una suscripción asociada.",
+                "association_id": association_id,
+            },
+        )
+
+    sub = res.data[0]
+    sub_status = sub.get("status")
+    if sub_status not in ACTIVE_SUBSCRIPTION_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail={
+                "code": "community_blocked",
+                "reason": f"subscription_{sub_status}",
+                # Mensaje neutro respecto al rol: el frontend (modal de bloqueo)
+                # añade el call-to-action en función del rol del usuario.
+                "message": "La comunidad está bloqueada por impago.",
+                "association_id": association_id,
+                "since": sub.get("last_failure_at") or sub.get("cancelled_at"),
+            },
+        )
+
+    return association_id
+
+
+def require_active_community(
+    request: Request,
+    supabase_admin: Client = Depends(get_supabase_admin),
+) -> str:
+    """
+    Dependency que bloquea cualquier operación dentro de una comunidad cuya
+    suscripción no esté al corriente de pago.
+
+    Lee `association_id` (o `comunidad_id` / `community_id`) del path de la
+    request y delega la validación en `check_subscription_active`.
+
+    Aislamiento por comunidad: la dependencia se ejecuta sólo sobre el
+    `association_id` de la request actual; comunidades distintas del mismo
+    usuario no se ven afectadas entre sí.
+    """
+    association_id = _extract_association_id_from_path(request)
+    if not association_id:
+        # Bug del programador: el endpoint usa esta dependency pero su path
+        # no expone ningún parámetro asociación. Mejor 500 explícito que
+        # silenciosamente permitir el paso.
+        logger.error(
+            "require_active_community attached to a route without an association id path param: %s",
+            request.url.path,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No association_id found in request path",
+        )
+
+    return check_subscription_active(supabase_admin, association_id)
+
+
+def require_active_community_for_channel(
+    request: Request,
+    supabase_admin: Client = Depends(get_supabase_admin),
+) -> str | None:
+    """
+    Variante de `require_active_community` para endpoints del chat que llevan
+    `channel_id` en el path (no `association_id`).
+
+    Resolución: lookup en `chat_channels(id) → association_id`. Si la fila no
+    existe (canal inválido) NO lanzamos 402 — dejamos que el endpoint
+    produzca su 404 natural. Si el canal es DM sin `association_id` (mensajería
+    directa entre usuarios fuera del contexto de comunidad), saltamos la
+    validación: ese chat no está sujeto a la facturación de la suscripción.
+    """
+    channel_id = request.path_params.get("channel_id")
+    if not channel_id:
+        logger.error(
+            "require_active_community_for_channel attached to a route without channel_id: %s",
+            request.url.path,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No channel_id found in request path",
+        )
+
+    res = (
+        supabase_admin.table("chat_channels")
+        .select("association_id, is_direct_message")
+        .eq("id", str(channel_id))
+        .limit(1)
+        .execute()
+    )
+
+    if not res.data:
+        # Canal no existe → que el endpoint maneje el 404. Si bloquearamos con
+        # 402 confundiríamos el diagnóstico al usuario.
+        return None
+
+    association_id = res.data[0].get("association_id")
+    if not association_id:
+        # DM sin contexto de comunidad: no aplica el bloqueo por suscripción.
+        return None
+
+    return check_subscription_active(supabase_admin, str(association_id))
+
+
+def require_active_community_for_poll(
+    request: Request,
+    supabase_admin: Client = Depends(get_supabase_admin),
+) -> str | None:
+    """
+    Variante de `require_active_community` para endpoints de votaciones que
+    llevan `poll_id` en el path.
+
+    Resolución: lookup en `poll(id) -> association_id`. Si la votación no
+    existe, dejamos que el endpoint produzca su 404 natural. Las rutas
+    públicas de voto también pasan por aquí: si la comunidad está bloqueada,
+    no se puede operar con la votación aunque el token sea válido.
+    """
+    poll_id = request.path_params.get("poll_id")
+    if not poll_id:
+        logger.error(
+            "require_active_community_for_poll attached to a route without poll_id: %s",
+            request.url.path,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No poll_id found in request path",
+        )
+
+    res = supabase_admin.table("poll").select("association_id").eq("id", str(poll_id)).limit(1).execute()
+
+    if not res.data:
+        return None
+
+    association_id = res.data[0].get("association_id")
+    if not association_id:
+        return None
+
+    return check_subscription_active(supabase_admin, str(association_id))
+
+
+def get_current_user_optional(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security_optional),
+) -> dict | None:
+    """Extrae datos del usuario si está autenticado, sino retorna None."""
+    if not credentials:
+        return None
+
+    token = credentials.credentials
+    try:
+        payload = _verify_jwt(token)
+
+        user_id = payload.get("sub")
+        user_role = payload.get("role")
+        user_email = payload.get("email")
+
+        if not user_id or user_role != "authenticated":
+            return None
+
+        return {
+            "id": str(user_id),
+            "role": str(user_role),
+            "email": user_email,
+        }
+
+    except Exception:
+        return None

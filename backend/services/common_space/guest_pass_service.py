@@ -30,6 +30,20 @@ def _verify_employee_membership(supabase_admin: Client, association_id: str, use
         raise HTTPException(status_code=403, detail="Se requiere rol de empleado para validar el QR")
 
 
+def _ensure_user_belongs_to_association(supabase: Client, association_id: str, user_id: str) -> None:
+    membership_response = (
+        supabase.table("memberships")
+        .select("profile_id")
+        .eq("association_id", association_id)
+        .eq("profile_id", user_id)
+        .limit(1)
+        .execute()
+    )
+
+    if not membership_response.data:
+        raise HTTPException(status_code=403, detail="No tienes acceso a esta comunidad")
+
+
 def _get_common_space(supabase: Client, space_id: int) -> dict:
     response = (
         supabase.table(COMMON_SPACE_TABLE)
@@ -48,6 +62,7 @@ def _get_common_space(supabase: Client, space_id: int) -> dict:
 
 def create_guest_pass(supabase: Client, user_id: str, payload: GuestPassCreate) -> dict:
     space = _get_common_space(supabase, payload.space_id)
+    _ensure_user_belongs_to_association(supabase, str(space["association_id"]), user_id)
     if space.get("usage_mode") != GUEST_PASS_MODE:
         raise HTTPException(status_code=400, detail="Esta zona comun no admite pases de invitado")
 
@@ -66,7 +81,7 @@ def create_guest_pass(supabase: Client, user_id: str, payload: GuestPassCreate) 
 
         current_total_passes = len(total_passes_response.data or []) + 1
 
-        if current_total_passes >= capacity:
+        if current_total_passes > capacity:
             raise HTTPException(
                 status_code=400,
                 detail=f"No hay aforo suficiente. La zona ha alcanzado su capacidad máxima de {capacity} "
@@ -196,6 +211,7 @@ def validate_guest_pass_qr_and_check_in(
     current_user_id: str,
     active_association_id: str,
     qr_token: str,
+    space_id: int | None = None,
 ) -> dict | None:
     guest_pass_response = (
         supabase_admin.table(GUEST_PASS_TABLE)
@@ -216,6 +232,12 @@ def validate_guest_pass_qr_and_check_in(
 
     if str(association_id) != active_association_id:
         raise HTTPException(status_code=403, detail="Este codigo QR no pertenece a la comunidad seleccionada")
+
+    if space_id is not None and int(guest_pass["space_id"]) != space_id:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Este codigo QR es para '{common_space.get('name')}' y no para la zona actual",
+        )
 
     _verify_employee_membership(supabase_admin, str(association_id), current_user_id)
 

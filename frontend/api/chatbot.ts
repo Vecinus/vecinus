@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/client';
+import { getErrorMessage } from '@/lib/error-message';
 import type {
   ChatbotRequest,
   ChatbotResponse,
@@ -14,28 +15,10 @@ import {
   type UseMutationResult,
   type UseQueryResult,
 } from '@tanstack/react-query';
-import axios from 'axios';
 
 const chatbotKeys = {
   documents: (communityId: string) => ['chatbot', 'documents', communityId] as const,
 };
-
-interface ErrorPayload {
-  detail?: string;
-  message?: string;
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (axios.isAxiosError<ErrorPayload>(error)) {
-    return error.response?.data.detail ?? error.response?.data?.message ?? error.message;
-  }
-
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return fallback;
-}
 
 async function fetchCommunityDocuments(communityId: string): Promise<string[]> {
   const response = await apiClient.get<DocumentsListResponse>(
