@@ -210,25 +210,23 @@ export default function AnunciosScreen() {
       {/* Header */}
       <View className="px-5 pt-5 pb-3 border-b border-border/50 bg-card">
         <View className="flex-row items-center justify-between mb-4">
-          <View className="flex-row items-center gap-3">
+          <View className="flex-row items-center gap-3 flex-1 min-w-0">
             <View className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 items-center justify-center">
               <Ionicons name="megaphone" size={20} color="#6366f1" />
             </View>
-            <View>
-              <Text className="text-xl font-bold text-foreground">Tablón de Anuncios</Text>
-              <Text className="text-xs text-muted-foreground mt-0.5">
-                {allAnnouncements.length} anuncio{allAnnouncements.length !== 1 ? 's' : ''}
-              </Text>
-            </View>
+            <Text className="text-sm font-medium text-muted-foreground">
+              {allAnnouncements.length} anuncio{allAnnouncements.length !== 1 ? 's' : ''}
+            </Text>
           </View>
           {canManage && (
             <TouchableOpacity
               activeOpacity={0.8}
+              accessibilityLabel="Crear nuevo anuncio"
+              hitSlop={8}
               onPress={() => { setCreateModalVisible(true); }}
-              className="bg-indigo-600 dark:bg-indigo-500 rounded-xl h-10 px-4 flex-row items-center gap-1.5 shadow-sm"
+              className="bg-indigo-600 dark:bg-indigo-500 rounded-full h-11 w-11 items-center justify-center shadow-sm"
             >
-              <Ionicons name="add" size={20} color="white" />
-              <Text className="text-white font-semibold">Nuevo</Text>
+              <Ionicons name="add" size={24} color="white" />
             </TouchableOpacity>
           )}
         </View>
@@ -306,7 +304,7 @@ export default function AnunciosScreen() {
                 <Text className="text-xl font-bold text-foreground mb-2">Sin anuncios</Text>
                 <Text className="text-muted-foreground text-center text-sm leading-5 mb-6">
                   {canManage
-                    ? 'Todavía no se ha publicado ningún anuncio.\nCrea el primero tocando el botón "Nuevo".'
+                    ? 'Todavía no se ha publicado ningún anuncio.\nCrea el primero pulsando el botón +.'
                     : 'Todavía no se ha publicado ningún anuncio.'
                   }
                 </Text>

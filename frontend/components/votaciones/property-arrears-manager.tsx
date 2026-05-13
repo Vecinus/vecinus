@@ -293,8 +293,8 @@ export function PropertyArrearsManager({ associationId, pollId, onCoefficientCha
         </Card>
       )}
 
-      <View className="flex-row items-center justify-between gap-2">
-        <Text className="text-xs text-muted-foreground">
+      <View className="flex-row flex-wrap items-center justify-between gap-2">
+        <Text className="text-xs text-muted-foreground flex-shrink">
           Total coeficiente: {totalCoefficient.toFixed(2)}% • Modo: {isEquitableMode ? 'Equitativo' : 'Ponderado'}
         </Text>
         <Button
@@ -302,8 +302,11 @@ export function PropertyArrearsManager({ associationId, pollId, onCoefficientCha
           size="sm"
           onPress={toggleWeightedMode}
           disabled={distributing}
+          className="self-start"
         >
-          {isEquitableMode ? 'Repartir ponderadamente' : 'Repartir equitativamente'}
+          <Text className="text-xs">
+            {isEquitableMode ? 'Repartir ponderadamente' : 'Repartir equitativamente'}
+          </Text>
         </Button>
       </View>
 

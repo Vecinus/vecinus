@@ -113,8 +113,9 @@ function ChatBubble({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="size-1 rounded-full bg-primary-foreground/10 active:bg-primary-foreground/15">
-                  <Icon as={EllipsisVerticalIcon} size={6} className="text-primary-foreground/85" />
+                  hitSlop={10}
+                  className="size-8 rounded-full bg-primary-foreground/10 active:bg-primary-foreground/15">
+                  <Icon as={EllipsisVerticalIcon} size={16} className="text-primary-foreground/85" />
                 </Button>
               </DropdownMenuTrigger>
 
