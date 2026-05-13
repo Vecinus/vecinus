@@ -42,21 +42,21 @@ Muy insatisfecho | Insatisfecho | Neutral | Satisfecho | Muy satisfecho
 
 | Persona | 24-30 Abril | 1-7 Mayo | 8-14 Mayo |
 |---------|-----------|-----------|-----------|
-| Esteban L. |  |  |  |
+| Esteban L. | 🙂 | 🙂 | 😄 |
 | Joaquín B. | 🙂 | 🙂 | 😄 |
-| Ariel E. |  |  |  |
-| Alejandro M. |  |  |  |
+| Ariel E. | 🙂 | 🙂 | 🙂 |
+| Alejandro M. | 😐 | 🙂 | 🙂 |
 | José Ángel R. | 🙂 | 😄 | 🙂 |
 | Jesús P. | 😐 | 😢 | 😢 |
-| Fernando C. |  |  |  |
-| Ángel F. |  |  |  |
+| Fernando C. | 🙂 | 🙂 | 🙂 |
+| Ángel F. | 🙂 | 🙂 | 😄 |
 | Adrián D. | 🙂 | 😄 | 😐 |
-| Kevin A. |  |  |  |
-| Jesús O. |  |  |  |
-| Héctor G. |  |  |  |
-| Rares P. |  |  |  |
+| Kevin A. | 😄 | 😄 | 😄 |
+| Jesús O. | 😄 | 😄 | 🙂 |
+| Héctor G. | 😄 | 🙂 | 🙂 |
+| Rares P. | 🙂 | 🙂 | 😄 |
 | Juan R. | 🙂 | 😄 | 🙂 |
-| Manuel Z. |  |  |  |
+| Manuel Z. | 🙂 | 🙂 | 🙂 |
 
 ---
 
