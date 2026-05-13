@@ -181,7 +181,7 @@ export function CreateActaCard({
 
       let errorMessage = 'No se pudo crear el acta. Por favor, inténtalo de nuevo.';
       const err = error as { response?: { data?: { detail?: string | object } } };
-      if (err?.response?.data?.detail) {
+      if (err.response?.data?.detail) {
         errorMessage = typeof err.response.data.detail === 'string'
           ? err.response.data.detail
           : JSON.stringify(err.response.data.detail);

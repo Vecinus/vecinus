@@ -203,12 +203,12 @@ export default function CommunityAdminScreen() {
       {
         onSuccess: resetInviteForm,
         onError: (error: unknown) => {
-          const err = error as { response?: { data?: { detail?: any } } };
-          const detail = err?.response?.data?.detail;
+          const err = error as { response?: { data?: { detail?: unknown } } };
+          const detail = err.response?.data?.detail;
           let errorMessage = 'Error al invitar vecino. Comprueba los datos o tu conexión.';
           if (typeof detail === 'string') {
             errorMessage = detail;
-          } else if (Array.isArray(detail) && detail.length > 0 && detail[0].msg) {
+          } else if (Array.isArray(detail) && detail.length > 0 && detail[0]?.msg) {
             errorMessage = detail[0].msg;
           }
           setInviteError(errorMessage);

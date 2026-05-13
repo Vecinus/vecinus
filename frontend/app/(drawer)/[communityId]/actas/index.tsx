@@ -48,9 +48,10 @@ export default function Actas() {
       setErrorMessage(null);
       const data = await minutesService.getMinutes(communityId, token);
       setMinutes(data);
-    } catch (error: any) {
-      const status = error?.response?.status;
-      const detail = error?.response?.data?.detail;
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { status?: number; data?: { detail?: unknown } } };
+      const status = axiosError?.response?.status;
+      const detail = axiosError?.response?.data?.detail;
       setErrorMessage(
         status === 401
           ? 'Tu sesion ha caducado. Vuelve a iniciar sesion.'

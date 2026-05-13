@@ -242,7 +242,7 @@ export default function ZoneForm({
             </Label>
             <View className="flex-row gap-2">
               <Button
-                onPress={() => setRequiresQr(true)}
+                onPress={() => { setRequiresQr(true); }}
                 variant={requiresQr === true ? 'default' : 'outline'}
                 className={`h-10 flex-1 rounded-lg ${requiresQr === true ? 'bg-primary' : 'border-primary'
                   }`}>
@@ -253,7 +253,7 @@ export default function ZoneForm({
                 </Text>
               </Button>
               <Button
-                onPress={() => setRequiresQr(false)}
+                onPress={() => { setRequiresQr(false); }}
                 variant={requiresQr === false ? 'default' : 'outline'}
                 className={`h-10 flex-1 rounded-lg ${requiresQr === false ? 'bg-primary' : 'border-primary'
                   }`}>
