@@ -96,7 +96,7 @@ def logout(supabase: Client = Depends(get_supabase_anon)):
     try:
         supabase.auth.sign_out()
         return {"message": "Logged out successfully"}
-    except Exception as exc:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error al cerrar sesión")
 
 
@@ -183,7 +183,7 @@ def recover_account(
         return {"message": "Account recovered successfully", "id": account_id}
     except HTTPException:
         raise
-    except Exception as exc:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error interno al recuperar la cuenta")
 
 
