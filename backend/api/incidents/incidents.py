@@ -183,8 +183,6 @@ def create_incident(
 
     if not membership_res.data:
         raise HTTPException(status_code=403, detail="User has no access to this association")
-    elif str(membership_res.data[0].get("role")) == "1":
-        raise HTTPException(status_code=403, detail="Admins cannot create incidents")
 
     membership_id = membership_res.data[0].get("id")
 
@@ -196,7 +194,7 @@ def create_incident(
             else:
                 upload = cloudinary.uploader.upload(file.file, folder=f"incidents/{association_id}")
                 image_url = upload.get("secure_url")
-        except Exception as e:
+        except Exception:
             raise HTTPException(status_code=500, detail="Error al subir la imagen")
 
     new_incident = (
@@ -291,5 +289,5 @@ def discard_incident(
         supabase_admin.table("incident_states").delete().eq("incident_id", str(incident_id)).execute()
         # Luego borrar la incidencia
         supabase_admin.table("incidents").delete().eq("id", str(incident_id)).execute()
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error al eliminar la incidencia")
