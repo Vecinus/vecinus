@@ -47,7 +47,7 @@ Muy insatisfecho | Insatisfecho | Neutral | Satisfecho | Muy satisfecho
 | Ariel E. |  |  |  |
 | Alejandro M. |  |  |  |
 | José Ángel R. | 🙂 | 😄 | 🙂 |
-| Jesús P. |  |  |  |
+| Jesús P. | 😐 | 😢 | 😢 |
 | Fernando C. |  |  |  |
 | Ángel F. |  |  |  |
 | Adrián D. | 🙂 | 😄 | 😐 |
