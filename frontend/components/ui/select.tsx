@@ -29,10 +29,11 @@ function SelectValue({
       ref={ref}
       className={cn(
         'text-foreground flex flex-row items-center gap-2 text-sm',
+        Platform.OS === 'web' && 'truncate',
         !value && 'text-muted-foreground',
         className
       )}
-      numberOfLines={1}
+      {...(Platform.OS !== 'web' ? { numberOfLines: 1 } : {})}
       {...props}
     />
   );
