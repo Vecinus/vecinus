@@ -92,7 +92,7 @@ class VoteService:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error("Error validando el token de votación: %s", e)
+            logger.error("Error en la validación del acceso a la votación: %s", e)
             raise HTTPException(status_code=400, detail="Error validando token")
 
         try:
@@ -146,7 +146,7 @@ class VoteService:
                 "token", str(vote_data.voting_token)
             ).execute()
         except Exception as e:
-            logger.error("Error marcando el token de votación como usado: %s", e)
+            logger.error("No se pudo registrar el uso del acceso a la votación: %s", e)
             raise HTTPException(status_code=400, detail="Error marcando token como usado")
 
         return vote_res.data[0]
