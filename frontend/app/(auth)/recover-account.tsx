@@ -109,9 +109,9 @@ export default function RecoverAccountScreen() {
         <View className="mx-auto w-full max-w-2xl px-5 pb-10 pt-8 md:px-8">
           <Card className="rounded-3xl">
             <CardHeader>
-              <CardTitle>Recuperar cuenta anonimizada</CardTitle>
+              <CardTitle>Recuperar cuenta eliminada</CardTitle>
               <CardDescription>
-                Introduce tu contraseña y los nuevos datos con los que quieres restaurar tu cuenta. Si acabas de anonimizarla, el identificador se rellenará automáticamente.
+                Introduce tu contraseña y los nuevos datos con los que quieres restaurar tu cuenta. Si acabas de eliminarla, el identificador se rellenará automáticamente.
               </CardDescription>
             </CardHeader>
 
@@ -119,7 +119,7 @@ export default function RecoverAccountScreen() {
               {accountId && storedRecoveryIdLoaded ? (
                 <View className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/40 dark:bg-amber-950/20">
                   <Text className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                    Hemos recuperado automáticamente el identificador de la última cuenta anonimizada en este dispositivo.
+                    Hemos recuperado automáticamente el identificador de la última cuenta eliminada en este dispositivo.
                   </Text>
                 </View>
               ) : null}
