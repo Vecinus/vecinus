@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/context/AuthContext';
 import { getErrorMessage } from '@/lib/error-message';
+import { getHouseholdCountError } from '@/lib/household-count';
 import type { PlanCode, RegistrationPaymentOrderResponse } from '@/types/payments.types';
 
 type Step = 'form' | 'paying';
@@ -66,11 +67,7 @@ export default function ActivateSubscriptionScreen() {
   const [householdCountError, setHouseholdCountError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (householdCount >= 1) {
-      setHouseholdCountError(null);
-    } else {
-      setHouseholdCountError('El nº de viviendas debe ser al menos 1.');
-    }
+    setHouseholdCountError(getHouseholdCountError(householdCount));
   }, [householdCount]);
 
   const monthlyAmountCents = useMemo(
@@ -95,6 +92,10 @@ export default function ActivateSubscriptionScreen() {
   const handleSubmitForm = async () => {
     if (!communityId) {
       showError('Comunidad no disponible', 'No se pudo resolver la comunidad que quieres activar.');
+      return;
+    }
+    if (householdCountError) {
+      showError('Número de viviendas no válido', householdCountError);
       return;
     }
 

@@ -24,6 +24,7 @@ import {
 import { paymentsApi } from '@/api/payments';
 import { useAuth } from '@/context/AuthContext';
 import { getErrorMessage } from '@/lib/error-message';
+import { getHouseholdCountError } from '@/lib/household-count';
 import type {
     PlanCode,
     RegistrationPaymentOrderResponse,
@@ -54,11 +55,7 @@ export default function CrearComunidadScreen() {
     const [householdCountError, setHouseholdCountError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (householdCount >= 1) {
-            setHouseholdCountError(null);
-        } else {
-            setHouseholdCountError('El nº de viviendas debe ser al menos 1.');
-        }
+        setHouseholdCountError(getHouseholdCountError(householdCount));
     }, [householdCount]);
 
     const monthlyAmountCents = useMemo(
@@ -80,7 +77,8 @@ export default function CrearComunidadScreen() {
     const validateForm = (): string | null => {
         if (!communityName.trim()) return 'El nombre de la comunidad es obligatorio.';
         if (!communityAddress.trim()) return 'La dirección es obligatoria.';
-        if (householdCount < 1) return 'El nº de viviendas debe ser al menos 1.';
+        const householdError = getHouseholdCountError(householdCount);
+        if (householdError) return householdError;
         return null;
     };
 

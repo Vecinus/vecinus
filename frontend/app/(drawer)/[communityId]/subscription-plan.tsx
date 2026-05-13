@@ -16,6 +16,7 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/context/AuthContext';
 import { useSubscriptionStatus, useUpdateSubscription } from '@/hooks/useSubscription';
 import { getErrorMessage } from '@/lib/error-message';
+import { getHouseholdCountError } from '@/lib/household-count';
 import type { PlanCode } from '@/types/payments.types';
 
 const ADMIN_ROLE = 1;
@@ -104,11 +105,7 @@ export default function CommunitySubscriptionPlanScreen() {
   }, [householdCountText]);
 
   useEffect(() => {
-    if (parsedHouseholdCount >= 1) {
-      setHouseholdCountError(null);
-    } else {
-      setHouseholdCountError('El nº de viviendas debe ser al menos 1.');
-    }
+    setHouseholdCountError(getHouseholdCountError(parsedHouseholdCount));
   }, [parsedHouseholdCount]);
 
   if (!communityId) {
@@ -170,6 +167,10 @@ export default function CommunitySubscriptionPlanScreen() {
 
   const handleSaveSubscription = () => {
     if (!status.plan) return;
+    if (householdCountError) {
+      showAlert('Límite no válido', householdCountError, 'error');
+      return;
+    }
     if (parsedHouseholdCount < currentHouseholdCount) {
       showAlert(
         'Límite no válido',
