@@ -21,10 +21,17 @@ export const minutesService = {
   transcribe: async (
     associationId: string,
     title: string,
-    audioFile: { uri: string; name: string; type: string }
+    audioFile: { uri: string; name: string; type: string; durationMs?: number | null }
   ): Promise<MinutesReadResponse> => {
     const formData = new FormData();
     formData.append('title', title);
+    if (
+      typeof audioFile.durationMs === 'number' &&
+      Number.isFinite(audioFile.durationMs) &&
+      audioFile.durationMs > 0
+    ) {
+      formData.append('duration_ms', String(Math.ceil(audioFile.durationMs)));
+    }
 
     if (Platform.OS === 'web') {
       const response = await fetch(audioFile.uri);

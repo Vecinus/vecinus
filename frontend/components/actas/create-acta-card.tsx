@@ -174,6 +174,7 @@ export function CreateActaCard({
         uri: audioUri,
         name: audioName || 'audio.m4a',
         type: audioMimeType || 'audio/mpeg',
+        durationMs: audioDuration,
       });
       showAlert('Éxito', 'El acta se ha creado correctamente y se está procesando', true);
     } catch (error) {
