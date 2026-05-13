@@ -13,20 +13,7 @@ os.environ["SUPABASE_URL"] = "http://localhost:8000"
 os.environ["SUPABASE_KEY"] = "dummy"
 os.environ["SUPABASE_SERVICE_KEY"] = "dummy-service"
 
-email_validator_stub = types.ModuleType("email_validator")
-
-
-class EmailNotValidError(ValueError):
-    pass
-
-
-def validate_email(email, *args, **kwargs):
-    return types.SimpleNamespace(email=email, normalized=email)
-
-
-email_validator_stub.EmailNotValidError = EmailNotValidError
-email_validator_stub.validate_email = validate_email
-sys.modules["email_validator"] = email_validator_stub
+# email_validator stub removed
 
 resend_stub = types.ModuleType("resend")
 resend_stub.api_key = None
@@ -185,6 +172,16 @@ class MockSupabaseClientCommonSpace:
                 },
             ],
             "memberships": [],
+            "community_subscriptions": [
+                {
+                    "association_id": ASSOCIATION_ID,
+                    "status": "active",
+                },
+                {
+                    "association_id": OTHER_ASSOCIATION_ID,
+                    "status": "active",
+                },
+            ],
         }
 
         if has_membership:
@@ -197,7 +194,7 @@ class MockSupabaseClientCommonSpace:
             )
 
     def table(self, name: str):
-        if name not in {"common_space", "memberships"}:
+        if name not in {"common_space", "memberships", "community_subscriptions"}:
             raise AssertionError(f"Unexpected table requested: {name}")
         return MockSupabaseTable(name, self.storage)
 

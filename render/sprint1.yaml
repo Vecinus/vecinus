@@ -40,6 +40,8 @@ projects:
                 sync: false
               - key: SUPABASE_URL
                 sync: false
+              - key: SUPABASE_JWT_SECRET
+                sync: false
             region: frankfurt
             healthCheckPath: /health
             dockerContext: .

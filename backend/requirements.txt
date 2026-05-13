@@ -191,6 +191,8 @@ multidict==6.7.1
     # via
     #   -r requirements.in
     #   yarl
+mutagen==1.47.0
+    # via -r requirements.in
 nodeenv==1.10.0
     # via pre-commit
 orjson==3.11.7

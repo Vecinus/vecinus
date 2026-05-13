@@ -28,10 +28,12 @@ function SelectValue({
     <SelectPrimitive.Value
       ref={ref}
       className={cn(
-        'text-foreground line-clamp-1 flex flex-row items-center gap-2 text-sm',
+        'text-foreground flex flex-row items-center gap-2 text-sm',
+        Platform.OS === 'web' && 'truncate',
         !value && 'text-muted-foreground',
         className
       )}
+      {...(Platform.OS !== 'web' ? { numberOfLines: 1 } : {})}
       {...props}
     />
   );

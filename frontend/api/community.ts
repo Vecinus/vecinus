@@ -30,26 +30,8 @@ export interface UserInvitation {
   date: string;
 }
 
-export interface CreateCommunityRequest {
-  name: string;
-  address: string;
-  description?: string;
-}
-
-export interface CommunityResponse {
-  id: string;
-  name: string;
-  address: string;
-  description?: string;
-  created_at: string;
-  created_by: string;
-}
 
 export const communityApi = {
-  createCommunity: async (community: CreateCommunityRequest): Promise<CommunityResponse> => {
-    const response = await apiClient.post<CommunityResponse>("/communities", community);
-    return response.data;
-  },
   getMembers: async (communityId: string): Promise<Member[]> => {
     interface RawMember { id: string; membership_id: string; username?: string; role: string | number }
     const { data } = await apiClient.get<RawMember[]>(`/${communityId}/users`);
@@ -71,6 +53,10 @@ export const communityApi = {
   getPendingInvitations: async (communityId: string): Promise<PendingInvitation[]> => {
     const { data } = await apiClient.get(`/${communityId}/invitations/pending`);
     return data;
+  },
+
+  deleteInvitation: async (communityId: string, invitationId: string): Promise<void> => {
+    await apiClient.delete(`/${communityId}/invitations/${invitationId}`);
   },
 
   deleteMember: async (membershipId: string): Promise<void> => {

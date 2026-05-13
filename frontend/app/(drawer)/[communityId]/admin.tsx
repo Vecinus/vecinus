@@ -10,7 +10,7 @@ import { MemberCard } from '@/components/community/MemberCard';
 import { PendingInvitationCard } from '@/components/community/PendingInvitationCard';
 import {
   Building, Users, Clock, ChevronDown, ChevronUp, UserPlus,
-  Home, AlertTriangle
+  Home, AlertTriangle, CreditCard, ChevronRight
 } from 'lucide-react-native';
 
 import { useAuth } from '@/context/AuthContext';
@@ -20,6 +20,7 @@ import {
   useCommunityMembers,
   usePendingInvitations,
   useDeleteMember,
+  useDeleteInvitation,
   useInviteMember,
   useAddProperty,
   useAvailableProperties
@@ -54,6 +55,13 @@ export default function CommunityAdminScreen() {
   const [propertyModalVisible, setPropertyModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState({ id: '', name: '' });
+  const [deleteError, setDeleteError] = useState('');
+
+  const [deleteInvModalVisible, setDeleteInvModalVisible] = useState(false);
+  const [invitationToDelete, setInvitationToDelete] = useState({ id: '', email: '' });
+  
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const [errorModalMessage, setErrorModalMessage] = useState('');
 
   // --- Estados Formularios ---
   const [email, setEmail] = useState('');
@@ -96,6 +104,7 @@ export default function CommunityAdminScreen() {
 
   // --- Mutations ---
   const { mutate: deleteMember, isPending: isDeleting } = useDeleteMember(communityId);
+  const { mutate: deleteInvitation, isPending: isDeletingInvitation } = useDeleteInvitation(communityId);
   const { mutate: inviteMember, isPending: isInviting } = useInviteMember(communityId);
   const { mutate: addProperty, isPending: isAddingProperty } = useAddProperty(communityId);
 
@@ -128,13 +137,41 @@ export default function CommunityAdminScreen() {
   // --- Handlers ---
   const handleDeleteTrigger = (membershipId: string, name: string) => {
     setMemberToDelete({ id: membershipId, name });
+    setDeleteError('');
     setDeleteModalVisible(true);
   };
 
   const confirmDelete = () => {
+    setDeleteError('');
     deleteMember(memberToDelete.id, {
       onSuccess: () => setDeleteModalVisible(false),
-      onError: () => setDeleteModalVisible(false)
+      onError: (error: unknown) => {
+        const err = error as { response?: { data?: { detail?: string } } };
+        setDeleteError(err?.response?.data?.detail || 'Error al expulsar vecino. Comprueba tu conexión.');
+      }
+    });
+  };
+
+  const handleDeleteInvitation = (invitationId: string, email: string) => {
+    setInvitationToDelete({ id: invitationId, email });
+    setDeleteInvModalVisible(true);
+  };
+
+  const confirmDeleteInvitation = () => {
+    deleteInvitation(invitationToDelete.id, {
+      onSuccess: () => setDeleteInvModalVisible(false),
+      onError: (error: unknown) => {
+        const err = error as { response?: { data?: { detail?: string }; status?: number }; message?: string };
+        const detail = err?.response?.data?.detail || err?.message || 'Error desconocido';
+        console.warn('[deleteInvitation] Error:', err?.response?.status, detail);
+        setDeleteInvModalVisible(false);
+        setErrorModalMessage(detail);
+        setErrorModalVisible(true);
+        // Si el status fue 400 por ya estar procesada, refrescamos la lista
+        if (err?.response?.status === 400) {
+          refetchInvitations();
+        }
+      }
     });
   };
 
@@ -152,6 +189,10 @@ export default function CommunityAdminScreen() {
       setInviteError('Por favor, indica un correo electrónico y el rol a asignar.');
       return;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setInviteError('Introduce un correo electrónico válido.');
+      return;
+    }
     if (roleToGrant !== '5' && !propertyId) {
       setInviteError('Debes asignar una propiedad libre para este rol.');
       return;
@@ -162,8 +203,15 @@ export default function CommunityAdminScreen() {
       {
         onSuccess: resetInviteForm,
         onError: (error: unknown) => {
-          const err = error as { response?: { data?: { detail?: string } } };
-          setInviteError(err?.response?.data?.detail || 'Error al invitar vecino. Comprueba los datos o tu conexión.');
+          const err = error as { response?: { data?: { detail?: unknown } } };
+          const detail = err.response?.data?.detail;
+          let errorMessage = 'Error al invitar vecino. Comprueba los datos o tu conexión.';
+          if (typeof detail === 'string') {
+            errorMessage = detail;
+          } else if (Array.isArray(detail) && detail.length > 0 && detail[0]?.msg) {
+            errorMessage = detail[0].msg;
+          }
+          setInviteError(errorMessage);
         }
       }
     );
@@ -181,8 +229,13 @@ export default function CommunityAdminScreen() {
         setPropertyModalVisible(false);
         setPropertyNumber('');
       },
-      onError: () => {
-        setPropertyError('No se pudo añadir. Tal vez ya exista.');
+      onError: (error: unknown) => {
+        const err = error as { response?: { data?: { detail?: string | { message?: string } } } };
+        const detail = err?.response?.data?.detail;
+        const message = typeof detail === 'string'
+          ? detail
+          : detail?.message;
+        setPropertyError(message || 'No se pudo anadir. Tal vez ya exista.');
       }
     });
   };
@@ -294,6 +347,25 @@ export default function CommunityAdminScreen() {
         )}
         ListHeaderComponent={
           <>
+            {isAdmin && communityId ? (
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => router.push((`/${communityId}/subscription`) as never)}
+                className="mb-5 rounded-2xl border border-border bg-card px-5 py-4 flex-row items-center gap-4 shadow-sm"
+              >
+                <View className="size-11 items-center justify-center rounded-full bg-primary/10">
+                  <CreditCard size={22} color="#4f46e5" strokeWidth={2.5} />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-[15px] font-bold text-foreground">Suscripción y pagos</Text>
+                  <Text className="text-xs text-muted-foreground mt-0.5">
+                    Estado del cobro mensual, consumo de actas/chatbot e historial.
+                  </Text>
+                </View>
+                <ChevronRight size={20} color="#94a3b8" />
+              </TouchableOpacity>
+            ) : null}
+
             {/* Sección de Invitaciones (Solo visible si eres Admin y hay algo pendiente) */}
             {isAdmin && pendingInvitations && pendingInvitations.length > 0 && (
               <View className="mb-5 rounded-2xl bg-amber-50 dark:bg-amber-950/35 border border-amber-200 dark:border-amber-900/50 overflow-hidden shadow-sm shadow-amber-100/70 dark:shadow-none">
@@ -314,7 +386,12 @@ export default function CommunityAdminScreen() {
                 {showPending && (
                   <View className="px-4 pb-4 pt-1 border-t border-amber-100 dark:border-amber-900/30">
                     {pendingInvitations.map((inv) => (
-                      <PendingInvitationCard key={inv.id} invitation={inv} />
+                      <PendingInvitationCard
+                        key={inv.id}
+                        invitation={inv}
+                        onDelete={handleDeleteInvitation}
+                        isDeletingId={isDeletingInvitation ? invitationToDelete.id : undefined}
+                      />
                     ))}
                   </View>
                 )}
@@ -497,6 +574,11 @@ export default function CommunityAdminScreen() {
             <Text className="text-sm text-slate-500 dark:text-muted-foreground text-center leading-relaxed mb-6">
               ¿Estás seguro de expulsar a <Text className="font-bold text-slate-800 dark:text-foreground">{memberToDelete.name}</Text>? Se le revocará todo el acceso.
             </Text>
+            {!!deleteError && (
+              <View className="bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-100 dark:border-red-900/30 p-3 mb-4">
+                <Text className="text-red-600 dark:text-red-400 font-semibold text-xs text-center">{deleteError}</Text>
+              </View>
+            )}
             <View className="flex-row gap-3 mt-1">
               <Button
                 variant="outline"
@@ -515,6 +597,60 @@ export default function CommunityAdminScreen() {
                 {isDeleting ? <ActivityIndicator color="#dc2626" /> : <Text className="font-semibold text-red-600 dark:text-red-400">Expulsar</Text>}
               </Button>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* --- MODAL ELIMINAR INVITACIÓN --- */}
+      <Modal visible={deleteInvModalVisible} animationType="fade" transparent>
+        <View className="flex-1 justify-center bg-black/45 px-6">
+          <View className="bg-white dark:bg-card rounded-3xl p-6 border border-slate-200 dark:border-border">
+            <View className="w-14 h-14 bg-red-50 dark:bg-red-900/25 rounded-2xl items-center justify-center mb-4 self-center">
+              <AlertTriangle color="#ef4444" size={28} strokeWidth={2.5} />
+            </View>
+            <Text className="text-xl font-bold text-slate-900 dark:text-foreground mb-2 text-center">Eliminar Invitación</Text>
+            <Text className="text-sm text-slate-500 dark:text-muted-foreground text-center leading-relaxed mb-6">
+              ¿Estás seguro de eliminar la invitación enviada a <Text className="font-bold text-slate-800 dark:text-foreground">{invitationToDelete.email}</Text>? El enlace dejará de ser válido inmediatamente.
+            </Text>
+            <View className="flex-row gap-3 mt-1">
+              <Button
+                variant="outline"
+                className="flex-1 h-12"
+                onPress={() => setDeleteInvModalVisible(false)}
+                disabled={isDeletingInvitation}
+              >
+                <Text className="font-semibold text-foreground">Cancelar</Text>
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1 h-12 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20"
+                onPress={confirmDeleteInvitation}
+                disabled={isDeletingInvitation}
+              >
+                {isDeletingInvitation ? <ActivityIndicator color="#dc2626" /> : <Text className="font-semibold text-red-600 dark:text-red-400">Eliminar</Text>}
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* --- MODAL ERROR (Reemplaza Alert en web) --- */}
+      <Modal visible={errorModalVisible} animationType="fade" transparent onRequestClose={() => setErrorModalVisible(false)}>
+        <View className="flex-1 bg-black/40 items-center justify-center px-6">
+          <View className="w-full max-w-[360px] bg-card rounded-3xl p-6 border border-border items-center">
+            <View className="w-14 h-14 rounded-full bg-red-100 dark:bg-red-900/30 items-center justify-center mb-4">
+              <AlertTriangle size={28} color="#ef4444" />
+            </View>
+            <Text className="text-xl font-bold text-foreground mb-2 text-center">No se pudo realizar la acción</Text>
+            <Text className="text-sm text-muted-foreground mb-6 text-center">
+              {errorModalMessage}
+            </Text>
+            <Button
+              className="w-full h-12"
+              onPress={() => setErrorModalVisible(false)}
+            >
+              <Text className="text-primary-foreground font-semibold">Entendido</Text>
+            </Button>
           </View>
         </View>
       </Modal>

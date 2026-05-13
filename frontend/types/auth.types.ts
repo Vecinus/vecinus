@@ -2,8 +2,9 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  avatarUrl?: string | null;
   CommunitiesAndRole: {
-    community: { id: string; name: string; address?: string | null };
+    community: { id: string; name: string; address?: string | null; household_count?: number | null };
     role: string | number;
   }[];
 }

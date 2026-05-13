@@ -2,57 +2,42 @@ import { useMutation } from '@tanstack/react-query';
 import { apiClient } from './client';
 import { useAuth } from '@/context/AuthContext';
 import { LoginCredentials, User } from '@/types/auth.types';
+import { fetchUserWithCommunities, MembershipItem } from './user';
 
 export interface RegisterCredentials {
   email: string;
   password: string;
   password_confirm: string;
   username: string;
+  avatar_url?: string | null;
+}
+
+export interface RemoveAccountCredentials {
+  email: string;
+  password: string;
+}
+
+export interface RecoverAccountCredentials {
+  account_id: string;
+  password: string;
+}
+
+export interface RecoverAccountProfilePayload {
+  id: string;
+  password: string;
+  username: string;
+  email: string;
+  avatar_url?: string | null;
 }
 
 interface UserProfile {
   id: string;
   username: string;
   email: string;
+  avatar_url?: string | null;
 }
 
-interface MembershipItem {
-  role: string | number;
-  neighborhood_associations: {
-    id: string;
-    name: string;
-    address?: string | null;
-  };
-}
-
-export const fetchUserWithCommunities = async (jwtToken: string): Promise<User> => {
-  const [userResponse, communitiesResponse] = await Promise.all([
-    apiClient.get<UserProfile>('/users/me', {
-      headers: { Authorization: `Bearer ${jwtToken}` },
-    }),
-    apiClient.get<MembershipItem[]>('/users/me/communities', {
-      headers: { Authorization: `Bearer ${jwtToken}` },
-    }),
-  ]);
-
-  const profile = userResponse.data;
-  const communitiesData = communitiesResponse.data;
-
-  return {
-    id: profile.id,
-    name: profile.username,
-    email: profile.email,
-    CommunitiesAndRole: communitiesData.map((membership: MembershipItem) => ({
-      community: {
-        id: membership.neighborhood_associations.id,
-        name: membership.neighborhood_associations.name,
-        address: membership.neighborhood_associations.address ?? null,
-      },
-      role: membership.role,
-    })),
-  };
-};
-
+export { fetchUserWithCommunities };
 
 export const useAcceptInvitationMutation = () => {
   const { loginContext } = useAuth();
@@ -85,33 +70,32 @@ export const useLoginMutation = () => {
 
   return useMutation({
     mutationFn: async (credentials: LoginCredentials) => {
-      // 1. Login to get session
       const loginResponse = await apiClient.post<{ session: { access_token: string } }>('/login', credentials);
       const { session } = loginResponse.data;
       const token = session.access_token;
 
-      // 2. Fetch user profile
-      const userResponse = await apiClient.get<{ id: string; username: string; email: string }>('/users/me', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const [userResponse, communitiesResponse] = await Promise.all([
+        apiClient.get<UserProfile>('/users/me', {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        apiClient.get<MembershipItem[]>('/users/me/communities', {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
       const profile = userResponse.data;
-
-      // 3. Fetch user communities
-      const communitiesResponse = await apiClient.get<MembershipItem[]>('/users/me/communities', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
       const communitiesData = communitiesResponse.data;
 
-      // 4. Transform data to our User type
       const fullUser: User = {
         id: profile.id,
         name: profile.username,
         email: profile.email,
+        avatarUrl: profile.avatar_url ?? null,
         CommunitiesAndRole: communitiesData.map((membership) => ({
           community: {
             id: membership.neighborhood_associations.id,
             name: membership.neighborhood_associations.name,
             address: membership.neighborhood_associations.address ?? null,
+            household_count: membership.neighborhood_associations.household_count ?? null,
           },
           role: membership.role,
         })),
@@ -132,4 +116,40 @@ export const useRegisterMutation = () => {
       return response.data;
     },
   });
+};
+
+export const removeAccount = async (credentials: RemoveAccountCredentials): Promise<{ id: string }> => {
+  const response = await apiClient.post<{ id: string }>('/remove', credentials);
+  return response.data;
+};
+
+export const recoverDeletedAccount = async (
+  credentials: RecoverAccountCredentials
+): Promise<{ id: string; message: string }> => {
+  const response = await apiClient.post<{ id: string; message: string }>('/recover', null, {
+    params: credentials,
+  });
+  return response.data;
+};
+
+export const unanonymizeRecoveredAccount = async (
+  payload: RecoverAccountProfilePayload
+): Promise<{ id: string; message: string }> => {
+  const response = await apiClient.post<{ id: string; message: string }>('/recover/unanonymize', payload);
+  return response.data;
+};
+
+export const useRemoveAccountMutation = () => {
+  return useMutation({
+    mutationFn: removeAccount,
+  });
+};
+export const updateMyAvatarUrl = async (token: string, avatarUrl?: string | null) => {
+  const response = await apiClient.put(
+    '/users/me/avatar',
+    { avatar_url: avatarUrl?.trim() || null },
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+
+  return response.data;
 };

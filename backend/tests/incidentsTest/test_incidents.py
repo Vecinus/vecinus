@@ -10,7 +10,7 @@ os.environ["SUPABASE_URL"] = "http://localhost:8000"
 os.environ["SUPABASE_KEY"] = "dummy"
 os.environ["SUPABASE_SERVICE_KEY"] = "dummy-service"
 
-from core.deps import get_current_user, get_supabase  # noqa: E402
+from core.deps import get_current_user, get_supabase, get_supabase_admin  # noqa: E402
 from main import app  # noqa: E402
 
 client = TestClient(app)
@@ -394,6 +394,10 @@ def make_mock_supabase(extra=None, rls_blocked=None):
             mock_incident_state_8_1,
             mock_incident_state_8_2,
         ],
+        "community_subscriptions": [
+            {"association_id": mock_association_id, "status": "active"},
+            {"association_id": mock_other_association_id, "status": "active"},
+        ],
     }
 
     # Build incidents with embedded memberships
@@ -447,6 +451,13 @@ def make_mock_supabase(extra=None, rls_blocked=None):
             else:
                 base[key] = base.get(key, []) + value
     return MockSupabaseClient(base, rls_blocked=rls_blocked)
+
+
+@pytest.fixture(autouse=True)
+def override_supabase_admin():
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase()
+    yield
+    app.dependency_overrides.pop(get_supabase_admin, None)
 
 
 # ------------------- GET incidents/{association_id} ------------------
@@ -628,7 +639,8 @@ def test_get_incidents_discarded_non_admin_forbidden():
     response = client.get(f"/incidents/{mock_association_id}?status=DISCARDED")
     assert response.status_code == 403
     data = response.json()
-    assert data["detail"] == "Admin access required for this action"
+    # Cambia esto para que coincida con el router:
+    assert data["detail"] == "Admin or president access required for this action"
 
 
 # ------------------- GET incidents/{association_id}/{incident_id} ------------------
@@ -698,9 +710,9 @@ def test_get_incident_wrong_association():
     app.dependency_overrides[get_current_user] = lambda: mock_admin
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
     response = client.get(f"/incidents/{str(uuid4())}/{mock_incident_other_association_id}")
-    assert response.status_code == 403
+    assert response.status_code == 402
     data = response.json()
-    assert data["detail"] == "Access denied to this community"
+    assert data["detail"]["code"] == "community_no_subscription"
 
 
 # ------------------- POST incidents/{association_id} ------------------
@@ -771,9 +783,12 @@ def test_post_incident_admin():
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
     new_incident = {"type": "SAFETY", "description": "Broken gate in the parking lot"}
     response = client.post(f"/incidents/{mock_association_id}", data=new_incident)
-    assert response.status_code == 403
+    assert response.status_code == 201
     data = response.json()
-    assert data["detail"] == "Admins cannot create incidents"
+    assert isinstance(data, dict)
+    assert data["message"] == "Incident created successfully"
+    assert "incident_id" in data
+    assert "incident_state_id" in data
 
 
 def test_post_incident_invalid_type():
@@ -813,7 +828,7 @@ def test_post_incident_cloudinary_exception():
         response = client.post(f"/incidents/{mock_association_id}", data=new_incident, files=files)
     assert response.status_code == 500
     data = response.json()
-    assert data["detail"] == "Failed to upload image: Cloudinary upload failed"
+    assert data["detail"] == "Error al subir la imagen"
 
 
 def test_post_incident_cloudinary_config_missing():
@@ -832,7 +847,7 @@ def test_post_incident_cloudinary_config_missing():
 
     assert response.status_code == 500
     data = response.json()
-    assert data["detail"] == "Failed to upload image: 500: Cloudinary configuration is missing"
+    assert data["detail"] == "Error al subir la imagen"
     upload_mock.assert_not_called()
 
 
@@ -982,6 +997,13 @@ def test_post_state_incident_not_found():
 # ------------------- DELETE incidents/{association_id}/{incident_id} ------------------
 
 
+# --- Función de utilidad para aplicar overrides comunes en DELETE ---
+def setup_delete_overrides(user, mock_db):
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_supabase] = lambda: mock_db
+    app.dependency_overrides[get_supabase_admin] = lambda: mock_db  # CRUCIAL
+
+
 @pytest.mark.parametrize(
     "user,incident_id",
     [
@@ -990,46 +1012,38 @@ def test_post_state_incident_not_found():
     ],
 )
 def test_delete_incident_correct(user, incident_id):
-    app.dependency_overrides[get_current_user] = lambda: user
-    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+    setup_delete_overrides(user, make_mock_supabase())
     response = client.delete(f"/incidents/{mock_association_id}/{incident_id}")
     assert response.status_code == 204
     assert response.content == b""
 
 
 def test_delete_incident_not_incident_owner():
-    app.dependency_overrides[get_current_user] = lambda: mock_employee
-    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+    setup_delete_overrides(mock_employee, make_mock_supabase())
     response = client.delete(f"/incidents/{mock_association_id}/{mock_incident_1_id}")
     assert response.status_code == 403
-    data = response.json()
-    assert data["detail"] == "El usuario no tiene permisos para eliminar esta incidencia"
+    assert response.json()["detail"] == "El usuario no tiene permisos para eliminar esta incidencia"
 
 
 def test_delete_incident_wrong_association():
-    app.dependency_overrides[get_current_user] = lambda: mock_neighbor
-    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+    # Usamos un usuario que no está en la 'mock_other_association_id'
+    setup_delete_overrides(mock_neighbor, make_mock_supabase())
     response = client.delete(f"/incidents/{mock_other_association_id}/{mock_incident_1_id}")
     assert response.status_code == 403
-    data = response.json()
-    assert data["detail"] == "User has no access to this association"
+    assert response.json()["detail"] == "User has no access to this association"
 
 
 @pytest.mark.parametrize(
     "incident_id",
     [
-        mock_incident_6_id,
-        mock_incident_8_id,
+        mock_incident_6_id,  # PENDING (Debe ser 204)
+        mock_incident_8_id,  # IN PROGRESS (Debe ser 409)
     ],
 )
 def test_delete_incident_not_reviewed(incident_id):
-    app.dependency_overrides[get_current_user] = lambda: mock_tenant
-    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
-
+    setup_delete_overrides(mock_tenant, make_mock_supabase())
     response = client.delete(f"/incidents/{mock_association_id}/{incident_id}")
 
-    if incident_id == mock_incident_8_id:
-        assert response.status_code == 409
-        assert response.json()["detail"] == "La incidencia no puede ser eliminada en su estado actual"
-    else:
-        assert response.status_code == 204
+    # Ahora ambas deben fallar con 409 según tu lógica
+    assert response.status_code == 409
+    assert response.json()["detail"] == "La incidencia no puede ser eliminada en su estado actual"

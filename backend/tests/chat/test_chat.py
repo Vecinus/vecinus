@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 os.environ["SUPABASE_URL"] = "http://localhost:8000"
 os.environ["SUPABASE_KEY"] = "dummy"
 
-from core.deps import get_current_user, get_supabase  # noqa: E402
+from core.deps import get_current_user, get_supabase, get_supabase_admin  # noqa: E402
 from main import app  # noqa: E402
 
 client = TestClient(app)
@@ -67,6 +67,9 @@ class MockSupabaseTable:
         return self
 
     def order(self, *args, **kwargs):
+        return self
+
+    def limit(self, *args, **kwargs):
         return self
 
     def update(self, *args, **kwargs):
@@ -217,6 +220,12 @@ def override_get_supabase():
                     "role": 2,
                 },  # Not admin
             ],
+            "community_subscriptions": [
+                {
+                    "association_id": mock_association_id,
+                    "status": "active",
+                }
+            ],
         }
     )
 
@@ -225,6 +234,7 @@ def override_get_supabase():
 def setup_overrides():
     app.dependency_overrides[get_current_user] = override_get_current_user
     app.dependency_overrides[get_supabase] = override_get_supabase
+    app.dependency_overrides[get_supabase_admin] = override_get_supabase
 
     # Patch create_client directly where it is used in the chat router
     patcher = patch("api.chat.chat.create_client")
