@@ -2,7 +2,7 @@ import json
 from typing import Dict, List
 from uuid import UUID
 
-from core.deps import get_current_user, get_supabase
+from core.deps import _verify_jwt, get_current_user, get_supabase, get_supabase_admin
 from fastapi import (
     APIRouter,
     Depends,
@@ -23,7 +23,6 @@ from schemas.chat.chat import (
 from supabase import Client, create_client  # noqa: F401
 
 from .chat_helpers import (
-    verify_association_admin,
     verify_association_admin_or_president,
     verify_channel_access,
     verify_message_ownership,
@@ -609,17 +608,27 @@ async def websocket_endpoint(websocket: WebSocket, channel_id: UUID):
     gestor de conexiones (ConnectionManager) les escupa los mensajes nuevos
     que se han guardado desde la API POST.
     """
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    try:
+        payload = _verify_jwt(token)
+        user_id = str(payload.get("sub") or "")
+        user_role = payload.get("role")
+        if not user_id or user_role != "authenticated":
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+
+        verify_channel_access(str(channel_id), user_id, get_supabase_admin())
+    except HTTPException:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
     await manager.connect(websocket, str(channel_id))
     try:
         while True:
-            data = await websocket.receive_text()
-            await manager.broadcast(
-                {
-                    "channel_id": str(str(channel_id)),
-                    "data": data,
-                    "type": "echo_test",
-                },
-                str(channel_id),
-            )
+            await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket, str(channel_id))

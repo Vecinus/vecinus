@@ -113,8 +113,9 @@ function ChatBubble({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="size-1 rounded-full bg-primary-foreground/10 active:bg-primary-foreground/15">
-                  <Icon as={EllipsisVerticalIcon} size={6} className="text-primary-foreground/85" />
+                  hitSlop={10}
+                  className="size-8 rounded-full bg-primary-foreground/10 active:bg-primary-foreground/15">
+                  <Icon as={EllipsisVerticalIcon} size={16} className="text-primary-foreground/85" />
                 </Button>
               </DropdownMenuTrigger>
 
@@ -195,7 +196,7 @@ function ChatBubble({
 
 export default function CommunityChatScreen() {
   const { communityId } = useLocalSearchParams<{ communityId: string | string[] }>();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const flatListRef = React.useRef<FlatList<ChannelMessage>>(null);
   const composerRef = React.useRef<TextInput>(null);
 
@@ -282,6 +283,9 @@ export default function CommunityChatScreen() {
   }, [roleId, loadMessages, membership, normalizedCommunityId]);
 
   React.useEffect(() => {
+    setMessages([]);
+    setChannel(null);
+    setState('loading');
     void resolveChannel();
   }, [resolveChannel]);
 
@@ -298,11 +302,11 @@ export default function CommunityChatScreen() {
   }, [feedbackMessage]);
 
   React.useEffect(() => {
-    if (!channel?.id) {
+    if (!channel?.id || !token) {
       return;
     }
 
-    const socket = new WebSocket(buildChatWebSocketUrl(channel.id));
+    const socket = new WebSocket(buildChatWebSocketUrl(channel.id, token));
 
     socket.onmessage = (event: MessageEvent) => {
       try {
@@ -346,7 +350,7 @@ export default function CommunityChatScreen() {
     };
 
     return () => socket.close();
-  }, [channel?.id]);
+  }, [channel?.id, token]);
 
   const handleRefresh = React.useCallback(async (): Promise<void> => {
     if (!channel?.id) return;
@@ -646,6 +650,7 @@ export default function CommunityChatScreen() {
                   ref={composerRef}
                   value={messageText}
                   onChangeText={setMessageText}
+                  maxLength={2000}
                   onContentSizeChange={(event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>) => {
                     const nextHeight = Math.max(
                       CHAT_COMPOSER_MIN_HEIGHT,

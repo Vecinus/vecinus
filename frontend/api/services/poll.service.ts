@@ -25,6 +25,13 @@ export const pollService = {
     return response.data;
   },
 
+  getPublicPoll: async (pollId: string, token: string): Promise<PollReadResponse> => {
+    const response = await apiClient.get<PollReadResponse>(`/polls/public/${pollId}`, {
+      params: { token },
+    });
+    return response.data;
+  },
+
   createPoll: async (
     associationId: string,
     data: PollCreateRequest

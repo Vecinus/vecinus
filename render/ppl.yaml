@@ -41,6 +41,8 @@ projects:
                 sync: false
               - key: SUPABASE_URL
                 sync: false
+              - key: SUPABASE_JWT_SECRET
+                sync: false
               - key: CLOUDINARY_URL
                 sync: false
               - key: RESEND_API_KEY

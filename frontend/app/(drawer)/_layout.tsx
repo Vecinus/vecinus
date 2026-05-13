@@ -83,6 +83,7 @@ export default function DrawerLayout() {
       />
       <Drawer.Screen
         name="[communityId]/actas/index"
+        initialParams={{ communityId: activeCommunity?.id }}
         options={{
           title: 'Actas',
           drawerLabel: 'Actas',

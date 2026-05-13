@@ -105,6 +105,7 @@ export default function CrearComunidadScreen() {
                                 placeholder="Nombre de la comunidad"
                                 value={name}
                                 onChangeText={setName}
+                                maxLength={120}
                                 className="pl-10 h-12"
                                 editable={!isLoading}
                             />
@@ -121,6 +122,7 @@ export default function CrearComunidadScreen() {
                                 placeholder="Dirección física"
                                 value={address}
                                 onChangeText={setAddress}
+                                maxLength={250}
                                 className="pl-10 h-12"
                                 editable={!isLoading}
                             />

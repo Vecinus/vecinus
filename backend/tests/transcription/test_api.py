@@ -40,7 +40,7 @@ class TestMinutesAPI:
         app.dependency_overrides[get_current_user] = lambda: MOCK_USER
         app.dependency_overrides[get_supabase] = lambda: MagicMock()
 
-        with patch("api.transcription.minutes.verify_association_admin"), patch.object(
+        with patch("api.transcription.minutes.verify_association_admin_or_president"), patch.object(
             TranscriptionService,
             "process_audio_to_minutes",
             new=AsyncMock(
@@ -69,7 +69,7 @@ class TestMinutesAPI:
         app.dependency_overrides[get_supabase] = lambda: MagicMock()
 
         with patch(
-            "api.transcription.minutes.verify_association_admin",
+            "api.transcription.minutes.verify_association_admin_or_president",
             side_effect=HTTPException(status_code=403, detail="Admin access required for this action"),
         ):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
@@ -89,7 +89,7 @@ class TestMinutesAPI:
         app.dependency_overrides[get_current_user] = lambda: MOCK_USER
         app.dependency_overrides[get_supabase] = lambda: MagicMock()
 
-        with patch("api.transcription.minutes.verify_association_admin"):
+        with patch("api.transcription.minutes.verify_association_admin_or_president"):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 files = {"audio": ("notas.txt", b"esto no es audio", "text/plain")}
                 response = await ac.post(
@@ -108,7 +108,7 @@ class TestMinutesAPI:
         app.dependency_overrides[get_supabase] = lambda: MagicMock()
         content = b"0" * (150 * 1024 * 1024 + 1)
 
-        with patch("api.transcription.minutes.verify_association_admin"):
+        with patch("api.transcription.minutes.verify_association_admin_or_president"):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 files = {"audio": ("gigante.mp3", content, "audio/mpeg")}
                 response = await ac.post(
@@ -127,8 +127,8 @@ class TestMinutesAPI:
         app.dependency_overrides[get_supabase] = lambda: MagicMock()
 
         with patch(
-            "api.transcription.minutes.verify_association_admin",
-            side_effect=HTTPException(status_code=403, detail="Admin access required for this action"),
+            "api.transcription.minutes.verify_association_membership",
+            side_effect=HTTPException(status_code=403, detail="Access denied to this community"),
         ):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 response = await ac.get(f"/api/minutes/{ASSOCIATION_ID}")

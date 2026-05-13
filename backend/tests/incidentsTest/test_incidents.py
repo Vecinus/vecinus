@@ -772,9 +772,12 @@ def test_post_incident_admin():
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
     new_incident = {"type": "SAFETY", "description": "Broken gate in the parking lot"}
     response = client.post(f"/incidents/{mock_association_id}", data=new_incident)
-    assert response.status_code == 403
+    assert response.status_code == 201
     data = response.json()
-    assert data["detail"] == "Admins cannot create incidents"
+    assert isinstance(data, dict)
+    assert data["message"] == "Incidencia creada correctamente"
+    assert "incident_id" in data
+    assert "incident_state_id" in data
 
 
 def test_post_incident_invalid_type():
@@ -814,7 +817,7 @@ def test_post_incident_cloudinary_exception():
         response = client.post(f"/incidents/{mock_association_id}", data=new_incident, files=files)
     assert response.status_code == 500
     data = response.json()
-    assert data["detail"] == "Failed to upload image: Cloudinary upload failed"
+    assert data["detail"] == "Error al subir la imagen"
 
 
 def test_post_incident_cloudinary_config_missing():
@@ -833,7 +836,7 @@ def test_post_incident_cloudinary_config_missing():
 
     assert response.status_code == 500
     data = response.json()
-    assert data["detail"] == "Failed to upload image: 500: Cloudinary configuration is missing"
+    assert data["detail"] == "Error al subir la imagen"
     upload_mock.assert_not_called()
 
 

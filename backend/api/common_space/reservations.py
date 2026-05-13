@@ -38,9 +38,9 @@ def list_occupied_slots_endpoint(
     space_id: int = Query(...),
     reservation_date: date = Query(...),
     current_user: dict = Depends(get_current_user),
-    supabase_admin: Client = Depends(get_supabase_admin),
+    supabase: Client = Depends(get_supabase),
 ):
-    return list_occupied_slots(supabase_admin, current_user["id"], space_id, reservation_date)
+    return list_occupied_slots(supabase, current_user["id"], space_id, reservation_date)
 
 
 @router.get("/me", response_model=list[ReservationSummary])

@@ -3,9 +3,9 @@ from typing import List
 from urllib.parse import quote
 from uuid import UUID
 
-from api.chat.chat_helpers import verify_association_admin
+from api.chat.chat_helpers import verify_association_admin_or_president, verify_association_membership
 from core.deps import get_current_user, get_supabase
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from schemas.transcription.minutes import MeetingType, MinutesReadResponse, MinutesResponse
 from services.transcription.document_service import DocumentService
@@ -40,7 +40,7 @@ async def get_minutes(
     user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
 ):
-    verify_association_admin(association_id, user["id"], supabase)
+    verify_association_membership(association_id, user["id"], supabase)
     try:
         db_results = await service.get_minutes_by_association(association_id)
         results = []
@@ -63,17 +63,17 @@ async def get_minutes(
                 )
             )
         return results
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=500,
-            detail=f"Error fetching minutes: {str(e)}",
+            detail="Error al obtener las actas",
         )
 
 
 @router.post("/transcribe", response_model=MinutesReadResponse)
 async def transcribe_meeting(
     association_id: UUID,
-    title: str,
+    title: str = Query(..., max_length=120),
     location: str = "Residencial Vecinus",
     meeting_type: MeetingType = MeetingType.ORDINARY,
     scheduled_at: datetime = None,
@@ -82,7 +82,7 @@ async def transcribe_meeting(
     user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
 ):
-    verify_association_admin(association_id, user["id"], supabase)
+    verify_association_admin_or_president(association_id, user["id"], supabase)
     if not scheduled_at:
         scheduled_at = datetime.now()
     if audio.content_type not in ALLOWED_CONTENT_TYPES:
@@ -91,14 +91,23 @@ async def transcribe_meeting(
             detail=f"Unsupported audio format: {audio.content_type}",
         )
 
-    audio_bytes = await audio.read()
-
-    if len(audio_bytes) > MAX_FILE_SIZE:
-        del audio_bytes
-        raise HTTPException(
-            status_code=413,
-            detail="File size exceeds the 150 MB limit",
-        )
+    chunk_size = 1024 * 1024
+    audio_chunks = []
+    total_size = 0
+    while True:
+        chunk = await audio.read(chunk_size)
+        if not chunk:
+            break
+        total_size += len(chunk)
+        if total_size > MAX_FILE_SIZE:
+            del audio_chunks
+            raise HTTPException(
+                status_code=413,
+                detail="File size exceeds the 150 MB limit",
+            )
+        audio_chunks.append(chunk)
+    audio_bytes = b"".join(audio_chunks)
+    del audio_chunks
 
     try:
         ai_service = TranscriptionService()
@@ -131,9 +140,16 @@ async def transcribe_meeting(
             **db_result["content_json"],
         )
     except Exception as e:
+        error_str = str(e)
+        if "503" in error_str or "429" in error_str:
+            raise HTTPException(
+                status_code=503,
+                detail="El servicio de inteligencia artificial está saturado o temporalmente no disponible. "
+                "Por favor, inténtalo de nuevo en unos minutos.",
+            )
         raise HTTPException(
             status_code=500,
-            detail=f"Error processing audio: {str(e)}",
+            detail="Error al procesar el audio",
         )
     finally:
         del audio_bytes
@@ -153,8 +169,8 @@ async def generate_minutes_document_preview(
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             headers={"Content-Disposition": f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"},
         )
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=500,
-            detail=f"Error generating document: {str(e)}",
+            detail="Error al generar el documento",
         )

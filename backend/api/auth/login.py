@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 
 from core.deps import get_current_user, get_supabase_admin, get_supabase_anon
@@ -5,6 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from schemas.auth.auth import UserLogin, UserRecover, UserRegister
 from supabase import Client
 from supabase_auth.errors import AuthApiError
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -50,7 +53,7 @@ def register(
             try:
                 supabase_admin.auth.admin.delete_user(str(user_id))
             except Exception as rollback_error:
-                print(f"Failed to delete user on rollback: {rollback_error}")
+                logger.error("Failed to delete user on rollback: %s", rollback_error)
 
         if isinstance(e, HTTPException):
             raise
@@ -60,12 +63,13 @@ def register(
                 raise HTTPException(status_code=409, detail="El email ya está registrado")
             if e.code == "weak_password":
                 raise HTTPException(status_code=400, detail="La contraseña es muy débil")
-            raise HTTPException(status_code=400, detail=f"Error al registrar: {str(e)}")
+            raise HTTPException(status_code=400, detail="Error al registrar el usuario")
 
         error_msg = str(e)
         if "profiles_username_key" in error_msg or "23505" in error_msg:
             raise HTTPException(status_code=409, detail="El nombre de usuario ya está en uso")
-        raise HTTPException(status_code=500, detail=f"Error interno al registrar: {error_msg}")
+        logger.error("Error interno al registrar: %s", error_msg)
+        raise HTTPException(status_code=500, detail="Error interno al registrar")
 
 
 @router.post("/login")
@@ -82,9 +86,9 @@ def login(user: UserLogin, supabase: Client = Depends(get_supabase_anon)):
     except AuthApiError as aae:
         if aae.code == "invalid_credentials":
             raise HTTPException(status_code=401, detail="Credenciales incorrectas")
-        raise HTTPException(status_code=500, detail=f"Error de autenticacion con Supabase: {str(aae)}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno al iniciar sesion: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error de autenticación")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error interno al iniciar sesión")
 
 
 @router.post("/logout")
@@ -93,7 +97,7 @@ def logout(supabase: Client = Depends(get_supabase_anon)):
         supabase.auth.sign_out()
         return {"message": "Logged out successfully"}
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Database error at logout: {str(exc)}")
+        raise HTTPException(status_code=500, detail="Error al cerrar sesión")
 
 
 @router.post("/remove")
@@ -153,9 +157,9 @@ def remove_account(
     except AuthApiError as aae:
         if aae.code == "invalid_credentials":
             raise HTTPException(status_code=401, detail="Wrong supabase credentials")
-        raise HTTPException(status_code=500, detail=f"Supabase authentication error: {str(aae)}")
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Database error at account removal: {str(exc)}")
+        raise HTTPException(status_code=500, detail="Error de autenticación")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error interno al eliminar la cuenta")
 
 
 @router.post("/recover")
@@ -172,9 +176,7 @@ def recover_account(
         if not account_user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        login_attempt = supabase_anon.auth.sign_in_with_password(
-            {"email": account_user.email, "password": password}
-        )
+        login_attempt = supabase_anon.auth.sign_in_with_password({"email": account_user.email, "password": password})
         if not getattr(login_attempt, "user", None):
             raise HTTPException(status_code=401, detail="Wrong password")
 
@@ -182,7 +184,7 @@ def recover_account(
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Database error at account recovery: {str(exc)}")
+        raise HTTPException(status_code=500, detail="Error interno al recuperar la cuenta")
 
 
 @router.post("/recover/unanonymize")
@@ -239,4 +241,4 @@ def set_recovered_account(
         error_msg = str(exc)
         if "profiles_username_key" in error_msg or "Key (username)=" in error_msg or "23505" in error_msg:
             raise HTTPException(status_code=409, detail="El nombre de usuario ya está en uso")
-        raise HTTPException(status_code=500, detail=f"Database error at unanonymizing recovered account: {str(exc)}")
+        raise HTTPException(status_code=500, detail="Error interno al recuperar la cuenta")

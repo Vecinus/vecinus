@@ -49,24 +49,48 @@ def _load_registration_order(supabase_admin: Client, order_id: str) -> dict[str,
     return order_res.data[0]
 
 
+def _raise_registration_email_unavailable() -> None:
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="There is already a registered user with that email",
+    )
+
+
+def _iter_auth_users(response):
+    if isinstance(response, list):
+        return response
+    for attr_name in ("users", "data"):
+        users = getattr(response, attr_name, None)
+        if users is not None:
+            return users
+    return []
+
+
 def _ensure_registration_email_available(supabase_admin: Client, email: str, exented: Set[str] = None) -> None:
     if exented is None:
         exented = set()
+
+    normalized_email = email.casefold()
+
+    profile_res = supabase_admin.table("profiles").select("id").eq("email", email).limit(1).execute()
+    if profile_res.data:
+        _raise_registration_email_unavailable()
+
+    auth_users = _iter_auth_users(supabase_admin.auth.admin.list_users())
+    for user in auth_users:
+        user_email = user.get("email") if isinstance(user, dict) else getattr(user, "email", None)
+        if user_email and str(user_email).casefold() == normalized_email:
+            _raise_registration_email_unavailable()
+
     existing_order_res = supabase_admin.table("registration_payment_orders").select("id").eq("email", email).execute()
     if existing_order_res.data:
         if len(exented) > 0:
             existing_order_ids = {str(order["id"]) for order in existing_order_res.data}
             other_order_ids = existing_order_ids - exented
             if len(other_order_ids) > 0:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="There is already a registered user with that email",
-                )
+                _raise_registration_email_unavailable()
         else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="There is already a registered user with that email",
-            )
+            _raise_registration_email_unavailable()
 
 
 def _create_registration_billing_request(order_id: str, amount_cents: int) -> dict[str, Any]:
@@ -205,7 +229,9 @@ def complete_registration_order(
     )
     profile_id = str(created_user.user.id)
 
-    supabase_admin.table("profiles").upsert({"id": profile_id, "username": order["username"]}).execute()
+    supabase_admin.table("profiles").upsert(
+        {"id": profile_id, "email": payload.email, "username": order["username"]}
+    ).execute()
 
     association_res = (
         supabase_admin.table("neighborhood_associations")

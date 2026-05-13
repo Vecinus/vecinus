@@ -15,6 +15,13 @@ class UserRegister(BaseModel):
     username: str
     avatar_url: Optional[str] = None
 
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, v):
+        if len(v) > 50:
+            raise ValueError("El nombre de usuario no puede exceder los 50 caracteres")
+        return v
+
     @field_validator("password")
     @classmethod
     def validate_password(cls, v):
@@ -43,7 +50,8 @@ class UserRegister(BaseModel):
             raise ValueError("La URL de la imagen debe comenzar por http:// o https://")
 
         return normalized
-    
+
+
 class UserRecover(BaseModel):
     id: str
     password: str

@@ -33,7 +33,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import type { ChatMessage, UploadDocumentFile } from '@/types/chatbot.types';
-import { ADMIN_ROLE_ID, isAdminOrPresident } from '@/utils/role.util';
+import { isAdminOrPresident } from '@/utils/role.util';
 import { getLegalWarning } from '@/utils/legal-warnings';
 import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
@@ -47,7 +47,6 @@ import {
   UploadCloudIcon,
   UserIcon,
   ArrowDownIcon,
-  ChevronDownIcon,
 } from 'lucide-react-native';
 import * as React from 'react';
 import {
@@ -69,23 +68,6 @@ import {
 type ChatTabValue = 'chat' | 'documents';
 const CHAT_COMPOSER_MIN_HEIGHT = 24;
 const CHAT_COMPOSER_MAX_HEIGHT = 132;
-
-function toRoleId(role: string | number | null | undefined): number | null {
-  if (typeof role === 'number' && Number.isFinite(role)) {
-    return role;
-  }
-
-  if (typeof role === 'string') {
-    const parsedRole = Number.parseInt(role, 10);
-    return Number.isNaN(parsedRole) ? null : parsedRole;
-  }
-
-  return null;
-}
-
-function isAdministratorRole(role: string | number | null | undefined): boolean {
-  return toRoleId(role) === ADMIN_ROLE_ID;
-}
 
 function buildMessage(
   partial: Omit<ChatMessage, 'id' | 'createdAt'> & { id?: string; createdAt?: string }

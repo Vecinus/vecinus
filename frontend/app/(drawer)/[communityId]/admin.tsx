@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, FlatList, ActivityIndicator, TouchableOpacity, Modal, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { View, FlatList, ActivityIndicator, TouchableOpacity, Modal, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/ui/text';
@@ -189,6 +189,10 @@ export default function CommunityAdminScreen() {
       setInviteError('Por favor, indica un correo electrónico y el rol a asignar.');
       return;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setInviteError('Introduce un correo electrónico válido.');
+      return;
+    }
     if (roleToGrant !== '5' && !propertyId) {
       setInviteError('Debes asignar una propiedad libre para este rol.');
       return;
@@ -199,8 +203,15 @@ export default function CommunityAdminScreen() {
       {
         onSuccess: resetInviteForm,
         onError: (error: unknown) => {
-          const err = error as { response?: { data?: { detail?: string } } };
-          setInviteError(err?.response?.data?.detail || 'Error al invitar vecino. Comprueba los datos o tu conexión.');
+          const err = error as { response?: { data?: { detail?: unknown } } };
+          const detail = err.response?.data?.detail;
+          let errorMessage = 'Error al invitar vecino. Comprueba los datos o tu conexión.';
+          if (typeof detail === 'string') {
+            errorMessage = detail;
+          } else if (Array.isArray(detail) && detail.length > 0 && detail[0]?.msg) {
+            errorMessage = detail[0].msg;
+          }
+          setInviteError(errorMessage);
         }
       }
     );

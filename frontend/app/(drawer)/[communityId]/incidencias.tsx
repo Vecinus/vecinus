@@ -75,7 +75,7 @@ export default function IncidenciasScreen() {
     return null;
   }, [communityId, currentRole, user?.CommunitiesAndRole, activeCommunity]);
 
-  const canCreateIncident = roleToken !== '1';
+  const canCreateIncident = roleToken !== null;
   const canManageStatus = roleToken === '1' || roleToken === '4' || roleToken === '5';
   const canSeeDiscardedFilter = roleToken === '1' || roleToken === '4';
   const isDesktop = windowWidth >= DESKTOP_BREAKPOINT;

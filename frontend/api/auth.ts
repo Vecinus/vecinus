@@ -74,14 +74,15 @@ export const useLoginMutation = () => {
       const { session } = loginResponse.data;
       const token = session.access_token;
 
-      const userResponse = await apiClient.get<UserProfile>('/users/me', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const [userResponse, communitiesResponse] = await Promise.all([
+        apiClient.get<UserProfile>('/users/me', {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        apiClient.get<MembershipItem[]>('/users/me/communities', {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
       const profile = userResponse.data;
-
-      const communitiesResponse = await apiClient.get<MembershipItem[]>('/users/me/communities', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
       const communitiesData = communitiesResponse.data;
 
       const fullUser: User = {

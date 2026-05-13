@@ -14,28 +14,56 @@ import { CreateActaCard } from '@/components/actas/create-acta-card';
 import { Drawer } from 'expo-router/drawer';
 
 export default function Actas() {
-  const { communityId } = useLocalSearchParams<{ communityId: string }>();
+  const { communityId: routeCommunityIdRaw } = useLocalSearchParams<{ communityId?: string | string[] }>();
   const [minutes, setMinutes] = React.useState<MinutesReadResponse[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [isCreating, setIsCreating] = React.useState(false);
-  const { currentRole } = useAuth();
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const { activeCommunity, currentRole, isLoading: isAuthLoading, token } = useAuth();
   const router = useRouter();
+  const routeCommunityId = Array.isArray(routeCommunityIdRaw) ? routeCommunityIdRaw[0] : routeCommunityIdRaw;
+  const communityId = routeCommunityId || activeCommunity?.id || '';
 
   const canCreate = isAdminOrPresident(currentRole);
 
   const fetchMinutes = React.useCallback(async () => {
-    if (!communityId) return;
+    if (isAuthLoading) return;
+
+    if (!communityId) {
+      setErrorMessage('Selecciona una comunidad para ver sus actas.');
+      setIsLoading(false);
+      setIsRefreshing(false);
+      return;
+    }
+
+    if (!token) {
+      setErrorMessage('Tu sesion ha caducado. Vuelve a iniciar sesion.');
+      setIsLoading(false);
+      setIsRefreshing(false);
+      return;
+    }
+
     try {
-      const data = await minutesService.getMinutes(communityId);
+      setErrorMessage(null);
+      const data = await minutesService.getMinutes(communityId, token);
       setMinutes(data);
-    } catch (error) {
-      console.error('Error fetching minutes:', error);
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { status?: number; data?: { detail?: unknown } } };
+      const status = axiosError.response?.status;
+      const detail = axiosError.response?.data?.detail;
+      setErrorMessage(
+        status === 401
+          ? 'Tu sesion ha caducado. Vuelve a iniciar sesion.'
+          : typeof detail === 'string'
+            ? detail
+            : 'No se pudieron cargar las actas.'
+      );
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [communityId]);
+  }, [communityId, isAuthLoading, token]);
 
   React.useEffect(() => {
     fetchMinutes();
@@ -99,7 +127,7 @@ export default function Actas() {
                 <Icon as={FileText} size={40} className="text-muted-foreground" />
              </View>
             <Text className="text-center text-lg font-semibold text-foreground">
-              No hay actas disponibles
+              {errorMessage ? 'No se pudieron cargar las actas' : 'No hay actas disponibles'}
             </Text>
             <Text className="text-center text-muted-foreground mt-2 px-10">
               Aún no se han registrado actas para esta comunidad.

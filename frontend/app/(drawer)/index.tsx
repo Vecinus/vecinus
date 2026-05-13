@@ -74,13 +74,6 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        <FeedbackSection
-          feedback={feedback}
-          setFeedback={setFeedback}
-          isSubmitting={isSubmitting}
-          onSubmit={handleFeedbackSubmit}
-        />
-
         <View className="mb-6 gap-4">
           <Text className="text-center text-xl font-bold">Qué puedes hacer</Text>
 
@@ -91,15 +84,21 @@ export default function HomeScreen() {
             <Feature Icon={BellRing} title="Avisos" desc="Mantente informado." />
           </View>
         </View>
-      </View>
 
-      <View className="h-16" />
-      <Button className="self-center" onPress={() => navigation.openDrawer()} size={'lg'}>
-        <View className="flex-row items-center gap-2">
-          <Text>Explorar</Text>
-          <ChevronRight size={18} color="white" />
-        </View>
-      </Button>
+        <Button className="mb-10 self-center" onPress={() => navigation.openDrawer()} size={'lg'}>
+          <View className="flex-row items-center gap-2">
+            <Text>Explorar</Text>
+            <ChevronRight size={18} color="white" />
+          </View>
+        </Button>
+
+        <FeedbackSection
+          feedback={feedback}
+          setFeedback={setFeedback}
+          isSubmitting={isSubmitting}
+          onSubmit={handleFeedbackSubmit}
+        />
+      </View>
 
       <View className="border-t border-border px-5 py-6">
         <Pressable onPress={() => router.push('/legal' as Href)}>

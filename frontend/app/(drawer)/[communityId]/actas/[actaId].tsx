@@ -210,11 +210,11 @@ export default function ActaDetail() {
                       }
                     />
                   </View>
-                  <View className="flex-1">
-                    <Text className="text-base font-medium text-foreground">
+                  <View className="flex-1 min-w-0 shrink">
+                    <Text className="text-base font-medium text-foreground flex-shrink">
                       {agreement.description}
                     </Text>
-                    <View className="mt-2 flex-row items-center gap-2">
+                    <View className="mt-2 flex-row flex-wrap items-center gap-2">
                       <View
                         className={cn(
                           'rounded-md px-2 py-0.5',
@@ -233,7 +233,7 @@ export default function ActaDetail() {
                         </Text>
                       </View>
                       {agreement.details && (
-                        <Text className="text-xs italic text-muted-foreground">
+                        <Text className="text-xs italic text-muted-foreground flex-shrink">
                           {agreement.details}
                         </Text>
                       )}
