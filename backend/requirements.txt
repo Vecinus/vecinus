@@ -33,7 +33,6 @@ certifi==2026.4.22
     #   cloudinary
     #   httpcore
     #   httpx
-    #   pinecone
     #   requests
 cffi==2.0.0
     # via
@@ -57,9 +56,9 @@ colorama==0.4.6
     # via
     #   -r requirements.in
     #   commitizen
-commitizen==4.15.0
+commitizen==4.16.0
     # via -r requirements.in
-cryptography==46.0.7
+cryptography==48.0.0
     # via
     #   -r requirements.in
     #   google-auth
@@ -93,7 +92,7 @@ fsspec==2026.4.0
     #   pyiceberg
 google-auth[requests]==2.49.1
     # via google-genai
-google-genai==1.74.0
+google-genai==2.2.0
     # via -r requirements.in
 h11==0.16.0
     # via
@@ -120,6 +119,7 @@ httpx[http2]==0.28.1
     #   google-genai
     #   langgraph-sdk
     #   langsmith
+    #   pinecone
     #   postgrest
     #   storage3
     #   supabase
@@ -131,7 +131,7 @@ hyperframe==6.1.0
     #   h2
 identify==2.6.18
     # via pre-commit
-idna==3.13
+idna==3.15
     # via
     #   -r requirements.in
     #   anyio
@@ -147,9 +147,9 @@ jsonpatch==1.33
     # via langchain-core
 jsonpointer==3.0.0
     # via jsonpatch
-langchain==1.2.17
+langchain==1.3.0
     # via -r requirements.in
-langchain-core==1.3.3
+langchain-core==1.4.0
     # via
     #   langchain
     #   langgraph
@@ -157,13 +157,13 @@ langchain-core==1.3.3
     #   langgraph-prebuilt
 langchain-protocol==0.0.15
     # via langchain-core
-langgraph==1.1.10
+langgraph==1.2.0
     # via langchain
-langgraph-checkpoint==4.0.1
+langgraph-checkpoint==4.1.0
     # via
     #   langgraph
     #   langgraph-prebuilt
-langgraph-prebuilt==1.0.13
+langgraph-prebuilt==1.1.0
     # via langgraph
 langgraph-sdk==0.3.11
     # via langgraph
@@ -171,7 +171,7 @@ langsmith==0.7.31
     # via langchain-core
 lxml==6.1.0
     # via python-docx
-markdown-it-py==4.0.0
+markdown-it-py==4.2.0
     # via
     #   -r requirements.in
     #   rich
@@ -185,6 +185,8 @@ mmh3==5.2.1
     # via
     #   -r requirements.in
     #   pyiceberg
+msgspec==0.21.1
+    # via pinecone
 multidict==6.7.1
     # via
     #   -r requirements.in
@@ -210,12 +212,8 @@ packaging==26.2
     #   pytest
 pillow==12.2.0
     # via -r requirements.in
-pinecone==8.1.2
+pinecone==9.0.0
     # via -r requirements.in
-pinecone-plugin-assistant==3.0.3
-    # via pinecone
-pinecone-plugin-interface==0.0.7
-    # via pinecone
 platformdirs==4.9.4
     # via
     #   python-discovery
@@ -232,7 +230,7 @@ prompt-toolkit==3.0.51
     # via
     #   commitizen
     #   questionary
-propcache==0.4.1
+propcache==0.5.2
     # via
     #   -r requirements.in
     #   yarl
@@ -263,7 +261,7 @@ pydantic-core==2.41.5
     # via
     #   -r requirements.in
     #   pydantic
-pydantic-settings==2.14.0
+pydantic-settings==2.14.1
     # via -r requirements.in
 pyflakes==3.4.0
     # via autoflake
@@ -284,7 +282,7 @@ pyparsing==3.3.2
     # via
     #   -r requirements.in
     #   pyiceberg
-pypdf==6.10.2
+pypdf==6.11.0
     # via -r requirements.in
 pyroaring==1.1.0
     # via
@@ -295,7 +293,6 @@ pytest==9.0.3
 python-dateutil==2.9.0.post0
     # via
     #   -r requirements.in
-    #   pinecone
     #   strictyaml
 python-discovery==1.1.3
     # via virtualenv
@@ -305,7 +302,7 @@ python-dotenv==1.2.2
     # via
     #   -r requirements.in
     #   pydantic-settings
-python-multipart==0.0.27
+python-multipart==0.0.28
     # via -r requirements.in
 pyyaml==6.0.3
     # via
@@ -321,20 +318,19 @@ realtime==2.28.0
     #   supabase
 regex==2026.2.28
     # via tiktoken
-requests==2.33.1
+requests==2.34.0
     # via
     #   -r requirements.in
     #   google-auth
     #   google-genai
     #   langsmith
-    #   pinecone-plugin-assistant
     #   pyiceberg
     #   requests-toolbelt
     #   resend
     #   tiktoken
 requests-toolbelt==1.0.0
     # via langsmith
-resend==2.29.0
+resend==2.30.0
     # via -r requirements.in
 rich==14.3.4
     # via
@@ -388,18 +384,15 @@ tomlkit==0.14.0
 typing-extensions==4.15.0
     # via
     #   -r requirements.in
-    #   anyio
     #   fastapi
     #   google-genai
     #   langchain-core
     #   langchain-protocol
-    #   pinecone
     #   pydantic
     #   pydantic-core
     #   python-docx
     #   realtime
     #   resend
-    #   starlette
     #   typing-inspection
 typing-inspection==0.4.2
     # via
@@ -413,7 +406,6 @@ urllib3==2.7.0
     # via
     #   -r requirements.in
     #   cloudinary
-    #   pinecone
     #   requests
 uuid-utils==0.14.1
     # via
