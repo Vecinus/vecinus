@@ -23,7 +23,6 @@ from schemas.chat.chat import (
 from supabase import Client, create_client  # noqa: F401
 
 from .chat_helpers import (
-    verify_association_admin,
     verify_association_admin_or_president,
     verify_channel_access,
     verify_message_ownership,

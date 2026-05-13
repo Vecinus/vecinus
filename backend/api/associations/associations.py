@@ -23,6 +23,37 @@ from supabase import Client
 router = APIRouter()
 
 
+def _add_user_to_group_chats(supabase_admin: Client, user_id: str, association_id: str):
+    channels_res = (
+        supabase_admin.table("chat_channels")
+        .select("id")
+        .eq("association_id", association_id)
+        .eq("is_direct_message", False)
+        .execute()
+    )
+    if channels_res.data:
+        channel_ids = [c["id"] for c in channels_res.data]
+        existing_res = (
+            supabase_admin.table("channel_participants")
+            .select("channel_id")
+            .eq("user_id", user_id)
+            .in_("channel_id", channel_ids)
+            .execute()
+        )
+        existing_channels = [str(e["channel_id"]) for e in existing_res.data] if existing_res.data else []
+
+        participants_data = [
+            {
+                "channel_id": c_id,
+                "user_id": user_id,
+            }
+            for c_id in channel_ids
+            if str(c_id) not in existing_channels
+        ]
+        if participants_data:
+            supabase_admin.table("channel_participants").insert(participants_data).execute()
+
+
 # --- NUEVO MODELO PARA CREAR PROPIEDADES ---
 class CreatePropertyRequest(BaseModel):
     number: str
@@ -420,6 +451,9 @@ def accept_invitation(
         if not existing_member.data:
             supabase_admin.table("memberships").insert(membership_data).execute()
 
+        # Añadir al usuario a los chats grupales de la comunidad
+        _add_user_to_group_chats(supabase_admin, user_id, membership_data["association_id"])
+
         # Marcar invitación como ACCEPTED
         (supabase_admin.table("invitations").update({"status": 2}).eq("id", str(body.invitation_token)).execute())
 
@@ -517,6 +551,9 @@ def accept_invitation_internal(
     )
     if not existing.data:
         supabase_admin.table("memberships").insert(membership_data).execute()
+
+    # Añadir al usuario a los chats grupales de la comunidad
+    _add_user_to_group_chats(supabase_admin, user_id, membership_data["association_id"])
 
     # 2. Marcar invitación como ACCEPTED (status = 2)
     supabase_admin.table("invitations").update({"status": 2}).eq("id", invitation_id).execute()

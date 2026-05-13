@@ -29,6 +29,7 @@ export type UnifiedBookingItem = {
   startDate: string;
   endDate?: string;
   statusId: number;
+  requiresQr: boolean;
 };
 
 export function CustomAlertDialog({

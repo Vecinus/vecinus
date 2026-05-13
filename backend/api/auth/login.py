@@ -172,9 +172,7 @@ def recover_account(
         if not account_user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        login_attempt = supabase_anon.auth.sign_in_with_password(
-            {"email": account_user.email, "password": password}
-        )
+        login_attempt = supabase_anon.auth.sign_in_with_password({"email": account_user.email, "password": password})
         if not getattr(login_attempt, "user", None):
             raise HTTPException(status_code=401, detail="Wrong password")
 

@@ -1,34 +1,14 @@
 import io
 from typing import Optional
 
-from uuid import UUID
 import pypdf
+from api.chat.chat_helpers import verify_association_admin_or_president
 from core.deps import get_current_user, get_supabase
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from services.chatBot.documents_ChatBotService import delete_document, index_document, list_documents
 from supabase import Client
 
 router = APIRouter(prefix="/comunities", tags=["documents"])
-
-def verify_association_admin_or_president(association_id: UUID | str, user_id: str, supabase: Client):
-    """Verifica que un usuario tiene rol de administrador (role=1) o presidente (role=4) en la comunidad dada. Lanza 403 o 404."""
-    membership_res = (
-        supabase.table("memberships")
-        .select("role")
-        .eq("association_id", str(association_id))
-        .eq("profile_id", str(user_id))
-        .execute()
-    )
-
-    if not membership_res.data:
-        raise HTTPException(status_code=404, detail="Membership not found in this community")
-
-    user_role = membership_res.data[0].get("role")
-
-    if str(user_role) not in ("1", "4"):
-        raise HTTPException(status_code=403, detail="Admin or president access required for this action")
-
-    return membership_res.data[0]
 
 
 @router.get("/{comunidad_id}/documents")
@@ -88,10 +68,12 @@ async def upload_document(
             raise HTTPException(status_code=400, detail="No se ha enviado un archivo valido.")
 
         texto_extraido = ""
-        if file.filename.endswith(".txt"):
+        filename = file.filename or ""
+
+        if filename.endswith(".txt"):
             contenido_bytes = await file.read()
             texto_extraido = contenido_bytes.decode("utf-8")
-        elif file.filename.endswith(".pdf"):
+        elif filename.endswith(".pdf"):
             contenido_bytes = await file.read()
             lector_pdf = pypdf.PdfReader(io.BytesIO(contenido_bytes))
             for pagina in lector_pdf.pages:
@@ -109,14 +91,14 @@ async def upload_document(
 
         chunks = index_document(
             path_comunidad_id,
-            file.filename,
+            filename,
             texto_extraido,
             uploaded_by=str(current_user["id"]),
             uploaded_by_email=current_user.get("email"),
-            source_filename=file.filename,
+            source_filename=filename,
         )
         return {
-            "message": f"Documento '{file.filename}' indexado con exito",
+            "message": f"Documento '{filename}' indexado con exito",
             "chunks": chunks,
             "uploaded_by": str(current_user["id"]),
         }

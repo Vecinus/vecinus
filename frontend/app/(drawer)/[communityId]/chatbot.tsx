@@ -83,10 +83,6 @@ function toRoleId(role: string | number | null | undefined): number | null {
   return null;
 }
 
-function isAdministratorRole(role: string | number | null | undefined): boolean {
-  return toRoleId(role) === ADMIN_ROLE_ID;
-}
-
 function buildMessage(
   partial: Omit<ChatMessage, 'id' | 'createdAt'> & { id?: string; createdAt?: string }
 ): ChatMessage {
