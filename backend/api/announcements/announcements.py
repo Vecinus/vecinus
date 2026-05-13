@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from io import BytesIO
 
 from core.config import settings
-from core.deps import get_current_user, get_supabase, get_supabase_admin
+from core.deps import get_current_user, get_supabase, get_supabase_admin, require_active_community
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi import status as http_status
 from schemas.announcements.announcements import AnnouncementResponse
@@ -27,7 +27,9 @@ def check_status(status_val: str):
         raise HTTPException(status_code=400, detail=f"Invalid status. Allowed values: {ALLOWED_STATUSES}")
 
 
-@router.get("/{association_id}", response_model=list[AnnouncementResponse])
+@router.get(
+    "/{association_id}", response_model=list[AnnouncementResponse], dependencies=[Depends(require_active_community)]
+)
 def get_announcements(
     association_id: str,
     status: str = None,
@@ -91,7 +93,11 @@ def _publish_scheduled(supabase_admin: Client, association_id: str):
         logger.warning(f"_publish_scheduled failed: {e}")
 
 
-@router.get("/{association_id}/{announcement_id}", response_model=AnnouncementResponse)
+@router.get(
+    "/{association_id}/{announcement_id}",
+    response_model=AnnouncementResponse,
+    dependencies=[Depends(require_active_community)],
+)
 def get_announcement(
     association_id: str,
     announcement_id: str,
@@ -135,7 +141,12 @@ def get_announcement(
     return announcement
 
 
-@router.post("/{association_id}", response_model=AnnouncementResponse, status_code=http_status.HTTP_201_CREATED)
+@router.post(
+    "/{association_id}",
+    response_model=AnnouncementResponse,
+    status_code=http_status.HTTP_201_CREATED,
+    dependencies=[Depends(require_active_community)],
+)
 def create_announcement(
     association_id: str,
     title: str = Form(...),
@@ -193,7 +204,7 @@ def create_announcement(
             image_url = upload.get("secure_url")
         except HTTPException:
             raise
-        except Exception as e:
+        except Exception:
             raise HTTPException(status_code=500, detail="Error al subir la imagen")
 
     try:
@@ -218,11 +229,15 @@ def create_announcement(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error interno al crear el anuncio")
 
 
-@router.put("/{association_id}/{announcement_id}", response_model=AnnouncementResponse)
+@router.put(
+    "/{association_id}/{announcement_id}",
+    response_model=AnnouncementResponse,
+    dependencies=[Depends(require_active_community)],
+)
 def update_announcement(
     association_id: str,
     announcement_id: str,
@@ -315,7 +330,7 @@ def update_announcement(
             update_data["image_url"] = upload.get("secure_url")
         except HTTPException:
             raise
-        except Exception as e:
+        except Exception:
             raise HTTPException(status_code=500, detail="Error al subir la imagen")
 
     if not update_data:
@@ -336,11 +351,15 @@ def update_announcement(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error interno al actualizar el anuncio")
 
 
-@router.delete("/{association_id}/{announcement_id}", status_code=http_status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{association_id}/{announcement_id}",
+    status_code=http_status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_active_community)],
+)
 def delete_announcement(
     association_id: str,
     announcement_id: str,
@@ -384,5 +403,5 @@ def delete_announcement(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error interno al eliminar el anuncio")

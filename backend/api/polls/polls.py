@@ -3,7 +3,13 @@ from datetime import datetime, timezone
 from typing import List
 from uuid import UUID
 
-from core.deps import get_current_user, get_supabase, get_supabase_admin
+from core.deps import (
+    get_current_user,
+    get_supabase,
+    get_supabase_admin,
+    require_active_community,
+    require_active_community_for_poll,
+)
 from fastapi import APIRouter, Depends, HTTPException, status
 from schemas.polls.polls import PollCreate, PollPublish, PollResponse
 from schemas.polls.results import PollResultResponse
@@ -19,7 +25,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/polls", tags=["Votaciones"])
 
 
-@router.post("/associations/{association_id}", response_model=PollResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/associations/{association_id}",
+    response_model=PollResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_active_community)],
+)
 def create_poll(
     association_id: UUID,
     poll_data: PollCreate,
@@ -35,7 +46,11 @@ def create_poll(
     return service.create_poll(association_id, user_id, poll_data)
 
 
-@router.get("/associations/{association_id}", response_model=List[PollResponse])
+@router.get(
+    "/associations/{association_id}",
+    response_model=List[PollResponse],
+    dependencies=[Depends(require_active_community)],
+)
 def get_polls(
     association_id: UUID,
     supabase: Client = Depends(get_supabase),
@@ -56,7 +71,9 @@ def get_polls(
     return service.get_polls_by_community(association_id)
 
 
-@router.put("/{poll_id}/publish", response_model=PollResponse)
+@router.put(
+    "/{poll_id}/publish", response_model=PollResponse, dependencies=[Depends(require_active_community_for_poll)]
+)
 def publish_poll(
     poll_id: UUID,
     publish_data: PollPublish,
@@ -78,7 +95,7 @@ def publish_poll(
     return service.publish_poll(poll_id, publish_data)
 
 
-@router.post("/{poll_id}/close", response_model=PollResponse)
+@router.post("/{poll_id}/close", response_model=PollResponse, dependencies=[Depends(require_active_community_for_poll)])
 def close_poll_manually(
     poll_id: UUID,
     current_user: dict = Depends(get_current_user),
@@ -99,7 +116,12 @@ def close_poll_manually(
     return service.close_poll_manually(poll_id)
 
 
-@router.post("/{poll_id}/vote", response_model=VoteResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{poll_id}/vote",
+    response_model=VoteResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_active_community_for_poll)],
+)
 def cast_vote(
     poll_id: UUID,
     vote_data: VoteCreate,
@@ -112,7 +134,11 @@ def cast_vote(
     return service.cast_vote(poll_id, vote_data)
 
 
-@router.get("/{association_id}/{poll_id}/results", response_model=PollResultResponse)
+@router.get(
+    "/{association_id}/{poll_id}/results",
+    response_model=PollResultResponse,
+    dependencies=[Depends(require_active_community)],
+)
 def get_poll_results(
     association_id: UUID,
     poll_id: UUID,
@@ -146,7 +172,7 @@ def get_poll_results(
     return result
 
 
-@router.get("/public/{poll_id}", response_model=PollResponse)
+@router.get("/public/{poll_id}", response_model=PollResponse, dependencies=[Depends(require_active_community_for_poll)])
 def get_public_poll_by_voting_token(
     poll_id: UUID,
     token: str,
@@ -180,14 +206,14 @@ def get_public_poll_by_voting_token(
     return service.get_poll_by_id(poll_id)
 
 
-@router.get("/{poll_id}", response_model=PollResponse)
+@router.get("/{poll_id}", response_model=PollResponse, dependencies=[Depends(require_active_community_for_poll)])
 def get_poll_by_id(poll_id: UUID, supabase: Client = Depends(get_supabase)):
     """Obtiene los detalles de una votación por su ID."""
     service = PollService(supabase)
     return service.get_poll_by_id(poll_id)
 
 
-@router.get("/{poll_id}/membership-info")
+@router.get("/{poll_id}/membership-info", dependencies=[Depends(require_active_community_for_poll)])
 def get_poll_membership_info(
     poll_id: UUID, current_user: dict = Depends(get_current_user), supabase: Client = Depends(get_supabase)
 ):
@@ -232,7 +258,7 @@ def get_poll_membership_info(
     return {"coefficient": coefficient, "is_defaulter": is_defaulter}
 
 
-@router.get("/{poll_id}/has-voted")
+@router.get("/{poll_id}/has-voted", dependencies=[Depends(require_active_community_for_poll)])
 def has_user_voted(
     poll_id: UUID, current_user: dict = Depends(get_current_user), supabase: Client = Depends(get_supabase)
 ):
@@ -263,7 +289,7 @@ def has_user_voted(
     return {"has_voted": len(vote_res.data) > 0}
 
 
-@router.post("/{poll_id}/request-auth-token")
+@router.post("/{poll_id}/request-auth-token", dependencies=[Depends(require_active_community_for_poll)])
 def request_voting_auth_token(
     poll_id: UUID,
     current_user: dict = Depends(get_current_user),
@@ -341,7 +367,7 @@ def request_voting_auth_token(
     return {"message": f"Se ha enviado un código de autenticación a {user_email}", "email": user_email}
 
 
-@router.patch("/{poll_id}", response_model=PollResponse)
+@router.patch("/{poll_id}", response_model=PollResponse, dependencies=[Depends(require_active_community_for_poll)])
 def edit_poll(
     poll_id: UUID,
     poll_data: PollCreate,
@@ -367,7 +393,7 @@ def edit_poll(
     return service.edit_poll(poll_id, poll_data)
 
 
-@router.delete("/{poll_id}")
+@router.delete("/{poll_id}", dependencies=[Depends(require_active_community_for_poll)])
 def delete_poll(
     poll_id: UUID,
     current_user: dict = Depends(get_current_user),

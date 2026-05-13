@@ -48,6 +48,8 @@ class MockSupabaseClient:
         self.storage = {
             "community_subscriptions": [{"association_id": ASSOC_ID, "status": "active"}],
             "memberships": [{"association_id": ASSOC_ID, "profile_id": USER_ID, "role": 1}],
+            "poll": [{"id": POLL_ID, "association_id": ASSOC_ID, "status": "DRAFT", "title": "Nueva Votación"}],
+            "voting_tokens": [{"token": "public-token", "poll_id": POLL_ID, "expires_at": None, "used_at": None}],
         }
 
     def table(self, name: str):
@@ -60,6 +62,15 @@ def override_get_current_user():
 
 def override_get_supabase():
     return MockSupabaseClient()
+
+
+def make_supabase_with_subscription(status: str | None):
+    client = MockSupabaseClient()
+    if status is None:
+        client.storage["community_subscriptions"] = []
+    else:
+        client.storage["community_subscriptions"] = [{"association_id": ASSOC_ID, "status": status}]
+    return client
 
 
 @pytest.fixture(autouse=True)
@@ -121,6 +132,26 @@ def test_api_get_polls(mock_poll_service_class):
     assert data[0]["current_status"] == "ACTIVE"
 
 
+def test_api_get_polls_without_subscription_returns_402():
+    app.dependency_overrides[get_supabase] = lambda: make_supabase_with_subscription(None)
+    app.dependency_overrides[get_supabase_admin] = lambda: make_supabase_with_subscription(None)
+
+    response = client.get(f"/polls/associations/{ASSOC_ID}")
+
+    assert response.status_code == 402
+    assert response.json()["detail"]["code"] == "community_no_subscription"
+
+
+def test_api_get_polls_with_blocked_subscription_returns_402():
+    app.dependency_overrides[get_supabase] = lambda: make_supabase_with_subscription("past_due")
+    app.dependency_overrides[get_supabase_admin] = lambda: make_supabase_with_subscription("past_due")
+
+    response = client.get(f"/polls/associations/{ASSOC_ID}")
+
+    assert response.status_code == 402
+    assert response.json()["detail"]["code"] == "community_blocked"
+
+
 @patch("api.polls.polls.VoteService")
 def test_api_cast_vote(mock_vote_service_class):
     mock_service = mock_vote_service_class.return_value
@@ -147,3 +178,39 @@ def test_api_cast_vote(mock_vote_service_class):
 
     mock_service.cast_vote.assert_called_once()
     mock_service.cast_vote.assert_called_once()
+
+
+def test_api_get_public_poll_without_subscription_returns_402():
+    app.dependency_overrides[get_supabase] = lambda: make_supabase_with_subscription(None)
+    app.dependency_overrides[get_supabase_admin] = lambda: make_supabase_with_subscription(None)
+
+    response = client.get(f"/polls/public/{POLL_ID}", params={"token": "public-token"})
+
+    assert response.status_code == 402
+    assert response.json()["detail"]["code"] == "community_no_subscription"
+
+
+@patch("api.polls.polls.VoteService")
+def test_api_cast_vote_with_blocked_subscription_returns_402(mock_vote_service_class):
+    app.dependency_overrides[get_supabase] = lambda: make_supabase_with_subscription("past_due")
+    app.dependency_overrides[get_supabase_admin] = lambda: make_supabase_with_subscription("past_due")
+
+    response = client.post(
+        f"/polls/{POLL_ID}/vote", json={"selected_option": "Sí", "voting_token": str(uuid4()), "rgpd_accepted": True}
+    )
+
+    assert response.status_code == 402
+    assert response.json()["detail"]["code"] == "community_blocked"
+    mock_vote_service_class.return_value.cast_vote.assert_not_called()
+
+
+@patch("api.polls.polls.PollService")
+def test_api_get_poll_by_id_without_subscription_returns_402(mock_poll_service_class):
+    app.dependency_overrides[get_supabase] = lambda: make_supabase_with_subscription(None)
+    app.dependency_overrides[get_supabase_admin] = lambda: make_supabase_with_subscription(None)
+
+    response = client.get(f"/polls/{POLL_ID}")
+
+    assert response.status_code == 402
+    assert response.json()["detail"]["code"] == "community_no_subscription"
+    mock_poll_service_class.return_value.get_poll_by_id.assert_not_called()

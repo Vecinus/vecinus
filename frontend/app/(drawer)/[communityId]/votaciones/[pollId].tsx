@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { isAxiosError } from 'axios';
 import {
   View,
   ScrollView,
@@ -133,7 +134,10 @@ export default function PollDetail() {
         setResults(resultsData);
         setMembershipInfo(membershipData);
         setHasVoted(votedData);
-      } catch (error) {
+      } catch (error: unknown) {
+        if (isAxiosError(error) && error.response?.status === 402) {
+          return;
+        }
         console.error('Error loading poll:', error);
         setErrorDialogMessage('No se pudo cargar la votación');
         setIsErrorDialogOpen(true);
@@ -159,7 +163,10 @@ export default function PollDetail() {
       setPoll(updated);
       const newResults = await pollService.getResults(communityId, poll.id).catch(() => null);
       setResults(newResults);
-    } catch (error) {
+    } catch (error: unknown) {
+      if (isAxiosError(error) && error.response?.status === 402) {
+        return;
+      }
       console.error('Error closing poll:', error);
       showError('No se pudo cerrar la votación');
     } finally {
@@ -197,11 +204,14 @@ export default function PollDetail() {
       });
       setPoll(updated);
       setPublishDialogOpen(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      if (isAxiosError(error) && error.response?.status === 402) {
+        return;
+      }
       console.error('[Publish] Error:', error);
-      console.error('[Publish] Error response:', error?.response);
-      console.error('[Publish] Error data:', error?.response?.data);
-      const detail = error?.response?.data?.detail;
+      console.error('[Publish] Error response:', isAxiosError(error) ? error.response : undefined);
+      console.error('[Publish] Error data:', isAxiosError(error) ? error.response?.data : undefined);
+      const detail = isAxiosError(error) ? error.response?.data?.detail : undefined;
       showError(
         detail
           ? typeof detail === 'string'

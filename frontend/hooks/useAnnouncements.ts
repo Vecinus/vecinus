@@ -11,6 +11,14 @@ interface ApiError {
   message?: string;
 }
 
+function shouldRetryQuery(error: unknown, failureCount: number) {
+  const apiError = error as ApiError;
+  if (apiError.response?.status === 402 || apiError.response?.status === 403) {
+    return false;
+  }
+  return failureCount < 3;
+}
+
 export const useAnnouncementsList = (
   communityId: string | undefined,
   status?: AnnouncementStatus,
@@ -24,12 +32,7 @@ export const useAnnouncementsList = (
     },
     enabled: !!communityId && enabled,
     staleTime: 1000 * 60 * 5, // 5 mins
-    retry: (failureCount, error: unknown) => {
-      const apiError = error as ApiError;
-      // Don't retry if it's a 403 error
-      if (apiError.response?.status === 403) return false;
-      return failureCount < 3;
-    },
+    retry: shouldRetryQuery,
   });
 };
 
@@ -41,11 +44,7 @@ export const useAnnouncementDetail = (communityId: string | undefined, announcem
       return announcementsApi.getAnnouncement(communityId, announcementId);
     },
     enabled: !!communityId && !!announcementId,
-    retry: (failureCount, error: unknown) => {
-      const apiError = error as ApiError;
-      if (apiError.response?.status === 403) return false;
-      return failureCount < 3;
-    },
+    retry: shouldRetryQuery,
   });
 };
 

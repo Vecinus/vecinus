@@ -1,3 +1,4 @@
+import { isAxiosError } from 'axios';
 import { Text } from '@/components/ui/text';
 import * as React from 'react';
 import { View, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
@@ -31,8 +32,10 @@ export default function Votaciones() {
     try {
       const data = await pollService.getPolls(communityId);
       setPolls(data);
-    } catch (error) {
-      console.error('Error fetching polls:', error);
+    } catch (error: unknown) {
+      if (!isAxiosError(error) || error.response?.status !== 402) {
+        console.error('Error fetching polls:', error);
+      }
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);

@@ -362,6 +362,42 @@ def require_active_community_for_channel(
     return check_subscription_active(supabase_admin, str(association_id))
 
 
+def require_active_community_for_poll(
+    request: Request,
+    supabase_admin: Client = Depends(get_supabase_admin),
+) -> str | None:
+    """
+    Variante de `require_active_community` para endpoints de votaciones que
+    llevan `poll_id` en el path.
+
+    Resolución: lookup en `poll(id) -> association_id`. Si la votación no
+    existe, dejamos que el endpoint produzca su 404 natural. Las rutas
+    públicas de voto también pasan por aquí: si la comunidad está bloqueada,
+    no se puede operar con la votación aunque el token sea válido.
+    """
+    poll_id = request.path_params.get("poll_id")
+    if not poll_id:
+        logger.error(
+            "require_active_community_for_poll attached to a route without poll_id: %s",
+            request.url.path,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No poll_id found in request path",
+        )
+
+    res = supabase_admin.table("poll").select("association_id").eq("id", str(poll_id)).limit(1).execute()
+
+    if not res.data:
+        return None
+
+    association_id = res.data[0].get("association_id")
+    if not association_id:
+        return None
+
+    return check_subscription_active(supabase_admin, str(association_id))
+
+
 def get_current_user_optional(
     credentials: HTTPAuthorizationCredentials | None = Depends(security_optional),
 ) -> dict | None:
