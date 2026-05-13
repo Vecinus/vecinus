@@ -9,6 +9,7 @@ class AssociationInfo(BaseModel):
     id: UUID
     name: str
     address: str
+    household_count: int | None = None
 
 
 class MembershipWithCommunity(BaseModel):

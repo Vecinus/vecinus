@@ -89,4 +89,5 @@ pinecone==8.1.2
 email-validator
 resend
 cloudinary
+mutagen==1.47.0
 lxml==6.1.0

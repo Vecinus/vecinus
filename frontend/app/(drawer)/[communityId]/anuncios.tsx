@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
+import { isAxiosError } from 'axios';
 import { View, FlatList, ActivityIndicator, Modal, useWindowDimensions, TouchableOpacity } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
@@ -8,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
+import { apiClient } from '@/api/client';
 import { useAuth } from '@/context/AuthContext';
 import {
   useAnnouncementsList,
@@ -68,6 +70,8 @@ export default function AnunciosScreen() {
 
   const [activeFilter, setActiveFilter] = useState<FilterStatus>('todas');
   const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [hasVerifiedAccess, setHasVerifiedAccess] = useState(false);
+  const [isVerifyingAccess, setIsVerifyingAccess] = useState(true);
 
   // Form State
   const [titleDraft, setTitleDraft] = useState('');
@@ -88,19 +92,47 @@ export default function AnunciosScreen() {
     setInfoModal({ visible: true, title, message, onConfirm });
   };
 
-  const allAnnouncementsQuery = useAnnouncementsList(communityId, undefined, !!communityId);
+  const verifyCommunityAccess = useCallback(async (): Promise<boolean> => {
+    if (!communityId) return false;
+    try {
+      await apiClient.get(`/communities/${communityId}/verify-access`);
+      return true;
+    } catch (error) {
+      if (!isAxiosError(error) || error.response?.status !== 402) {
+        console.error('verify-access (announcements) failed:', error);
+      }
+      return false;
+    }
+  }, [communityId]);
+
+  const allAnnouncementsQuery = useAnnouncementsList(communityId, undefined, !!communityId && hasVerifiedAccess);
   const { refetch: refetchAnnouncements } = allAnnouncementsQuery;
 
   useFocusEffect(
     useCallback(() => {
-      if (communityId) {
-        refetchAnnouncements();
-      }
-    }, [communityId, refetchAnnouncements])
+      void (async () => {
+        if (!communityId) {
+          setHasVerifiedAccess(false);
+          setIsVerifyingAccess(false);
+          return;
+        }
+
+        setIsVerifyingAccess(true);
+        const hasAccess = await verifyCommunityAccess();
+        setHasVerifiedAccess(hasAccess);
+
+        if (hasAccess) {
+          await refetchAnnouncements();
+        }
+
+        setIsVerifyingAccess(false);
+      })();
+    }, [communityId, refetchAnnouncements, verifyCommunityAccess])
   );
 
   const createMutation = useCreateAnnouncement(communityId);
   const deleteMutation = useDeleteAnnouncement(communityId);
+  const announcementsErrorStatus = (allAnnouncementsQuery.error as { response?: { status?: number } } | null)?.response?.status;
 
   const filterTabs = useMemo<{ key: FilterStatus; label: string }[]>(() => {
     if (canManage) {
@@ -177,6 +209,9 @@ export default function AnunciosScreen() {
       resetCreateForm();
       showAlert('Anuncio Creado', 'El anuncio ha sido creado exitosamente.');
     } catch (error: unknown) {
+      if (isAxiosError(error) && error.response?.status === 402) {
+        return;
+      }
       setFormError(getUserFacingErrorMessage(error, 'No se pudo crear el anuncio.'));
     }
   };
@@ -188,6 +223,9 @@ export default function AnunciosScreen() {
           showAlert('Eliminado', 'El anuncio ha sido eliminado correctamente.');
         },
         onError: (err) => {
+          if (isAxiosError(err) && err.response?.status === 402) {
+            return;
+          }
           showAlert('Error', getUserFacingErrorMessage(err, 'No se pudo eliminar el anuncio.'));
         },
       });
@@ -271,7 +309,7 @@ export default function AnunciosScreen() {
             />
           )}
           ListEmptyComponent={
-            allAnnouncementsQuery.isLoading ? (
+            isVerifyingAccess || allAnnouncementsQuery.isLoading ? (
               <View className="items-center justify-center py-20">
                 <ActivityIndicator size="large" color="#4f46e5" />
                 <Text className="text-sm text-muted-foreground mt-3">Cargando anuncios...</Text>
@@ -283,7 +321,7 @@ export default function AnunciosScreen() {
                 </View>
                 <Text className="text-xl font-bold text-foreground mb-2">Error de acceso</Text>
                 <Text className="text-muted-foreground text-center text-sm leading-5 mb-6">
-                  {((allAnnouncementsQuery.error as { response?: { status?: number } }).response?.status === 403)
+                  {(announcementsErrorStatus === 403)
                     ? 'No tienes permiso para ver el tablón de anuncios de esta comunidad.'
                     : 'Hubo un problema al cargar los anuncios. Por favor, inténtalo de nuevo.'}
                 </Text>

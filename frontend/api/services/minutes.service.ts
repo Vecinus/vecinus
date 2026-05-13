@@ -24,6 +24,7 @@ export const minutesService = {
     audioFile: { uri: string; name: string; type: string }
   ): Promise<MinutesReadResponse> => {
     const formData = new FormData();
+    formData.append('title', title);
 
     if (Platform.OS === 'web') {
       const response = await fetch(audioFile.uri);
@@ -38,7 +39,7 @@ export const minutesService = {
       } as unknown as Blob);
     }
     const response = await apiClient.post<MinutesReadResponse>(
-      `/api/minutes/transcribe?association_id=${encodeURIComponent(associationId)}&title=${encodeURIComponent(title)}`,
+      `/api/minutes/${encodeURIComponent(associationId)}/transcribe`,
       formData,
       {
         headers: {

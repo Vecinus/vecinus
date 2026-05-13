@@ -14,6 +14,7 @@ export interface MembershipItem {
     id: string;
     name: string;
     address?: string | null;
+    household_count?: number | null;
   };
 }
 
@@ -40,6 +41,7 @@ export const fetchUserWithCommunities = async (jwtToken: string): Promise<User> 
         id: membership.neighborhood_associations.id,
         name: membership.neighborhood_associations.name,
         address: membership.neighborhood_associations.address ?? null,
+        household_count: membership.neighborhood_associations.household_count ?? null,
       },
       role: membership.role,
     })),

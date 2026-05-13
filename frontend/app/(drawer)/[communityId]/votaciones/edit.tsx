@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { isAxiosError } from 'axios';
 import {
   View,
   ScrollView,
@@ -85,7 +86,10 @@ export default function EditPoll() {
       setTitle(pollData.title);
       setDescription(pollData.description || '');
       setOptions(pollData.options);
-    } catch (error) {
+    } catch (error: unknown) {
+      if (isAxiosError(error) && error.response?.status === 402) {
+        return;
+      }
       console.error('Error loading poll:', error);
       showAlert('Error', 'No se pudo cargar la votación');
     } finally {
@@ -131,9 +135,12 @@ export default function EditPoll() {
       };
       await pollService.updatePoll(pollId, payload);
       showAlert('Éxito', 'La votación se ha actualizado correctamente', true);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      if (isAxiosError(error) && error.response?.status === 402) {
+        return;
+      }
       console.error('[EditPoll] Error:', error);
-      const detail = error?.response?.data?.detail;
+      const detail = isAxiosError(error) ? error.response?.data?.detail : undefined;
       const msg = detail
         ? (typeof detail === 'string' ? detail : JSON.stringify(detail))
         : 'No se pudo actualizar la votación';
@@ -149,7 +156,10 @@ export default function EditPoll() {
       await pollService.deletePoll(pollId);
       setDeleteDialogOpen(false);
       showAlert('Éxito', 'La votación se ha eliminado correctamente', true);
-    } catch (error) {
+    } catch (error: unknown) {
+      if (isAxiosError(error) && error.response?.status === 402) {
+        return;
+      }
       console.error('Error deleting poll:', error);
       showAlert('Error', 'No se pudo eliminar la votación');
     } finally {

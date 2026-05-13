@@ -182,6 +182,14 @@ def make_mock_supabase(extra=None, rls_blocked=None):
             }
         ],
         "profiles": [],
+        "neighborhood_associations": [
+            {
+                "id": mock_association_id,
+                "name": "Comunidad Test",
+                "address": "Calle Mayor 1",
+                "household_count": 10,
+            }
+        ],
     }
     if extra:
         for k, v in extra.items():
@@ -585,6 +593,14 @@ def test_create_property_president_success():
                 }
             ],
             "properties": [],
+            "neighborhood_associations": [
+                {
+                    "id": mock_association_id,
+                    "name": "Comunidad Test",
+                    "address": "Calle Mayor 1",
+                    "household_count": 10,
+                }
+            ],
         }
     )
     app.dependency_overrides[get_current_user] = lambda: mock_user

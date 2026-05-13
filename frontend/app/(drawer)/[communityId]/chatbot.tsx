@@ -35,8 +35,10 @@ import { cn } from '@/lib/utils';
 import type { ChatMessage, UploadDocumentFile } from '@/types/chatbot.types';
 import { isAdminOrPresident } from '@/utils/role.util';
 import { getLegalWarning } from '@/utils/legal-warnings';
+import { apiClient } from '@/api/client';
+import { isAxiosError } from 'axios';
 import * as DocumentPicker from 'expo-document-picker';
-import { useLocalSearchParams, useNavigation } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
 import {
   CircleAlertIcon,
   FileTextIcon,
@@ -68,6 +70,7 @@ import {
 type ChatTabValue = 'chat' | 'documents';
 const CHAT_COMPOSER_MIN_HEIGHT = 24;
 const CHAT_COMPOSER_MAX_HEIGHT = 132;
+const CHATBOT_INPUT_MAX_LENGTH = 300;
 
 function buildMessage(
   partial: Omit<ChatMessage, 'id' | 'createdAt'> & { id?: string; createdAt?: string }
@@ -228,6 +231,23 @@ export default function CommunityChatbotScreen() {
     return communityId ?? '';
   }, [communityId]);
 
+  const verifyCommunityAccess = React.useCallback(async () => {
+    if (!normalizedCommunityId) return;
+    try {
+      await apiClient.get(`/communities/${normalizedCommunityId}/verify-access`);
+    } catch (error) {
+      if (!isAxiosError(error) || error?.response?.status !== 402) {
+        console.error('verify-access (chatbot) failed:', error);
+      }
+    }
+  }, [normalizedCommunityId]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      void verifyCommunityAccess();
+    }, [verifyCommunityAccess])
+  );
+
   const isDesktop = width >= 1024;
   const [activeTab, setActiveTab] = React.useState<ChatTabValue>('chat');
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
@@ -297,6 +317,13 @@ export default function CommunityChatbotScreen() {
     const trimmedQuestion = question.trim();
 
     if (!trimmedQuestion || !normalizedCommunityId || sendQuestionMutation.isPending) {
+      return;
+    }
+
+    if (trimmedQuestion.length > CHATBOT_INPUT_MAX_LENGTH) {
+      setFeedbackMessage(
+        `La pregunta no puede superar los ${CHATBOT_INPUT_MAX_LENGTH} caracteres.`
+      );
       return;
     }
 
@@ -566,47 +593,52 @@ export default function CommunityChatbotScreen() {
           </Alert>
         ) : null}
 
-        <View className="flex-row items-end gap-3 rounded-3xl border border-border bg-background px-3 py-2">
-          <TextInput
-            value={question}
-            onChangeText={setQuestion}
-            onContentSizeChange={handleComposerSizeChange}
-            onKeyPress={(e: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
-              if (e.nativeEvent.key === 'Enter' && Platform.OS === 'web') {
-                const nativeEvent = e.nativeEvent as unknown as { shiftKey?: boolean };
-                if (!nativeEvent.shiftKey) {
-                  // preventDefault is not available on NativeSyntheticEvent usually, but on web it might be.
-                  // For React Native Web, we use this trick.
-                  if ('preventDefault' in e) {
-                    (e as unknown as { preventDefault: () => void }).preventDefault();
+        <View className="gap-2 rounded-3xl border border-border bg-background px-3 py-2">
+          <View className="flex-row items-end gap-3">
+            <TextInput
+              value={question}
+              onChangeText={setQuestion}
+              onContentSizeChange={handleComposerSizeChange}
+              onKeyPress={(e: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
+                if (e.nativeEvent.key === 'Enter' && Platform.OS === 'web') {
+                  const nativeEvent = e.nativeEvent as unknown as { shiftKey?: boolean };
+                  if (!nativeEvent.shiftKey) {
+                    if ('preventDefault' in e) {
+                      (e as unknown as { preventDefault: () => void }).preventDefault();
+                    }
+                    void handleSend();
                   }
-                  void handleSend();
                 }
-              }
-            }}
-            placeholder="Haz una pregunta sobre la comunidad..."
-            multiline
-            numberOfLines={1}
-            returnKeyType="send"
-            enablesReturnKeyAutomatically
-            scrollEnabled={composerHeight >= CHAT_COMPOSER_MAX_HEIGHT}
-            style={{ height: composerHeight, maxHeight: CHAT_COMPOSER_MAX_HEIGHT }}
-            className="min-h-0 flex-1 border-0 bg-transparent px-0 py-1 text-base text-foreground shadow-none"
-          />
+              }}
+              placeholder="Haz una pregunta sobre la comunidad..."
+              multiline
+              numberOfLines={1}
+              returnKeyType="send"
+              enablesReturnKeyAutomatically
+              maxLength={CHATBOT_INPUT_MAX_LENGTH}
+              scrollEnabled={composerHeight >= CHAT_COMPOSER_MAX_HEIGHT}
+              style={{ height: composerHeight, maxHeight: CHAT_COMPOSER_MAX_HEIGHT }}
+              className="min-h-0 flex-1 border-0 bg-transparent px-0 py-1 text-base text-foreground shadow-none"
+            />
 
-          <Button
-            onPress={() => {
-              void handleSend();
-            }}
-            disabled={!question.trim() || sendQuestionMutation.isPending}
-            size="icon"
-            className="size-11 rounded-full">
-            {sendQuestionMutation.isPending ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Icon as={SendIcon} size={16} className="text-primary-foreground" />
-            )}
-          </Button>
+            <Button
+              onPress={() => {
+                void handleSend();
+              }}
+              disabled={!question.trim() || sendQuestionMutation.isPending}
+              size="icon"
+              className="size-11 rounded-full">
+              {sendQuestionMutation.isPending ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Icon as={SendIcon} size={16} className="text-primary-foreground" />
+              )}
+            </Button>
+          </View>
+
+          <Text className="text-right text-xs text-muted-foreground">
+            {question.length}/{CHATBOT_INPUT_MAX_LENGTH}
+          </Text>
         </View>
       </CardContent>
     </Card>

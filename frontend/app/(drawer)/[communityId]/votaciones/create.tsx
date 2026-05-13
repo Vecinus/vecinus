@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { isAxiosError } from 'axios';
 import {
   View,
   ScrollView,
@@ -107,9 +108,12 @@ export default function CreatePoll() {
       };
       await pollService.createPoll(communityId, payload);
       showAlert('Éxito', 'La votación se ha creado correctamente', true);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      if (isAxiosError(error) && error.response?.status === 402) {
+        return;
+      }
       console.error('[CreatePoll] Error:', error);
-      const detail = error?.response?.data?.detail;
+      const detail = isAxiosError(error) ? error.response?.data?.detail : undefined;
       const msg = detail
         ? (typeof detail === 'string' ? detail : JSON.stringify(detail))
         : 'No se pudo crear la votación';

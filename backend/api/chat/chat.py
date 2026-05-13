@@ -2,7 +2,14 @@ import json
 from typing import Dict, List
 from uuid import UUID
 
-from core.deps import _verify_jwt, get_current_user, get_supabase, get_supabase_admin
+from core.deps import (
+    _verify_jwt,
+    check_subscription_active,
+    get_current_user,
+    get_supabase,
+    get_supabase_admin,
+    require_active_community_for_channel,
+)
 from fastapi import (
     APIRouter,
     Depends,
@@ -38,12 +45,18 @@ def create_group_channel(
     channel_in: ChatChannelCreate,
     current_user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
+    supabase_admin: Client = Depends(get_supabase_admin),
 ):
     """
     Crea un nuevo canal de chat grupal.
     Solo los administradores o presidentes de la comunidad pueden hacerlo.
     """
-    # Verificar que el usuario es admin o presidente de la comunidad (role=1 o role=4 en memberships)
+    # `association_id` viaja en el body; no podemos usar la dep de path. Hacemos
+    # la comprobación inline antes de tocar nada en BD para que un admin de una
+    # comunidad bloqueada no pueda crear nuevos canales.
+    check_subscription_active(supabase_admin, str(channel_in.association_id))
+
+    # Verificar que el usuario es admin o presidente de la comunidad.
     verify_association_admin_or_president(channel_in.association_id, current_user["id"], supabase)
 
     new_channel_data = {
@@ -94,7 +107,11 @@ def create_group_channel(
     return created_channel
 
 
-@router.put("/channels/{channel_id}", response_model=ChatChannel)
+@router.put(
+    "/channels/{channel_id}",
+    response_model=ChatChannel,
+    dependencies=[Depends(require_active_community_for_channel)],
+)
 def update_group_channel(
     channel_id: UUID,
     # Reutilizamos el schema de create para la actualización
@@ -140,7 +157,11 @@ def update_group_channel(
     return update_res.data[0]
 
 
-@router.delete("/channels/{channel_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/channels/{channel_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_active_community_for_channel)],
+)
 def delete_group_channel(
     channel_id: UUID,
     current_user: dict = Depends(get_current_user),
@@ -192,7 +213,11 @@ def get_user_channels(
     return channels_res.data
 
 
-@router.get("/channels/{channel_id}/messages", response_model=List[MessageWithSender])
+@router.get(
+    "/channels/{channel_id}/messages",
+    response_model=List[MessageWithSender],
+    dependencies=[Depends(require_active_community_for_channel)],
+)
 def get_channel_messages(
     channel_id: UUID,
     current_user: dict = Depends(get_current_user),
@@ -216,7 +241,11 @@ def get_channel_messages(
     return messages_res.data
 
 
-@router.post("/channels/{channel_id}/direct", response_model=ChatChannel)
+@router.post(
+    "/channels/{channel_id}/direct",
+    response_model=ChatChannel,
+    dependencies=[Depends(require_active_community_for_channel)],
+)
 def create_direct_message(
     channel_id: UUID,
     dm_in: DirectMessageCreate,
@@ -332,7 +361,10 @@ def create_direct_message(
     return created_channel
 
 
-@router.post("/channels/{channel_id}/block")
+@router.post(
+    "/channels/{channel_id}/block",
+    dependencies=[Depends(require_active_community_for_channel)],
+)
 def block_direct_message_channel(
     channel_id: UUID,
     current_user: dict = Depends(get_current_user),
@@ -370,7 +402,10 @@ def block_direct_message_channel(
     return {"message": "Direct message channel successfully blocked."}
 
 
-@router.post("/channels/{channel_id}/unblock")
+@router.post(
+    "/channels/{channel_id}/unblock",
+    dependencies=[Depends(require_active_community_for_channel)],
+)
 def unblock_direct_message_channel(
     channel_id: UUID,
     current_user: dict = Depends(get_current_user),
@@ -420,7 +455,11 @@ def unblock_direct_message_channel(
     return {"message": "Direct message channel successfully unblocked."}
 
 
-@router.post("/channels/{channel_id}/messages", response_model=Message)
+@router.post(
+    "/channels/{channel_id}/messages",
+    response_model=Message,
+    dependencies=[Depends(require_active_community_for_channel)],
+)
 async def send_message(
     channel_id: UUID,
     msg_in: MessageCreate,
@@ -488,7 +527,11 @@ async def send_message(
     return saved_message
 
 
-@router.put("/channels/{channel_id}/messages/{message_id}", response_model=Message)
+@router.put(
+    "/channels/{channel_id}/messages/{message_id}",
+    response_model=Message,
+    dependencies=[Depends(require_active_community_for_channel)],
+)
 async def update_message(
     channel_id: UUID,
     message_id: UUID,
@@ -540,6 +583,7 @@ async def update_message(
 @router.delete(
     "/channels/{channel_id}/messages/{message_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_active_community_for_channel)],
 )
 async def delete_message(
     channel_id: UUID,

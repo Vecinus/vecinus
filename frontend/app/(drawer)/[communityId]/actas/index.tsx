@@ -1,7 +1,8 @@
+import { isAxiosError } from 'axios';
 import { Text } from '@/components/ui/text';
 import * as React from 'react';
 import { View, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { minutesService } from '@/api/services/minutes.service';
 import { storageService } from '@/api/services/storage.service';
 import { MinutesReadResponse } from '@/types/minutes.types';
@@ -52,8 +53,13 @@ export default function Actas() {
       const axiosError = error as { response?: { status?: number; data?: { detail?: unknown } } };
       const status = axiosError.response?.status;
       const detail = axiosError.response?.data?.detail;
+      if (!isAxiosError(error) || error.response?.status !== 402) {
+        console.error('Error fetching minutes:', error);
+      }
       setErrorMessage(
-        status === 401
+        status === 402
+          ? null
+          : status === 401
           ? 'Tu sesion ha caducado. Vuelve a iniciar sesion.'
           : typeof detail === 'string'
             ? detail
@@ -65,9 +71,11 @@ export default function Actas() {
     }
   }, [communityId, isAuthLoading, token]);
 
-  React.useEffect(() => {
-    fetchMinutes();
-  }, [fetchMinutes]);
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchMinutes();
+    }, [fetchMinutes])
+  );
 
   const onRefresh = () => {
     setIsRefreshing(true);

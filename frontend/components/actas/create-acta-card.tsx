@@ -176,18 +176,41 @@ export function CreateActaCard({
         type: audioMimeType || 'audio/mpeg',
       });
       showAlert('Éxito', 'El acta se ha creado correctamente y se está procesando', true);
-    } catch (error: unknown) {
-      console.warn('Error saving minute:', error);
+    } catch (error) {
+      const err = error as {
+        response?: {
+          status?: number;
+          data?: {
+            detail?: string | {
+              code?: string;
+              resource?: string;
+              message?: string;
+            };
+          };
+        };
+      };
+      const detail = err?.response?.data?.detail;
+      const quotaMessage =
+        err?.response?.status === 429 &&
+        detail &&
+        typeof detail === 'object' &&
+        detail.code === 'quota_exhausted' &&
+        detail.resource === 'minutes'
+          ? detail.message
+          : null;
+      const validationMessage =
+        err?.response?.status === 422 && typeof detail === 'string'
+          ? detail
+          : null;
 
-      let errorMessage = 'No se pudo crear el acta. Por favor, inténtalo de nuevo.';
-      const err = error as { response?: { data?: { detail?: string | object } } };
-      if (err.response?.data?.detail) {
-        errorMessage = typeof err.response.data.detail === 'string'
-          ? err.response.data.detail
-          : JSON.stringify(err.response.data.detail);
+      if (!quotaMessage && !validationMessage) {
+        console.error('Error saving minute:', error);
       }
 
-      showAlert('Error', errorMessage);
+      showAlert(
+        'Error',
+        quotaMessage || validationMessage || 'No se pudo crear el acta. Por favor, inténtalo de nuevo.'
+      );
     } finally {
       setIsUploading(false);
     }

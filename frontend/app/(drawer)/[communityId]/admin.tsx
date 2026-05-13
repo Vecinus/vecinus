@@ -10,7 +10,7 @@ import { MemberCard } from '@/components/community/MemberCard';
 import { PendingInvitationCard } from '@/components/community/PendingInvitationCard';
 import {
   Building, Users, Clock, ChevronDown, ChevronUp, UserPlus,
-  Home, AlertTriangle
+  Home, AlertTriangle, CreditCard, ChevronRight
 } from 'lucide-react-native';
 
 import { useAuth } from '@/context/AuthContext';
@@ -229,8 +229,13 @@ export default function CommunityAdminScreen() {
         setPropertyModalVisible(false);
         setPropertyNumber('');
       },
-      onError: () => {
-        setPropertyError('No se pudo añadir. Tal vez ya exista.');
+      onError: (error: unknown) => {
+        const err = error as { response?: { data?: { detail?: string | { message?: string } } } };
+        const detail = err?.response?.data?.detail;
+        const message = typeof detail === 'string'
+          ? detail
+          : detail?.message;
+        setPropertyError(message || 'No se pudo anadir. Tal vez ya exista.');
       }
     });
   };
@@ -342,6 +347,25 @@ export default function CommunityAdminScreen() {
         )}
         ListHeaderComponent={
           <>
+            {isAdmin && communityId ? (
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => router.push((`/${communityId}/subscription`) as never)}
+                className="mb-5 rounded-2xl border border-border bg-card px-5 py-4 flex-row items-center gap-4 shadow-sm"
+              >
+                <View className="size-11 items-center justify-center rounded-full bg-primary/10">
+                  <CreditCard size={22} color="#4f46e5" strokeWidth={2.5} />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-[15px] font-bold text-foreground">Suscripción y pagos</Text>
+                  <Text className="text-xs text-muted-foreground mt-0.5">
+                    Estado del cobro mensual, consumo de actas/chatbot e historial.
+                  </Text>
+                </View>
+                <ChevronRight size={20} color="#94a3b8" />
+              </TouchableOpacity>
+            ) : null}
+
             {/* Sección de Invitaciones (Solo visible si eres Admin y hay algo pendiente) */}
             {isAdmin && pendingInvitations && pendingInvitations.length > 0 && (
               <View className="mb-5 rounded-2xl bg-amber-50 dark:bg-amber-950/35 border border-amber-200 dark:border-amber-900/50 overflow-hidden shadow-sm shadow-amber-100/70 dark:shadow-none">

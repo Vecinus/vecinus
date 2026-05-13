@@ -172,6 +172,16 @@ class MockSupabaseClientCommonSpace:
                 },
             ],
             "memberships": [],
+            "community_subscriptions": [
+                {
+                    "association_id": ASSOCIATION_ID,
+                    "status": "active",
+                },
+                {
+                    "association_id": OTHER_ASSOCIATION_ID,
+                    "status": "active",
+                },
+            ],
         }
 
         if has_membership:
@@ -184,7 +194,7 @@ class MockSupabaseClientCommonSpace:
             )
 
     def table(self, name: str):
-        if name not in {"common_space", "memberships"}:
+        if name not in {"common_space", "memberships", "community_subscriptions"}:
             raise AssertionError(f"Unexpected table requested: {name}")
         return MockSupabaseTable(name, self.storage)
 

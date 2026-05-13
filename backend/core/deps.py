@@ -3,7 +3,7 @@ import json
 import logging
 
 import jwt as pyjwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from supabase import Client, ClientOptions, create_client
 
@@ -14,6 +14,14 @@ logger = logging.getLogger(__name__)
 # Authentication scheme
 security = HTTPBearer()
 security_optional = HTTPBearer(auto_error=False)
+
+ACTIVE_SUBSCRIPTION_STATUSES = frozenset({"active", "pending_first_payment"})
+
+_ASSOCIATION_PATH_PARAM_NAMES = (
+    "association_id",
+    "comunidad_id",
+    "community_id",
+)
 
 
 def _normalize_supabase_key(value: str) -> str:
@@ -214,6 +222,180 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication failed",
         )
+
+
+def _extract_association_id_from_path(request: Request) -> str | None:
+    for name in _ASSOCIATION_PATH_PARAM_NAMES:
+        value = request.path_params.get(name)
+        if value:
+            return str(value)
+    return None
+
+
+def check_subscription_active(supabase_admin: Client, association_id: str) -> str:
+    """
+    Helper público con la lógica de validación de suscripción.
+
+    Lo extraemos de `require_active_community` para que las dependencies que
+    derivan el `association_id` por otras vías (p. ej. lookup channel→asoc en
+    chat) puedan reutilizarlo sin duplicar la query ni los mensajes de error.
+
+    Lanza HTTP 402 si la comunidad no tiene fila de suscripción o si su
+    estado no está en `ACTIVE_SUBSCRIPTION_STATUSES`. Devuelve la propia
+    `association_id` cuando todo está OK, para encadenarla en deps.
+    """
+    res = (
+        supabase_admin.table("community_subscriptions")
+        .select("status, gocardless_subscription_id, last_failure_at, cancelled_at")
+        .eq("association_id", association_id)
+        .limit(1)
+        .execute()
+    )
+
+    if not res.data:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail={
+                "code": "community_no_subscription",
+                "reason": "no_subscription_found",
+                # Mensaje neutro respecto al rol: el frontend (modal de bloqueo)
+                # añade el call-to-action en función del rol del usuario.
+                "message": "Esta comunidad no tiene una suscripción asociada.",
+                "association_id": association_id,
+            },
+        )
+
+    sub = res.data[0]
+    sub_status = sub.get("status")
+    if sub_status not in ACTIVE_SUBSCRIPTION_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail={
+                "code": "community_blocked",
+                "reason": f"subscription_{sub_status}",
+                # Mensaje neutro respecto al rol: el frontend (modal de bloqueo)
+                # añade el call-to-action en función del rol del usuario.
+                "message": "La comunidad está bloqueada por impago.",
+                "association_id": association_id,
+                "since": sub.get("last_failure_at") or sub.get("cancelled_at"),
+            },
+        )
+
+    return association_id
+
+
+def require_active_community(
+    request: Request,
+    supabase_admin: Client = Depends(get_supabase_admin),
+) -> str:
+    """
+    Dependency que bloquea cualquier operación dentro de una comunidad cuya
+    suscripción no esté al corriente de pago.
+
+    Lee `association_id` (o `comunidad_id` / `community_id`) del path de la
+    request y delega la validación en `check_subscription_active`.
+
+    Aislamiento por comunidad: la dependencia se ejecuta sólo sobre el
+    `association_id` de la request actual; comunidades distintas del mismo
+    usuario no se ven afectadas entre sí.
+    """
+    association_id = _extract_association_id_from_path(request)
+    if not association_id:
+        # Bug del programador: el endpoint usa esta dependency pero su path
+        # no expone ningún parámetro asociación. Mejor 500 explícito que
+        # silenciosamente permitir el paso.
+        logger.error(
+            "require_active_community attached to a route without an association id path param: %s",
+            request.url.path,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No association_id found in request path",
+        )
+
+    return check_subscription_active(supabase_admin, association_id)
+
+
+def require_active_community_for_channel(
+    request: Request,
+    supabase_admin: Client = Depends(get_supabase_admin),
+) -> str | None:
+    """
+    Variante de `require_active_community` para endpoints del chat que llevan
+    `channel_id` en el path (no `association_id`).
+
+    Resolución: lookup en `chat_channels(id) → association_id`. Si la fila no
+    existe (canal inválido) NO lanzamos 402 — dejamos que el endpoint
+    produzca su 404 natural. Si el canal es DM sin `association_id` (mensajería
+    directa entre usuarios fuera del contexto de comunidad), saltamos la
+    validación: ese chat no está sujeto a la facturación de la suscripción.
+    """
+    channel_id = request.path_params.get("channel_id")
+    if not channel_id:
+        logger.error(
+            "require_active_community_for_channel attached to a route without channel_id: %s",
+            request.url.path,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No channel_id found in request path",
+        )
+
+    res = (
+        supabase_admin.table("chat_channels")
+        .select("association_id, is_direct_message")
+        .eq("id", str(channel_id))
+        .limit(1)
+        .execute()
+    )
+
+    if not res.data:
+        # Canal no existe → que el endpoint maneje el 404. Si bloquearamos con
+        # 402 confundiríamos el diagnóstico al usuario.
+        return None
+
+    association_id = res.data[0].get("association_id")
+    if not association_id:
+        # DM sin contexto de comunidad: no aplica el bloqueo por suscripción.
+        return None
+
+    return check_subscription_active(supabase_admin, str(association_id))
+
+
+def require_active_community_for_poll(
+    request: Request,
+    supabase_admin: Client = Depends(get_supabase_admin),
+) -> str | None:
+    """
+    Variante de `require_active_community` para endpoints de votaciones que
+    llevan `poll_id` en el path.
+
+    Resolución: lookup en `poll(id) -> association_id`. Si la votación no
+    existe, dejamos que el endpoint produzca su 404 natural. Las rutas
+    públicas de voto también pasan por aquí: si la comunidad está bloqueada,
+    no se puede operar con la votación aunque el token sea válido.
+    """
+    poll_id = request.path_params.get("poll_id")
+    if not poll_id:
+        logger.error(
+            "require_active_community_for_poll attached to a route without poll_id: %s",
+            request.url.path,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No poll_id found in request path",
+        )
+
+    res = supabase_admin.table("poll").select("association_id").eq("id", str(poll_id)).limit(1).execute()
+
+    if not res.data:
+        return None
+
+    association_id = res.data[0].get("association_id")
+    if not association_id:
+        return None
+
+    return check_subscription_active(supabase_admin, str(association_id))
 
 
 def get_current_user_optional(

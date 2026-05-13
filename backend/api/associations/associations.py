@@ -3,8 +3,14 @@ from typing import List
 from uuid import UUID
 
 from api.chat.chat_helpers import verify_association_membership
-from core.deps import get_current_user, get_supabase, get_supabase_admin, get_supabase_anon
-from fastapi import APIRouter, Depends, HTTPException, status
+from core.deps import (
+    get_current_user,
+    get_supabase,
+    get_supabase_admin,
+    get_supabase_anon,
+    require_active_community,
+)
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel  # <-- NUEVO IMPORT
 from schemas.associations import (
     AcceptInvitationRequest,
@@ -19,6 +25,11 @@ from schemas.associations import (
     UserMeResponse,
 )
 from services.email_service import ROLE_LABELS, send_invitation_email
+from services.payments.subscription_service import load_association_household_count as load_active_household_count
+from services.payments.subscription_service import (
+    load_subscription,
+    resolve_operational_household_limit,
+)
 from supabase import Client
 
 router = APIRouter()
@@ -79,6 +90,53 @@ class UpdateAvatarRequest(BaseModel):
     avatar_url: str | None = None
 
 
+def _load_association_household_count(supabase_admin: Client, association_id: str) -> int:
+    association_res = (
+        supabase_admin.table("neighborhood_associations")
+        .select("id, household_count")
+        .eq("id", association_id)
+        .limit(1)
+        .execute()
+    )
+    if not association_res.data:
+        raise HTTPException(status_code=404, detail="Comunidad no encontrada.")
+
+    limit = load_active_household_count(supabase_admin, association_id)
+    if limit <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "community_household_count_invalid",
+                "message": "La comunidad no tiene configurado un numero de viviendas valido.",
+                "association_id": association_id,
+            },
+        )
+    return limit
+
+
+def _load_operational_household_limit(supabase_admin: Client, association_id: str) -> int:
+    active_limit = _load_association_household_count(supabase_admin, association_id)
+
+    try:
+        subscription = load_subscription(supabase_admin, association_id)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_404_NOT_FOUND:
+            return active_limit
+        raise
+
+    limit = resolve_operational_household_limit(subscription, active_limit)
+    if limit <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "community_household_count_invalid",
+                "message": "La comunidad no tiene configurado un numero de viviendas valido.",
+                "association_id": association_id,
+            },
+        )
+    return limit
+
+
 @router.get("/users/me/communities", response_model=List[MembershipWithCommunity])
 def get_my_communities(
     current_user: dict = Depends(get_current_user),
@@ -87,7 +145,10 @@ def get_my_communities(
     user_id = current_user["id"]
     response = (
         supabase.table("memberships")
-        .select("id, association_id, role, property_id, joined_at, neighborhood_associations(id, name, address)")
+        .select(
+            "id, association_id, role, property_id, joined_at, "
+            "neighborhood_associations(id, name, address, household_count)"
+        )
         .eq("profile_id", user_id)
         .execute()
     )
@@ -101,54 +162,47 @@ def create_community(
     supabase_admin: Client = Depends(get_supabase_admin),
 ):
     """
-    Crea una nueva comunidad (asociación de vecinos).
-    El usuario que la crea se convierte automáticamente en el Administrador (rol 1).
+    DEPRECATED — la creación libre de comunidades está deshabilitada.
+
+    Toda comunidad debe nacer de una orden de pago/suscripción a través del
+    flujo `POST /registration/gocardless/orders` + `/{id}/complete`. Permitir
+    `POST /communities` directamente dejaría comunidades sin `community_subscriptions`
+    asociada, lo que rompería el middleware de bloqueo por impago y la
+    facturación mensual.
+
+    Cuando exista un rol de SuperAdmin global (p.ej. role=99 en `memberships`)
+    este endpoint puede re-habilitarse condicionado a esa comprobación.
+    Hasta entonces responde 410 Gone.
     """
-    try:
-        # 0. Verificar duplicados por dirección
-        existing = supabase_admin.table("neighborhood_associations").select("id").eq("address", body.address).execute()
-        if existing.data:
-            raise HTTPException(status_code=409, detail="Ya existe una comunidad con esa dirección")
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail=(
+            "La creación directa de comunidades está deshabilitada. "
+            "Inicia el alta a través de POST /registration/gocardless/orders."
+        ),
+    )
 
-        # 1. Crear la comunidad en la tabla neighborhood_associations
-        community_data = {
-            "name": body.name,
-            "address": body.address,
-            "created_at": datetime.utcnow().isoformat(),
-        }
 
-        community_result = supabase_admin.table("neighborhood_associations").insert(community_data).execute()
+@router.get(
+    "/communities/{association_id}/verify-access",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_active_community)],
+)
+def verify_community_access(association_id: str):
+    """
+    Endpoint ligero de verificación de suscripción.
 
-        if not community_result.data:
-            raise HTTPException(status_code=500, detail="Error al crear la comunidad")
-
-        community = community_result.data[0]
-        community_id = community["id"]
-
-        # 2. Crear la membresía del creador como Administrador (rol = 1)
-        membership_data = {
-            "profile_id": str(current_user["id"]),
-            "association_id": community_id,
-            "role": 1,  # ADMIN
-            "joined_at": datetime.utcnow().isoformat(),
-        }
-
-        membership_result = supabase_admin.table("memberships").insert(membership_data).execute()
-
-        if not membership_result.data:
-            raise HTTPException(status_code=500, detail="Error al crear la membresía del administrador")
-
-        return {
-            "id": community["id"],
-            "name": community["name"],
-            "address": community["address"],
-            "created_at": community["created_at"],
-        }
-
-    except HTTPException:
-        raise
-    except Exception:
-        raise HTTPException(status_code=500, detail="Error interno al crear la comunidad")
+    Su único propósito es servir como "ping" desde el frontend (típicamente
+    desde un useFocusEffect) para forzar la evaluación del middleware
+    `require_active_community` sin tener que disparar un endpoint pesado.
+    Si la suscripción está al corriente devuelve 204; si no, la dependency
+    inyectada lanza 402 con el detail estándar y el interceptor global del
+    frontend desencadena el redirect + modal.
+    """
+    # `association_id` queda sin uso intencionalmente: la dependency lo lee
+    # del path. Lo declaramos aquí para que aparezca en el OpenAPI.
+    del association_id
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/users/me", response_model=UserMeResponse)
@@ -837,6 +891,22 @@ def create_property(
     )
     if existing_prop.data:
         raise HTTPException(status_code=400, detail="Esta propiedad ya existe en la comunidad.")
+
+    household_limit = _load_operational_household_limit(supabase_admin, association_id)
+    properties_res = supabase_admin.table("properties").select("id").eq("association_id", association_id).execute()
+    current_count = len(properties_res.data or [])
+
+    if current_count >= household_limit:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "property_limit_reached",
+                "message": "Has alcanzado el numero maximo de viviendas de esta comunidad.",
+                "association_id": association_id,
+                "limit": household_limit,
+                "current_count": current_count,
+            },
+        )
 
     # Insertar la propiedad
     insert_data = {"association_id": association_id, "number": body.number}

@@ -1,5 +1,6 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { isAxiosError } from 'axios';
 import { ActivityIndicator, Image, Modal, ScrollView, TouchableOpacity, View } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +11,7 @@ import { ArrowLeft } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { type AnnouncementStatus } from '@/api/announcements';
+import { apiClient } from '@/api/client';
 import { DateTimePickerModal } from '@/components/community/announcements/DateTimePickerModal';
 import { getUserFacingErrorMessage, normalizeRoleToBackendToken } from '@/components/community/incidents/utils';
 import { Button } from '@/components/ui/button';
@@ -47,6 +49,8 @@ export default function AnuncioDetailScreen() {
   }, [communityId, currentRole, user?.CommunitiesAndRole, activeCommunity]);
 
   const canManage = roleToken === '1' || roleToken === '4';
+  const [hasVerifiedAccess, setHasVerifiedAccess] = useState(false);
+  const [isVerifyingAccess, setIsVerifyingAccess] = useState(true);
 
   const handleGoBack = (): void => {
     if (communityId) {
@@ -59,8 +63,25 @@ export default function AnuncioDetailScreen() {
     }
   };
 
-  const { data: announcement, isLoading, error } = useAnnouncementDetail(communityId, announcementId);
+  const verifyCommunityAccess = useCallback(async (): Promise<boolean> => {
+    if (!communityId) return false;
+    try {
+      await apiClient.get(`/communities/${communityId}/verify-access`);
+      return true;
+    } catch (error) {
+      if (!isAxiosError(error) || error.response?.status !== 402) {
+        console.error('verify-access (announcement detail) failed:', error);
+      }
+      return false;
+    }
+  }, [communityId]);
+
+  const { data: announcement, isLoading, error } = useAnnouncementDetail(
+    hasVerifiedAccess ? communityId : undefined,
+    hasVerifiedAccess ? announcementId : undefined,
+  );
   const updateMutation = useUpdateAnnouncement(communityId, announcementId);
+  const errorStatus = isAxiosError(error) ? error.response?.status : undefined;
 
   const [isEditing, setIsEditing] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
@@ -84,10 +105,17 @@ export default function AnuncioDetailScreen() {
   // Reset edit mode when the screen gains focus (fixes stale state when navigating between announcements)
   useFocusEffect(
     useCallback(() => {
+      void (async () => {
+        setIsVerifyingAccess(true);
+        const hasAccess = await verifyCommunityAccess();
+        setHasVerifiedAccess(hasAccess);
+        setIsVerifyingAccess(false);
+      })();
+
       setIsEditing(false);
       setPickedImage(null);
       setFormError('');
-    }, [])
+    }, [verifyCommunityAccess])
   );
 
   useEffect(() => {
@@ -147,11 +175,14 @@ export default function AnuncioDetailScreen() {
       setPickedImage(null);
       showAlert('Éxito', 'Anuncio actualizado correctamente.');
     } catch (err: unknown) {
+      if (isAxiosError(err) && err.response?.status === 402) {
+        return;
+      }
       setFormError(getUserFacingErrorMessage(err, 'No se pudo actualizar el anuncio.'));
     }
   };
 
-  if (isLoading) {
+  if (isVerifyingAccess || isLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
         <Drawer.Screen options={{

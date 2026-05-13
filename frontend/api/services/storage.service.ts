@@ -9,7 +9,13 @@ const USER_KEY = 'user_data'; // nosemgrep
 const COMMUNITY_KEY = 'community_data'; // nosemgrep
 const SELECTED_MINUTE_KEY = 'selected_minute_data'; // nosemgrep
 const RECOVERY_ACCOUNT_ID_KEY = 'recovery_account_id'; // nosemgrep
-type StoredActiveCommunity = { id: string; name: string; role: string | number; address?: string | null };
+type StoredActiveCommunity = {
+  id: string;
+  name: string;
+  role: string | number;
+  address?: string | null;
+  household_count?: number | null;
+};
 
 export const storageService = {
   saveToken: async (token: string): Promise<void> => {

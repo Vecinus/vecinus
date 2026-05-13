@@ -135,6 +135,7 @@ class MockSupabaseClient:
 
 def make_mock_supabase(extra=None, rls_blocked=None, role=1):
     base = {
+        "community_subscriptions": [{"association_id": mock_association_id, "status": "active"}],
         "memberships": [
             {
                 "id": mock_membership_id,
@@ -212,6 +213,38 @@ def test_get_announcements_tenant():
         data = response.json()
         assert len(data) == 1  # Sees only published
         assert data[0]["status"] == "PUBLISHED"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_get_announcements_without_subscription_returns_402():
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase(extra={"community_subscriptions": []}, role=1)
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase(
+        extra={"community_subscriptions": []}, role=1
+    )
+
+    try:
+        response = client.get(f"/announcements/{mock_association_id}")
+        assert response.status_code == 402
+        assert response.json()["detail"]["code"] == "community_no_subscription"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_get_announcements_with_blocked_subscription_returns_402():
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase(
+        extra={"community_subscriptions": [{"association_id": mock_association_id, "status": "past_due"}]}, role=1
+    )
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase(
+        extra={"community_subscriptions": [{"association_id": mock_association_id, "status": "past_due"}]}, role=1
+    )
+
+    try:
+        response = client.get(f"/announcements/{mock_association_id}")
+        assert response.status_code == 402
+        assert response.json()["detail"]["code"] == "community_blocked"
     finally:
         app.dependency_overrides.clear()
 
@@ -295,6 +328,24 @@ def test_create_announcement_tenant_fails():
             data={"title": "New Title", "content": "New Content", "status": "PUBLISHED"},
         )
         assert response.status_code == 403
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_create_announcement_without_subscription_returns_402():
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase(extra={"community_subscriptions": []}, role=1)
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase(
+        extra={"community_subscriptions": []}, role=1
+    )
+
+    try:
+        response = client.post(
+            f"/announcements/{mock_association_id}",
+            data={"title": "New Title", "content": "New Content", "status": "PUBLISHED"},
+        )
+        assert response.status_code == 402
+        assert response.json()["detail"]["code"] == "community_no_subscription"
     finally:
         app.dependency_overrides.clear()
 

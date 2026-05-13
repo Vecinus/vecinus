@@ -1,3 +1,5 @@
+import { extractErrorMessage, getErrorMessage } from '@/lib/error-message';
+
 export const normalizeRoleToBackendToken = (role: string | number | null): string | null => {
   if (role === null || typeof role === 'undefined') return null;
 
@@ -17,17 +19,12 @@ export const normalizeRoleToBackendToken = (role: string | number | null): strin
   return null;
 };
 
-type AnyError = { response?: { status?: number; data?: { detail?: string } }; message?: string };
-
-export const getErrorMessage = (error: unknown, fallback: string): string => {
-  const e = error as AnyError;
-  return e?.response?.data?.detail || e?.message || fallback;
-};
+type AnyError = { response?: { status?: number; data?: { detail?: unknown } } };
 
 export const getUserFacingErrorMessage = (error: unknown, fallback: string): string => {
   const e = error as AnyError;
   const status = e?.response?.status;
-  const detail = String(e?.response?.data?.detail ?? '').trim();
+  const detail = extractErrorMessage(e?.response?.data?.detail);
 
   if (status === 401) {
     return 'Tu sesion ha expirado. Cierra sesion y vuelve a iniciar sesion.';   
@@ -54,5 +51,5 @@ export const getUserFacingErrorMessage = (error: unknown, fallback: string): str
     return detail || fallback;
   }
 
-  return detail || getErrorMessage(e, fallback);
+  return detail || getErrorMessage(error, fallback);
 };
