@@ -693,6 +693,36 @@ def test_create_property_already_exists():
 #     )
 #     delete_res = admin_client.table("invitations").delete().eq("id", invitation_id).execute()
 #     assert delete_res.data is not None  # nosec B101
+
+
+def test_get_community_users_rejects_non_member():
+    app.dependency_overrides[get_current_user] = lambda: {
+        "id": mock_target_user_id,
+        "role": "authenticated",
+        "email": "outsider@test.com",
+    }
+    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+    try:
+        response = client.get(f"/{mock_association_id}/users")
+        assert response.status_code == 403
+        assert response.json()["detail"] == "Access denied to this community"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_get_available_properties_rejects_non_member():
+    app.dependency_overrides[get_current_user] = lambda: {
+        "id": mock_target_user_id,
+        "role": "authenticated",
+        "email": "outsider@test.com",
+    }
+    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase()
+    try:
+        response = client.get(f"/{mock_association_id}/properties/available")
+        assert response.status_code == 403
+        assert response.json()["detail"] == "Access denied to this community"
+    finally:
+        app.dependency_overrides.clear()
 #
 #     # 4. Verificar que ya no existe
 #     check_res = admin_client.table("invitations").select("id").eq("id", invitation_id).execute()

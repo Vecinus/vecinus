@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 from typing import List
 from uuid import UUID
 
@@ -102,10 +103,77 @@ def cast_vote(
 
 
 @router.get("/{association_id}/{poll_id}/results", response_model=PollResultResponse)
-def get_poll_results(association_id: UUID, poll_id: UUID, supabase: Client = Depends(get_supabase_admin)):
+def get_poll_results(
+    association_id: UUID,
+    poll_id: UUID,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
     """Genera el escrutinio de la votación (Doble mayoría: Personas y Cuotas)."""
-    service = EscrutinioService(supabase)
-    return service.calculate_results(poll_id, association_id)
+    poll_res = (
+        supabase_admin.table("poll")
+        .select("association_id")
+        .eq("id", str(poll_id))
+        .limit(1)
+        .execute()
+    )
+    if not poll_res.data or str(poll_res.data[0].get("association_id")) != str(association_id):
+        raise HTTPException(status_code=404, detail="Votacion no encontrada")
+
+    membership_res = (
+        supabase.table("memberships")
+        .select("role")
+        .eq("profile_id", current_user["id"])
+        .eq("association_id", str(association_id))
+        .limit(1)
+        .execute()
+    )
+    if not membership_res.data:
+        raise HTTPException(status_code=403, detail="No eres miembro de esta comunidad")
+
+    service = EscrutinioService(supabase_admin)
+    result = service.calculate_results(poll_id, association_id)
+
+    user_role = int(membership_res.data[0].get("role", 0))
+    if user_role not in {1, 4}:
+        result["voters_list"] = []
+
+    return result
+
+
+@router.get("/public/{poll_id}", response_model=PollResponse)
+def get_public_poll_by_voting_token(
+    poll_id: UUID,
+    token: str,
+    supabase: Client = Depends(get_supabase_admin),
+):
+    """Obtiene una votacion desde un enlace magico validando su token de voto."""
+    token_res = (
+        supabase.table("voting_tokens")
+        .select("poll_id, expires_at, used_at")
+        .eq("token", token)
+        .eq("poll_id", str(poll_id))
+        .limit(1)
+        .execute()
+    )
+    if not token_res.data:
+        raise HTTPException(status_code=404, detail="Enlace de votacion no valido")
+
+    token_data = token_res.data[0]
+    if token_data.get("used_at"):
+        raise HTTPException(status_code=403, detail="Este enlace de votacion ya ha sido utilizado")
+
+    expires_at = token_data.get("expires_at")
+    if expires_at:
+        expires_at_dt = datetime.fromisoformat(str(expires_at).replace("Z", "+00:00"))
+        if expires_at_dt.tzinfo is None:
+            expires_at_dt = expires_at_dt.replace(tzinfo=timezone.utc)
+        if expires_at_dt < datetime.now(timezone.utc):
+            raise HTTPException(status_code=403, detail="Este enlace de votacion ha caducado")
+
+    service = PollService(supabase)
+    return service.get_poll_by_id(poll_id)
 
 
 @router.get("/{poll_id}", response_model=PollResponse)

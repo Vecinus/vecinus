@@ -127,6 +127,7 @@
   },
   "private": true,
   "overrides": {
-    "@radix-ui/react-slot": "1.2.4"
+    "@radix-ui/react-slot": "1.2.4",
+    "postcss": "^8.5.10"
   }
 }

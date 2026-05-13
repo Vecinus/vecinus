@@ -195,7 +195,7 @@ function ChatBubble({
 
 export default function CommunityChatScreen() {
   const { communityId } = useLocalSearchParams<{ communityId: string | string[] }>();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const flatListRef = React.useRef<FlatList<ChannelMessage>>(null);
   const composerRef = React.useRef<TextInput>(null);
 
@@ -301,11 +301,11 @@ export default function CommunityChatScreen() {
   }, [feedbackMessage]);
 
   React.useEffect(() => {
-    if (!channel?.id) {
+    if (!channel?.id || !token) {
       return;
     }
 
-    const socket = new WebSocket(buildChatWebSocketUrl(channel.id));
+    const socket = new WebSocket(buildChatWebSocketUrl(channel.id, token));
 
     socket.onmessage = (event: MessageEvent) => {
       try {
@@ -349,7 +349,7 @@ export default function CommunityChatScreen() {
     };
 
     return () => socket.close();
-  }, [channel?.id]);
+  }, [channel?.id, token]);
 
   const handleRefresh = React.useCallback(async (): Promise<void> => {
     if (!channel?.id) return;

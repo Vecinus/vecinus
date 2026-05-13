@@ -106,35 +106,32 @@ def _verify_jwt(token: str) -> dict:
     """Verifica la firma del JWT y devuelve el payload. Lanza excepción si falla."""
     jwt_secret = settings.SUPABASE_JWT_SECRET
 
-    if jwt_secret:
-        try:
-            payload = pyjwt.decode(
-                token,
-                jwt_secret,
-                algorithms=["HS256"],
-                audience="authenticated",
-                options={"require": ["sub", "exp", "role"]},
-            )
-            return payload
-        except pyjwt.ExpiredSignatureError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token expired",
-            )
-        except pyjwt.InvalidTokenError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication credentials",
-            )
-    else:
-        logger.warning("SUPABASE_JWT_SECRET not configured — falling back to unverified JWT decode")
-        payload = _extract_jwt_payload(token)
-        if not payload:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication credentials",
-            )
+    if not jwt_secret:
+        logger.error("SUPABASE_JWT_SECRET is not configured; refusing unverified JWT authentication")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="JWT validation is not configured",
+        )
+
+    try:
+        payload = pyjwt.decode(
+            token,
+            jwt_secret,
+            algorithms=["HS256"],
+            audience="authenticated",
+            options={"require": ["sub", "exp", "role"]},
+        )
         return payload
+    except pyjwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token expired",
+        )
+    except pyjwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+        )
 
 
 def get_current_user(

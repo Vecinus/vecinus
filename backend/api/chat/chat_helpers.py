@@ -83,7 +83,7 @@ def verify_association_admin_or_president(association_id: UUID | str, user_id: s
     user_role = membership_res.data[0].get("role")
 
     if str(user_role) not in ["1", "4"]:
-        raise HTTPException(status_code=403, detail="Admin or President access required for this action")
+        raise HTTPException(status_code=403, detail="Admin or president access required for this action")
 
     return membership_res.data[0]
 

@@ -64,7 +64,7 @@ export default function VoteScreen() {
       }
 
       try {
-        const pollData = await pollService.getPoll(poll_id);
+        const pollData = await pollService.getPublicPoll(poll_id, token);
         setPoll(pollData);
 
         if (pollData.current_status !== 'ACTIVE') {

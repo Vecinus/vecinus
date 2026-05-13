@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List
 from uuid import UUID
 
+from api.chat.chat_helpers import verify_association_membership
 from core.deps import get_current_user, get_supabase, get_supabase_admin, get_supabase_anon
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel  # <-- NUEVO IMPORT
@@ -664,6 +665,8 @@ def get_community_users(
     """
     Obtiene todos los usuarios miembros de una comunidad específica.
     """
+    verify_association_membership(association_id, current_user["id"], supabase)
+
     response = (
         supabase.table("memberships")
         .select("id,role, profiles(id, username)")
@@ -778,6 +781,8 @@ def get_available_properties(
     current_user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
 ):
+    verify_association_membership(association_id, current_user["id"], supabase)
+
     properties_res = supabase.table("properties").select("id, number").eq("association_id", association_id).execute()
 
     memberships_res = (

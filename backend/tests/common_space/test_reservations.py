@@ -515,6 +515,52 @@ def test_create_guest_pass_returns_qr_token(setup_overrides):
     assert data["qr_token"]
 
 
+def test_create_guest_pass_rejects_user_outside_association(setup_overrides):
+    app.dependency_overrides[get_current_user] = lambda: {
+        "id": str(uuid4()),
+        "role": "authenticated",
+        "email": "outsider@test.com",
+    }
+
+    response = client.post(
+        "/guest-passes/",
+        json={
+            "space_id": 1,
+            "valid_for_date": date.today().isoformat(),
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "No tienes acceso a esta comunidad"
+
+
+def test_create_guest_pass_allows_first_pass_when_capacity_is_one(setup_overrides):
+    setup_overrides["client"].storage["common_space"].append(
+        {
+            "id": 4,
+            "association_id": ASSOCIATION_ID,
+            "name": "Solarium",
+            "requires_qr": True,
+            "capacity": 1,
+            "max_guests_per_reservation": 3,
+            "start_time": "09:00:00",
+            "end_time": "23:00:00",
+            "usage_mode": "guest_pass",
+        }
+    )
+
+    payload = {
+        "space_id": 4,
+        "valid_for_date": date.today().isoformat(),
+    }
+    first_response = client.post("/guest-passes/", json=payload)
+    second_response = client.post("/guest-passes/", json=payload)
+
+    assert first_response.status_code == 201
+    assert second_response.status_code == 400
+    assert "capacidad" in second_response.json()["detail"]
+
+
 def test_list_occupied_slots_returns_active_slots_for_day(setup_overrides):
     now = datetime.now(timezone.utc)
     day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)

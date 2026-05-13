@@ -60,6 +60,16 @@ class MockSupabaseClient:
         return MockSupabaseQueryBuilder(self.db_state.get(table_name, []))
 
 
+def make_active_poll(now):
+    return {
+        "options": ["A Favor", "En Contra"],
+        "association_id": "assoc-1",
+        "status": "PUBLISHED",
+        "start_at": (now - timedelta(hours=1)).isoformat(),
+        "end_at": (now + timedelta(hours=1)).isoformat(),
+    }
+
+
 def test_create_poll_success():
     client = MockSupabaseClient({"poll": []})
     service = PollService(client)
@@ -136,7 +146,7 @@ def test_cast_vote_success():
         "voting_tokens": [
             {"is_used": False, "expires_at": (now + timedelta(days=1)).isoformat(), "membership_id": "mem-1"}
         ],
-        "poll": [{"options": ["A Favor", "En Contra"], "association_id": "assoc-1"}],
+        "poll": [make_active_poll(now)],
         "memberships": [{"property_id": "prop-1"}],
         "properties": [{"coefficient": 15.5, "is_defaulter": False}],
         "vote": [],
@@ -162,10 +172,34 @@ def test_cast_vote_rgpd_required():
     assert "RGPD" in exc.value.detail
 
 
+@pytest.mark.parametrize(
+    ("poll_overrides", "expected_detail"),
+    [
+        ({"status": "MANUALLY_CLOSED"}, "no esta abierta"),
+        ({"start_at": None, "end_at": None}, "ventana valida"),
+        ({"start_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()}, "aun no ha comenzado"),
+        ({"end_at": (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()}, "ya ha finalizado"),
+    ],
+)
+def test_cast_vote_rejects_poll_outside_voting_window(poll_overrides, expected_detail):
+    now = datetime.now(timezone.utc)
+    poll = make_active_poll(now)
+    poll.update(poll_overrides)
+    client = MockSupabaseClient({"poll": [poll]})
+    service = VoteService(client)
+    vote_data = VoteCreate(selected_option="A Favor", voting_token=str(uuid4()), rgpd_accepted=True)
+
+    with pytest.raises(HTTPException) as exc:
+        service.cast_vote(uuid4(), vote_data)
+    assert exc.value.status_code == 403
+    assert expected_detail in exc.value.detail
+
+
 def test_cast_vote_token_invalid():
+    now = datetime.now(timezone.utc)
     db_state = {
         "voting_tokens": [],
-        "poll": [{"options": ["A Favor", "En Contra"], "association_id": "assoc-1"}],
+        "poll": [make_active_poll(now)],
     }
     client = MockSupabaseClient(db_state)
     service = VoteService(client)
@@ -183,7 +217,7 @@ def test_cast_vote_token_used():
         "voting_tokens": [
             {"is_used": True, "expires_at": (now + timedelta(days=1)).isoformat(), "membership_id": "mem-1"}
         ],
-        "poll": [{"options": ["A Favor", "En Contra"], "association_id": "assoc-1"}],
+        "poll": [make_active_poll(now)],
     }
     client = MockSupabaseClient(db_state)
     service = VoteService(client)
@@ -205,7 +239,7 @@ def test_cast_vote_token_expired():
                 "membership_id": "mem-1",
             }
         ],
-        "poll": [{"options": ["A Favor", "En Contra"], "association_id": "assoc-1"}],
+        "poll": [make_active_poll(now)],
     }
     client = MockSupabaseClient(db_state)
     service = VoteService(client)
@@ -223,7 +257,7 @@ def test_cast_vote_defaulter_forbidden_by_lph():
         "voting_tokens": [
             {"is_used": False, "expires_at": (now + timedelta(days=1)).isoformat(), "membership_id": "mem-1"}
         ],
-        "poll": [{"options": ["A Favor", "En Contra"], "association_id": "assoc-1"}],
+        "poll": [make_active_poll(now)],
         "memberships": [{"property_id": "prop-1"}],
         "properties": [{"coefficient": 10.0, "is_defaulter": True}],
     }

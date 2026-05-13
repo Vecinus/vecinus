@@ -105,7 +105,8 @@ export async function deleteChannelMessage({
   await apiClient.delete(`/chat/channels/${channelId}/messages/${messageId}`);
 }
 
-export function buildChatWebSocketUrl(channelId: string): string {
+export function buildChatWebSocketUrl(channelId: string, token: string): string {
   const baseUrl = apiClient.defaults.baseURL ?? '';
-  return baseUrl.replace(/^http/i, 'ws').replace(/\/$/, '') + `/chat/ws/${channelId}`;
+  const wsBaseUrl = baseUrl.replace(/^http/i, 'ws').replace(/\/$/, '');
+  return `${wsBaseUrl}/chat/ws/${channelId}?token=${encodeURIComponent(token)}`;
 }

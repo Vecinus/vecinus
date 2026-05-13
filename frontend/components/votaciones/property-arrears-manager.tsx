@@ -27,7 +27,6 @@ export function PropertyArrearsManager({ associationId, pollId, onCoefficientCha
 
   const [properties, setProperties] = useState<PropertyReadResponse[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingCoefficient, setEditingCoefficient] = useState('');
@@ -36,14 +35,47 @@ export function PropertyArrearsManager({ associationId, pollId, onCoefficientCha
   const [isEquitableMode, setIsEquitableMode] = useState(true);
   const storageKey = pollId ? `poll_coefficients_${pollId}` : null;
 
-  const detectAndSetMode = (props: PropertyReadResponse[]) => {
+  const detectAndSetMode = useCallback((props: PropertyReadResponse[]) => {
     const eligible = props.filter((p) => !p.is_defaulter);
     if (eligible.length > 1) {
       const firstCoef = eligible[0].coefficient;
       const isEq = eligible.every((p) => Math.abs(p.coefficient - firstCoef) < 0.01);
       setIsEquitableMode(isEq);
     }
-  };
+  }, []);
+
+  const distributeEquitably = useCallback(async (props: PropertyReadResponse[]) => {
+    const eligibleProperties = props.filter((property) => !property.is_defaulter);
+    if (eligibleProperties.length === 0) return;
+
+    const baseValue = Math.floor((10000 / eligibleProperties.length)) / 100;
+    const remainder = parseFloat((100 - baseValue * eligibleProperties.length).toFixed(2));
+
+    const coefficientById = eligibleProperties.reduce<Record<string, number>>((acc, property, index) => {
+      acc[property.id] = parseFloat(
+        ((index === 0 ? baseValue + remainder : baseValue).toFixed(2)).toString()
+      );
+      return acc;
+    }, {});
+
+    const updates = props.map((property) => ({
+      id: property.id,
+      coefficient: property.is_defaulter ? 0 : coefficientById[property.id],
+    }));
+
+    try {
+      const updatedProperties = await Promise.all(
+        updates.map((update) =>
+          associationService.updateProperty(update.id, { coefficient: update.coefficient })
+        )
+      );
+      setProperties(updatedProperties);
+      setCoefficientError(null);
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail;
+      console.error('Error distributing coefficients:', detail || error);
+    }
+  }, []);
 
   const loadProperties = useCallback(async () => {
     try {
@@ -81,9 +113,8 @@ export function PropertyArrearsManager({ associationId, pollId, onCoefficientCha
       console.error('Error loading properties:', error);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
-  }, [associationId, forceEquitable, storageKey]);
+  }, [associationId, detectAndSetMode, distributeEquitably, forceEquitable, storageKey]);
 
   useEffect(() => {
     loadProperties();
@@ -101,10 +132,9 @@ export function PropertyArrearsManager({ associationId, pollId, onCoefficientCha
         AsyncStorage.setItem(storageKey, JSON.stringify(map));
       }
     }
-  }, [properties]);
+  }, [onCoefficientChange, properties, storageKey]);
 
   const onRefresh = () => {
-    setRefreshing(true);
     loadProperties();
   };
 
@@ -144,39 +174,6 @@ export function PropertyArrearsManager({ associationId, pollId, onCoefficientCha
   };
 
   const totalCoefficient = properties.reduce((sum, property) => sum + property.coefficient, 0);
-
-  const distributeEquitably = async (props: PropertyReadResponse[] = properties) => {
-    const eligibleProperties = props.filter((property) => !property.is_defaulter);
-    if (eligibleProperties.length === 0) return;
-
-    const baseValue = Math.floor((10000 / eligibleProperties.length)) / 100;
-    const remainder = parseFloat((100 - baseValue * eligibleProperties.length).toFixed(2));
-
-    const coefficientById = eligibleProperties.reduce<Record<string, number>>((acc, property, index) => {
-      acc[property.id] = parseFloat(
-        ((index === 0 ? baseValue + remainder : baseValue).toFixed(2)).toString()
-      );
-      return acc;
-    }, {});
-
-    const updates = props.map((property) => ({
-      id: property.id,
-      coefficient: property.is_defaulter ? 0 : coefficientById[property.id],
-    }));
-
-    try {
-      const updatedProperties = await Promise.all(
-        updates.map((update) =>
-          associationService.updateProperty(update.id, { coefficient: update.coefficient })
-        )
-      );
-      setProperties(updatedProperties);
-      setCoefficientError(null);
-    } catch (error: any) {
-      const detail = error?.response?.data?.detail;
-      console.error('Error distributing coefficients:', detail || error);
-    }
-  };
 
   const toggleWeightedMode = async () => {
     if (!isEquitableMode) {

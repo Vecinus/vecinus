@@ -270,6 +270,46 @@ def test_create_registration_order_fails_if_email_already_used(setup_overrides, 
     expect_equal(data["detail"], "There is already a registered user with that email", "Expected error message")
 
 
+def test_create_registration_order_fails_if_email_exists_in_profiles(setup_overrides, monkeypatch):
+    setup_overrides["admin_client"].storage["profiles"] = [
+        {"id": str(uuid4()), "email": "nuevo@example.com", "username": "existente"}
+    ]
+
+    response = client.post(
+        "/registration/gocardless/orders",
+        json={
+            "email": "nuevo@example.com",
+            "username": "otro_admin",
+            "community_name": "Comunidad Alatrillo",
+            "community_address": "Calle Varvo 33",
+        },
+    )
+
+    expect_equal(response.status_code, 400, "Expected status code 400")
+    data = response.json()
+    expect_equal(data["detail"], "There is already a registered user with that email", "Expected error message")
+
+
+def test_create_registration_order_fails_if_email_exists_in_auth(setup_overrides, monkeypatch):
+    setup_overrides["admin_client"].auth.admin.create_user(
+        {"email": "nuevo@example.com", "password": "supersecreta1"}
+    )
+
+    response = client.post(
+        "/registration/gocardless/orders",
+        json={
+            "email": "nuevo@example.com",
+            "username": "otro_admin",
+            "community_name": "Comunidad Alatrillo",
+            "community_address": "Calle Varvo 33",
+        },
+    )
+
+    expect_equal(response.status_code, 400, "Expected status code 400")
+    data = response.json()
+    expect_equal(data["detail"], "There is already a registered user with that email", "Expected error message")
+
+
 def test_complete_registration_order_creates_user_community_and_membership(setup_overrides, monkeypatch):
     state = setup_overrides
     order_id = str(uuid4())

@@ -12,17 +12,48 @@ class VoteService:
     def __init__(self, supabase_client):
         self.supabase = supabase_client
 
+    @staticmethod
+    def _parse_datetime(value):
+        if not value:
+            return None
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed
+
+    @classmethod
+    def _ensure_poll_is_open(cls, poll_info):
+        if poll_info.get("status") != "PUBLISHED":
+            raise HTTPException(status_code=403, detail="Esta votacion no esta abierta")
+
+        start_at = cls._parse_datetime(poll_info.get("start_at"))
+        end_at = cls._parse_datetime(poll_info.get("end_at"))
+        if not start_at or not end_at:
+            raise HTTPException(status_code=403, detail="Esta votacion no tiene una ventana valida de voto")
+
+        now = datetime.now(timezone.utc)
+        if now < start_at:
+            raise HTTPException(status_code=403, detail="Esta votacion aun no ha comenzado")
+        if now > end_at:
+            raise HTTPException(status_code=403, detail="Esta votacion ya ha finalizado")
+
     def cast_vote(self, poll_id: UUID, vote_data: VoteCreate):
         if not vote_data.rgpd_accepted:
             raise HTTPException(status_code=400, detail="Debe aceptar la cláusula RGPD para votar")
 
         try:
-            poll_res = self.supabase.table("poll").select("options, association_id").eq("id", str(poll_id)).execute()
+            poll_res = (
+                self.supabase.table("poll")
+                .select("options, association_id, status, start_at, end_at")
+                .eq("id", str(poll_id))
+                .execute()
+            )
             if not poll_res.data:
                 raise HTTPException(status_code=404, detail="Votación no encontrada")
 
             poll_info = poll_res.data[0]
             poll_info["association_id"]
+            self._ensure_poll_is_open(poll_info)
             valid_options = poll_info["options"]
 
             if vote_data.selected_option not in valid_options:
@@ -53,9 +84,7 @@ class VoteService:
 
             expires_at_str = token_info.get("expires_at")
             if expires_at_str:
-                expires_at = datetime.fromisoformat(expires_at_str)
-                if expires_at.tzinfo is None:
-                    expires_at = expires_at.replace(tzinfo=timezone.utc)
+                expires_at = self._parse_datetime(expires_at_str)
                 if expires_at < datetime.now(timezone.utc):
                     raise HTTPException(status_code=403, detail="El token de votación ha expirado")
 
