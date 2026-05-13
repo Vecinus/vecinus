@@ -51,7 +51,7 @@ Muy insatisfecho | Insatisfecho | Neutral | Satisfecho | Muy satisfecho
 | Fernando C. |  |  |  |
 | Ángel F. |  |  |  |
 | Adrián D. | 🙂 | 😄 | 😐 |
-| Kevin A. |  |  |  |
+| Kevin A. | 🙂 | 🙂 | 😐 |
 | Jesús O. |  |  |  |
 | Héctor G. |  |  |  |
 | Rares P. |  |  |  |
