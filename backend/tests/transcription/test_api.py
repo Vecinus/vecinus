@@ -110,6 +110,65 @@ class TestMinutesAPI:
         if response_data["title"] != "Junta ordinaria marzo 2026":
             raise AssertionError(f"Titulo inesperado en la respuesta: {response_data['title']}")
 
+    async def test_transcribe_uses_client_duration_when_backend_probe_fails(self):
+        app.dependency_overrides[get_current_user] = lambda: MOCK_USER
+        app.dependency_overrides[get_supabase_admin] = lambda: _MockSupabaseAdmin()
+        app.dependency_overrides[get_supabase] = lambda: MagicMock()
+        service = MagicMock()
+        service.create_initial_draft = AsyncMock(
+            return_value={
+                "id": "minute-1",
+                "association_id": "11111111-1111-1111-1111-111111111111",
+                "status": "DRAFT",
+                "title": "Junta webm",
+                "location": "Residencial Vecinus",
+                "type": "ORDINARY",
+                "scheduled_at": "2026-03-24T19:00:00",
+                "version": 1,
+                "content_json": {
+                    "transcription": "Texto",
+                    "summary": "S",
+                    "topics": [],
+                    "agreements": [],
+                    "tasks": [],
+                },
+            }
+        )
+        app.dependency_overrides[get_service] = lambda: service
+
+        with patch("api.transcription.minutes.verify_association_admin_or_president"), patch.object(
+            TranscriptionService,
+            "process_audio_to_minutes",
+            new=AsyncMock(
+                return_value=AIGeneratedContent(transcription="Texto", summary="S", topics=[], agreements=[], tasks=[])
+            ),
+        ), patch.object(
+            minutes_api, "get_audio_duration_seconds", side_effect=ValueError("ffprobe missing")
+        ), patch.object(
+            minutes_api,
+            "consume_minutes_seconds",
+            return_value={"allowed": True, "remaining_seconds": 7200, "resets_at": None},
+        ) as mock_consume, patch.object(
+            minutes_api, "revert_minutes_seconds", return_value=None
+        ):
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+                files = {"audio": ("reunion.webm", b"fake-webm-audio-data", "audio/webm")}
+                response = await ac.post(
+                    "/api/minutes/11111111-1111-1111-1111-111111111111/transcribe",
+                    files=files,
+                    data={"title": "Junta webm", "duration_ms": "90500"},
+                )
+
+        app.dependency_overrides.clear()
+
+        if response.status_code != 200:
+            raise AssertionError(f"Se esperaba 200 pero se obtuvo {response.status_code}: {response.text}")
+
+        mock_consume.assert_called_once()
+        consumed_seconds = mock_consume.call_args.args[2]
+        if consumed_seconds != 91:
+            raise AssertionError(f"Se esperaba consumir 91s pero se consumieron {consumed_seconds}s")
+
     async def test_transcribe_unsupported_mime(self):
         app.dependency_overrides[get_current_user] = lambda: {
             "id": "11111111-1111-1111-1111-111111111110",
