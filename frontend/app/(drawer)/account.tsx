@@ -66,7 +66,7 @@ export default function AccountScreen() {
     } catch (requestError: unknown) {
       const typedError = requestError as RequestError;
       const detail = typedError.response?.data?.detail;
-      setError(typeof detail === 'string' ? detail : 'No se pudo anonimizar la cuenta.');
+      setError(typeof detail === 'string' ? detail : 'No se pudo eliminar la cuenta.');
     }
   };
 
@@ -88,7 +88,7 @@ export default function AccountScreen() {
             Gestión de cuenta
           </Text>
           <Text className="mt-3 text-muted-foreground">
-            Esta acción anonimiza tu cuenta global. Tus comunidades seguirán viendo un usuario eliminado, pero tus datos personales dejarán de estar asociados al perfil.
+            Esta acción eliminará tu cuenta global. Tus comunidades seguirán viendo un usuario eliminado, pero tus datos personales dejarán de estar asociados al perfil.
           </Text>
         </View>
 
@@ -131,7 +131,7 @@ export default function AccountScreen() {
               }}
               disabled={isPending}
             >
-              {isPending ? <ActivityIndicator color="#ffffff" /> : <Text>Anonimizar mi cuenta</Text>}
+              {isPending ? <ActivityIndicator color="#ffffff" /> : <Text>Eliminar mi cuenta</Text>}
             </Button>
           </CardContent>
         </Card>
@@ -145,7 +145,7 @@ export default function AccountScreen() {
             </View>
             <DialogTitle className="text-center sm:text-center">¿Seguro que quieres eliminar la cuenta?</DialogTitle>
             <DialogDescription className="text-center sm:text-center">
-              Tu cuenta se anonimizará y se cerrará la sesión actual. Podrás recuperarla más tarde desde el formulario de recuperación.
+              Tu cuenta se eliminará y se cerrará la sesión actual. Podrás recuperarla más tarde desde el formulario de recuperación.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
