@@ -85,6 +85,7 @@ function ChatBubble({
   onEditMessage?: (message: ChannelMessage) => void;
 }) {
   const isUser = currentUserId === message.sender_id;
+  const [isHovering, setIsHovering] = React.useState(false);
 
   return (
     <View className={cn('mb-4 flex-row gap-3', isUser ? 'justify-end' : 'justify-start')}>
@@ -101,23 +102,56 @@ function ChatBubble({
         className={cn(
           'max-w-[85%] rounded-3xl border px-4 py-3',
           isUser ? 'border-primary bg-primary' : 'border-border bg-card'
-        )}>
+        )}
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}>
         {!isUser ? (
           <Text className="mb-1 text-xs font-semibold uppercase tracking-wide text-primary">
             {message.sender?.username || 'Vecino'}
           </Text>
         ) : null}
 
-        {isUser && onEditMessage && onDeleteMessage ? (
-          <View className="mb-2 flex-row justify-end">
+        <View className="flex-row items-start justify-between gap-2">
+          <View className="min-w-0 flex-1">
+            <Text
+              className={cn(
+                'text-sm leading-6',
+                isUser ? 'text-primary-foreground' : 'text-card-foreground'
+              )}>
+              {message.content}
+            </Text>
+
+            <View className="mt-2 flex-row items-center justify-end gap-2">
+              {message.is_edited ? (
+                <Text
+                  className={cn(
+                    'text-[11px]',
+                    isUser ? 'text-primary-foreground/80' : 'text-muted-foreground'
+                  )}>
+                  editado
+                </Text>
+              ) : null}
+              <Text
+                className={cn(
+                  'text-[11px]',
+                  isUser ? 'text-primary-foreground/80' : 'text-muted-foreground'
+                )}>
+                {new Intl.DateTimeFormat('es-ES', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }).format(new Date(message.created_at))}
+              </Text>
+            </View>
+          </View>
+
+          {isUser && onEditMessage && onDeleteMessage && isHovering ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  hitSlop={10}
-                  className="size-8 rounded-full bg-primary-foreground/10 active:bg-primary-foreground/15">
-                  <Icon as={EllipsisVerticalIcon} size={16} className="text-primary-foreground/85" />
+                  className="h-6 w-6 rounded-full hover:bg-primary-foreground/10">
+                  <Icon as={ChevronDownIcon} size={18} className="text-primary-foreground/60" />
                 </Button>
               </DropdownMenuTrigger>
 
@@ -150,37 +184,7 @@ function ChatBubble({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          </View>
-        ) : null}
-
-        <Text
-          className={cn(
-            'text-sm leading-6',
-            isUser ? 'text-primary-foreground' : 'text-card-foreground'
-          )}>
-          {message.content}
-        </Text>
-
-        <View className="mt-2 flex-row items-center justify-end gap-2">
-          {message.is_edited ? (
-            <Text
-              className={cn(
-                'text-[11px]',
-                isUser ? 'text-primary-foreground/80' : 'text-muted-foreground'
-              )}>
-              editado
-            </Text>
           ) : null}
-          <Text
-            className={cn(
-              'text-[11px]',
-              isUser ? 'text-primary-foreground/80' : 'text-muted-foreground'
-            )}>
-            {new Intl.DateTimeFormat('es-ES', {
-              hour: '2-digit',
-              minute: '2-digit',
-            }).format(new Date(message.created_at))}
-          </Text>
         </View>
       </View>
 
