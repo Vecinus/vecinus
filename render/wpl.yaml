@@ -19,7 +19,7 @@ projects:
             rootDir: frontend
 
           - type: web
-            name: Vecinus-Backend-WPL
+            name: Vecinus-Backend
             runtime: docker
             repo: https://github.com/Vecinus/vecinus
             branch: chore/blueprints-wpl
