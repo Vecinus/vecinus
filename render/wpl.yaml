@@ -6,7 +6,7 @@ projects:
       - name: WPL
         services:
           - type: web
-            name: Vecinus-WPL
+            name: Vecinus
             runtime: static
             repo: https://github.com/Vecinus/vecinus
             branch: chore/blueprints-wpl
