@@ -118,7 +118,7 @@
     "@types/react-dom": "~19.2.3",
     "babel-plugin-transform-import-meta": "^2.3.3",
     "eslint": "^10.3.0",
-    "eslint-config-expo": "~55.0.0",
+    "eslint-config-expo": "~56.0.4",
     "typescript": "~6.0.3"
   },
   "private": true
