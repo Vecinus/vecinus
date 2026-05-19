@@ -1,0 +1,32 @@
+# Blueprint for WPL - Based on Sprint 1 Export
+version: "1"
+projects:
+  - name: Vecinus
+    environments:
+      - name: WPL
+        services:
+          - type: web
+            name: Vecinus
+            runtime: static
+            repo: https://github.com/Vecinus/vecinus
+            branch: chore/blueprints-wpl
+            envVars:
+              - key: EXPO_PUBLIC_BACKEND_URL
+                sync: false
+            buildCommand: npm install && npx expo export --platform web
+            staticPublishPath: dist
+            autoDeployTrigger: "off"
+            rootDir: frontend
+
+          - type: web
+            name: Vecinus-Backend
+            runtime: docker
+            repo: https://github.com/Vecinus/vecinus
+            branch: chore/blueprints-wpl
+            plan: free
+            region: frankfurt
+            healthCheckPath: /health
+            dockerContext: .
+            dockerfilePath: ./Dockerfile
+            autoDeployTrigger: "off"
+            rootDir: backend
