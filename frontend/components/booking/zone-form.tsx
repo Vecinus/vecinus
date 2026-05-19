@@ -320,8 +320,12 @@ export default function ZoneForm({
       <CustomAlertDialog
         config={alertConfig}
         onConfirm={handleConfirmCancel}
-        onCancel={() => setAlertConfig((prev) => ({ ...prev, visible: false }))}
-        onAcknowledge={() => setAlertConfig((prev) => ({ ...prev, visible: false }))}
+        onCancel={() => {
+          setAlertConfig((prev) => ({ ...prev, visible: false }));
+        }}
+        onAcknowledge={() => {
+          setAlertConfig((prev) => ({ ...prev, visible: false }));
+        }}
       />
     </>
   );

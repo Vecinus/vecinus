@@ -465,8 +465,7 @@ def accept_invitation(
     # 1. Leer invitación PENDING por token
     try:
         inv_res = supabase_admin.table("invitations").select("*").eq("id", str(body.invitation_token)).execute()
-    except Exception as exc:
-        logger.warning("Invalid invitation token format %s: %s", body.invitation_token, exc)
+    except Exception:
         raise HTTPException(status_code=400, detail="El formato del token de invitación es inválido.")
 
     if not inv_res.data:
@@ -576,9 +575,9 @@ def accept_invitation(
         # Marcar invitación como ACCEPTED
         (supabase_admin.table("invitations").update({"status": 2}).eq("id", str(body.invitation_token)).execute())
 
-    except Exception as exc:
+    except Exception:
         # Este es el log que te revelará la causa si vuelve a fallar la BD
-        logger.exception("Error configuring invitation %s for user %s: %s", body.invitation_token, user_id, exc)
+        logger.exception("Error configuring invitation acceptance")
         raise HTTPException(status_code=500, detail="Error interno configurando la comunidad")
 
     return {
