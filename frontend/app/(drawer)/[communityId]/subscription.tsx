@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { ActivityIndicator, Modal, ScrollView, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import type { Href } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle } from 'lucide-react-native';
 
@@ -31,6 +32,12 @@ function isValidId(value: string | undefined): value is string {
     value !== 'null' &&
     value !== '[communityId]'
   );
+}
+
+type SubscriptionRoute = 'activate-subscription' | 'reactivate-subscription' | 'subscription-plan';
+
+function communitySubscriptionRoute(communityId: string, route: SubscriptionRoute): Href {
+  return `/${communityId}/${route}` as Href;
 }
 
 export default function CommunitySubscriptionScreen() {
@@ -155,7 +162,12 @@ export default function CommunitySubscriptionScreen() {
             {detailMessage || fallback}
           </Text>
           {isAdmin ? (
-            <Button onPress={() => router.push(`/${communityId}/activate-subscription`)} className="mt-6">
+            <Button
+              onPress={() =>
+                router.push(communitySubscriptionRoute(communityId, 'activate-subscription'))
+              }
+              className="mt-6"
+            >
               <Text className="text-primary-foreground font-semibold">Activar suscripción</Text>
             </Button>
           ) : (
@@ -263,7 +275,9 @@ export default function CommunitySubscriptionScreen() {
 
           {isCancelled ? (
             <Button
-              onPress={() => router.push(`/${communityId}/reactivate-subscription`)}
+              onPress={() =>
+                router.push(communitySubscriptionRoute(communityId, 'reactivate-subscription'))
+              }
               className="h-12 rounded-xl"
             >
               <Text className="font-semibold text-primary-foreground">Reactivar suscripción</Text>
@@ -271,7 +285,9 @@ export default function CommunitySubscriptionScreen() {
           ) : (
             <>
               <Button
-                onPress={() => router.push(`/${communityId}/subscription-plan`)}
+                onPress={() =>
+                  router.push(communitySubscriptionRoute(communityId, 'subscription-plan'))
+                }
                 className="h-12 rounded-xl"
               >
                 <Text className="font-semibold text-primary-foreground">Gestionar plan</Text>
@@ -307,7 +323,9 @@ export default function CommunitySubscriptionScreen() {
           </View>
 
           <Button
-            onPress={() => router.push(`/${communityId}/reactivate-subscription`)}
+            onPress={() =>
+              router.push(communitySubscriptionRoute(communityId, 'reactivate-subscription'))
+            }
             className="h-12 rounded-xl"
           >
             <Text className="font-semibold text-primary-foreground">Reactivar suscripción</Text>

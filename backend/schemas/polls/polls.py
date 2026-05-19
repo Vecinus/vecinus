@@ -2,13 +2,31 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 
 
 class PollBase(BaseModel):
-    title: str
-    description: Optional[str] = None
-    options: List[str]
+    title: str = Field(..., min_length=1, max_length=200)
+    description: Optional[str] = Field(default=None, max_length=2000)
+    options: List[str] = Field(..., min_length=2, max_length=10)
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("Poll title cannot be empty")
+        return stripped
+
+    @field_validator("options")
+    @classmethod
+    def validate_options(cls, options: List[str]) -> List[str]:
+        cleaned = [option.strip() for option in options]
+        if any(not option for option in cleaned):
+            raise ValueError("Poll options cannot be empty")
+        if len(set(cleaned)) != len(cleaned):
+            raise ValueError("Poll options must be unique")
+        return cleaned
 
 
 class PollCreate(PollBase):
@@ -17,12 +35,28 @@ class PollCreate(PollBase):
     absentees_end_at: Optional[datetime] = None
     property_coefficients: Optional[Dict[str, float]] = None
 
+    @model_validator(mode="after")
+    def validate_optional_dates(self):
+        if self.start_at and self.end_at and self.end_at <= self.start_at:
+            raise ValueError("end_at must be after start_at")
+        if self.end_at and self.absentees_end_at and self.absentees_end_at <= self.end_at:
+            raise ValueError("absentees_end_at must be after end_at")
+        return self
+
 
 class PollPublish(BaseModel):
     start_at: datetime
     end_at: datetime
     absentees_end_at: datetime
     status: str = "PUBLISHED"
+
+    @model_validator(mode="after")
+    def validate_dates(self):
+        if self.end_at <= self.start_at:
+            raise ValueError("end_at must be after start_at")
+        if self.absentees_end_at <= self.end_at:
+            raise ValueError("absentees_end_at must be after end_at")
+        return self
 
 
 class PollResponse(PollBase):

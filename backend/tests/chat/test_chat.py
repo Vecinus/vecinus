@@ -280,6 +280,13 @@ def test_send_message():
     assert "id" in data
 
 
+def test_send_message_blocked_direct_message_rejected():
+    new_msg = {"channel_id": mock_dm_blocked_by_me, "content": "This should not be delivered"}
+    response = client.post(f"/chat/channels/{mock_dm_blocked_by_me}/messages", json=new_msg)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "This direct message channel is blocked."
+
+
 def test_create_direct_message():
     # Using the target user id that we mocked as being in the mock_channel_id
     target_uuid = mock_target_user_id

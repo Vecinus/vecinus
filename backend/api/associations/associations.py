@@ -33,6 +33,7 @@ from services.payments.subscription_service import (
 from supabase import Client
 
 router = APIRouter()
+VALID_INVITATION_ROLES = {2, 3, 4, 5}
 
 
 def _add_user_to_group_chats(supabase_admin: Client, user_id: str, association_id: str):
@@ -64,6 +65,42 @@ def _add_user_to_group_chats(supabase_admin: Client, user_id: str, association_i
         ]
         if participants_data:
             supabase_admin.table("channel_participants").insert(participants_data).execute()
+
+
+def _validate_invitation_role(role_to_grant: int) -> None:
+    if role_to_grant == 1:
+        raise HTTPException(status_code=400, detail="No se puede otorgar el rol de Administrador mediante invitación")
+    if role_to_grant not in VALID_INVITATION_ROLES:
+        raise HTTPException(status_code=400, detail="Rol de invitacion no permitido")
+
+
+def _validate_invitation_property(
+    supabase_admin: Client,
+    association_id: str,
+    property_id: str | None,
+) -> None:
+    if not property_id:
+        return
+
+    property_res = (
+        supabase_admin.table("properties")
+        .select("id, association_id")
+        .eq("id", str(property_id))
+        .eq("association_id", str(association_id))
+        .limit(1)
+        .execute()
+    )
+    if not property_res.data:
+        raise HTTPException(status_code=400, detail="La propiedad no pertenece a esta comunidad")
+
+
+def _validate_invitation_membership_data(supabase_admin: Client, invitation: dict) -> None:
+    _validate_invitation_role(int(invitation.get("role_to_grant", 0)))
+    _validate_invitation_property(
+        supabase_admin,
+        str(invitation["association_id"]),
+        str(invitation["property_id"]) if invitation.get("property_id") else None,
+    )
 
 
 # --- NUEVO MODELO PARA CREAR PROPIEDADES ---
@@ -271,6 +308,13 @@ def invite_admin(
     supabase_admin: Client = Depends(get_supabase_admin),
 ):
     # 1. Evitar conceder rol de Admin Global por invitación si tu lógica lo restringe
+    _validate_invitation_role(body.role_to_grant)
+    _validate_invitation_property(
+        supabase_admin,
+        str(body.association_id),
+        str(body.property_id) if body.property_id else None,
+    )
+
     if body.role_to_grant == 1:
         raise HTTPException(status_code=400, detail="No se puede otorgar el rol de Administrador mediante invitación")
 
@@ -430,6 +474,8 @@ def accept_invitation(
 
     if invitation["status"] != 1:
         raise HTTPException(status_code=400, detail="La invitación ya fue procesada o utilizada anteriormente.")
+
+    _validate_invitation_membership_data(supabase_admin, invitation)
 
     # 2. Comprobar caducidad de 24 horas
     if "created_at" in invitation and invitation["created_at"]:
@@ -593,6 +639,8 @@ def accept_invitation_internal(
         raise HTTPException(status_code=400, detail="La invitación ya fue procesada anteriormente.")
 
     # 1. Crear la membresía
+    _validate_invitation_membership_data(supabase_admin, invitation)
+
     membership_data = {
         "profile_id": user_id,
         "association_id": str(invitation["association_id"]),

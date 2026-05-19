@@ -39,6 +39,10 @@ mock_incident_5_id = str(uuid4())
 mock_incident_6_id = str(uuid4())
 mock_incident_7_id = str(uuid4())
 mock_incident_8_id = str(uuid4())
+valid_png_bytes = bytes.fromhex(
+    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
+    "0000000d49444154789c63f8ffff3f030008fc02fea79aa0a00000000049454e44ae426082"
+)
 
 
 mock_admin = {"id": mock_admin_id, "role": "authenticated", "email": "admin@test.com"}
@@ -739,7 +743,7 @@ def test_post_incident_with_image_correct():
         "type": "ELECTRICITY",
         "description": "Power outage in the building",
     }
-    files = {"file": ("photo.png", b"fake image data", "image/png")}
+    files = {"file": ("photo.png", valid_png_bytes, "image/png")}
     with patch("api.incidents.incidents.settings.CLOUDINARY_URL", "cloudinary://mock:url@mock"), patch(
         "api.incidents.incidents.cloudinary.uploader.upload",
         return_value={"secure_url": "https://example.com/photo.png"},
@@ -821,7 +825,7 @@ def test_post_incident_cloudinary_exception():
         "type": "ELECTRICITY",
         "description": "Power outage in the building",
     }
-    files = {"file": ("photo.png", b"fake image data", "image/png")}
+    files = {"file": ("photo.png", valid_png_bytes, "image/png")}
     with patch("api.incidents.incidents.settings.CLOUDINARY_URL", "cloudinary://mock:url@mock"), patch(
         "api.incidents.incidents.cloudinary.uploader.upload", side_effect=Exception("Cloudinary upload failed")
     ):
@@ -838,7 +842,7 @@ def test_post_incident_cloudinary_config_missing():
         "type": "ELECTRICITY",
         "description": "Power outage in the building",
     }
-    files = {"file": ("photo.png", b"fake image data", "image/png")}
+    files = {"file": ("photo.png", valid_png_bytes, "image/png")}
 
     with patch("api.incidents.incidents.settings.CLOUDINARY_URL", ""), patch(
         "api.incidents.incidents.cloudinary.uploader.upload"
