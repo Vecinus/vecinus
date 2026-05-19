@@ -83,6 +83,8 @@ export default function Reservas() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeletingZone, setIsDeletingZone] = useState(false);
   const [lastActionWasDelete, setLastActionWasDelete] = useState(false);
+  const [forceDeleteDialogOpen, setForceDeleteDialogOpen] = useState(false);
+  const [reservationsCount, setReservationsCount] = useState<number>(0);
   const [guestPassCount, setGuestPassCount] = useState(1);
 
   const [alertConfig, setAlertConfig] = useState<AlertConfig>({
@@ -268,34 +270,69 @@ export default function Reservas() {
     }
   };
 
-  const handleDeleteZone = async () => {
+  const performDelete = async (force: boolean) => {
     if (!zonaActivaId) return;
 
     try {
       setIsDeletingZone(true);
-      await commonSpaceApi.deleteCommonSpace(associationId, zonaActivaId);
+      await commonSpaceApi.deleteCommonSpace(associationId, zonaActivaId, force);
       setDeleteDialogOpen(false);
+      setForceDeleteDialogOpen(false);
+      setReservationsCount(0);
 
       setLastActionWasDelete(true);
       setAlertConfig({
         visible: true,
         title: '¡Zona Eliminada!',
-        message: 'La zona común se ha eliminado correctamente.',
+        message: force
+          ? 'La zona común y sus reservas se han eliminado correctamente.'
+          : 'La zona común se ha eliminado correctamente.',
         type: 'success',
       });
 
       await fetchZonas();
-    } catch {
+    } catch (error: unknown) {
+      const err = error as {
+        response?: {
+          status?: number;
+          data?: { detail?: string | { code?: string; message?: string; reservation_count?: number } };
+        };
+      };
+
+      const detail = err.response?.data?.detail;
+      const isReservationConflict =
+        err.response?.status === 409 &&
+        typeof detail === 'object' &&
+        detail !== null &&
+        detail.code === 'common_space_has_reservations';
+
+      if (isReservationConflict && !force) {
+        setReservationsCount(
+          typeof detail === 'object' && detail !== null ? detail.reservation_count ?? 0 : 0
+        );
+        setDeleteDialogOpen(false);
+        setForceDeleteDialogOpen(true);
+        return;
+      }
+
+      setDeleteDialogOpen(false);
+      setForceDeleteDialogOpen(false);
       setAlertConfig({
         visible: true,
         title: 'Error',
-        message: 'No se pudo eliminar la zona. Inténtalo de nuevo.',
+        message:
+          (typeof detail === 'string' && detail) ||
+          (typeof detail === 'object' && detail !== null && detail.message) ||
+          'No se pudo eliminar la zona. Inténtalo de nuevo.',
         type: 'error',
       });
     } finally {
       setIsDeletingZone(false);
     }
   };
+
+  const handleDeleteZone = () => performDelete(false);
+  const handleForceDeleteZone = () => performDelete(true);
 
   const selectedSlot = slotsDisponibles.find((s) => s.time === horaSeleccionada);
   const isSelectedSlotUnavailable = selectedSlot?.isBooked || selectedSlot?.isPast;
@@ -506,6 +543,22 @@ export default function Reservas() {
         message={`¿Estás seguro de que deseas eliminar permanentemente "${zonaActiva?.name}"? Esta acción borrará el calendario y no se puede deshacer.`}
         onCancel={() => { setDeleteDialogOpen(false); }}
         onConfirm={handleDeleteZone}
+        isLoading={isDeletingZone}
+      />
+
+      <CustomAlertDeleteDialog
+        visible={forceDeleteDialogOpen}
+        title="La zona tiene reservas"
+        message={
+          reservationsCount > 0
+            ? `La zona común "${zonaActiva?.name}" tiene ${reservationsCount} ${reservationsCount === 1 ? 'reserva hecha' : 'reservas hechas'} por vecinos. ¿Quieres eliminarla igualmente? Se cancelarán también todas las reservas de los vecinos.`
+            : `La zona común "${zonaActiva?.name}" tiene reservas hechas por vecinos. ¿Quieres eliminarla igualmente? Se cancelarán también todas las reservas de los vecinos.`
+        }
+        onCancel={() => {
+          setForceDeleteDialogOpen(false);
+          setReservationsCount(0);
+        }}
+        onConfirm={handleForceDeleteZone}
         isLoading={isDeletingZone}
       />
     </View>
