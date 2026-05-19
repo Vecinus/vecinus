@@ -156,7 +156,7 @@ export default function CommunitySubscriptionScreen() {
             {detailMessage || fallback}
           </Text>
           {isAdmin ? (
-            <Button onPress={() => router.push(`/${communityId}/activate-subscription`)} className="mt-6">
+            <Button onPress={() => router.push(`/${communityId}/activate-subscription` as any)} className="mt-6">
               <Text className="text-primary-foreground font-semibold">Activar suscripción</Text>
             </Button>
           ) : (
@@ -277,7 +277,7 @@ export default function CommunitySubscriptionScreen() {
 
           {isCancelled ? (
             <Button
-              onPress={() => router.push(`/${communityId}/reactivate-subscription`)}
+              onPress={() => router.push(`/${communityId}/reactivate-subscription` as any)}
               className="h-12 rounded-xl"
             >
               <Text className="font-semibold text-primary-foreground">Reactivar suscripción</Text>
@@ -285,7 +285,7 @@ export default function CommunitySubscriptionScreen() {
           ) : (
             <>
               <Button
-                onPress={() => router.push(`/${communityId}/subscription-plan`)}
+                onPress={() => router.push(`/${communityId}/subscription-plan` as any)}
                 className="h-12 rounded-xl"
               >
                 <Text className="font-semibold text-primary-foreground">Gestionar plan</Text>
@@ -321,7 +321,7 @@ export default function CommunitySubscriptionScreen() {
           </View>
 
           <Button
-            onPress={() => router.push(`/${communityId}/reactivate-subscription`)}
+            onPress={() => router.push(`/${communityId}/reactivate-subscription` as any)}
             className="h-12 rounded-xl"
           >
             <Text className="font-semibold text-primary-foreground">Reactivar suscripción</Text>

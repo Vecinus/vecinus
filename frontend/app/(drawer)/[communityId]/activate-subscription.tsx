@@ -81,7 +81,7 @@ export default function ActivateSubscriptionScreen() {
       return;
     }
     if (Number(membership.role) !== ADMIN_ROLE) {
-      router.replace(`/${communityId}/subscription`);
+      router.replace(`/${communityId}/subscription` as any);
     }
   }, [communityId, membership, router]);
 

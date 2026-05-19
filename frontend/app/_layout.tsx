@@ -50,7 +50,7 @@ function RootLayoutNav() {
 
     const inAuthGroup = segments[0] === '(auth)';
     const isVoteRoute = (segments[0] as string) === 'votar';
-    const isAcceptInvitation = segments[0] === 'auth' && segments[1] === 'accept-invitation';
+    const isAcceptInvitation = segments[0] === 'auth' && (segments as string[])[1] === 'accept-invitation';
 
     if (!isAuthenticated && !inAuthGroup && !isVoteRoute && !isAcceptInvitation) {
       router.replace('/(auth)/sign-in');
