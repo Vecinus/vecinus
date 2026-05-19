@@ -120,7 +120,6 @@ def close_poll_manually(
     "/{poll_id}/vote",
     response_model=VoteResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_active_community_for_poll)],
 )
 def cast_vote(
     poll_id: UUID,
@@ -172,7 +171,7 @@ def get_poll_results(
     return result
 
 
-@router.get("/public/{poll_id}", response_model=PollResponse, dependencies=[Depends(require_active_community_for_poll)])
+@router.get("/public/{poll_id}", response_model=PollResponse)
 def get_public_poll_by_voting_token(
     poll_id: UUID,
     token: str,

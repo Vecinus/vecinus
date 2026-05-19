@@ -89,10 +89,11 @@ def update_common_space_endpoint(
 def delete_common_space_endpoint(
     association_id: UUID,
     common_space_id: int,
+    force: bool = False,
     current_user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
     supabase_admin: Client = Depends(get_supabase_admin),
 ):
     verify_association_admin_or_president(association_id, current_user["id"], supabase)
-    delete_common_space_service(supabase_admin, association_id, common_space_id)
+    delete_common_space_service(supabase_admin, association_id, common_space_id, force=force)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

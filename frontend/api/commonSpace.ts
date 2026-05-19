@@ -49,7 +49,13 @@ export const commonSpaceApi = {
     return response.data;
   },
 
-  deleteCommonSpace: async (associationId: string, spaceId: number): Promise<void> => {
-    await apiClient.delete(`/common-spaces/${associationId}/${spaceId}`);
+  deleteCommonSpace: async (
+    associationId: string,
+    spaceId: number,
+    force = false
+  ): Promise<void> => {
+    await apiClient.delete(`/common-spaces/${associationId}/${spaceId}`, {
+      params: force ? { force: true } : undefined,
+    });
   },
 };
