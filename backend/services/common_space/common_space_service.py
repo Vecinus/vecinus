@@ -7,7 +7,7 @@ from supabase import Client
 
 TABLE_NAME = "common_space"
 RESERVATION_TABLE = "reservation"
-GUEST_PASS_TABLE = "guest_pass"
+GUEST_PASS_TABLE = "guest_pass"  # nosec B105 nosemgrep — nombre de tabla, no credencial
 
 
 def create_common_space(supabase: Client, payload: CommonSpaceCreate, association_id: UUID) -> dict:

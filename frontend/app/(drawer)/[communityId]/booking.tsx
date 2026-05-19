@@ -303,12 +303,11 @@ export default function Reservas() {
       const isReservationConflict =
         err.response?.status === 409 &&
         typeof detail === 'object' &&
-        detail !== null &&
         detail.code === 'common_space_has_reservations';
 
       if (isReservationConflict && !force) {
         setReservationsCount(
-          typeof detail === 'object' && detail !== null ? detail.reservation_count ?? 0 : 0
+          typeof detail === 'object' ? detail.reservation_count ?? 0 : 0
         );
         setDeleteDialogOpen(false);
         setForceDeleteDialogOpen(true);
@@ -322,7 +321,7 @@ export default function Reservas() {
         title: 'Error',
         message:
           (typeof detail === 'string' && detail) ||
-          (typeof detail === 'object' && detail !== null && detail.message) ||
+          (typeof detail === 'object' && detail.message) ||
           'No se pudo eliminar la zona. Inténtalo de nuevo.',
         type: 'error',
       });
