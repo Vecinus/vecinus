@@ -49,7 +49,7 @@ class MockSupabaseClient:
             "community_subscriptions": [{"association_id": ASSOC_ID, "status": "active"}],
             "memberships": [{"association_id": ASSOC_ID, "profile_id": USER_ID, "role": 1}],
             "poll": [{"id": POLL_ID, "association_id": ASSOC_ID, "status": "DRAFT", "title": "Nueva Votación"}],
-            "voting_tokens": [{"token": "public-token", "poll_id": POLL_ID, "expires_at": None, "used_at": None}],
+            "voting_tokens": [{"token": "public-token", "poll_id": POLL_ID, "expires_at": None, "is_used": False}],
         }
 
     def table(self, name: str):

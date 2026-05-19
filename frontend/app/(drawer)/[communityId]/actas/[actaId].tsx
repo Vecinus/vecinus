@@ -44,6 +44,7 @@ import { useColorScheme } from 'nativewind';
 import { isAdminOrPresident } from '@/utils/role.util';
 
 type TabKey = 'summary' | 'agreements' | 'tasks' | 'transcription';
+type ActiveCommunity = Awaited<ReturnType<typeof storageService.getActiveCommunity>>;
 
 export default function ActaDetail() {
   const { communityId, actaId } = useLocalSearchParams<{ communityId: string; actaId: string }>();
@@ -54,7 +55,7 @@ export default function ActaDetail() {
   const [loading, setLoading] = useState(true);
   const [isErrorDialogOpen, setIsErrorDialogOpen] = useState(false);
   const [errorDialogMessage, setErrorDialogMessage] = useState('');
-  const [activeCommunity, setActiveCommunity] = useState<any>(null);
+  const [activeCommunity, setActiveCommunity] = useState<ActiveCommunity>(null);
   const { colorScheme } = useColorScheme();
   const theme = NAV_THEME[colorScheme ?? 'light'];
 
@@ -113,10 +114,12 @@ export default function ActaDetail() {
   const handleDownload = async () => {
     setDownloading(true);
     try {
+      const actaLocation = typeof acta.location === 'string' ? acta.location.trim() : '';
+      const communityName = typeof activeCommunity?.name === 'string' ? activeCommunity.name.trim() : '';
       const payload = {
         title: acta.title,
         scheduled_at: acta.scheduled_at,
-        location: acta.location,
+        location: actaLocation || communityName || 'Comunidad no especificada',
         meeting_type: acta.meeting_type,
         version: acta.version,
         transcription: acta.transcription,
@@ -315,7 +318,7 @@ export default function ActaDetail() {
             </TouchableOpacity>
           ),
           headerRight: () =>
-            isAdminOrPresident(activeCommunity.role) ? (
+            isAdminOrPresident(activeCommunity?.role ?? null) ? (
               <TouchableOpacity
                 onPress={() => { void handleDownload(); }}
                 disabled={downloading}

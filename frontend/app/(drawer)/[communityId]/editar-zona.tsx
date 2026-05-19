@@ -44,6 +44,9 @@ const validateData = (data: Partial<CommonSpace> & Record<string, unknown>): str
   }
 
   const capacity = Number(data.capacity);
+  if (!Number.isNaN(capacity) && (!Number.isFinite(capacity) || capacity > 10000)) {
+    return 'La capacidad maxima no puede superar las 10.000 personas.';
+  }
   if (isNaN(capacity) || capacity < 1 || !Number.isInteger(capacity)) {
     return 'La capacidad máxima debe ser un número entero de al menos 1 persona.';
   }
@@ -57,6 +60,9 @@ const validateData = (data: Partial<CommonSpace> & Record<string, unknown>): str
     String(data.max_guests_per_reservation) !== ''
   ) {
     const guests = Number(data.max_guests_per_reservation);
+    if (!Number.isNaN(guests) && (!Number.isFinite(guests) || guests > 10000)) {
+      return 'El maximo de invitados por reserva no puede superar 10.000 personas.';
+    }
     if (isNaN(guests) || guests < 0 || !Number.isInteger(guests)) {
       return 'El número de invitados debe ser un número entero positivo o cero.';
     }

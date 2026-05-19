@@ -141,7 +141,8 @@ def send_invitation_email(target_email: str, invitation_id: str, role_label: str
     Si RESEND_API_KEY no está configurada, loguea un warning y no falla.
     """
     resend.api_key = settings.RESEND_API_KEY
-    accept_url = f"{settings.APP_BASE_URL}/auth/accept-invitation?token={invitation_id}"
+    app_base_url = settings.APP_BASE_URL.rstrip("/")
+    accept_url = f"{app_base_url}/auth/accept-invitation?token={invitation_id}"
 
     try:
         resend.Emails.send(
@@ -348,7 +349,8 @@ def send_voting_email(
     association_id: str,
 ) -> None:
     resend.api_key = settings.RESEND_API_KEY
-    voting_link = f"{settings.APP_BASE_URL}/votar?token={token}&poll_id={poll_id}&association_id={association_id}"
+    app_base_url = settings.APP_BASE_URL.rstrip("/")
+    voting_link = f"{app_base_url}/votar?token={token}&poll_id={poll_id}&association_id={association_id}"
 
     div_style = "max-width: 600px; margin: 0 auto; padding: 20px; " "border: 1px solid #eaeaea; border-radius: 8px;"
     box_style = "background-color: #f8f9fa; padding: 15px; " "border-left: 4px solid #0056b3; margin: 20px 0;"

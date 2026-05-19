@@ -71,11 +71,10 @@ export default function PollDetail() {
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [publishDates, setPublishDates] = useState(() => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(9, 0, 0, 0);
-    const nextWeek = new Date(tomorrow);
-    nextWeek.setDate(nextWeek.getDate() + 7);
+    const start = new Date();
+    start.setSeconds(0, 0);
+    const nextWeek = new Date(start);
+    nextWeek.setDate(start.getDate() + 7);
     nextWeek.setHours(18, 0, 0, 0);
     const absentees = new Date(nextWeek);
     absentees.setDate(absentees.getDate() + 2);
@@ -85,8 +84,8 @@ export default function PollDetail() {
     const fmtTime = (d: Date) => d.toTimeString().slice(0, 5);
 
     return {
-      startDate: fmt(tomorrow),
-      startTime: fmtTime(tomorrow),
+      startDate: fmt(start),
+      startTime: fmtTime(start),
       endDate: fmt(nextWeek),
       endTime: fmtTime(nextWeek),
       absenteesDate: fmt(absentees),

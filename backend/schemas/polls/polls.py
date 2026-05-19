@@ -36,6 +36,12 @@ class PollResponse(PollBase):
     absentees_end_at: Optional[datetime] = None
     property_coefficients: Optional[Dict[str, float]] = None
 
+    @staticmethod
+    def _as_utc(value: Optional[datetime]) -> Optional[datetime]:
+        if value is None or value.tzinfo is not None:
+            return value
+        return value.replace(tzinfo=timezone.utc)
+
     @computed_field
     @property
     def current_status(self) -> str:
@@ -46,17 +52,20 @@ class PollResponse(PollBase):
 
         if self.db_status == "PUBLISHED":
             now = datetime.now(timezone.utc)
+            start_at = self._as_utc(self.start_at)
+            end_at = self._as_utc(self.end_at)
+            absentees_end_at = self._as_utc(self.absentees_end_at)
 
-            if not self.start_at or now < self.start_at:
+            if not start_at or now < start_at:
                 return "PENDING"
 
-            if self.start_at and self.end_at and self.start_at <= now <= self.end_at:
+            if start_at and end_at and start_at <= now <= end_at:
                 return "ACTIVE"
 
-            if self.end_at and self.absentees_end_at and self.end_at < now <= self.absentees_end_at:
+            if end_at and absentees_end_at and end_at < now <= absentees_end_at:
                 return "WAITING_ABSENTEES"
 
-            if self.absentees_end_at and now > self.absentees_end_at:
+            if absentees_end_at and now > absentees_end_at:
                 return "FINISHED"
 
         return "UNKNOWN"

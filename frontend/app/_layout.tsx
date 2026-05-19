@@ -48,9 +48,10 @@ function RootLayoutNav() {
   useEffect(() => {
     if (isLoading) return; // Espera a que termine el hydrate()
 
-    const inAuthGroup = segments[0] === '(auth)';
-    const isVoteRoute = (segments[0] as string) === 'votar';
-    const isAcceptInvitation = segments[0] === 'auth' && (segments as string[])[1] === 'accept-invitation';
+    const segmentList = segments.map(String);
+    const inAuthGroup = segmentList[0] === '(auth)';
+    const isVoteRoute = segmentList[0] === 'votar';
+    const isAcceptInvitation = segmentList[0] === 'auth' && segmentList.includes('accept-invitation');
 
     if (!isAuthenticated && !inAuthGroup && !isVoteRoute && !isAcceptInvitation) {
       router.replace('/(auth)/sign-in');

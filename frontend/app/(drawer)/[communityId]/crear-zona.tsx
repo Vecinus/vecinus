@@ -61,6 +61,9 @@ export default function CrearZona() {
     }
 
     const maxCapacity = Number(data.capacity);
+    if (!Number.isNaN(maxCapacity) && (!Number.isFinite(maxCapacity) || maxCapacity > 10000)) {
+      return 'La capacidad maxima no puede superar las 10.000 personas.';
+    }
     if (isNaN(maxCapacity) || maxCapacity < 1 || !Number.isInteger(maxCapacity)) {
       return 'La capacidad máxima debe ser un número entero de al menos 1 persona.';
     }
@@ -74,6 +77,9 @@ export default function CrearZona() {
       String(data.max_guests_per_reservation) !== ''
     ) {
       const guests = Number(data.max_guests_per_reservation);
+      if (!Number.isNaN(guests) && (!Number.isFinite(guests) || guests > 10000)) {
+        return 'El maximo de invitados por reserva no puede superar 10.000 personas.';
+      }
       if (isNaN(guests) || guests < 0 || !Number.isInteger(guests)) {
         return 'El número de invitados debe ser un número entero positivo o cero.';
       }

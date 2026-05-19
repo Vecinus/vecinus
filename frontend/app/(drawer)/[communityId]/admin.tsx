@@ -202,6 +202,10 @@ export default function CommunityAdminScreen() {
       setInviteError('Debes asignar una propiedad libre para este rol.');
       return;
     }
+    if (roleToGrant === '4' && presidentAlreadyExists) {
+      setInviteError('Esta comunidad ya tiene un Presidente asignado o invitado.');
+      return;
+    }
 
     inviteMember(
       { email, roleToGrant: parseInt(roleToGrant, 10), propertyId: propertyId || undefined },
