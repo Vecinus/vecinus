@@ -53,8 +53,9 @@ USER_ID = "user-1"
 
 
 class MockResponse:
-    def __init__(self, data):
+    def __init__(self, data, count=None):
         self.data = data
+        self.count = count
 
 
 class MockSupabaseTable:
@@ -68,6 +69,7 @@ class MockSupabaseTable:
 
     def select(self, *args, **kwargs):
         self._operation = "select"
+        self._count = kwargs.get("count")
         return self
 
     def order(self, *args, **kwargs):
@@ -136,7 +138,9 @@ class MockSupabaseTable:
             ]
             return MockResponse(deleted)
 
-        return MockResponse(self._filtered_rows())
+        rows = self._filtered_rows()
+        count = len(rows) if getattr(self, "_count", None) else None
+        return MockResponse(rows, count=count)
 
 
 class MockSupabaseClientCommonSpace:
@@ -171,6 +175,8 @@ class MockSupabaseClientCommonSpace:
                     "created_at": "2026-03-16T10:00:00",
                 },
             ],
+            "reservation": [],
+            "guest_pass": [],
             "memberships": [],
             "community_subscriptions": [
                 {
@@ -194,7 +200,7 @@ class MockSupabaseClientCommonSpace:
             )
 
     def table(self, name: str):
-        if name not in {"common_space", "memberships", "community_subscriptions"}:
+        if name not in {"common_space", "memberships", "community_subscriptions", "reservation", "guest_pass"}:
             raise AssertionError(f"Unexpected table requested: {name}")
         return MockSupabaseTable(name, self.storage)
 

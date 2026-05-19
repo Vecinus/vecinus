@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Text } from '@/components/ui/text';
 import { commonSpaceApi, CommonSpace } from '@/api/commonSpace';
 import ZoneForm from '@/components/booking/zone-form';
+import { getErrorMessage } from '@/lib/error-message';
 
 const isValidTimeFormat = (time: string) => {
   const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -45,6 +46,9 @@ const validateData = (data: Partial<CommonSpace> & Record<string, unknown>): str
   const capacity = Number(data.capacity);
   if (isNaN(capacity) || capacity < 1 || !Number.isInteger(capacity)) {
     return 'La capacidad máxima debe ser un número entero de al menos 1 persona.';
+  }
+  if (capacity > 10000) {
+    return 'La capacidad máxima no puede superar las 10.000 personas.';
   }
 
   if (
@@ -149,13 +153,7 @@ export default function EditarZona() {
       router.push(`/${communityId}/booking`);
     } catch (error: unknown) {
       setZona(prev);
-      const err = error as { response?: { data?: { detail?: string } }; message?: string };
-
-      const errorMsg =
-        err.response?.data?.detail ||
-        err.message ||
-        'No se pudieron guardar los cambios. Intenta de nuevo.';
-
+      const errorMsg = getErrorMessage(error, 'No se pudieron guardar los cambios. Intenta de nuevo.');
       setErrorMessage(errorMsg);
     }
   };

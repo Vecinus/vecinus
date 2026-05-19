@@ -101,7 +101,7 @@ async def transcribe_meeting(
     association_id: UUID,
     audio: UploadFile = File(...),
     title: str = Form(...),
-    location: str = Form("Residencial Vecinus"),
+    location: str = Form(""),
     meeting_type: MeetingType = Form(MeetingType.ORDINARY),
     scheduled_at: datetime | None = Form(None),
     duration_ms: int | None = Form(None),
