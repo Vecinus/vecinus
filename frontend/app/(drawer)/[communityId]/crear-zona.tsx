@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Text } from '@/components/ui/text';
 import { commonSpaceApi, CommonSpace } from '@/api/commonSpace';
 import ZoneForm from '@/components/booking/zone-form';
+import { getErrorMessage } from '@/lib/error-message';
 
 export default function CrearZona() {
   const { communityId } = useLocalSearchParams();
@@ -63,6 +64,9 @@ export default function CrearZona() {
     if (isNaN(maxCapacity) || maxCapacity < 1 || !Number.isInteger(maxCapacity)) {
       return 'La capacidad máxima debe ser un número entero de al menos 1 persona.';
     }
+    if (maxCapacity > 10000) {
+      return 'La capacidad máxima no puede superar las 10.000 personas.';
+    }
 
     if (
       data.max_guests_per_reservation !== undefined &&
@@ -111,12 +115,7 @@ export default function CrearZona() {
 
       router.push(`/${communityId}/booking`);
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { detail?: string } }; message?: string };
-      const errorMsg =
-        err.response?.data?.detail ||
-        err.message ||
-        'No se pudo crear la zona. Intenta de nuevo.';
-
+      const errorMsg = getErrorMessage(error, 'No se pudo crear la zona. Intenta de nuevo.');
       setErrorMessage(errorMsg);
     } finally {
       setLoading(false);

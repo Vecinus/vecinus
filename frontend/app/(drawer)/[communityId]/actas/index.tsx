@@ -115,8 +115,9 @@ export default function Actas() {
         }}
       />
 
-      <CreateActaCard 
-        communityId={communityId} 
+      <CreateActaCard
+        communityId={communityId}
+        communityName={activeCommunity?.name}
         onSuccess={handleCreateSuccess}
         open={isCreating}
         onOpenChange={setIsCreating}

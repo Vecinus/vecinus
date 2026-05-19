@@ -21,10 +21,15 @@ export const minutesService = {
   transcribe: async (
     associationId: string,
     title: string,
-    audioFile: { uri: string; name: string; type: string; durationMs?: number | null }
+    audioFile: { uri: string; name: string; type: string; durationMs?: number | null },
+    options?: { location?: string },
   ): Promise<MinutesReadResponse> => {
     const formData = new FormData();
     formData.append('title', title);
+    if (options?.location) {
+      formData.append('location', options.location);
+    }
+    formData.append('scheduled_at', new Date().toISOString());
     if (
       typeof audioFile.durationMs === 'number' &&
       Number.isFinite(audioFile.durationMs) &&
