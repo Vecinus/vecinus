@@ -1,5 +1,5 @@
 import io
-from datetime import datetime
+from datetime import datetime, timezone
 
 from docx import Document
 from schemas.transcription.minutes import Agreement, AgreementResult, MeetingType, MinutesResponse, Task
@@ -80,3 +80,25 @@ def test_docx_generation_integrity():
 def test_build_docx_filename_uses_meeting_title_or_default():
     assert DocumentService.build_docx_filename("Junta / Marzo 2026") == "Junta Marzo 2026.docx"
     assert DocumentService.build_docx_filename("") == "acta_reunion.docx"
+
+
+def test_docx_generation_uses_spain_time_and_location():
+    mock_data = MinutesResponse(
+        title="Junta extraordinaria 19 Mayo 2026",
+        scheduled_at=datetime(2026, 5, 19, 17, 56, tzinfo=timezone.utc),
+        location="Residencial Vecinus",
+        meeting_type=MeetingType.EXTRAORDINARY,
+        transcription="Texto",
+        summary="Resumen",
+        topics=[],
+        agreements=[],
+        tasks=[],
+    )
+
+    buffer = DocumentService.generate_docx(mock_data)
+    doc = Document(buffer)
+    texts = [p.text for p in doc.paragraphs if p.text.strip()]
+
+    metadata = next(text for text in texts if text.startswith("Fecha de generacion:"))
+    assert "19/05/2026 19:56" in metadata
+    assert "Ubicacion: Residencial Vecinus" in metadata

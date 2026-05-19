@@ -66,8 +66,41 @@ import {
 
 const CHAT_COMPOSER_MIN_HEIGHT = 24;
 const CHAT_COMPOSER_MAX_HEIGHT = 132;
+const CHAT_MESSAGE_MAX_LENGTH = 2000;
+const CHAT_MESSAGE_LIMIT_TITLE = 'Mensaje demasiado largo';
+const CHAT_MESSAGE_LIMIT_DESCRIPTION =
+  'El mensaje supera el limite de 2000 caracteres. Acortalo antes de enviarlo.';
 
 type ScreenState = 'loading' | 'ready' | 'empty' | 'error';
+
+function isChatMessageLengthError(error: unknown): boolean {
+  if (!isAxiosError(error) || error.response?.status !== 422) {
+    return false;
+  }
+
+  const detail = error.response.data?.detail;
+  if (!Array.isArray(detail)) {
+    return false;
+  }
+
+  return detail.some((item) => {
+    if (!item || typeof item !== 'object') {
+      return false;
+    }
+
+    const validationError = item as {
+      ctx?: { max_length?: unknown };
+      loc?: unknown[];
+      type?: unknown;
+    };
+
+    return (
+      validationError.ctx?.max_length === CHAT_MESSAGE_MAX_LENGTH ||
+      validationError.type === 'string_too_long' ||
+      validationError.loc?.includes('content') === true
+    );
+  });
+}
 
 function ChatBubble({
   message,
@@ -236,6 +269,7 @@ export default function CommunityChatScreen() {
   const [hasNewMessages, setHasNewMessages] = React.useState(false);
   const [editingMessage, setEditingMessage] = React.useState<ChannelMessage | null>(null);
   const [messagePendingDelete, setMessagePendingDelete] = React.useState<ChannelMessage | null>(null);
+  const [isMessageLimitDialogOpen, setIsMessageLimitDialogOpen] = React.useState(false);
   const [deletingMessageId, setDeletingMessageId] = React.useState<string | null>(null);
   const isAtBottomRef = React.useRef(true);
 
@@ -475,7 +509,8 @@ export default function CommunityChatScreen() {
       return;
     }
 
-    if (trimmedMessage.length > 2000) {
+    if (trimmedMessage.length > CHAT_MESSAGE_MAX_LENGTH) {
+      setIsMessageLimitDialogOpen(true);
       return;
     }
 
@@ -512,6 +547,11 @@ export default function CommunityChatScreen() {
       resetComposer();
       scrollToBottom();
     } catch (error) {
+      if (isChatMessageLengthError(error)) {
+        setIsMessageLimitDialogOpen(true);
+        return;
+      }
+
       setFeedbackMessage(
         getChatErrorMessage(
           error,
@@ -679,7 +719,6 @@ export default function CommunityChatScreen() {
                   ref={composerRef}
                   value={messageText}
                   onChangeText={setMessageText}
-                  maxLength={2000}
                   onContentSizeChange={(event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>) => {
                     const nextHeight = Math.max(
                       CHAT_COMPOSER_MIN_HEIGHT,
@@ -731,6 +770,12 @@ export default function CommunityChatScreen() {
                   )}
                 </Button>
               </View>
+
+              {messageText.length > CHAT_MESSAGE_MAX_LENGTH ? (
+                <Text className="text-xs font-medium text-destructive">
+                  {messageText.length}/{CHAT_MESSAGE_MAX_LENGTH} caracteres
+                </Text>
+              ) : null}
             </CardContent>
           ) : null}
         </Card>
@@ -782,6 +827,25 @@ export default function CommunityChatScreen() {
               <Text>
                 {deletingMessageId === messagePendingDelete?.id ? 'Eliminando...' : 'Eliminar'}
               </Text>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isMessageLimitDialogOpen} onOpenChange={setIsMessageLimitDialogOpen}>
+        <DialogContent className="max-w-md rounded-3xl px-6 py-6">
+          <DialogHeader className="gap-3">
+            <DialogTitle>{CHAT_MESSAGE_LIMIT_TITLE}</DialogTitle>
+            <DialogDescription>{CHAT_MESSAGE_LIMIT_DESCRIPTION}</DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="mt-2">
+            <Button
+              onPress={() => {
+                setIsMessageLimitDialogOpen(false);
+              }}
+              className="rounded-2xl">
+              <Text>Entendido</Text>
             </Button>
           </DialogFooter>
         </DialogContent>

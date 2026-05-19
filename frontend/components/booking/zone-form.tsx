@@ -7,6 +7,8 @@ import { Label } from '@/components/ui/label';
 import { CustomAlertDialog, AlertConfig } from '@/components/custom-alert';
 import { CommonSpace } from '@/api/commonSpace';
 
+const MAX_COMMON_SPACE_CAPACITY = 10000;
+
 export default function ZoneForm({
   initialData,
   onSubmit,
@@ -69,25 +71,52 @@ export default function ZoneForm({
     usageMode !== defaultUsageMode ||
     maxGuests !== defaultMaxGuests;
 
+  const showValidationError = (message: string) => {
+    setAlertConfig({
+      visible: true,
+      title: 'Datos no validos',
+      message,
+      type: 'error',
+    });
+  };
+
   const handleSubmit = async () => {
-    const capNum = parseInt(capacity);
-    const guestNum = parseInt(maxGuests);
+    const capNum = Number(capacity);
+    const guestNum = Number(maxGuests);
     if (!name.trim()) {
+      showValidationError('El nombre de la zona es obligatorio.');
       return;
     }
-    if (isNaN(capNum) || capNum < 1) {
+    if (!Number.isNaN(capNum) && (!Number.isFinite(capNum) || capNum > MAX_COMMON_SPACE_CAPACITY)) {
+      showValidationError('La capacidad maxima no puede superar las 10.000 personas.');
+      return;
+    }
+    if (!Number.isInteger(capNum) || capNum < 1) {
+      showValidationError('La capacidad maxima debe ser un numero entero de al menos 1 persona.');
       return;
     }
     if (!/^\d{2}:\d{2}$/.test(startTime)) {
+      showValidationError('Formato de hora de inicio invalido. Usa HH:MM.');
       return;
     }
     if (!/^\d{2}:\d{2}$/.test(endTime)) {
+      showValidationError('Formato de hora de fin invalido. Usa HH:MM.');
       return;
     }
-    if (isNaN(guestNum) || guestNum < 1) {
+    if (!Number.isNaN(guestNum) && (!Number.isFinite(guestNum) || guestNum > MAX_COMMON_SPACE_CAPACITY)) {
+      showValidationError('El maximo de invitados por reserva no puede superar 10.000 personas.');
+      return;
+    }
+    if (!Number.isInteger(guestNum) || guestNum < 1) {
+      showValidationError('El maximo de invitados debe ser un numero entero de al menos 1 persona.');
+      return;
+    }
+    if (guestNum > capNum) {
+      showValidationError('El maximo de invitados por reserva no puede superar la capacidad total de la zona.');
       return;
     }
     if (requiresQr === undefined) {
+      showValidationError('Indica si la zona requiere invitacion QR.');
       return;
     }
 
@@ -292,7 +321,7 @@ export default function ZoneForm({
         config={alertConfig}
         onConfirm={handleConfirmCancel}
         onCancel={() => setAlertConfig((prev) => ({ ...prev, visible: false }))}
-        onAcknowledge={() => { }}
+        onAcknowledge={() => setAlertConfig((prev) => ({ ...prev, visible: false }))}
       />
     </>
   );

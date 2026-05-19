@@ -1,6 +1,9 @@
 type ValidationErrorItem = {
   msg?: unknown;
   message?: unknown;
+  loc?: unknown;
+  type?: unknown;
+  ctx?: unknown;
 };
 
 type ErrorResponseData = {
@@ -17,7 +20,7 @@ type ErrorWithResponse = {
 };
 
 const KNOWN_ERROR_MESSAGE_TRANSLATIONS: Record<string, string> = {
-  'Input should be less than or equal to 10000': 'El número de viviendas debe ser como máximo 10000.',
+  'Input should be less than or equal to 10000': 'El valor debe ser como maximo 10000.',
 };
 
 function normalizeString(value: unknown): string {
@@ -28,7 +31,53 @@ function translateKnownErrorMessage(value: string): string {
   return KNOWN_ERROR_MESSAGE_TRANSLATIONS[value] ?? value;
 }
 
+function getValidationPath(detail: Record<string, unknown>): string {
+  const loc = detail.loc;
+  if (Array.isArray(loc)) {
+    return loc.map(String).join('.');
+  }
+
+  return '';
+}
+
+function getValidationLimit(detail: Record<string, unknown>): number {
+  const ctx = detail.ctx && typeof detail.ctx === 'object'
+    ? (detail.ctx as Record<string, unknown>)
+    : {};
+  return Number(ctx.le ?? ctx.max_length ?? Number.NaN);
+}
+
+function translateValidationError(detail: Record<string, unknown>): string {
+  const path = getValidationPath(detail);
+  const msg = normalizeString(detail.msg);
+  const type = normalizeString(detail.type);
+  const limit = getValidationLimit(detail);
+
+  if (path.includes('capacity') && (limit === 10000 || msg.includes('10000'))) {
+    return 'La capacidad maxima no puede superar las 10.000 personas.';
+  }
+
+  if (path.includes('max_guests_per_reservation') && (limit === 10000 || msg.includes('10000'))) {
+    return 'El maximo de invitados por reserva no puede superar 10.000 personas.';
+  }
+
+  if (path.includes('household_count') && (limit === 10000 || msg.includes('10000'))) {
+    return 'El numero de viviendas debe ser como maximo 10000.';
+  }
+
+  if (type === 'int_parsing_size') {
+    return 'El numero introducido es demasiado grande.';
+  }
+
+  return '';
+}
+
 function extractFromObject(detail: Record<string, unknown>): string {
+  const validationMessage = translateValidationError(detail);
+  if (validationMessage) {
+    return validationMessage;
+  }
+
   const message = translateKnownErrorMessage(normalizeString(detail.message));
   if (message) {
     return message;
@@ -37,6 +86,11 @@ function extractFromObject(detail: Record<string, unknown>): string {
   const msg = translateKnownErrorMessage(normalizeString(detail.msg));
   if (msg) {
     return msg;
+  }
+
+  const nestedDetail = extractErrorMessage(detail.detail);
+  if (nestedDetail) {
+    return nestedDetail;
   }
 
   return '';
