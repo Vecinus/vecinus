@@ -14,7 +14,7 @@ import { setUnauthorizedHandler } from '@/lib/auth-events';
 import { setCommunityBlockedHandler } from '@/lib/payment-events';
 import { CommunityBlockedModal } from '@/components/community-blocked-modal';
 import type { CommunityBlockedDetail } from '@/types/payments.types';
-import axios from 'axios';
+import { isAxiosError } from 'axios';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -27,7 +27,7 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: (failureCount, error) => {
-        if (axios.isAxiosError(error) && error.response?.status === 402) {
+        if (isAxiosError(error) && error.response?.status === 402) {
           return false;
         }
         return failureCount < DEFAULT_QUERY_RETRIES;
@@ -50,8 +50,9 @@ function RootLayoutNav() {
 
     const inAuthGroup = segments[0] === '(auth)';
     const isVoteRoute = (segments[0] as string) === 'votar';
+    const isAcceptInvitation = segments[0] === 'auth' && (segments as string[])[1] === 'accept-invitation';
 
-    if (!isAuthenticated && !inAuthGroup && !isVoteRoute) {
+    if (!isAuthenticated && !inAuthGroup && !isVoteRoute && !isAcceptInvitation) {
       router.replace('/(auth)/sign-in');
     } else if (isAuthenticated && inAuthGroup) {
       router.replace('/');

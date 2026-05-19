@@ -81,7 +81,6 @@ export default function AnuncioDetailScreen() {
     hasVerifiedAccess ? announcementId : undefined,
   );
   const updateMutation = useUpdateAnnouncement(communityId, announcementId);
-  const errorStatus = isAxiosError(error) ? error.response?.status : undefined;
 
   const [isEditing, setIsEditing] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');

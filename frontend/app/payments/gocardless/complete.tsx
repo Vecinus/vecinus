@@ -88,7 +88,7 @@ export default function GocardlessCompleteScreen() {
     if (didRunRef.current) return;
     didRunRef.current = true;
     void runComplete();
-  }, []);
+  }, [runComplete]);
 
   if (state.kind === 'verifying') {
     return (

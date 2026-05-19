@@ -94,6 +94,10 @@ export default function CreatePoll() {
       showAlert('Error', 'Debe haber al menos 2 opciones');
       return;
     }
+    if (totalCoefficient === 0) {
+      showAlert('Error', 'No puedes crear una votación sin vecinos en la comunidad. Añade propiedades y vecinos antes de crear una votación.');
+      return;
+    }
     if (Math.abs(totalCoefficient - 100) > 0.01) {
       showAlert('Error', 'La suma total de los coeficientes de las propiedades debe ser exactamente 100%');
       return;

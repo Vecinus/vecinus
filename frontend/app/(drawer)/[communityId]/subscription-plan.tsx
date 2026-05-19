@@ -79,7 +79,7 @@ export default function CommunitySubscriptionPlanScreen() {
     if (!communityId) return;
     if (!user) return;
     if (membership === null || !isAdmin) {
-      router.replace(`/${communityId}/subscription`);
+      router.replace({ pathname: '/[communityId]/subscription' as never, params: { communityId } });
     }
   }, [communityId, isAdmin, membership, router, user]);
 
@@ -300,7 +300,7 @@ export default function CommunitySubscriptionPlanScreen() {
 
           <Button
             variant="outline"
-            onPress={() => router.push(`/${communityId}/subscription`)}
+            onPress={() => router.push({ pathname: '/[communityId]/subscription' as never, params: { communityId } })}
             disabled={isSavingSubscription}
             className="h-12 rounded-xl"
           >

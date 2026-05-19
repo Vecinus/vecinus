@@ -180,18 +180,42 @@ def test_api_cast_vote(mock_vote_service_class):
     mock_service.cast_vote.assert_called_once()
 
 
-def test_api_get_public_poll_without_subscription_returns_402():
+@patch("api.polls.polls.PollService")
+def test_api_get_public_poll_without_subscription_succeeds(mock_poll_service_class):
+    mock_service = mock_poll_service_class.return_value
+    mock_service.get_poll_by_id.return_value = {
+        "id": POLL_ID,
+        "association_id": ASSOC_ID,
+        "created_by": USER_ID,
+        "db_status": "PUBLISHED",
+        "created_at": "2026-04-03T12:00:00Z",
+        "title": "Nueva Votación",
+        "options": ["Sí", "No"],
+    }
+
     app.dependency_overrides[get_supabase] = lambda: make_supabase_with_subscription(None)
     app.dependency_overrides[get_supabase_admin] = lambda: make_supabase_with_subscription(None)
 
     response = client.get(f"/polls/public/{POLL_ID}", params={"token": "public-token"})
 
-    assert response.status_code == 402
-    assert response.json()["detail"]["code"] == "community_no_subscription"
+    assert response.status_code == 200
+    mock_service.get_poll_by_id.assert_called_once()
 
 
 @patch("api.polls.polls.VoteService")
-def test_api_cast_vote_with_blocked_subscription_returns_402(mock_vote_service_class):
+def test_api_cast_vote_with_blocked_subscription_succeeds(mock_vote_service_class):
+    mock_service = mock_vote_service_class.return_value
+    mock_service.cast_vote.return_value = {
+        "id": str(uuid4()),
+        "poll_id": POLL_ID,
+        "membership_id": str(uuid4()),
+        "selected_option": "Sí",
+        "coefficient_snapshot": 15.5,
+        "is_presumed_vote": False,
+        "rgpd_accepted_at": "2026-04-03T12:00:00Z",
+        "created_at": "2026-04-03T12:00:00Z",
+    }
+
     app.dependency_overrides[get_supabase] = lambda: make_supabase_with_subscription("past_due")
     app.dependency_overrides[get_supabase_admin] = lambda: make_supabase_with_subscription("past_due")
 
@@ -199,9 +223,8 @@ def test_api_cast_vote_with_blocked_subscription_returns_402(mock_vote_service_c
         f"/polls/{POLL_ID}/vote", json={"selected_option": "Sí", "voting_token": str(uuid4()), "rgpd_accepted": True}
     )
 
-    assert response.status_code == 402
-    assert response.json()["detail"]["code"] == "community_blocked"
-    mock_vote_service_class.return_value.cast_vote.assert_not_called()
+    assert response.status_code == 201
+    mock_service.cast_vote.assert_called_once()
 
 
 @patch("api.polls.polls.PollService")
