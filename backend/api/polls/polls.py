@@ -206,8 +206,30 @@ def get_public_poll_by_voting_token(
 
 
 @router.get("/{poll_id}", response_model=PollResponse, dependencies=[Depends(require_active_community_for_poll)])
-def get_poll_by_id(poll_id: UUID, supabase: Client = Depends(get_supabase)):
+def get_poll_by_id(
+    poll_id: UUID,
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+    supabase_admin: Client = Depends(get_supabase_admin),
+):
     """Obtiene los detalles de una votación por su ID."""
+    poll_res = supabase_admin.table("poll").select("association_id").eq("id", str(poll_id)).limit(1).execute()
+    if not poll_res.data:
+        raise HTTPException(status_code=404, detail="Votación no encontrada")
+
+    association_id = poll_res.data[0]["association_id"]
+
+    membership_res = (
+        supabase.table("memberships")
+        .select("id")
+        .eq("profile_id", current_user["id"])
+        .eq("association_id", association_id)
+        .limit(1)
+        .execute()
+    )
+    if not membership_res.data:
+        raise HTTPException(status_code=403, detail="No eres miembro de esta comunidad")
+
     service = PollService(supabase)
     return service.get_poll_by_id(poll_id)
 
