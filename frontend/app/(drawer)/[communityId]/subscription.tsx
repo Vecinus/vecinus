@@ -1,9 +1,10 @@
 import * as React from 'react';
-import { ActivityIndicator, Modal, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Modal, ScrollView, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Drawer } from 'expo-router/drawer';
 import type { Href } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle } from 'lucide-react-native';
+import { AlertTriangle, ChevronLeft } from 'lucide-react-native';
 
 import { formatEuros } from '@/components/community/PlanSelector';
 import { Button } from '@/components/ui/button';
@@ -219,6 +220,19 @@ export default function CommunitySubscriptionScreen() {
   };
 
   return (
+    <>
+    <Drawer.Screen
+      options={{
+        title: 'Suscripción y pagos',
+        headerLeft: () => (
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="ml-2 rounded-full p-2 active:bg-muted">
+            <Icon as={ChevronLeft} size={24} className="text-foreground" />
+          </TouchableOpacity>
+        ),
+      }}
+    />
     <ScrollView
       className="flex-1 bg-background"
       contentContainerStyle={{ padding: 20, paddingBottom: 48, gap: 16 }}
@@ -428,5 +442,6 @@ export default function CommunitySubscriptionScreen() {
         </View>
       </Modal>
     </ScrollView>
+    </>
   );
 }

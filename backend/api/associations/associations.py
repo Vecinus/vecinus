@@ -35,6 +35,45 @@ from supabase import Client
 router = APIRouter()
 VALID_INVITATION_ROLES = {2, 3, 4, 5}
 
+PRESIDENT_ROLE = 4
+
+
+def _assert_president_slot_available(
+    supabase_admin: Client,
+    association_id: str,
+    *,
+    check_pending_invitations: bool = False,
+) -> None:
+    existing_president = (
+        supabase_admin.table("memberships")
+        .select("id")
+        .eq("association_id", association_id)
+        .eq("role", PRESIDENT_ROLE)
+        .limit(1)
+        .execute()
+    )
+    if existing_president.data:
+        raise HTTPException(
+            status_code=400,
+            detail="Esta comunidad ya tiene un Presidente. Solo puede haber uno por comunidad.",
+        )
+
+    if check_pending_invitations:
+        pending = (
+            supabase_admin.table("invitations")
+            .select("id")
+            .eq("association_id", association_id)
+            .eq("role_to_grant", PRESIDENT_ROLE)
+            .eq("status", 1)
+            .limit(1)
+            .execute()
+        )
+        if pending.data:
+            raise HTTPException(
+                status_code=400,
+                detail="Ya existe una invitación pendiente para asignar Presidente en esta comunidad.",
+            )
+
 
 def _add_user_to_group_chats(supabase_admin: Client, user_id: str, association_id: str):
     channels_res = (
@@ -377,6 +416,10 @@ def invite_admin(
             status_code=400, detail="Este correo ya tiene una invitación pendiente para esta comunidad."
         )
 
+    # 5b. Si se invita como Presidente, asegurar que no haya ya otro presidente ni invitación pendiente
+    if int(body.role_to_grant) == PRESIDENT_ROLE:
+        _assert_president_slot_available(supabase_admin, str(body.association_id), check_pending_invitations=True)
+
     # 6. Insertar la invitación
     insert_data = {
         "target_email": body.target_email,
@@ -486,6 +529,11 @@ def accept_invitation(
                 status_code=400,
                 detail="La invitación ha caducado (pasaron más de 24 horas)",
             )
+
+    # 2b. Si la invitación es para Presidente, comprobar que no haya ya otro asignado
+    # (otra invitación pudo haberse aceptado mientras esta estaba pendiente)
+    if int(invitation["role_to_grant"]) == PRESIDENT_ROLE:
+        _assert_president_slot_available(supabase_admin, str(invitation["association_id"]))
 
     # 3. Flujo Inteligente: Autenticación
     user_id = None
@@ -637,6 +685,10 @@ def accept_invitation_internal(
 
     if invitation["status"] != 1:
         raise HTTPException(status_code=400, detail="La invitación ya fue procesada anteriormente.")
+
+    # Si la invitación es para Presidente, comprobar que no haya ya otro asignado
+    if int(invitation["role_to_grant"]) == PRESIDENT_ROLE:
+        _assert_president_slot_available(supabase_admin, str(invitation["association_id"]))
 
     # 1. Crear la membresía
     _validate_invitation_membership_data(supabase_admin, invitation)

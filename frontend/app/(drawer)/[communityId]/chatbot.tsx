@@ -155,16 +155,9 @@ function ChatMessageBubble({
           )}
         />
 
-        {message.source ? (
+        {message.source?.reference ? (
           <View className="mt-3 flex-row flex-wrap items-center gap-2">
-            <Badge variant="outline" className="border-primary/30 bg-primary/5">
-              <Text className="text-xs text-primary">
-                Fuente: {formatSourceType(message.source.type)}
-              </Text>
-            </Badge>
-            {message.source.reference ? (
-              <Text className="text-xs text-muted-foreground">{message.source.reference}</Text>
-            ) : null}
+            <Text className="text-xs text-muted-foreground">{message.source.reference}</Text>
           </View>
         ) : null}
 
@@ -183,12 +176,6 @@ function ChatMessageBubble({
       ) : null}
     </View>
   );
-}
-
-function formatSourceType(type: string | null | undefined): string {
-  if (!type) return 'Desconocida';
-  if (type === 'RAG_PINECONE') return 'Base de conocimientos';
-  return type.charAt(0).toUpperCase() + type.slice(1);
 }
 
 function FormattedText({ content, className }: { content: string; className?: string }) {

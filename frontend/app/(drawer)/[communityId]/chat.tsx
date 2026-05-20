@@ -475,6 +475,10 @@ export default function CommunityChatScreen() {
       return;
     }
 
+    if (trimmedMessage.length > 2000) {
+      return;
+    }
+
     setIsSending(true);
 
     try {
@@ -610,10 +614,10 @@ export default function CommunityChatScreen() {
                       <Icon as={SparklesIcon} size={22} className="text-primary" />
                     </View>
                     <Text className="text-center text-lg font-semibold text-foreground">
-                      Todavía no hay mensajes
+                      Aún no hay mensajes
                     </Text>
                     <Text className="text-center text-sm leading-6 text-muted-foreground">
-                      Cuando el chat exista, aquí aparecerán los mensajes de la comunidad.
+                      ¡Sé el primero en saludar! Inicia la conversación con tus vecinos.
                     </Text>
                   </View>
                 }
