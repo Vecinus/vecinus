@@ -1,7 +1,12 @@
+import { isAxiosError } from 'axios';
 import type { CommunityBlockedDetail } from '@/types/payments.types';
 
 
 type CommunityBlockedHandler = ((detail: CommunityBlockedDetail) => void | Promise<void>) | null;
+
+export const isPaymentRequiredError = (error: unknown): boolean => {
+  return isAxiosError(error) && error.response?.status === 402;
+};
 
 let communityBlockedHandler: CommunityBlockedHandler = null;
 let lastFiredAt = 0;

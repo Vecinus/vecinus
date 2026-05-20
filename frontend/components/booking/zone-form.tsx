@@ -19,8 +19,8 @@ export default function ZoneForm({
   onCancel: () => void;
 }) {
   const defaultName = initialData.name ?? '';
-  const defaultStartTime = initialData.start_time?.substring(0, 5) ?? '09:00';
-  const defaultEndTime = initialData.end_time?.substring(0, 5) ?? '21:00';
+  const defaultStartTime = initialData.start_time?.substring(0, 5) ?? '';
+  const defaultEndTime = initialData.end_time?.substring(0, 5) ?? '';
   const defaultRequiresQr = initialData.requires_qr !== undefined ? Boolean(initialData.requires_qr) : undefined;
   const defaultCapacity = String(initialData.capacity ?? '1');
   const defaultUsageMode = (initialData.usage_mode ?? 'exclusive_reservation') as 'exclusive_reservation' | 'guest_pass';
@@ -71,6 +71,19 @@ export default function ZoneForm({
     usageMode !== defaultUsageMode ||
     maxGuests !== defaultMaxGuests;
 
+  const isFormComplete =
+    name.trim().length > 0 &&
+    capacity.trim().length > 0 &&
+    startTime.length > 0 &&
+    endTime.length > 0 &&
+    requiresQr !== undefined &&
+    (usageMode !== 'guest_pass' || maxGuests.trim().length > 0);
+
+  const timeToMinutes = (time: string) => {
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+
   const showValidationError = (message: string) => {
     setAlertConfig({
       visible: true,
@@ -83,8 +96,17 @@ export default function ZoneForm({
   const handleSubmit = async () => {
     const capNum = Number(capacity);
     const guestNum = Number(maxGuests);
-    if (!name.trim()) {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
       showValidationError('El nombre de la zona es obligatorio.');
+      return;
+    }
+    if (trimmedName.length < 3) {
+      showValidationError('El nombre de la zona debe tener al menos 3 caracteres.');
+      return;
+    }
+    if (trimmedName.length > 50) {
+      showValidationError('El nombre de la zona es demasiado largo (máximo 50 caracteres).');
       return;
     }
     if (!Number.isNaN(capNum) && (!Number.isFinite(capNum) || capNum > MAX_COMMON_SPACE_CAPACITY)) {
@@ -103,17 +125,23 @@ export default function ZoneForm({
       showValidationError('Formato de hora de fin invalido. Usa HH:MM.');
       return;
     }
-    if (!Number.isNaN(guestNum) && (!Number.isFinite(guestNum) || guestNum > MAX_COMMON_SPACE_CAPACITY)) {
-      showValidationError('El maximo de invitados por reserva no puede superar 10.000 personas.');
+    if (timeToMinutes(endTime) <= timeToMinutes(startTime)) {
+      showValidationError('La hora de fin debe ser posterior a la hora de inicio.');
       return;
     }
-    if (!Number.isInteger(guestNum) || guestNum < 1) {
-      showValidationError('El maximo de invitados debe ser un numero entero de al menos 1 persona.');
-      return;
-    }
-    if (guestNum > capNum) {
-      showValidationError('El maximo de invitados por reserva no puede superar la capacidad total de la zona.');
-      return;
+    if (usageMode === 'guest_pass') {
+      if (!Number.isNaN(guestNum) && (!Number.isFinite(guestNum) || guestNum > MAX_COMMON_SPACE_CAPACITY)) {
+        showValidationError('El maximo de invitados por reserva no puede superar 10.000 personas.');
+        return;
+      }
+      if (!Number.isInteger(guestNum) || guestNum < 1) {
+        showValidationError('El maximo de invitados debe ser un numero entero de al menos 1 persona.');
+        return;
+      }
+      if (guestNum > capNum) {
+        showValidationError('El maximo de invitados por reserva no puede superar la capacidad total de la zona.');
+        return;
+      }
     }
     if (requiresQr === undefined) {
       showValidationError('Indica si la zona requiere invitacion QR.');
@@ -124,12 +152,12 @@ export default function ZoneForm({
     try {
       await onSubmit({
         name: name.trim(),
-        start_time: startTime,
-        end_time: endTime,
+        start_time: startTime.trim(),
+        end_time: endTime.trim(),
         requires_qr: requiresQr,
-        capacity: capNum,
+        capacity: capacity.trim(),
         usage_mode: usageMode,
-        max_guests_per_reservation: guestNum,
+        max_guests_per_reservation: usageMode === 'guest_pass' ? maxGuests.trim() : undefined,
       });
     } finally {
       setSaving(false);
@@ -298,7 +326,7 @@ export default function ZoneForm({
           <View className="mt-6 gap-2">
             <Button
               onPress={handleSubmit}
-              disabled={saving || !name.trim() || !hasChanges || requiresQr === undefined}
+              disabled={saving || !hasChanges || !isFormComplete}
               className="h-12 rounded-lg bg-primary">
               <Text className="text-base font-bold text-primary-foreground">
                 {saving ? 'Guardando...' : 'Guardar cambios'}

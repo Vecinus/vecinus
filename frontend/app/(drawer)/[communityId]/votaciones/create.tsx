@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { isAxiosError } from 'axios';
+import { isPaymentRequiredError } from '@/lib/payment-events';
 import {
   View,
   ScrollView,
@@ -113,7 +114,7 @@ export default function CreatePoll() {
       await pollService.createPoll(communityId, payload);
       showAlert('Éxito', 'La votación se ha creado correctamente', true);
     } catch (error: unknown) {
-      if (isAxiosError(error) && error.response?.status === 402) {
+      if (isPaymentRequiredError(error)) {
         return;
       }
       console.error('[CreatePoll] Error:', error);

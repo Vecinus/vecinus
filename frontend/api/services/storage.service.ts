@@ -88,5 +88,6 @@ export const storageService = {
     await storageService.removeUser();
     await storageService.removeActiveCommunity();
     await storageService.removeSelectedMinute();
+    await storageService.removeRecoveryAccountId();
   },
 };

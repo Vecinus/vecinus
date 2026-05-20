@@ -6,7 +6,6 @@ export interface CommunityChannel {
   association_id: string;
   name?: string | null;
   is_direct_message: boolean;
-  is_blocked: boolean;
 }
 
 export interface ChannelMessage {
@@ -60,7 +59,6 @@ export async function createCommunityChannel(communityId: string): Promise<Commu
     association_id: communityId,
     name: 'Comunidad',
     is_direct_message: false,
-    is_blocked: false,
   });
 
   return response.data;

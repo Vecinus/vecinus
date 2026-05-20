@@ -10,6 +10,7 @@ from supabase import Client
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/payments/gocardless", tags=["payments-webhook"])
+MAX_WEBHOOK_BYTES = 1 * 1024 * 1024
 
 
 def _is_unique_violation(exc: Exception) -> bool:
@@ -33,7 +34,18 @@ async def gocardless_webhook(
     de la lógica de negocio (transiciones de estado de suscripciones, bloqueos)
     se implementa en sprints posteriores leyendo de esa misma tabla.
     """
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            body_size = int(content_length)
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid Content-Length header")
+        if body_size > MAX_WEBHOOK_BYTES:
+            raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Payload too large")
+
     raw_body = await request.body()
+    if len(raw_body) > MAX_WEBHOOK_BYTES:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Payload too large")
 
     if not verify_webhook_signature(raw_body, webhook_signature):
         raise HTTPException(

@@ -2,6 +2,7 @@ import * as React from 'react';
 import { useEffect } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import type { Href } from 'expo-router';
 
 import {
   PLAN_CATALOG,
@@ -28,6 +29,10 @@ function isValidId(value: string | undefined): value is string {
     value !== 'null' &&
     value !== '[communityId]'
   );
+}
+
+function communitySubscriptionHref(communityId: string): Href {
+  return `/${communityId}/subscription` as Href;
 }
 
 export default function CommunitySubscriptionPlanScreen() {
@@ -79,7 +84,7 @@ export default function CommunitySubscriptionPlanScreen() {
     if (!communityId) return;
     if (!user) return;
     if (membership === null || !isAdmin) {
-      router.replace({ pathname: '/[communityId]/subscription' as never, params: { communityId } });
+      router.replace(communitySubscriptionHref(communityId));
     }
   }, [communityId, isAdmin, membership, router, user]);
 
@@ -300,7 +305,7 @@ export default function CommunitySubscriptionPlanScreen() {
 
           <Button
             variant="outline"
-            onPress={() => router.push({ pathname: '/[communityId]/subscription' as never, params: { communityId } })}
+            onPress={() => router.push(communitySubscriptionHref(communityId))}
             disabled={isSavingSubscription}
             className="h-12 rounded-xl"
           >
