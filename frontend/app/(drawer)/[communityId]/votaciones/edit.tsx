@@ -27,6 +27,7 @@ import { NAV_THEME } from '@/lib/theme';
 import { useColorScheme } from 'nativewind';
 import { PropertyArrearsManager } from '@/components/votaciones/property-arrears-manager';
 import { getErrorMessage } from '@/lib/error-message';
+import { isForbiddenError } from '@/lib/http-errors';
 
 export default function EditPoll() {
   const { communityId, pollId } = useLocalSearchParams<{
@@ -79,7 +80,7 @@ export default function EditPoll() {
       setDescription(pollData.description || '');
       setOptions(pollData.options);
     } catch (error: unknown) {
-      if (isPaymentRequiredError(error)) {
+      if (isPaymentRequiredError(error) || isForbiddenError(error)) {
         return;
       }
       console.error('Error loading poll:', error);
@@ -167,7 +168,7 @@ export default function EditPoll() {
       await pollService.updatePoll(pollId, payload);
       showAlert('Éxito', 'La votación se ha actualizado correctamente', true);
     } catch (error: unknown) {
-      if (isPaymentRequiredError(error)) {
+      if (isPaymentRequiredError(error) || isForbiddenError(error)) {
         return;
       }
       console.error('[EditPoll] Error:', error);
@@ -185,7 +186,7 @@ export default function EditPoll() {
       setDeleteDialogOpen(false);
       showAlert('Éxito', 'La votación se ha eliminado correctamente', true);
     } catch (error: unknown) {
-      if (isPaymentRequiredError(error)) {
+      if (isPaymentRequiredError(error) || isForbiddenError(error)) {
         return;
       }
       console.error('Error deleting poll:', error);

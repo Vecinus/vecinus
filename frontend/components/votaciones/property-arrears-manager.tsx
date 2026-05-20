@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { associationService } from '@/api/services/association.service';
 import { PropertyReadResponse } from '@/types/poll.types';
 import { NAV_THEME } from '@/lib/theme';
+import { isForbiddenError } from '@/lib/http-errors';
 import { useColorScheme } from 'nativewind';
 import { cn } from '@/lib/utils';
 
@@ -72,6 +73,9 @@ export function PropertyArrearsManager({ associationId, pollId, onCoefficientCha
       setProperties(updatedProperties);
       setCoefficientError(null);
     } catch (error: any) {
+      if (isForbiddenError(error)) {
+        return;
+      }
       const detail = error?.response?.data?.detail;
       console.error('Error distributing coefficients:', detail || error);
     }
@@ -110,6 +114,9 @@ export function PropertyArrearsManager({ associationId, pollId, onCoefficientCha
         detectAndSetMode(data);
       }
     } catch (error) {
+      if (isForbiddenError(error)) {
+        return;
+      }
       console.error('Error loading properties:', error);
     } finally {
       setLoading(false);
@@ -155,6 +162,9 @@ export function PropertyArrearsManager({ associationId, pollId, onCoefficientCha
         await distributeEquitably(updatedProperties);
       }
     } catch (error: any) {
+      if (isForbiddenError(error)) {
+        return;
+      }
       const detail = error?.response?.data?.detail;
       console.error('Error updating property:', detail || error);
     } finally {
@@ -212,6 +222,9 @@ export function PropertyArrearsManager({ associationId, pollId, onCoefficientCha
       setProperties(updatedProperties);
       setCoefficientError(null);
     } catch (error: any) {
+      if (isForbiddenError(error)) {
+        return;
+      }
       const detail = error?.response?.data?.detail;
       console.error('Error distributing coefficients:', detail || error);
     } finally {
@@ -244,6 +257,9 @@ export function PropertyArrearsManager({ associationId, pollId, onCoefficientCha
       setEditingCoefficient('');
       setCoefficientError(null);
     } catch (error: any) {
+      if (isForbiddenError(error)) {
+        return;
+      }
       const detail = error?.response?.data?.detail;
       console.error('Error updating coefficient:', detail || error);
     } finally {

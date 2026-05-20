@@ -1,4 +1,5 @@
 import { isPaymentRequiredError } from '@/lib/payment-events';
+import { isForbiddenError } from '@/lib/http-errors';
 import { Text } from '@/components/ui/text';
 import * as React from 'react';
 import { View, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
@@ -33,7 +34,7 @@ export default function Votaciones() {
       const data = await pollService.getPolls(communityId);
       setPolls(data);
     } catch (error: unknown) {
-      if (!isPaymentRequiredError(error)) {
+      if (!isPaymentRequiredError(error) && !isForbiddenError(error)) {
         console.error('Error fetching polls:', error);
       }
     } finally {

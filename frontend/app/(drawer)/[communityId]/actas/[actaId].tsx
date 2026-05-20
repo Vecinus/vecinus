@@ -38,6 +38,7 @@ import {
 import { storageService } from '@/api/services/storage.service';
 import { MinutesReadResponse, AgreementResult } from '@/types/minutes.types';
 import { apiClient } from '@/api/client';
+import { isForbiddenError } from '@/lib/http-errors';
 import { cn } from '@/lib/utils';
 import { NAV_THEME } from '@/lib/theme';
 import { useColorScheme } from 'nativewind';
@@ -167,6 +168,9 @@ export default function ActaDetail() {
         }
       }
     } catch (err) {
+      if (isForbiddenError(err)) {
+        return;
+      }
       console.error('Error:', err);
       setErrorDialogMessage('No se pudo descargar el acta');
       setIsErrorDialogOpen(true);

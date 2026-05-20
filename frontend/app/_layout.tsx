@@ -11,6 +11,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { ActivityIndicator, View } from 'react-native';
 import { setUnauthorizedHandler } from '@/lib/auth-events';
+import { setForbiddenHandler } from '@/lib/forbidden-events';
 import { isPaymentRequiredError, setCommunityBlockedHandler } from '@/lib/payment-events';
 import { CommunityBlockedModal } from '@/components/community-blocked-modal';
 import type { CommunityBlockedDetail } from '@/types/payments.types';
@@ -69,6 +70,16 @@ function RootLayoutNav() {
       setUnauthorizedHandler(null);
     };
   }, [logoutContext, router]);
+
+  useEffect(() => {
+    setForbiddenHandler(() => {
+      router.replace('/');
+    });
+
+    return () => {
+      setForbiddenHandler(null);
+    };
+  }, [router]);
 
   useEffect(() => {
     setCommunityBlockedHandler((detail) => {

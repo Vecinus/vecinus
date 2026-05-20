@@ -25,6 +25,7 @@ import { pollService } from '@/api/services/poll.service';
 import { PollCreateRequest } from '@/types/poll.types';
 import { PropertyArrearsManager } from '@/components/votaciones/property-arrears-manager';
 import { getErrorMessage } from '@/lib/error-message';
+import { isForbiddenError } from '@/lib/http-errors';
 
 export default function CreatePoll() {
   const { communityId } = useLocalSearchParams<{ communityId: string }>();
@@ -153,7 +154,7 @@ export default function CreatePoll() {
       await pollService.createPoll(communityId, payload);
       showAlert('Éxito', 'La votación se ha creado correctamente', true);
     } catch (error: unknown) {
-      if (isPaymentRequiredError(error)) {
+      if (isPaymentRequiredError(error) || isForbiddenError(error)) {
         return;
       }
       console.error('[CreatePoll] Error:', error);

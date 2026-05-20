@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { storageService } from './services/storage.service';
 import { notifyUnauthorized } from '@/lib/auth-events';
+import { notifyForbidden } from '@/lib/forbidden-events';
 import { notifyCommunityBlocked } from '@/lib/payment-events';
 import type { CommunityBlockedDetail } from '@/types/payments.types';
 
@@ -60,6 +61,10 @@ apiClient.interceptors.response.use(
 
     if (status === 401 && !isAuthPublicEndpoint) {
       await notifyUnauthorized();
+    }
+
+    if (status === 403) {
+      await notifyForbidden();
     }
 
     if (status === 402) {

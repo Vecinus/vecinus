@@ -26,6 +26,7 @@ import {
 import { AnnouncementCard } from '@/components/community/announcements/AnnouncementCard';
 import { AnnouncementCreateModal } from '@/components/community/announcements/AnnouncementCreateModal';
 import { normalizeRoleToBackendToken, getUserFacingErrorMessage } from '@/components/community/incidents/utils';
+import { isForbiddenError } from '@/lib/http-errors';
 
 export type FilterStatus = 'todas' | 'DRAFT' | 'PUBLISHED';
 
@@ -103,7 +104,7 @@ export default function AnunciosScreen() {
       await apiClient.get(`/communities/${communityId}/verify-access`);
       return true;
     } catch (error) {
-      if (!isPaymentRequiredError(error)) {
+      if (!isPaymentRequiredError(error) && !isForbiddenError(error)) {
         console.error('verify-access (announcements) failed:', error);
       }
       return false;

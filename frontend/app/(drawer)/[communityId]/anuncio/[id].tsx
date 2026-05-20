@@ -15,6 +15,7 @@ import { apiClient } from '@/api/client';
 import { DateTimePickerModal } from '@/components/community/announcements/DateTimePickerModal';
 import { getUserFacingErrorMessage, normalizeRoleToBackendToken } from '@/components/community/incidents/utils';
 import { Button } from '@/components/ui/button';
+import { isForbiddenError } from '@/lib/http-errors';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/context/AuthContext';
@@ -69,7 +70,7 @@ export default function AnuncioDetailScreen() {
       await apiClient.get(`/communities/${communityId}/verify-access`);
       return true;
     } catch (error) {
-      if (!isPaymentRequiredError(error)) {
+      if (!isPaymentRequiredError(error) && !isForbiddenError(error)) {
         console.error('verify-access (announcement detail) failed:', error);
       }
       return false;
