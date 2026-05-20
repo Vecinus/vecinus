@@ -696,6 +696,23 @@ def delete_member(
             supabase_admin.table("incident_states").delete().in_("incident_id", inc_ids).execute()
             supabase_admin.table("incidents").delete().eq("membership_id", membership_id).execute()
 
+        profile = supabase_admin.table("memberships").select("profile_id").eq("id", membership_id).execute()
+        if profile.data:
+            profile_id = profile.data[0]["profile_id"]
+            channel_participant = (
+                supabase_admin.table("channel_participants")
+                .select("user_id, association_id")
+                .eq("user_id", profile_id)
+                .eq("association_id", association_id)
+                .execute()
+            )
+            if channel_participant.data:
+                supabase_admin.table("channel_participants").delete().eq(
+                    "user_id", channel_participant.data[0]["user_id"]
+                ).eq("association_id", channel_participant.data[0]["association_id"]).execute()
+        else:
+            raise HTTPException(status_code=404, detail="Membresía no encontrada")
+
         # Evitar que se elimine la propiedad si hay una regla CASCADE mal configurada en la BD
         supabase_admin.table("memberships").update({"property_id": None}).eq("id", membership_id).execute()
 
