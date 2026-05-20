@@ -171,16 +171,6 @@ export default function IncidentDetailScreen() {
     }
   }, [selectedIncident?.id, selectedIncident?.status]);
 
-  // Manejar error 404 cuando la incidencia fue borrada
-  useEffect(() => {
-    if (detailQuery.isError) {
-      const error = detailQuery.error as any;
-      if (error?.response?.status === 404 || error?.message?.includes('404')) {
-        handleGoBack();
-      }
-    }
-  }, [detailQuery.isError, detailQuery.error, handleGoBack]);
-
   const incidentHistory = useMemo(() => {
     if (detailQuery.data?.history?.length) return detailQuery.data.history;
     if (!selectedIncident) return [];
@@ -264,6 +254,12 @@ export default function IncidentDetailScreen() {
   };
 
   const isPending = updateStatusMutation.isPending || discardIncidentMutation.isPending;
+  const detailErrorMessage = detailQuery.isError
+    ? getUserFacingErrorMessage(
+      detailQuery.error,
+      'No se pudo cargar la incidencia. Comprueba que pertenece a esta comunidad.'
+    )
+    : '';
 
   return (
     <View style={{ flex: 1, paddingBottom: insets.bottom }} className="bg-background">
@@ -282,21 +278,29 @@ export default function IncidentDetailScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View className="bg-card rounded-3xl p-6 border border-border shadow-sm mb-6" style={cardStyle}>
-          {detailQuery.isLoading || membersQuery.isLoading || !selectedIncident ? (
+          {detailQuery.isError ? (
+            <View className="items-center py-10">
+              <Text className="text-red-600 dark:text-red-400 font-semibold">Error al cargar la incidencia</Text>
+              <Text className="mt-3 text-center text-slate-500 dark:text-zinc-400">{detailErrorMessage}</Text>
+              <View className="mt-4 flex-row gap-3">
+                <Button
+                  variant="outline"
+                  onPress={() => detailQuery.refetch()}
+                >
+                  <Text>Reintentar</Text>
+                </Button>
+                <Button
+                  variant="outline"
+                  onPress={handleGoBack}
+                >
+                  <Text>Volver</Text>
+                </Button>
+              </View>
+            </View>
+          ) : detailQuery.isLoading || membersQuery.isLoading || !selectedIncident ? (
             <View className="items-center py-10">
               <ActivityIndicator color="#4f46e5" />
               <Text className="mt-3 text-slate-500 dark:text-zinc-400">Cargando detalle...</Text>
-            </View>
-          ) : detailQuery.isError && !selectedIncident ? (
-            <View className="items-center py-10">
-              <Text className="text-red-600 dark:text-red-400 font-semibold">Error al cargar la incidencia</Text>
-              <Button
-                variant="outline"
-                className="mt-4"
-                onPress={handleGoBack}
-              >
-                <Text>Volver</Text>
-              </Button>
             </View>
           ) : (
             <>

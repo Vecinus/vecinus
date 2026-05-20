@@ -36,7 +36,7 @@ import type { ChatMessage, UploadDocumentFile } from '@/types/chatbot.types';
 import { isAdminOrPresident } from '@/utils/role.util';
 import { getLegalWarning } from '@/utils/legal-warnings';
 import { apiClient } from '@/api/client';
-import { isAxiosError } from 'axios';
+import { isPaymentRequiredError } from '@/lib/payment-events';
 import * as DocumentPicker from 'expo-document-picker';
 import { useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
 import {
@@ -223,7 +223,7 @@ export default function CommunityChatbotScreen() {
     try {
       await apiClient.get(`/communities/${normalizedCommunityId}/verify-access`);
     } catch (error) {
-      if (!isAxiosError(error) || error?.response?.status !== 402) {
+      if (!isPaymentRequiredError(error)) {
         console.error('verify-access (chatbot) failed:', error);
       }
     }

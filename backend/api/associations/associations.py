@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import List
 from uuid import UUID
@@ -33,8 +34,10 @@ from services.payments.subscription_service import (
 from supabase import Client
 
 router = APIRouter()
+VALID_INVITATION_ROLES = {2, 3, 4, 5}
 
 PRESIDENT_ROLE = 4
+logger = logging.getLogger(__name__)
 
 
 def _assert_president_slot_available(
@@ -103,6 +106,42 @@ def _add_user_to_group_chats(supabase_admin: Client, user_id: str, association_i
         ]
         if participants_data:
             supabase_admin.table("channel_participants").insert(participants_data).execute()
+
+
+def _validate_invitation_role(role_to_grant: int) -> None:
+    if role_to_grant == 1:
+        raise HTTPException(status_code=400, detail="No se puede otorgar el rol de Administrador mediante invitación")
+    if role_to_grant not in VALID_INVITATION_ROLES:
+        raise HTTPException(status_code=400, detail="Rol de invitacion no permitido")
+
+
+def _validate_invitation_property(
+    supabase_admin: Client,
+    association_id: str,
+    property_id: str | None,
+) -> None:
+    if not property_id:
+        return
+
+    property_res = (
+        supabase_admin.table("properties")
+        .select("id, association_id")
+        .eq("id", str(property_id))
+        .eq("association_id", str(association_id))
+        .limit(1)
+        .execute()
+    )
+    if not property_res.data:
+        raise HTTPException(status_code=400, detail="La propiedad no pertenece a esta comunidad")
+
+
+def _validate_invitation_membership_data(supabase_admin: Client, invitation: dict) -> None:
+    _validate_invitation_role(int(invitation.get("role_to_grant", 0)))
+    _validate_invitation_property(
+        supabase_admin,
+        str(invitation["association_id"]),
+        str(invitation["property_id"]) if invitation.get("property_id") else None,
+    )
 
 
 # --- NUEVO MODELO PARA CREAR PROPIEDADES ---
@@ -310,6 +349,13 @@ def invite_admin(
     supabase_admin: Client = Depends(get_supabase_admin),
 ):
     # 1. Evitar conceder rol de Admin Global por invitación si tu lógica lo restringe
+    _validate_invitation_role(body.role_to_grant)
+    _validate_invitation_property(
+        supabase_admin,
+        str(body.association_id),
+        str(body.property_id) if body.property_id else None,
+    )
+
     if body.role_to_grant == 1:
         raise HTTPException(status_code=400, detail="No se puede otorgar el rol de Administrador mediante invitación")
 
@@ -462,7 +508,7 @@ def accept_invitation(
 ):
     # 1. Leer invitación PENDING por token
     try:
-        inv_res = supabase_anon.table("invitations").select("*").eq("id", str(body.invitation_token)).execute()
+        inv_res = supabase_admin.table("invitations").select("*").eq("id", str(body.invitation_token)).execute()
     except Exception:
         raise HTTPException(status_code=400, detail="El formato del token de invitación es inválido.")
 
@@ -474,9 +520,13 @@ def accept_invitation(
     if invitation["status"] != 1:
         raise HTTPException(status_code=400, detail="La invitación ya fue procesada o utilizada anteriormente.")
 
+    _validate_invitation_membership_data(supabase_admin, invitation)
+
     # 2. Comprobar caducidad de 24 horas
     if "created_at" in invitation and invitation["created_at"]:
         created_at = datetime.fromisoformat(invitation["created_at"].replace("Z", "+00:00"))
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
         if datetime.now(timezone.utc) > created_at + timedelta(hours=24):
             (supabase_admin.table("invitations").update({"status": 3}).eq("id", str(body.invitation_token)).execute())
             raise HTTPException(
@@ -528,13 +578,19 @@ def accept_invitation(
             )
 
     # 4. Configurar perfiles y membresías (Envuelto en try-catch para capturar el Error 500)
+    if not access_token:
+        raise HTTPException(status_code=500, detail="No se pudo iniciar sesion tras aceptar la invitacion")
+
     try:
         # Crear perfil si es un usuario nuevo
         if is_new_user:
             supabase_admin.table("profiles").upsert(
                 {
                     "id": user_id,
+                    "email": invitation["target_email"],
                     "username": invitation["target_email"].split("@")[0],
+                    "avatar_url": None,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
                 }
             ).execute()
 
@@ -567,6 +623,7 @@ def accept_invitation(
 
     except Exception:
         # Este es el log que te revelará la causa si vuelve a fallar la BD
+        logger.exception("Error configuring invitation acceptance")
         raise HTTPException(status_code=500, detail="Error interno configurando la comunidad")
 
     return {
@@ -645,6 +702,8 @@ def accept_invitation_internal(
         _assert_president_slot_available(supabase_admin, str(invitation["association_id"]))
 
     # 1. Crear la membresía
+    _validate_invitation_membership_data(supabase_admin, invitation)
+
     membership_data = {
         "profile_id": user_id,
         "association_id": str(invitation["association_id"]),

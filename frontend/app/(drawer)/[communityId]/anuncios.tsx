@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { isAxiosError } from 'axios';
+import { isPaymentRequiredError } from '@/lib/payment-events';
 import { View, FlatList, ActivityIndicator, Modal, useWindowDimensions, TouchableOpacity } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
@@ -98,7 +98,7 @@ export default function AnunciosScreen() {
       await apiClient.get(`/communities/${communityId}/verify-access`);
       return true;
     } catch (error) {
-      if (!isAxiosError(error) || error.response?.status !== 402) {
+      if (!isPaymentRequiredError(error)) {
         console.error('verify-access (announcements) failed:', error);
       }
       return false;
@@ -209,7 +209,7 @@ export default function AnunciosScreen() {
       resetCreateForm();
       showAlert('Anuncio Creado', 'El anuncio ha sido creado exitosamente.');
     } catch (error: unknown) {
-      if (isAxiosError(error) && error.response?.status === 402) {
+      if (isPaymentRequiredError(error)) {
         return;
       }
       setFormError(getUserFacingErrorMessage(error, 'No se pudo crear el anuncio.'));
@@ -223,7 +223,7 @@ export default function AnunciosScreen() {
           showAlert('Eliminado', 'El anuncio ha sido eliminado correctamente.');
         },
         onError: (err) => {
-          if (isAxiosError(err) && err.response?.status === 402) {
+          if (isPaymentRequiredError(err)) {
             return;
           }
           showAlert('Error', getUserFacingErrorMessage(err, 'No se pudo eliminar el anuncio.'));

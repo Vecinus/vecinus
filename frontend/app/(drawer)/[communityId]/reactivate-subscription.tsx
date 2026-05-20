@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Linking, Platform, ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import type { Href } from 'expo-router';
 import { Building2, Hash } from 'lucide-react-native';
 
 import { paymentsApi } from '@/api/payments';
@@ -26,6 +27,10 @@ const ADMIN_ROLE = 1;
 
 function isValidId(value: string | undefined): value is string {
   return !!value && value !== 'undefined' && value !== 'null' && value !== '[communityId]';
+}
+
+function communitySubscriptionHref(communityId: string): Href {
+  return `/${communityId}/subscription` as Href;
 }
 
 export default function ReactivateSubscriptionScreen() {
@@ -81,7 +86,7 @@ export default function ReactivateSubscriptionScreen() {
       return;
     }
     if (Number(membership.role) !== ADMIN_ROLE) {
-      router.replace({ pathname: '/[communityId]/subscription' as never, params: { communityId } });
+      router.replace(communitySubscriptionHref(communityId));
     }
   }, [communityId, membership, router]);
 

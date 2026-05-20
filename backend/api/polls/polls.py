@@ -180,7 +180,7 @@ def get_public_poll_by_voting_token(
     """Obtiene una votacion desde un enlace magico validando su token de voto."""
     token_res = (
         supabase.table("voting_tokens")
-        .select("poll_id, expires_at, used_at")
+        .select("poll_id, expires_at, is_used")
         .eq("token", token)
         .eq("poll_id", str(poll_id))
         .limit(1)
@@ -190,7 +190,7 @@ def get_public_poll_by_voting_token(
         raise HTTPException(status_code=404, detail="Enlace de votacion no valido")
 
     token_data = token_res.data[0]
-    if token_data.get("used_at"):
+    if token_data.get("is_used"):
         raise HTTPException(status_code=403, detail="Este enlace de votacion ya ha sido utilizado")
 
     expires_at = token_data.get("expires_at")

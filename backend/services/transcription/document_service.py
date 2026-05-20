@@ -1,5 +1,6 @@
 import io
 import re
+from zoneinfo import ZoneInfo
 
 from docx import Document
 from docx.enum.table import WD_ROW_HEIGHT_RULE
@@ -11,6 +12,8 @@ from schemas.transcription.minutes import MinutesResponse
 class DocumentService:
     DEFAULT_FILENAME_STEM = "acta_reunion"
     DEFAULT_DOCUMENT_TITLE = "Acta de reunion"
+    DEFAULT_LOCATION = "Comunidad no especificada"
+    SPAIN_TIMEZONE = ZoneInfo("Europe/Madrid")
     MAX_TRANSCRIPTION_PARAGRAPH_CHARS = 280
     SIGNATURE_ROW_HEIGHT_CM = 1.8
     SIGNATURE_BLANK_ROWS = 20
@@ -51,6 +54,18 @@ class DocumentService:
         sanitized_title = re.sub(r"\s+", " ", sanitized_title).strip().rstrip(".")
         filename_stem = sanitized_title or DocumentService.DEFAULT_FILENAME_STEM
         return f"{filename_stem}.docx"
+
+    @staticmethod
+    def _format_spain_datetime(value) -> str:
+        if value.tzinfo is None or value.tzinfo.utcoffset(value) is None:
+            spain_datetime = value.replace(tzinfo=DocumentService.SPAIN_TIMEZONE)
+        else:
+            spain_datetime = value.astimezone(DocumentService.SPAIN_TIMEZONE)
+        return spain_datetime.strftime("%d/%m/%Y %H:%M")
+
+    @staticmethod
+    def _format_location(location: str | None) -> str:
+        return (location or "").strip() or DocumentService.DEFAULT_LOCATION
 
     @staticmethod
     def _chunk_words(text: str, max_chars: int) -> list[str]:
@@ -151,10 +166,11 @@ class DocumentService:
         title = doc.add_heading(minutes.title or DocumentService.DEFAULT_DOCUMENT_TITLE, level=0)
         title.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-        f_date = minutes.scheduled_at.strftime("%d/%m/%Y %H:%M")
+        f_date = DocumentService._format_spain_datetime(minutes.scheduled_at)
+        location = DocumentService._format_location(minutes.location)
         metadata_parag = doc.add_paragraph()
         metadata_parag.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = metadata_parag.add_run(f"Fecha de generacion: {f_date} | Ubicacion: {minutes.location}")
+        run = metadata_parag.add_run(f"Fecha de generacion: {f_date} | Ubicacion: {location}")
         run.font.size = Pt(10)
         run.font.italic = True
 

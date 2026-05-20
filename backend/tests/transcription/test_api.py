@@ -40,10 +40,13 @@ class _MockSupabaseTable:
 class _MockSupabaseAdmin:
     def __init__(self):
         self._community_subscriptions = [{"association_id": "11111111-1111-1111-1111-111111111111", "status": "active"}]
+        self._neighborhood_associations = [{"id": ASSOCIATION_ID, "name": "Residencial Vecinus"}]
 
     def table(self, name: str):
         if name == "community_subscriptions":
             return _MockSupabaseTable(self._community_subscriptions)
+        if name == "neighborhood_associations":
+            return _MockSupabaseTable(self._neighborhood_associations)
         return _MockSupabaseTable([])
 
 
@@ -109,6 +112,10 @@ class TestMinutesAPI:
 
         if response_data["title"] != "Junta ordinaria marzo 2026":
             raise AssertionError(f"Titulo inesperado en la respuesta: {response_data['title']}")
+
+        saved_minutes = service.create_initial_draft.call_args.args[1]
+        if saved_minutes.location != "Residencial Vecinus":
+            raise AssertionError(f"Ubicacion inesperada al guardar el acta: {saved_minutes.location}")
 
     async def test_transcribe_uses_client_duration_when_backend_probe_fails(self):
         app.dependency_overrides[get_current_user] = lambda: MOCK_USER
