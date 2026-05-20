@@ -13,6 +13,8 @@ GUEST_PASS_TABLE = "guest_pass"  # nosec B105 nosemgrep — nombre de tabla, no 
 def _validate_common_space_time_window(space_data: dict) -> None:
     start_time = space_data.get("start_time")
     end_time = space_data.get("end_time")
+    if bool(start_time) != bool(end_time):
+        raise HTTPException(status_code=422, detail="start_time and end_time must both be set or both be null")
     if start_time and end_time and str(start_time) >= str(end_time):
         raise HTTPException(status_code=422, detail="start_time must be before end_time")
 
@@ -59,7 +61,7 @@ def get_common_space_by_id(supabase: Client, association_id: UUID, common_space_
 def update_common_space(
     supabase: Client, association_id: UUID, common_space_id: int, payload: CommonSpaceUpdate
 ) -> dict:
-    update_data = payload.model_dump(exclude_none=True, mode="json")
+    update_data = payload.model_dump(exclude_unset=True, mode="json")
     if not update_data:
         raise HTTPException(status_code=400, detail="No se han proporcionado campos para actualizar")
 

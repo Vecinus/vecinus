@@ -20,6 +20,17 @@ def test_common_space_create_rejects_inverted_hours():
         )
 
 
+def test_common_space_create_rejects_partial_hours():
+    with pytest.raises(ValidationError):
+        CommonSpaceCreate(name="Piscina", requires_qr=True, start_time=time(9, 0))
+
+
+def test_common_space_create_accepts_null_hours_as_24h():
+    space = CommonSpaceCreate(name="Piscina", requires_qr=True, start_time=None, end_time=None)
+    assert space.start_time is None
+    assert space.end_time is None
+
+
 def test_common_space_update_rejects_zero_guest_limit():
     with pytest.raises(ValidationError):
         CommonSpaceUpdate(max_guests_per_reservation=0)

@@ -18,6 +18,8 @@ class CommonSpaceBase(BaseModel):
 
     @model_validator(mode="after")
     def validate_time_window(self):
+        if (self.start_time is None) != (self.end_time is None):
+            raise ValueError("start_time and end_time must both be set or both be null")
         if self.start_time and self.end_time and self.start_time >= self.end_time:
             raise ValueError("start_time must be before end_time")
         return self
@@ -38,6 +40,8 @@ class CommonSpaceUpdate(BaseModel):
 
     @model_validator(mode="after")
     def validate_time_window(self):
+        if (self.start_time is None) != (self.end_time is None):
+            raise ValueError("start_time and end_time must both be set or both be null")
         if self.start_time and self.end_time and self.start_time >= self.end_time:
             raise ValueError("start_time must be before end_time")
         return self

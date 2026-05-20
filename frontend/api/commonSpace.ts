@@ -9,16 +9,16 @@ export interface CommonSpace {
   capacity?: number;
   max_guests_per_reservation?: number;
   usage_mode?: string | 'exclusive_reservation';
-  start_time?: string;
-  end_time?: string;
+  start_time?: string | null;
+  end_time?: string | null;
 }
 
 export interface CommonSpaceUpdate {
   name: string;
   capacity?: number;
   requires_qr?: boolean;
-  start_time?: string;
-  end_time?: string;
+  start_time?: string | null;
+  end_time?: string | null;
   usage_mode?: 'exclusive_reservation' | 'guest_pass';
   max_guests_per_reservation?: number;
 }
