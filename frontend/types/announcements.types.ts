@@ -5,6 +5,8 @@ export interface ImageFile {
     name?: string;
     type?: string;
     mimeType?: string;
+    size?: number | null;
+    file?: unknown;
 }
 
 export interface Announcement {

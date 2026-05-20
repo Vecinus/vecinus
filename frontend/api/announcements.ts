@@ -8,14 +8,52 @@ import {
 
 export type { Announcement, AnnouncementCreate, AnnouncementUpdate, AnnouncementStatus };
 
+export const ANNOUNCEMENT_ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+export const MAX_ANNOUNCEMENT_IMAGE_BYTES = 5 * 1024 * 1024;
+
+type AnnouncementImageAsset = {
+  uri: string;
+  name?: string;
+  mimeType?: string;
+  type?: string;
+  size?: number | null;
+  file?: unknown;
+};
+
+function inferMimeTypeFromName(name: string | undefined): string | undefined {
+  const lowerName = name?.toLowerCase() || '';
+  if (lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) return 'image/jpeg';
+  if (lowerName.endsWith('.png')) return 'image/png';
+  if (lowerName.endsWith('.webp')) return 'image/webp';
+  return undefined;
+}
+
+export function validateAnnouncementImageAsset(image: AnnouncementImageAsset | undefined): string | undefined {
+  if (!image || !image.uri) return undefined;
+
+  const blobType = typeof Blob !== 'undefined' && image.file instanceof Blob ? image.file.type : undefined;
+  const mimeType = image.mimeType || image.type || blobType || inferMimeTypeFromName(image.name);
+  if (!mimeType || !ANNOUNCEMENT_ALLOWED_IMAGE_TYPES.has(mimeType)) {
+    throw new Error('Solo se permiten imagenes JPEG, PNG o WebP.');
+  }
+
+  const blobSize = typeof Blob !== 'undefined' && image.file instanceof Blob ? image.file.size : undefined;
+  const size = typeof image.size === 'number' ? image.size : blobSize;
+  if (typeof size === 'number' && size > MAX_ANNOUNCEMENT_IMAGE_BYTES) {
+    throw new Error('La imagen no puede exceder 5MB.');
+  }
+
+  return mimeType;
+}
+
 async function appendFileToFormData(
   formData: FormData,
-  image: { uri: string; name?: string; mimeType?: string; type?: string; file?: unknown } | undefined
+  image: AnnouncementImageAsset | undefined
 ) {
   if (!image || !image.uri) return;
 
   const fileName = image.name || 'image.jpg';
-  const mimeType = image.mimeType || image.type || 'image/jpeg';
+  const mimeType = validateAnnouncementImageAsset(image) || 'image/jpeg';
   const maybeFile = image.file;
 
   // On web, if we have a real Blob/File object, use it directly

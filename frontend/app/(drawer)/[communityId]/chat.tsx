@@ -33,6 +33,7 @@ import {
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/context/AuthContext';
+import { isForbiddenError } from '@/lib/http-errors';
 import { cn } from '@/lib/utils';
 import { isAdminOrPresident } from '@/utils/role.util';
 import { isAxiosError } from 'axios';
@@ -325,7 +326,7 @@ export default function CommunityChatScreen() {
       await apiClient.get(`/communities/${normalizedCommunityId}/verify-access`);
       return true;
     } catch (error) {
-      if (!isPaymentRequiredError(error)) {
+      if (!isPaymentRequiredError(error) && !isForbiddenError(error)) {
         console.error('verify-access (chat) failed:', error);
       }
       return false;

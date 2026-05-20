@@ -12,7 +12,7 @@ from core.deps import (
     require_active_community,
 )
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from pydantic import BaseModel  # <-- NUEVO IMPORT
+from pydantic import BaseModel, Field, field_validator
 from schemas.associations import (
     AcceptInvitationRequest,
     CommunityResponse,
@@ -146,7 +146,15 @@ def _validate_invitation_membership_data(supabase_admin: Client, invitation: dic
 
 # --- NUEVO MODELO PARA CREAR PROPIEDADES ---
 class CreatePropertyRequest(BaseModel):
-    number: str
+    number: str = Field(..., min_length=1, max_length=80)
+
+    @field_validator("number")
+    @classmethod
+    def validate_number(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("El identificador de la propiedad no puede estar vacio")
+        return stripped
 
 
 def is_user_admin_or_president(supabase: Client, user_id: str, association_id: str) -> bool:
@@ -806,6 +814,23 @@ def delete_member(
             inc_ids = [inc["id"] for inc in incidents_res.data]
             supabase_admin.table("incident_states").delete().in_("incident_id", inc_ids).execute()
             supabase_admin.table("incidents").delete().eq("membership_id", membership_id).execute()
+
+        profile = supabase_admin.table("memberships").select("profile_id").eq("id", membership_id).execute()
+        if profile.data:
+            profile_id = profile.data[0]["profile_id"]
+            channel_participant = (
+                supabase_admin.table("channel_participants")
+                .select("user_id, association_id")
+                .eq("user_id", profile_id)
+                .eq("association_id", association_id)
+                .execute()
+            )
+            if channel_participant.data:
+                supabase_admin.table("channel_participants").delete().eq(
+                    "user_id", channel_participant.data[0]["user_id"]
+                ).eq("association_id", channel_participant.data[0]["association_id"]).execute()
+        else:
+            raise HTTPException(status_code=404, detail="Membresía no encontrada")
 
         # Evitar que se elimine la propiedad si hay una regla CASCADE mal configurada en la BD
         supabase_admin.table("memberships").update({"property_id": None}).eq("id", membership_id).execute()

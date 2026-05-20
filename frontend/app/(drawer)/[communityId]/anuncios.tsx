@@ -16,11 +16,17 @@ import {
   useCreateAnnouncement,
   useDeleteAnnouncement,
 } from '@/hooks/useAnnouncements';
-import { type Announcement, type AnnouncementStatus } from '@/api/announcements';
+import {
+  MAX_ANNOUNCEMENT_IMAGE_BYTES,
+  validateAnnouncementImageAsset,
+  type Announcement,
+  type AnnouncementStatus,
+} from '@/api/announcements';
 
 import { AnnouncementCard } from '@/components/community/announcements/AnnouncementCard';
 import { AnnouncementCreateModal } from '@/components/community/announcements/AnnouncementCreateModal';
 import { normalizeRoleToBackendToken, getUserFacingErrorMessage } from '@/components/community/incidents/utils';
+import { isForbiddenError } from '@/lib/http-errors';
 
 export type FilterStatus = 'todas' | 'DRAFT' | 'PUBLISHED';
 
@@ -78,7 +84,7 @@ export default function AnunciosScreen() {
   const [contentDraft, setContentDraft] = useState('');
   const [statusDraft, setStatusDraft] = useState<AnnouncementStatus>('PUBLISHED');
   const [scheduledDate, setScheduledDate] = useState('');
-  const [pickedImage, setPickedImage] = useState<{ uri: string; name?: string; mimeType?: string; file?: unknown } | null>(null);
+  const [pickedImage, setPickedImage] = useState<{ uri: string; name?: string; mimeType?: string; size?: number | null; file?: unknown } | null>(null);
   const [formError, setFormError] = useState('');
 
   // Info Modal (for deletions, alerts)
@@ -98,7 +104,7 @@ export default function AnunciosScreen() {
       await apiClient.get(`/communities/${communityId}/verify-access`);
       return true;
     } catch (error) {
-      if (!isPaymentRequiredError(error)) {
+      if (!isPaymentRequiredError(error) && !isForbiddenError(error)) {
         console.error('verify-access (announcements) failed:', error);
       }
       return false;
@@ -171,20 +177,23 @@ export default function AnunciosScreen() {
       if (result.canceled) return;
       const asset = result.assets[0];
 
-      if (asset.size && asset.size > 5 * 1024 * 1024) {
+      const picked = {
+        uri: asset.uri,
+        name: asset.name || undefined,
+        mimeType: asset.mimeType || undefined,
+        size: asset.size,
+        file: (asset as unknown as { file?: unknown }).file,
+      };
+      validateAnnouncementImageAsset(picked);
+      if (asset.size && asset.size > MAX_ANNOUNCEMENT_IMAGE_BYTES) {
         setFormError('La imagen no puede exceder 5MB.');
         return;
       }
 
-      setPickedImage({
-        uri: asset.uri,
-        name: asset.name || undefined,
-        mimeType: asset.mimeType || undefined,
-        file: (asset as unknown as { file?: unknown }).file,
-      });
+      setPickedImage(picked);
       setFormError('');
-    } catch {
-      setFormError('No se pudo seleccionar la imagen.');
+    } catch (error: unknown) {
+      setFormError(error instanceof Error ? error.message : 'No se pudo seleccionar la imagen.');
     }
   };
 

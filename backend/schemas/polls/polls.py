@@ -18,18 +18,30 @@ class PollBase(BaseModel):
             raise ValueError("Poll title cannot be empty")
         return stripped
 
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        stripped = value.strip()
+        return stripped or None
+
+
+class PollWrite(PollBase):
     @field_validator("options")
     @classmethod
     def validate_options(cls, options: List[str]) -> List[str]:
         cleaned = [option.strip() for option in options]
         if any(not option for option in cleaned):
             raise ValueError("Poll options cannot be empty")
+        if any(len(option) > 80 for option in cleaned):
+            raise ValueError("Poll options cannot exceed 80 characters")
         if len(set(cleaned)) != len(cleaned):
             raise ValueError("Poll options must be unique")
         return cleaned
 
 
-class PollCreate(PollBase):
+class PollCreate(PollWrite):
     start_at: Optional[datetime] = None
     end_at: Optional[datetime] = None
     absentees_end_at: Optional[datetime] = None

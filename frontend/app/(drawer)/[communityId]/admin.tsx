@@ -228,12 +228,19 @@ export default function CommunityAdminScreen() {
 
   const handlePropertySubmit = () => {
     setPropertyError('');
-    if (!propertyNumber.trim()) {
+    const trimmedPropertyNumber = propertyNumber.trim();
+
+    if (!trimmedPropertyNumber) {
       setPropertyError('Introduce el identificador. Ej: Portal 4 Bajo B.');
       return;
     }
 
-    addProperty(propertyNumber, {
+    if (trimmedPropertyNumber.length > 80) {
+      setPropertyError('El identificador no puede superar los 80 caracteres.');
+      return;
+    }
+
+    addProperty(trimmedPropertyNumber, {
       onSuccess: () => {
         setPropertyModalVisible(false);
         setPropertyNumber('');
@@ -571,6 +578,7 @@ export default function CommunityAdminScreen() {
               value={propertyNumber}
               onChangeText={setPropertyNumber}
               autoCapitalize="words"
+              maxLength={80}
             />
 
             {!!propertyError && (

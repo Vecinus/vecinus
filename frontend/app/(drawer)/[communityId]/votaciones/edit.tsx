@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { isAxiosError } from 'axios';
 import { isPaymentRequiredError } from '@/lib/payment-events';
 import {
   View,
@@ -21,21 +20,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogAction,
-  AlertDialogCancel,
-} from '@/components/ui/alert-dialog';
+import { CustomAlertDeleteDialog } from '@/components/custom-alert';
 import { pollService } from '@/api/services/poll.service';
 import { PollUpdateRequest } from '@/types/poll.types';
 import { NAV_THEME } from '@/lib/theme';
 import { useColorScheme } from 'nativewind';
 import { PropertyArrearsManager } from '@/components/votaciones/property-arrears-manager';
+import { getErrorMessage } from '@/lib/error-message';
+import { isForbiddenError } from '@/lib/http-errors';
 
 export default function EditPoll() {
   const { communityId, pollId } = useLocalSearchParams<{
@@ -88,7 +80,7 @@ export default function EditPoll() {
       setDescription(pollData.description || '');
       setOptions(pollData.options);
     } catch (error: unknown) {
-      if (isPaymentRequiredError(error)) {
+      if (isPaymentRequiredError(error) || isForbiddenError(error)) {
         return;
       }
       console.error('Error loading poll:', error);
@@ -103,10 +95,25 @@ export default function EditPoll() {
   }, [loadData]);
 
   const addOption = () => {
-    if (newOption.trim() && !options.includes(newOption.trim())) {
-      setOptions([...options, newOption.trim()]);
-      setNewOption('');
+    const trimmedOption = newOption.trim();
+
+    if (!trimmedOption) {
+      showAlert('Error', 'La opción no puede estar vacía');
+      return;
     }
+
+    if (trimmedOption.length > 80) {
+      showAlert('Error', 'Cada opción debe tener como máximo 80 caracteres');
+      return;
+    }
+
+    if (options.includes(trimmedOption)) {
+      showAlert('Error', 'Las opciones no pueden estar duplicadas');
+      return;
+    }
+
+    setOptions([...options, trimmedOption]);
+    setNewOption('');
   };
 
   const removeOption = (index: number) => {
@@ -114,12 +121,36 @@ export default function EditPoll() {
   };
 
   const handleSubmit = async () => {
-    if (!title.trim()) {
+    const trimmedTitle = title.trim();
+    const trimmedDescription = description.trim();
+    const cleanedOptions = options.map((option) => option.trim());
+
+    if (!trimmedTitle) {
       showAlert('Error', 'El título es obligatorio');
+      return;
+    }
+    if (trimmedTitle.length > 200) {
+      showAlert('Error', 'El título no puede superar los 200 caracteres');
+      return;
+    }
+    if (trimmedDescription.length > 2000) {
+      showAlert('Error', 'La descripción no puede superar los 2000 caracteres');
       return;
     }
     if (options.length < 2) {
       showAlert('Error', 'Debe haber al menos 2 opciones');
+      return;
+    }
+    if (cleanedOptions.some((option) => !option)) {
+      showAlert('Error', 'Las opciones no pueden estar vacías');
+      return;
+    }
+    if (cleanedOptions.some((option) => option.length > 80)) {
+      showAlert('Error', 'Cada opción debe tener como máximo 80 caracteres');
+      return;
+    }
+    if (new Set(cleanedOptions).size !== cleanedOptions.length) {
+      showAlert('Error', 'Las opciones no pueden estar duplicadas');
       return;
     }
     if (Math.abs(totalCoefficient - 100) > 0.01) {
@@ -130,21 +161,18 @@ export default function EditPoll() {
     setIsSubmitting(true);
     try {
       const payload: PollUpdateRequest = {
-        title: title.trim(),
-        description: description.trim() || undefined,
-        options,
+        title: trimmedTitle,
+        description: trimmedDescription || undefined,
+        options: cleanedOptions,
       };
       await pollService.updatePoll(pollId, payload);
       showAlert('Éxito', 'La votación se ha actualizado correctamente', true);
     } catch (error: unknown) {
-      if (isPaymentRequiredError(error)) {
+      if (isPaymentRequiredError(error) || isForbiddenError(error)) {
         return;
       }
       console.error('[EditPoll] Error:', error);
-      const detail = isAxiosError(error) ? error.response?.data?.detail : undefined;
-      const msg = detail
-        ? (typeof detail === 'string' ? detail : JSON.stringify(detail))
-        : 'No se pudo actualizar la votación';
+      const msg = getErrorMessage(error, 'No se pudo actualizar la votación');
       showAlert('Error', msg);
     } finally {
       setIsSubmitting(false);
@@ -158,7 +186,7 @@ export default function EditPoll() {
       setDeleteDialogOpen(false);
       showAlert('Éxito', 'La votación se ha eliminado correctamente', true);
     } catch (error: unknown) {
-      if (isPaymentRequiredError(error)) {
+      if (isPaymentRequiredError(error) || isForbiddenError(error)) {
         return;
       }
       console.error('Error deleting poll:', error);
@@ -222,6 +250,7 @@ export default function EditPoll() {
               value={title}
               onChangeText={setTitle}
               className="h-12 text-base"
+              maxLength={200}
             />
           </View>
 
@@ -234,6 +263,7 @@ export default function EditPoll() {
               numberOfLines={4}
               className="h-32 text-base"
               style={{ textAlignVertical: 'top' }}
+              maxLength={2000}
             />
           </View>
 
@@ -257,6 +287,7 @@ export default function EditPoll() {
                   onChangeText={setNewOption}
                   className="flex-1 h-12 text-base"
                   onSubmitEditing={addOption}
+                  maxLength={80}
                 />
                 <Button
                   variant="outline"
@@ -347,24 +378,14 @@ export default function EditPoll() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar eliminación</AlertDialogTitle>
-          </AlertDialogHeader>
-          <AlertDialogDescription>
-            ¿Estás seguro de que deseas eliminar esta votación? Esta acción no se puede deshacer.
-          </AlertDialogDescription>
-          <AlertDialogFooter>
-            <AlertDialogCancel onPress={() => setDeleteDialogOpen(false)}>
-              <Text>Cancelar</Text>
-            </AlertDialogCancel>
-            <AlertDialogAction onPress={handleDelete} className="bg-destructive">
-              <Text className="text-destructive-foreground font-bold">Eliminar</Text>
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <CustomAlertDeleteDialog
+        visible={deleteDialogOpen}
+        title="Confirmar eliminación"
+        message="¿Estás seguro de que deseas eliminar esta votación? Esta acción no se puede deshacer."
+        onCancel={() => setDeleteDialogOpen(false)}
+        onConfirm={handleDelete}
+        isLoading={isDeleting}
+      />
     </View>
   );
 }

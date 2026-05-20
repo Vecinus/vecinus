@@ -6,6 +6,7 @@ from core.config import settings
 from core.deps import get_current_user, get_supabase, get_supabase_admin, require_active_community
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi import status as http_status
+from PIL import Image, UnidentifiedImageError
 from schemas.announcements.announcements import AnnouncementResponse
 from supabase import Client
 
@@ -20,11 +21,31 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/announcements", tags=["announcements"])
 
 ALLOWED_STATUSES = {"DRAFT", "PUBLISHED"}
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+MAX_ANNOUNCEMENT_IMAGE_BYTES = 5 * 1024 * 1024
 
 
 def check_status(status_val: str):
     if status_val and status_val not in ALLOWED_STATUSES:
         raise HTTPException(status_code=400, detail=f"Invalid status. Allowed values: {ALLOWED_STATUSES}")
+
+
+def read_announcement_image(file: UploadFile) -> bytes:
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=415, detail="Formato de imagen no soportado")
+
+    file_content = file.file.read(MAX_ANNOUNCEMENT_IMAGE_BYTES + 1)
+    if len(file_content) > MAX_ANNOUNCEMENT_IMAGE_BYTES:
+        raise HTTPException(status_code=413, detail="La imagen es demasiado grande")
+    if not file_content:
+        raise HTTPException(status_code=400, detail="El archivo de imagen esta vacio.")
+
+    try:
+        Image.open(BytesIO(file_content)).verify()
+    except (UnidentifiedImageError, OSError, ValueError) as exc:
+        raise HTTPException(status_code=415, detail="El archivo no es una imagen valida") from exc
+
+    return file_content
 
 
 @router.get(
@@ -182,14 +203,11 @@ def create_announcement(
 
     if file and file.filename:
         try:
+            file_content = read_announcement_image(file)
             if cloudinary is None:
                 raise HTTPException(status_code=500, detail="La dependencia de Cloudinary no está instalada")
             if not settings.CLOUDINARY_URL:
                 raise HTTPException(status_code=500, detail="Cloudinary no está configurado")
-
-            file_content = file.file.read()
-            if len(file_content) == 0:
-                raise HTTPException(status_code=400, detail="El archivo de imagen está vacío.")
 
             cloudinary.config(cloudinary_url=settings.CLOUDINARY_URL, secure=True)
 
@@ -308,14 +326,11 @@ def update_announcement(
 
     if file and file.filename:
         try:
+            file_content = read_announcement_image(file)
             if cloudinary is None:
                 raise HTTPException(status_code=500, detail="La dependencia de Cloudinary no está instalada")
             if not settings.CLOUDINARY_URL:
                 raise HTTPException(status_code=500, detail="Cloudinary no está configurado")
-
-            file_content = file.file.read()
-            if len(file_content) == 0:
-                raise HTTPException(status_code=400, detail="El archivo de imagen está vacío.")
 
             cloudinary.config(cloudinary_url=settings.CLOUDINARY_URL, secure=True)
 

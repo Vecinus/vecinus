@@ -32,6 +32,7 @@ import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
+import { isForbiddenError } from '@/lib/http-errors';
 import type { ChatMessage, UploadDocumentFile } from '@/types/chatbot.types';
 import { isAdminOrPresident } from '@/utils/role.util';
 import { getLegalWarning } from '@/utils/legal-warnings';
@@ -223,7 +224,7 @@ export default function CommunityChatbotScreen() {
     try {
       await apiClient.get(`/communities/${normalizedCommunityId}/verify-access`);
     } catch (error) {
-      if (!isPaymentRequiredError(error)) {
+      if (!isPaymentRequiredError(error) && !isForbiddenError(error)) {
         console.error('verify-access (chatbot) failed:', error);
       }
     }

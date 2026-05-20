@@ -355,6 +355,25 @@ def test_create_announcement_without_subscription_returns_402():
 # ──────────────────────────────────────────────────────────────────────────────
 
 
+@patch("api.announcements.announcements.settings.CLOUDINARY_URL", "cloudinary://key:secret@cloud")
+@patch("api.announcements.announcements.cloudinary.uploader.upload")
+def test_create_announcement_rejects_non_image_upload(mock_upload):
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase(role=1)
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase(role=1)
+
+    try:
+        response = client.post(
+            f"/announcements/{mock_association_id}",
+            data={"title": "New Title", "content": "New Content", "status": "PUBLISHED"},
+            files={"file": ("payload.txt", b"not an image", "text/plain")},
+        )
+        assert response.status_code == 415
+        mock_upload.assert_not_called()
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_update_announcement_success():
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_supabase] = lambda: make_mock_supabase(role=1)
@@ -394,6 +413,25 @@ def test_update_announcement_tenant_fails():
 # ──────────────────────────────────────────────────────────────────────────────
 # Test: DELETE /announcements/{association_id}/{announcement_id}
 # ──────────────────────────────────────────────────────────────────────────────
+
+
+@patch("api.announcements.announcements.settings.CLOUDINARY_URL", "cloudinary://key:secret@cloud")
+@patch("api.announcements.announcements.cloudinary.uploader.upload")
+def test_update_announcement_rejects_non_image_upload(mock_upload):
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_supabase] = lambda: make_mock_supabase(role=1)
+    app.dependency_overrides[get_supabase_admin] = lambda: make_mock_supabase(role=1)
+
+    try:
+        response = client.put(
+            f"/announcements/{mock_association_id}/{mock_announcement_id}",
+            data={"title": "Updated Title"},
+            files={"file": ("payload.txt", b"not an image", "text/plain")},
+        )
+        assert response.status_code == 415
+        mock_upload.assert_not_called()
+    finally:
+        app.dependency_overrides.clear()
 
 
 def test_delete_announcement_success():

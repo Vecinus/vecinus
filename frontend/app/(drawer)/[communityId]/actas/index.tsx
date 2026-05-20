@@ -1,4 +1,5 @@
 import { isPaymentRequiredError } from '@/lib/payment-events';
+import { isForbiddenError } from '@/lib/http-errors';
 import { Text } from '@/components/ui/text';
 import * as React from 'react';
 import { View, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
@@ -53,11 +54,11 @@ export default function Actas() {
       const axiosError = error as { response?: { status?: number; data?: { detail?: unknown } } };
       const status = axiosError.response?.status;
       const detail = axiosError.response?.data?.detail;
-      if (!isPaymentRequiredError(error)) {
+      if (!isPaymentRequiredError(error) && !isForbiddenError(error)) {
         console.error('Error fetching minutes:', error);
       }
       setErrorMessage(
-        isPaymentRequiredError(error)
+        isPaymentRequiredError(error) || isForbiddenError(error)
           ? null
           : status === 401
           ? 'Tu sesion ha caducado. Vuelve a iniciar sesion.'
