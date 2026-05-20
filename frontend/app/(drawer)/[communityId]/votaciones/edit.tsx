@@ -20,16 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogAction,
-  AlertDialogCancel,
-} from '@/components/ui/alert-dialog';
+import { CustomAlertDeleteDialog } from '@/components/custom-alert';
 import { pollService } from '@/api/services/poll.service';
 import { PollUpdateRequest } from '@/types/poll.types';
 import { NAV_THEME } from '@/lib/theme';
@@ -386,24 +377,14 @@ export default function EditPoll() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar eliminación</AlertDialogTitle>
-          </AlertDialogHeader>
-          <AlertDialogDescription>
-            ¿Estás seguro de que deseas eliminar esta votación? Esta acción no se puede deshacer.
-          </AlertDialogDescription>
-          <AlertDialogFooter>
-            <AlertDialogCancel onPress={() => setDeleteDialogOpen(false)}>
-              <Text>Cancelar</Text>
-            </AlertDialogCancel>
-            <AlertDialogAction onPress={handleDelete} className="bg-destructive">
-              <Text className="text-destructive-foreground font-bold">Eliminar</Text>
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <CustomAlertDeleteDialog
+        visible={deleteDialogOpen}
+        title="Confirmar eliminación"
+        message="¿Estás seguro de que deseas eliminar esta votación? Esta acción no se puede deshacer."
+        onCancel={() => setDeleteDialogOpen(false)}
+        onConfirm={handleDelete}
+        isLoading={isDeleting}
+      />
     </View>
   );
 }
