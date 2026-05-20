@@ -12,7 +12,7 @@ from core.deps import (
     require_active_community,
 )
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from pydantic import BaseModel  # <-- NUEVO IMPORT
+from pydantic import BaseModel, Field, field_validator
 from schemas.associations import (
     AcceptInvitationRequest,
     CommunityResponse,
@@ -146,7 +146,15 @@ def _validate_invitation_membership_data(supabase_admin: Client, invitation: dic
 
 # --- NUEVO MODELO PARA CREAR PROPIEDADES ---
 class CreatePropertyRequest(BaseModel):
-    number: str
+    number: str = Field(..., min_length=1, max_length=80)
+
+    @field_validator("number")
+    @classmethod
+    def validate_number(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("El identificador de la propiedad no puede estar vacio")
+        return stripped
 
 
 def is_user_admin_or_president(supabase: Client, user_id: str, association_id: str) -> bool:

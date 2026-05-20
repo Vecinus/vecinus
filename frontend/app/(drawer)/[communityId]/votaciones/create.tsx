@@ -1,5 +1,4 @@
 import React, { useCallback, useState } from 'react';
-import { isAxiosError } from 'axios';
 import { isPaymentRequiredError } from '@/lib/payment-events';
 import {
   View,
@@ -25,6 +24,7 @@ import {
 import { pollService } from '@/api/services/poll.service';
 import { PollCreateRequest } from '@/types/poll.types';
 import { PropertyArrearsManager } from '@/components/votaciones/property-arrears-manager';
+import { getErrorMessage } from '@/lib/error-message';
 
 export default function CreatePoll() {
   const { communityId } = useLocalSearchParams<{ communityId: string }>();
@@ -76,10 +76,25 @@ export default function CreatePoll() {
   };
 
   const addOption = () => {
-    if (newOption.trim() && !options.includes(newOption.trim())) {
-      setOptions([...options, newOption.trim()]);
-      setNewOption('');
+    const trimmedOption = newOption.trim();
+
+    if (!trimmedOption) {
+      showAlert('Error', 'La opción no puede estar vacía');
+      return;
     }
+
+    if (trimmedOption.length > 80) {
+      showAlert('Error', 'Cada opción debe tener como máximo 80 caracteres');
+      return;
+    }
+
+    if (options.includes(trimmedOption)) {
+      showAlert('Error', 'Las opciones no pueden estar duplicadas');
+      return;
+    }
+
+    setOptions([...options, trimmedOption]);
+    setNewOption('');
   };
 
   const removeOption = (index: number) => {
@@ -87,12 +102,36 @@ export default function CreatePoll() {
   };
 
   const handleSubmit = async () => {
-    if (!title.trim()) {
+    const trimmedTitle = title.trim();
+    const trimmedDescription = description.trim();
+    const cleanedOptions = options.map((option) => option.trim());
+
+    if (!trimmedTitle) {
       showAlert('Error', 'El título es obligatorio');
+      return;
+    }
+    if (trimmedTitle.length > 200) {
+      showAlert('Error', 'El título no puede superar los 200 caracteres');
+      return;
+    }
+    if (trimmedDescription.length > 2000) {
+      showAlert('Error', 'La descripción no puede superar los 2000 caracteres');
       return;
     }
     if (options.length < 2) {
       showAlert('Error', 'Debe haber al menos 2 opciones');
+      return;
+    }
+    if (cleanedOptions.some((option) => !option)) {
+      showAlert('Error', 'Las opciones no pueden estar vacías');
+      return;
+    }
+    if (cleanedOptions.some((option) => option.length > 80)) {
+      showAlert('Error', 'Cada opción debe tener como máximo 80 caracteres');
+      return;
+    }
+    if (new Set(cleanedOptions).size !== cleanedOptions.length) {
+      showAlert('Error', 'Las opciones no pueden estar duplicadas');
       return;
     }
     if (totalCoefficient === 0) {
@@ -107,9 +146,9 @@ export default function CreatePoll() {
     setIsSubmitting(true);
     try {
       const payload: PollCreateRequest = {
-        title: title.trim(),
-        description: description.trim() || undefined,
-        options,
+        title: trimmedTitle,
+        description: trimmedDescription || undefined,
+        options: cleanedOptions,
       };
       await pollService.createPoll(communityId, payload);
       showAlert('Éxito', 'La votación se ha creado correctamente', true);
@@ -118,10 +157,7 @@ export default function CreatePoll() {
         return;
       }
       console.error('[CreatePoll] Error:', error);
-      const detail = isAxiosError(error) ? error.response?.data?.detail : undefined;
-      const msg = detail
-        ? (typeof detail === 'string' ? detail : JSON.stringify(detail))
-        : 'No se pudo crear la votación';
+      const msg = getErrorMessage(error, 'No se pudo crear la votación');
       showAlert('Error', msg);
     } finally {
       setIsSubmitting(false);
@@ -159,6 +195,7 @@ export default function CreatePoll() {
               value={title}
               onChangeText={setTitle}
               className="h-12 text-base"
+              maxLength={200}
             />
           </View>
 
@@ -172,6 +209,7 @@ export default function CreatePoll() {
               numberOfLines={4}
               className="h-32 text-base"
               style={{ textAlignVertical: 'top' }}
+              maxLength={2000}
             />
           </View>
 
@@ -198,6 +236,7 @@ export default function CreatePoll() {
                   onChangeText={setNewOption}
                   className="flex-1 h-12 text-base"
                   onSubmitEditing={addOption}
+                  maxLength={80}
                 />
                 <Button
                   variant="outline"
