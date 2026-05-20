@@ -134,10 +134,6 @@ mock_association_id = str(uuid4())
 mock_dm_channel_id = str(uuid4())
 mock_target_user_id = str(uuid4())
 
-# Add new mock IDs for testing unblock
-mock_dm_blocked_by_me = str(uuid4())
-mock_dm_blocked_by_other = str(uuid4())
-
 
 def override_get_supabase():
     # Retornar arrays con objetos adecuados según lo que esperan los routers
@@ -150,15 +146,6 @@ def override_get_supabase():
                     "user_id": mock_target_user_id,
                 },
                 {"channel_id": mock_dm_channel_id, "user_id": mock_user["id"]},
-                # Participantes para canales bloqueados
-                {
-                    "channel_id": mock_dm_blocked_by_me,
-                    "user_id": mock_user["id"],
-                },
-                {
-                    "channel_id": mock_dm_blocked_by_other,
-                    "user_id": mock_user["id"],
-                },
             ],
             "chat_channels": [
                 {
@@ -166,8 +153,6 @@ def override_get_supabase():
                     "association_id": mock_association_id,
                     "name": "General",
                     "is_direct_message": False,
-                    "is_blocked": False,
-                    "blocked_by": None,
                     "created_by": mock_user["id"],
                 },
                 {
@@ -175,27 +160,7 @@ def override_get_supabase():
                     "association_id": mock_association_id,
                     "name": None,
                     "is_direct_message": True,
-                    "is_blocked": False,
-                    "blocked_by": None,
                     "created_by": mock_user["id"],
-                },
-                {
-                    "id": mock_dm_blocked_by_me,
-                    "association_id": mock_association_id,
-                    "name": None,
-                    "is_direct_message": True,
-                    "is_blocked": True,
-                    "blocked_by": mock_user["id"],
-                    "created_by": mock_user["id"],
-                },
-                {
-                    "id": mock_dm_blocked_by_other,
-                    "association_id": mock_association_id,
-                    "name": None,
-                    "is_direct_message": True,
-                    "is_blocked": True,
-                    "blocked_by": mock_target_user_id,
-                    "created_by": mock_target_user_id,
                 },
             ],
             "messages": [
@@ -293,44 +258,11 @@ def test_create_direct_message():
     assert "id" in data
 
 
-def test_block_direct_message():
-    # Make sure we use the ID of the DM channel we mocked
-    response = client.post(f"/chat/channels/{mock_dm_channel_id}/block")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["message"] == "Direct message channel successfully blocked."
-
-
-def test_unblock_direct_message_success():
-    # Attempting to unblock a channel that I blocked myself
-    response = client.post(f"/chat/channels/{mock_dm_blocked_by_me}/unblock")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["message"] == "Direct message channel successfully unblocked."
-
-
-def test_unblock_direct_message_unauthorized():
-    # Attempting to unblock a channel blocked by another user
-    response = client.post(f"/chat/channels/{mock_dm_blocked_by_other}/unblock")
-    assert response.status_code == 403
-    data = response.json()
-    assert data["detail"] == "You are not authorized to unblock this channel because you did not block it"
-
-
-def test_unblock_not_blocked_channel():
-    # Attempting to unblock a channel that is not blocked
-    response = client.post(f"/chat/channels/{mock_dm_channel_id}/unblock")
-    assert response.status_code == 400
-    data = response.json()
-    assert data["detail"] == "This channel is not blocked"
-
-
 def test_create_group_channel_as_admin():
     req_data = {
         "association_id": mock_association_id,
         "name": "Anuncios Oficiales",
         "is_direct_message": False,
-        "is_blocked": False,
     }
     response = client.post("/chat/channels", json=req_data)
     assert response.status_code == 200
@@ -345,7 +277,6 @@ def test_update_group_channel_as_admin():
         "association_id": mock_association_id,
         "name": "General Actualizado",
         "is_direct_message": False,
-        "is_blocked": False,
     }
     response = client.put(f"/chat/channels/{mock_channel_id}", json=req_data)
     assert response.status_code == 200
@@ -371,7 +302,6 @@ def test_create_group_channel_not_admin():
         "association_id": mock_association_id,
         "name": "Intento Fallido",
         "is_direct_message": False,
-        "is_blocked": False,
     }
     response = client.post("/chat/channels", json=req_data)
     assert response.status_code == 403
@@ -392,7 +322,6 @@ def test_update_group_channel_not_admin():
         "association_id": mock_association_id,
         "name": "Intento Fallido",
         "is_direct_message": False,
-        "is_blocked": False,
     }
     response = client.put(f"/chat/channels/{mock_channel_id}", json=req_data)
     assert response.status_code == 403

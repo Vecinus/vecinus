@@ -63,7 +63,18 @@ def register(
                 raise HTTPException(status_code=409, detail="El email ya está registrado")
             if e.code == "weak_password":
                 raise HTTPException(status_code=400, detail="La contraseña es muy débil")
-            raise HTTPException(status_code=400, detail="Error al registrar el usuario")
+            if e.code == "over_email_send_rate_limit":
+                raise HTTPException(
+                    status_code=429,
+                    detail="Se han enviado demasiados correos. Inténtalo de nuevo en unos minutos.",
+                )
+            if e.code == "signup_disabled":
+                raise HTTPException(
+                    status_code=403,
+                    detail="El registro de nuevos usuarios está deshabilitado temporalmente.",
+                )
+            logger.error("Supabase AuthApiError durante registro: code=%s msg=%s", e.code, e.message)
+            raise HTTPException(status_code=400, detail=f"Error al registrar el usuario: {e.message}")
 
         error_msg = str(e)
         if "profiles_username_key" in error_msg or "23505" in error_msg:

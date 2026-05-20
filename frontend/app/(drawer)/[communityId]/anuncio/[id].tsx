@@ -1,6 +1,6 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { isAxiosError } from 'axios';
+import { isPaymentRequiredError } from '@/lib/payment-events';
 import { ActivityIndicator, Image, Modal, ScrollView, TouchableOpacity, View } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -69,7 +69,7 @@ export default function AnuncioDetailScreen() {
       await apiClient.get(`/communities/${communityId}/verify-access`);
       return true;
     } catch (error) {
-      if (!isAxiosError(error) || error.response?.status !== 402) {
+      if (!isPaymentRequiredError(error)) {
         console.error('verify-access (announcement detail) failed:', error);
       }
       return false;
@@ -81,7 +81,6 @@ export default function AnuncioDetailScreen() {
     hasVerifiedAccess ? announcementId : undefined,
   );
   const updateMutation = useUpdateAnnouncement(communityId, announcementId);
-  const errorStatus = isAxiosError(error) ? error.response?.status : undefined;
 
   const [isEditing, setIsEditing] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
@@ -175,7 +174,7 @@ export default function AnuncioDetailScreen() {
       setPickedImage(null);
       showAlert('Éxito', 'Anuncio actualizado correctamente.');
     } catch (err: unknown) {
-      if (isAxiosError(err) && err.response?.status === 402) {
+      if (isPaymentRequiredError(err)) {
         return;
       }
       setFormError(getUserFacingErrorMessage(err, 'No se pudo actualizar el anuncio.'));

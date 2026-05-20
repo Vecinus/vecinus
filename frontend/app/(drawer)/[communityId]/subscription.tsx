@@ -1,8 +1,10 @@
 import * as React from 'react';
-import { ActivityIndicator, Modal, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Modal, ScrollView, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Drawer } from 'expo-router/drawer';
+import type { Href } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle } from 'lucide-react-native';
+import { AlertTriangle, ChevronLeft } from 'lucide-react-native';
 
 import { formatEuros } from '@/components/community/PlanSelector';
 import { Button } from '@/components/ui/button';
@@ -31,6 +33,12 @@ function isValidId(value: string | undefined): value is string {
     value !== 'null' &&
     value !== '[communityId]'
   );
+}
+
+type SubscriptionRoute = 'activate-subscription' | 'reactivate-subscription' | 'subscription-plan';
+
+function communitySubscriptionRoute(communityId: string, route: SubscriptionRoute): Href {
+  return `/${communityId}/${route}` as Href;
 }
 
 export default function CommunitySubscriptionScreen() {
@@ -155,7 +163,12 @@ export default function CommunitySubscriptionScreen() {
             {detailMessage || fallback}
           </Text>
           {isAdmin ? (
-            <Button onPress={() => router.push(`/${communityId}/activate-subscription`)} className="mt-6">
+            <Button
+              onPress={() =>
+                router.push(communitySubscriptionRoute(communityId, 'activate-subscription'))
+              }
+              className="mt-6"
+            >
               <Text className="text-primary-foreground font-semibold">Activar suscripción</Text>
             </Button>
           ) : (
@@ -207,6 +220,19 @@ export default function CommunitySubscriptionScreen() {
   };
 
   return (
+    <>
+    <Drawer.Screen
+      options={{
+        title: 'Suscripción y pagos',
+        headerLeft: () => (
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="ml-2 rounded-full p-2 active:bg-muted">
+            <Icon as={ChevronLeft} size={24} className="text-foreground" />
+          </TouchableOpacity>
+        ),
+      }}
+    />
     <ScrollView
       className="flex-1 bg-background"
       contentContainerStyle={{ padding: 20, paddingBottom: 48, gap: 16 }}
@@ -263,7 +289,9 @@ export default function CommunitySubscriptionScreen() {
 
           {isCancelled ? (
             <Button
-              onPress={() => router.push(`/${communityId}/reactivate-subscription`)}
+              onPress={() =>
+                router.push(communitySubscriptionRoute(communityId, 'reactivate-subscription'))
+              }
               className="h-12 rounded-xl"
             >
               <Text className="font-semibold text-primary-foreground">Reactivar suscripción</Text>
@@ -271,7 +299,9 @@ export default function CommunitySubscriptionScreen() {
           ) : (
             <>
               <Button
-                onPress={() => router.push(`/${communityId}/subscription-plan`)}
+                onPress={() =>
+                  router.push(communitySubscriptionRoute(communityId, 'subscription-plan'))
+                }
                 className="h-12 rounded-xl"
               >
                 <Text className="font-semibold text-primary-foreground">Gestionar plan</Text>
@@ -307,7 +337,9 @@ export default function CommunitySubscriptionScreen() {
           </View>
 
           <Button
-            onPress={() => router.push(`/${communityId}/reactivate-subscription`)}
+            onPress={() =>
+              router.push(communitySubscriptionRoute(communityId, 'reactivate-subscription'))
+            }
             className="h-12 rounded-xl"
           >
             <Text className="font-semibold text-primary-foreground">Reactivar suscripción</Text>
@@ -410,5 +442,6 @@ export default function CommunitySubscriptionScreen() {
         </View>
       </Modal>
     </ScrollView>
+    </>
   );
 }

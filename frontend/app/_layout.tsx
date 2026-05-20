@@ -11,10 +11,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { ActivityIndicator, View } from 'react-native';
 import { setUnauthorizedHandler } from '@/lib/auth-events';
-import { setCommunityBlockedHandler } from '@/lib/payment-events';
+import { isPaymentRequiredError, setCommunityBlockedHandler } from '@/lib/payment-events';
 import { CommunityBlockedModal } from '@/components/community-blocked-modal';
 import type { CommunityBlockedDetail } from '@/types/payments.types';
-import axios from 'axios';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -27,7 +26,7 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: (failureCount, error) => {
-        if (axios.isAxiosError(error) && error.response?.status === 402) {
+        if (isPaymentRequiredError(error)) {
           return false;
         }
         return failureCount < DEFAULT_QUERY_RETRIES;
@@ -48,10 +47,12 @@ function RootLayoutNav() {
   useEffect(() => {
     if (isLoading) return; // Espera a que termine el hydrate()
 
-    const inAuthGroup = segments[0] === '(auth)';
-    const isVoteRoute = (segments[0] as string) === 'votar';
+    const segmentList = segments.map(String);
+    const inAuthGroup = segmentList[0] === '(auth)';
+    const isVoteRoute = segmentList[0] === 'votar';
+    const isAcceptInvitation = segmentList[0] === 'auth' && segmentList.includes('accept-invitation');
 
-    if (!isAuthenticated && !inAuthGroup && !isVoteRoute) {
+    if (!isAuthenticated && !inAuthGroup && !isVoteRoute && !isAcceptInvitation) {
       router.replace('/(auth)/sign-in');
     } else if (isAuthenticated && inAuthGroup) {
       router.replace('/');

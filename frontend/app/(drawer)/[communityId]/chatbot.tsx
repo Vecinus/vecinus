@@ -36,7 +36,7 @@ import type { ChatMessage, UploadDocumentFile } from '@/types/chatbot.types';
 import { isAdminOrPresident } from '@/utils/role.util';
 import { getLegalWarning } from '@/utils/legal-warnings';
 import { apiClient } from '@/api/client';
-import { isAxiosError } from 'axios';
+import { isPaymentRequiredError } from '@/lib/payment-events';
 import * as DocumentPicker from 'expo-document-picker';
 import { useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
 import {
@@ -155,16 +155,9 @@ function ChatMessageBubble({
           )}
         />
 
-        {message.source ? (
+        {message.source?.reference ? (
           <View className="mt-3 flex-row flex-wrap items-center gap-2">
-            <Badge variant="outline" className="border-primary/30 bg-primary/5">
-              <Text className="text-xs text-primary">
-                Fuente: {formatSourceType(message.source.type)}
-              </Text>
-            </Badge>
-            {message.source.reference ? (
-              <Text className="text-xs text-muted-foreground">{message.source.reference}</Text>
-            ) : null}
+            <Text className="text-xs text-muted-foreground">{message.source.reference}</Text>
           </View>
         ) : null}
 
@@ -183,12 +176,6 @@ function ChatMessageBubble({
       ) : null}
     </View>
   );
-}
-
-function formatSourceType(type: string | null | undefined): string {
-  if (!type) return 'Desconocida';
-  if (type === 'RAG_PINECONE') return 'Base de conocimientos';
-  return type.charAt(0).toUpperCase() + type.slice(1);
 }
 
 function FormattedText({ content, className }: { content: string; className?: string }) {
@@ -236,7 +223,7 @@ export default function CommunityChatbotScreen() {
     try {
       await apiClient.get(`/communities/${normalizedCommunityId}/verify-access`);
     } catch (error) {
-      if (!isAxiosError(error) || error?.response?.status !== 402) {
+      if (!isPaymentRequiredError(error)) {
         console.error('verify-access (chatbot) failed:', error);
       }
     }

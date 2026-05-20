@@ -1,4 +1,4 @@
-import { isAxiosError } from 'axios';
+import { isPaymentRequiredError } from '@/lib/payment-events';
 import { Text } from '@/components/ui/text';
 import * as React from 'react';
 import { View, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
@@ -33,7 +33,7 @@ export default function Votaciones() {
       const data = await pollService.getPolls(communityId);
       setPolls(data);
     } catch (error: unknown) {
-      if (!isAxiosError(error) || error.response?.status !== 402) {
+      if (!isPaymentRequiredError(error)) {
         console.error('Error fetching polls:', error);
       }
     } finally {

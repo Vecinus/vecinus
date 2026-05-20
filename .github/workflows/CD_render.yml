@@ -40,7 +40,11 @@ jobs:
         run: |
           # refs/heads/release/sprint1 → sprint1
           # refs/heads/release/ppl     → ppl
-          BRANCH="${GITHUB_REF#refs/heads/release/}"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BRANCH="${GITHUB_BASE_REF#release/}"
+          else
+            BRANCH="${GITHUB_REF_NAME#release/}"
+          fi
           echo "Detected environment: $BRANCH"
           echo "env_name=$BRANCH" >> "$GITHUB_OUTPUT"
            
@@ -62,7 +66,8 @@ jobs:
   # ---- 2. Deploy to Render ----
   deploy:
     name: Deploy to Render (${{ needs.resolve-env.outputs.env_name }})
-    needs: [resolve-env, testing]
+    if: github.event_name == 'push'
+    needs: [resolve-env, linting, testing]
     runs-on: ubuntu-24.04
     environment: ${{ needs.resolve-env.outputs.env_name }}
 

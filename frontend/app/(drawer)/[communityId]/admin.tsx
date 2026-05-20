@@ -109,6 +109,11 @@ export default function CommunityAdminScreen() {
   const { mutate: addProperty, isPending: isAddingProperty } = useAddProperty(communityId);
 
   const rolesOptions = communityApi.getRolesOptions();
+  const presidentAlreadyExists = React.useMemo(() => {
+    const inMembers = members?.some((m) => m.roleId === 4) ?? false;
+    const inPending = pendingInvitations?.some((inv) => inv.role_to_grant === 4) ?? false;
+    return inMembers || inPending;
+  }, [members, pendingInvitations]);
   const sortedMembers = React.useMemo(() => {
     if (!members) return [];
 
@@ -195,6 +200,10 @@ export default function CommunityAdminScreen() {
     }
     if (roleToGrant !== '5' && !propertyId) {
       setInviteError('Debes asignar una propiedad libre para este rol.');
+      return;
+    }
+    if (roleToGrant === '4' && presidentAlreadyExists) {
+      setInviteError('Esta comunidad ya tiene un Presidente asignado o invitado.');
       return;
     }
 
@@ -453,24 +462,43 @@ export default function CommunityAdminScreen() {
             />
 
             <Text className="mb-2 text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase">Rol de acceso</Text>
-            <View className="flex-row flex-wrap gap-2 mb-4">
+            <View className={`flex-row flex-wrap gap-2 ${presidentAlreadyExists ? 'mb-2' : 'mb-4'}`}>
               {rolesOptions.map((opt) => {
                 const selected = roleToGrant === opt.id.toString();
+                const disabled = opt.id === 4 && presidentAlreadyExists;
                 return (
                   <TouchableOpacity
                     key={opt.id.toString()}
-                    className={`px-3 py-2 rounded-lg border ${selected ? 'bg-emerald-500 border-emerald-500' : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700'}`}
-                    activeOpacity={0.8}
+                    className={`px-3 py-2 rounded-lg border ${
+                      disabled
+                        ? 'bg-slate-100 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 opacity-50'
+                        : selected
+                          ? 'bg-emerald-500 border-emerald-500'
+                          : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700'
+                    }`}
+                    activeOpacity={disabled ? 1 : 0.8}
+                    disabled={disabled}
                     onPress={() => {
                       setRoleToGrant(opt.id.toString());
                       setPropertyId('');
                     }}
                   >
-                    <Text className={`font-semibold text-xs ${selected ? 'text-white' : 'text-slate-700 dark:text-zinc-200'}`}>{opt.label}</Text>
+                    <Text className={`font-semibold text-xs ${
+                      disabled
+                        ? 'text-slate-400 dark:text-zinc-500'
+                        : selected
+                          ? 'text-white'
+                          : 'text-slate-700 dark:text-zinc-200'
+                    }`}>{opt.label}</Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
+            {presidentAlreadyExists && (
+              <Text className="text-[11px] text-slate-500 dark:text-zinc-400 mb-4">
+                Ya hay un Presidente asignado o invitado. Solo puede haber uno por comunidad.
+              </Text>
+            )}
 
             {!!roleToGrant && roleToGrant !== '5' && (
               <>

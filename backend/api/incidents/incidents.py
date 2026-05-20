@@ -1,3 +1,5 @@
+import io
+
 import cloudinary
 import cloudinary.uploader
 from api.chat.chat_helpers import verify_association_membership
@@ -9,6 +11,7 @@ from core.deps import (
     require_active_community,
 )
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from PIL import Image, UnidentifiedImageError
 from schemas.incidents.incidents import Incident
 from services.helpers.role_service import get_user_role
 from supabase import Client
@@ -22,6 +25,8 @@ cloudinary.config(cloudinary_url=settings.CLOUDINARY_URL, secure=True)
 
 ALLOWED_STATUSES = {"PENDING", "IN PROGRESS", "SOLVED", "DISCARDED"}
 ALLOWED_TYPES = {"LIGHTING", "ELECTRICITY", "ELEVATOR", "PLUMBING", "SAFETY", "WORKERS", "POOL", "OTHER"}
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+MAX_INCIDENT_IMAGE_BYTES = 5 * 1024 * 1024
 
 
 def check_status(status: str):
@@ -32,6 +37,33 @@ def check_status(status: str):
 def check_type(type: str):
     if type not in ALLOWED_TYPES:
         raise HTTPException(status_code=400, detail=f"Invalid incident type. Allowed values: {ALLOWED_TYPES}")
+
+
+def read_incident_image(file: UploadFile) -> bytes:
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=415, detail="Formato de imagen no soportado")
+
+    chunks = []
+    total = 0
+    while True:
+        chunk = file.file.read(1024 * 1024)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > MAX_INCIDENT_IMAGE_BYTES:
+            raise HTTPException(status_code=413, detail="La imagen es demasiado grande")
+        chunks.append(chunk)
+
+    image_bytes = b"".join(chunks)
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="La imagen esta vacia")
+
+    try:
+        Image.open(io.BytesIO(image_bytes)).verify()
+    except (SyntaxError, UnidentifiedImageError, OSError):
+        raise HTTPException(status_code=415, detail="El archivo no es una imagen valida")
+
+    return image_bytes
 
 
 def get_latest_state(supabase: Client, incident_id: str) -> dict[str, dict]:
@@ -48,6 +80,20 @@ def get_latest_state(supabase: Client, incident_id: str) -> dict[str, dict]:
     )
 
     return states_res.data[0] if states_res.data else {}
+
+
+def load_incident_in_association(supabase: Client, association_id: str, incident_id: str) -> dict:
+    incident_res = (
+        supabase.table("incidents")
+        .select("id, membership_id, memberships!inner(association_id)")
+        .eq("id", str(incident_id))
+        .eq("memberships.association_id", str(association_id))
+        .limit(1)
+        .execute()
+    )
+    if not incident_res.data:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    return incident_res.data[0]
 
 
 def verify_own_incident(association_id: str, incident_id: str, user_id: str, supabase: Client):
@@ -155,15 +201,23 @@ def get_incident(
     user_id = current_user["id"]
     verify_association_membership(association_id, user_id, supabase)
 
-    incident_res = supabase.table("incidents").select("""
+    incident_res = (
+        supabase.table("incidents")
+        .select("""
                 id,
                 type,
                 description,
                 created_at,
                 image_url,
                 membership_id,
+                memberships!inner(association_id),
                 incident_states(status, created_at)
-                """).eq("id", incident_id).order("created_at", desc=True, foreign_table="incident_states").execute()
+                """)
+        .eq("id", incident_id)
+        .eq("memberships.association_id", association_id)
+        .order("created_at", desc=True, foreign_table="incident_states")
+        .execute()
+    )
     if not incident_res.data:
         raise HTTPException(status_code=404, detail="Incident not found")
 
@@ -199,10 +253,13 @@ def create_incident(
     if file:
         try:
             if not settings.CLOUDINARY_URL:
-                raise HTTPException(status_code=500, detail="Cloudinary configuration is missing")
+                raise HTTPException(status_code=500, detail="Error al subir la imagen")
             else:
-                upload = cloudinary.uploader.upload(file.file, folder=f"incidents/{association_id}")
+                image_bytes = read_incident_image(file)
+                upload = cloudinary.uploader.upload(io.BytesIO(image_bytes), folder=f"incidents/{association_id}")
                 image_url = upload.get("secure_url")
+        except HTTPException:
+            raise
         except Exception:
             raise HTTPException(status_code=500, detail="Error al subir la imagen")
 
@@ -251,6 +308,7 @@ def update_incident_status(
     if str(get_user_role(supabase, association_id, user_id)) not in {"1", "4", "5"}:
         raise HTTPException(status_code=403, detail="Admin, president or employee access required for this action")
 
+    load_incident_in_association(supabase, association_id, incident_id)
     latest_state = get_latest_state(supabase, incident_id)
 
     if not latest_state:
@@ -285,6 +343,7 @@ def discard_incident(
     if role not in {"1", "4"} and not is_owner:
         raise HTTPException(status_code=403, detail="El usuario no tiene permisos para eliminar esta incidencia")
 
+    load_incident_in_association(supabase_admin, association_id, incident_id)
     latest_state = get_latest_state(supabase_admin, incident_id)
 
     if not latest_state:

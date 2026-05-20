@@ -30,6 +30,8 @@ def _get_client():
 
 EMBEDDING_MODEL = "gemini-embedding-001"
 MAX_LIST_QUERY = 500
+MAX_RAW_TEXT_CHARS = 300_000
+MAX_CHUNKS_PER_DOCUMENT = 500
 
 
 def _chunk_text_with_overlap(text, chunk_size=800, overlap=150):
@@ -80,8 +82,15 @@ def index_document(
     uploaded_by_email: str | None = None,
     source_filename: str | None = None,
 ):
+    if not isinstance(raw_text, str) or not raw_text.strip():
+        return 0
+    if len(raw_text) > MAX_RAW_TEXT_CHARS:
+        raise ValueError("Document text exceeds the maximum allowed length")
+
     namespace = _normalize_namespace(comunidad_id)
     chunks = _chunk_text_with_overlap(raw_text)
+    if len(chunks) > MAX_CHUNKS_PER_DOCUMENT:
+        raise ValueError("Document generates too many chunks")
     if not chunks:
         return 0
 

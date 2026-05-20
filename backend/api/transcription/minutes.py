@@ -1,5 +1,5 @@
 import math
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List
 from urllib.parse import quote
 from uuid import UUID
@@ -49,6 +49,23 @@ def _duration_seconds_from_client_ms(duration_ms: int | None) -> int | None:
 
 def get_service(db=Depends(MinuteService.get_supabase_client)):
     return MinuteService(db)
+
+
+def _clean_location(location: str | None) -> str:
+    return (location or "").strip()
+
+
+def _get_association_name(association_id: UUID, supabase_admin: Client) -> str:
+    response = (
+        supabase_admin.table("neighborhood_associations")
+        .select("name")
+        .eq("id", str(association_id))
+        .limit(1)
+        .execute()
+    )
+    if not response.data:
+        return ""
+    return _clean_location(response.data[0].get("name"))
 
 
 @router.get(
@@ -101,7 +118,7 @@ async def transcribe_meeting(
     association_id: UUID,
     audio: UploadFile = File(...),
     title: str = Form(...),
-    location: str = Form("Residencial Vecinus"),
+    location: str = Form(""),
     meeting_type: MeetingType = Form(MeetingType.ORDINARY),
     scheduled_at: datetime | None = Form(None),
     duration_ms: int | None = Form(None),
@@ -112,7 +129,8 @@ async def transcribe_meeting(
 ):
     verify_association_admin_or_president(association_id, user["id"], supabase)
     if not scheduled_at:
-        scheduled_at = datetime.now()
+        scheduled_at = datetime.now(timezone.utc)
+    location = _clean_location(location) or _get_association_name(association_id, supabase_admin)
     if audio.content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(
             status_code=415,

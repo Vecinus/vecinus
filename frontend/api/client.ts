@@ -56,7 +56,7 @@ apiClient.interceptors.response.use(
   async (error) => {
     const status = error?.response?.status;
     const requestUrl = String(error?.config?.url ?? '').toLowerCase();
-    const isAuthPublicEndpoint = requestUrl.includes('/login') || requestUrl.includes('/logout');
+    const isAuthPublicEndpoint = requestUrl.includes('/login') || requestUrl.includes('/logout') || requestUrl.includes('/accept-invitation');
 
     if (status === 401 && !isAuthPublicEndpoint) {
       await notifyUnauthorized();

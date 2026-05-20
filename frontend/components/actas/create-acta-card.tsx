@@ -15,6 +15,7 @@ import { AudioPlayer } from './audio-player';
 
 interface CreateActaCardProps {
   communityId: string;
+  communityName?: string;
   onSuccess: () => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -22,6 +23,7 @@ interface CreateActaCardProps {
 
 export function CreateActaCard({
   communityId,
+  communityName,
   onSuccess,
   open,
   onOpenChange,
@@ -175,7 +177,7 @@ export function CreateActaCard({
         name: audioName || 'audio.m4a',
         type: audioMimeType || 'audio/mpeg',
         durationMs: audioDuration,
-      });
+      }, { location: communityName });
       showAlert('Éxito', 'El acta se ha creado correctamente y se está procesando', true);
     } catch (error) {
       const err = error as {

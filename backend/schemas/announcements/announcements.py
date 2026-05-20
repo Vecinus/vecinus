@@ -6,9 +6,9 @@ from pydantic import BaseModel, Field
 
 class AnnouncementBase(BaseModel):
     title: str = Field(..., max_length=200)
-    content: str
-    image_url: Optional[str] = None
-    status: str = Field(default="DRAFT", description="Status can be DRAFT or PUBLISHED")
+    content: str = Field(..., max_length=10000)
+    image_url: Optional[str] = Field(None, max_length=2048)
+    status: str = Field(default="DRAFT", max_length=20, description="Status can be DRAFT or PUBLISHED")
     scheduled_date: Optional[datetime] = Field(None, description="Scheduled publication date for the announcement")
 
 
@@ -18,9 +18,9 @@ class AnnouncementCreate(AnnouncementBase):
 
 class AnnouncementUpdate(BaseModel):
     title: Optional[str] = Field(None, max_length=200)
-    content: Optional[str] = None
-    image_url: Optional[str] = None
-    status: Optional[str] = Field(None, description="Status can be DRAFT or PUBLISHED")
+    content: Optional[str] = Field(None, max_length=10000)
+    image_url: Optional[str] = Field(None, max_length=2048)
+    status: Optional[str] = Field(None, max_length=20, description="Status can be DRAFT or PUBLISHED")
     scheduled_date: Optional[datetime] = Field(None, description="Scheduled publication date for the announcement")
 
 

@@ -182,7 +182,6 @@ async function ensureCommunityChannel(request: APIRequestContext, token: string,
       association_id: associationId,
       name: 'Comunidad',
       is_direct_message: false,
-      is_blocked: false,
     },
   });
 

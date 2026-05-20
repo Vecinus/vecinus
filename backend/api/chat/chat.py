@@ -63,8 +63,6 @@ def create_group_channel(
         "association_id": str(channel_in.association_id),
         "name": channel_in.name,
         "is_direct_message": False,
-        "is_blocked": channel_in.is_blocked,
-        "blocked_by": (str(channel_in.blocked_by) if channel_in.blocked_by else None),
     }
 
     new_channel_res = supabase.table("chat_channels").insert(new_channel_data).execute()
@@ -145,8 +143,6 @@ def update_group_channel(
     # 3. Actualizar
     update_data = {
         "name": channel_in.name,
-        "is_blocked": channel_in.is_blocked,
-        "blocked_by": (str(channel_in.blocked_by) if channel_in.blocked_by else None),
     }
 
     update_res = supabase.table("chat_channels").update(update_data).eq("id", str(channel_id)).execute()
@@ -290,7 +286,7 @@ def create_direct_message(
     # y ver si ambos participan
     dm_channels_res = (
         supabase.table("chat_channels")
-        .select("id, is_blocked")
+        .select("id")
         .eq("association_id", association_id)
         .eq("is_direct_message", True)
         .execute()
@@ -322,17 +318,6 @@ def create_direct_message(
                 # Ya existe un DM entre los dos en esta comunidad
                 existing_dm_id = str(target_dms_res.data[0]["channel_id"])
 
-                # Obtener la info del canal para ver si está bloqueado
-                existing_channel = next(
-                    (c for c in dm_channels_res.data if str(c["id"]) == existing_dm_id),
-                    None,
-                )
-                if existing_channel and existing_channel.get("is_blocked"):
-                    raise HTTPException(
-                        status_code=403,
-                        detail="This direct message chat is blocked.",
-                    )
-
                 # Retornar el canal existente
                 full_channel_res = supabase.table("chat_channels").select("*").eq("id", existing_dm_id).execute()
                 return full_channel_res.data[0]
@@ -341,8 +326,6 @@ def create_direct_message(
     new_channel_data = {
         "association_id": association_id,
         "is_direct_message": True,
-        "is_blocked": False,
-        "blocked_by": None,
     }
 
     new_channel_res = supabase.table("chat_channels").insert(new_channel_data).execute()
@@ -359,100 +342,6 @@ def create_direct_message(
     supabase.table("channel_participants").insert(participants_data).execute()
 
     return created_channel
-
-
-@router.post(
-    "/channels/{channel_id}/block",
-    dependencies=[Depends(require_active_community_for_channel)],
-)
-def block_direct_message_channel(
-    channel_id: UUID,
-    current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase),
-):
-    """
-    Bloquea permanentemente un canal de mensaje directo.
-    """
-    # 1. Validar que el current_user es participante del canal
-    verify_channel_access(str(str(channel_id)), current_user["id"], supabase)
-
-    # 2. Validar que el canal es un mensaje directo
-    channel_res = supabase.table("chat_channels").select("*").eq("id", str(channel_id)).execute()
-    if not channel_res.data:
-        raise HTTPException(status_code=404, detail="Channel not found")
-
-    channel_data = channel_res.data[0]
-    if not channel_data.get("is_direct_message"):
-        raise HTTPException(
-            status_code=400,
-            detail=("Only direct message channels can be blocked" " through this endpoint"),
-        )
-
-    # 3. Marcar como bloqueado y guardar quién lo ha bloqueado
-    update_res = (
-        supabase.table("chat_channels")
-        .update({"is_blocked": True, "blocked_by": current_user["id"]})
-        .eq("id", str(channel_id))
-        .execute()
-    )
-
-    if not update_res.data:
-        raise HTTPException(status_code=500, detail="Could not block the channel")
-
-    return {"message": "Direct message channel successfully blocked."}
-
-
-@router.post(
-    "/channels/{channel_id}/unblock",
-    dependencies=[Depends(require_active_community_for_channel)],
-)
-def unblock_direct_message_channel(
-    channel_id: UUID,
-    current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase),
-):
-    """
-    Desbloquea permanentemente un canal de mensaje directo,
-    pero solo si eres la persona que lo bloqueó.
-    """
-    # 1. Validar que el current_user es participante del canal
-    verify_channel_access(str(str(channel_id)), current_user["id"], supabase)
-
-    # 2. Validar que el canal es un mensaje directo
-    channel_res = supabase.table("chat_channels").select("*").eq("id", str(channel_id)).execute()
-    if not channel_res.data:
-        raise HTTPException(status_code=404, detail="Channel not found")
-
-    channel_data = channel_res.data[0]
-    if not channel_data.get("is_direct_message"):
-        raise HTTPException(
-            status_code=400,
-            detail=("Only direct message channels can be unblocked" " through this endpoint"),
-        )
-
-    # 3. Validar que está bloqueado
-    if not channel_data.get("is_blocked"):
-        raise HTTPException(status_code=400, detail="This channel is not blocked")
-
-    # 4. Validar que la persona que intenta desbloquear es la que lo bloqueó
-    if str(channel_data.get("blocked_by")) != str(current_user["id"]):
-        raise HTTPException(
-            status_code=403,
-            detail=("You are not authorized to unblock this channel" " because you did not block it"),
-        )
-
-    # 5. Desbloquear
-    update_res = (
-        supabase.table("chat_channels")
-        .update({"is_blocked": False, "blocked_by": None})
-        .eq("id", str(channel_id))
-        .execute()
-    )
-
-    if not update_res.data:
-        raise HTTPException(status_code=500, detail="Could not unblock the channel")
-
-    return {"message": "Direct message channel successfully unblocked."}
 
 
 @router.post(

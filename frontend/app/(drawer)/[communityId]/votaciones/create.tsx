@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { isAxiosError } from 'axios';
+import { isPaymentRequiredError } from '@/lib/payment-events';
 import {
   View,
   ScrollView,
@@ -94,6 +95,10 @@ export default function CreatePoll() {
       showAlert('Error', 'Debe haber al menos 2 opciones');
       return;
     }
+    if (totalCoefficient === 0) {
+      showAlert('Error', 'No puedes crear una votación sin vecinos en la comunidad. Añade propiedades y vecinos antes de crear una votación.');
+      return;
+    }
     if (Math.abs(totalCoefficient - 100) > 0.01) {
       showAlert('Error', 'La suma total de los coeficientes de las propiedades debe ser exactamente 100%');
       return;
@@ -109,7 +114,7 @@ export default function CreatePoll() {
       await pollService.createPoll(communityId, payload);
       showAlert('Éxito', 'La votación se ha creado correctamente', true);
     } catch (error: unknown) {
-      if (isAxiosError(error) && error.response?.status === 402) {
+      if (isPaymentRequiredError(error)) {
         return;
       }
       console.error('[CreatePoll] Error:', error);
