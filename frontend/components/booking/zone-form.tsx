@@ -96,8 +96,17 @@ export default function ZoneForm({
   const handleSubmit = async () => {
     const capNum = Number(capacity);
     const guestNum = Number(maxGuests);
-    if (!name.trim()) {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
       showValidationError('El nombre de la zona es obligatorio.');
+      return;
+    }
+    if (trimmedName.length < 3) {
+      showValidationError('El nombre de la zona debe tener al menos 3 caracteres.');
+      return;
+    }
+    if (trimmedName.length > 50) {
+      showValidationError('El nombre de la zona es demasiado largo (máximo 50 caracteres).');
       return;
     }
     if (!Number.isNaN(capNum) && (!Number.isFinite(capNum) || capNum > MAX_COMMON_SPACE_CAPACITY)) {
@@ -120,17 +129,19 @@ export default function ZoneForm({
       showValidationError('La hora de fin debe ser posterior a la hora de inicio.');
       return;
     }
-    if (!Number.isNaN(guestNum) && (!Number.isFinite(guestNum) || guestNum > MAX_COMMON_SPACE_CAPACITY)) {
-      showValidationError('El maximo de invitados por reserva no puede superar 10.000 personas.');
-      return;
-    }
-    if (!Number.isInteger(guestNum) || guestNum < 1) {
-      showValidationError('El maximo de invitados debe ser un numero entero de al menos 1 persona.');
-      return;
-    }
-    if (guestNum > capNum) {
-      showValidationError('El maximo de invitados por reserva no puede superar la capacidad total de la zona.');
-      return;
+    if (usageMode === 'guest_pass') {
+      if (!Number.isNaN(guestNum) && (!Number.isFinite(guestNum) || guestNum > MAX_COMMON_SPACE_CAPACITY)) {
+        showValidationError('El maximo de invitados por reserva no puede superar 10.000 personas.');
+        return;
+      }
+      if (!Number.isInteger(guestNum) || guestNum < 1) {
+        showValidationError('El maximo de invitados debe ser un numero entero de al menos 1 persona.');
+        return;
+      }
+      if (guestNum > capNum) {
+        showValidationError('El maximo de invitados por reserva no puede superar la capacidad total de la zona.');
+        return;
+      }
     }
     if (requiresQr === undefined) {
       showValidationError('Indica si la zona requiere invitacion QR.');

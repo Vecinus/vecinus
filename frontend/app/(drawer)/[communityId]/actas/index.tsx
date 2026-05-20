@@ -1,4 +1,4 @@
-import { isAxiosError } from 'axios';
+import { isPaymentRequiredError } from '@/lib/payment-events';
 import { Text } from '@/components/ui/text';
 import * as React from 'react';
 import { View, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
@@ -53,11 +53,11 @@ export default function Actas() {
       const axiosError = error as { response?: { status?: number; data?: { detail?: unknown } } };
       const status = axiosError.response?.status;
       const detail = axiosError.response?.data?.detail;
-      if (!isAxiosError(error) || error.response?.status !== 402) {
+      if (!isPaymentRequiredError(error)) {
         console.error('Error fetching minutes:', error);
       }
       setErrorMessage(
-        status === 402
+        isPaymentRequiredError(error)
           ? null
           : status === 401
           ? 'Tu sesion ha caducado. Vuelve a iniciar sesion.'

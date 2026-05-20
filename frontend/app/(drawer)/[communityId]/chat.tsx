@@ -36,6 +36,7 @@ import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import { isAdminOrPresident } from '@/utils/role.util';
 import { isAxiosError } from 'axios';
+import { isPaymentRequiredError } from '@/lib/payment-events';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
   ChevronDownIcon,
@@ -324,7 +325,7 @@ export default function CommunityChatScreen() {
       await apiClient.get(`/communities/${normalizedCommunityId}/verify-access`);
       return true;
     } catch (error) {
-      if (!isAxiosError(error) || error?.response?.status !== 402) {
+      if (!isPaymentRequiredError(error)) {
         console.error('verify-access (chat) failed:', error);
       }
       return false;

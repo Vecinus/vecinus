@@ -11,10 +11,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { ActivityIndicator, View } from 'react-native';
 import { setUnauthorizedHandler } from '@/lib/auth-events';
-import { setCommunityBlockedHandler } from '@/lib/payment-events';
+import { isPaymentRequiredError, setCommunityBlockedHandler } from '@/lib/payment-events';
 import { CommunityBlockedModal } from '@/components/community-blocked-modal';
 import type { CommunityBlockedDetail } from '@/types/payments.types';
-import { isAxiosError } from 'axios';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -27,7 +26,7 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: (failureCount, error) => {
-        if (isAxiosError(error) && error.response?.status === 402) {
+        if (isPaymentRequiredError(error)) {
           return false;
         }
         return failureCount < DEFAULT_QUERY_RETRIES;

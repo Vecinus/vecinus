@@ -1,19 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { announcementsApi, type AnnouncementStatus, type AnnouncementCreate, type AnnouncementUpdate } from '@/api/announcements';
-
-interface ApiError {
-  response?: {
-    status?: number;
-    data?: {
-      detail?: string;
-    };
-  };
-  message?: string;
-}
+import { isPaymentRequiredError } from '@/lib/payment-events';
+import { isAxiosError } from 'axios';
 
 function shouldRetryQuery(error: unknown, failureCount: number) {
-  const apiError = error as ApiError;
-  if (apiError.response?.status === 402 || apiError.response?.status === 403) {
+  if (isPaymentRequiredError(error) || (isAxiosError(error) && error.response?.status === 403)) {
     return false;
   }
   return failureCount < 3;

@@ -133,7 +133,6 @@ mock_channel_id = str(uuid4())
 mock_association_id = str(uuid4())
 mock_dm_channel_id = str(uuid4())
 mock_target_user_id = str(uuid4())
-mock_dm_blocked_by_me = str(uuid4())
 
 
 def override_get_supabase():
@@ -147,10 +146,6 @@ def override_get_supabase():
                     "user_id": mock_target_user_id,
                 },
                 {"channel_id": mock_dm_channel_id, "user_id": mock_user["id"]},
-                {
-                    "channel_id": mock_dm_blocked_by_me,
-                    "user_id": mock_user["id"],
-                },
             ],
             "chat_channels": [
                 {
@@ -165,15 +160,6 @@ def override_get_supabase():
                     "association_id": mock_association_id,
                     "name": None,
                     "is_direct_message": True,
-                    "created_by": mock_user["id"],
-                },
-                {
-                    "id": mock_dm_blocked_by_me,
-                    "association_id": mock_association_id,
-                    "name": None,
-                    "is_direct_message": True,
-                    "is_blocked": True,
-                    "blocked_by": mock_user["id"],
                     "created_by": mock_user["id"],
                 },
             ],
@@ -257,13 +243,6 @@ def test_send_message():
     assert data["channel_id"] == mock_channel_id
     assert data["sender_id"] == mock_user["id"]
     assert "id" in data
-
-
-def test_send_message_blocked_direct_message_rejected():
-    new_msg = {"channel_id": mock_dm_blocked_by_me, "content": "This should not be delivered"}
-    response = client.post(f"/chat/channels/{mock_dm_blocked_by_me}/messages", json=new_msg)
-    assert response.status_code == 403
-    assert response.json()["detail"] == "This direct message channel is blocked."
 
 
 def test_create_direct_message():

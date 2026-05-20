@@ -23,96 +23,8 @@ export default function CrearZona() {
     usage_mode: 'exclusive_reservation',
   };
 
-  const isValidTimeFormat = (time: string) => {
-    const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
-    return timeRegex.test(time);
-  };
-
-  const timeToMinutes = (time: string) => {
-    const [hours, minutes] = time.split(':').map(Number);
-    return hours * 60 + minutes;
-  };
-
-  const validateData = (data: Partial<CommonSpace> & Record<string, unknown>): string | null => {
-    const nameStr = String(data.name || '');
-    if (!data.name || nameStr.trim().length < 3) {
-      return 'El nombre de la zona debe tener al menos 3 caracteres.';
-    }
-    if (nameStr.length > 50) {
-      return 'El nombre de la zona es demasiado largo (máximo 50 caracteres).';
-    }
-
-    let startTime = String(data.start_time || '').trim();
-    let endTime = String(data.end_time || '').trim();
-    if (!startTime && !endTime) {
-      startTime = '00:00';
-      endTime = '23:59';
-    }
-    if (!startTime || !endTime) {
-      return 'Indica hora de apertura y cierre, o deja ambas vacias para disponibilidad 24h.';
-    }
-
-    if (!startTime || !isValidTimeFormat(startTime)) {
-      return 'Formato de hora de inicio inválido (Usa HH:MM).';
-    }
-    if (!endTime || !isValidTimeFormat(endTime)) {
-      return 'Formato de hora de fin inválido (Usa HH:MM).';
-    }
-
-    const endMinutes = timeToMinutes(endTime);
-    const effectiveEndMinutes = endMinutes;
-
-    if (effectiveEndMinutes <= timeToMinutes(startTime)) {
-      return 'La hora de fin debe ser posterior a la hora de inicio.';
-    }
-
-    const maxCapacity = Number(data.capacity);
-    if (!Number.isNaN(maxCapacity) && (!Number.isFinite(maxCapacity) || maxCapacity > 10000)) {
-      return 'La capacidad maxima no puede superar las 10.000 personas.';
-    }
-    if (isNaN(maxCapacity) || maxCapacity < 1 || !Number.isInteger(maxCapacity)) {
-      return 'La capacidad máxima debe ser un número entero de al menos 1 persona.';
-    }
-    if (maxCapacity > 10000) {
-      return 'La capacidad máxima no puede superar las 10.000 personas.';
-    }
-
-    if (
-      data.max_guests_per_reservation !== undefined &&
-      data.max_guests_per_reservation !== null &&
-      String(data.max_guests_per_reservation) !== ''
-    ) {
-      const guests = Number(data.max_guests_per_reservation);
-      if (!Number.isNaN(guests) && (!Number.isFinite(guests) || guests > 10000)) {
-        return 'El maximo de invitados por reserva no puede superar 10.000 personas.';
-      }
-      if (isNaN(guests) || guests < 0 || !Number.isInteger(guests)) {
-        return 'El número de invitados debe ser un número entero positivo o cero.';
-      }
-      if (guests > maxCapacity) {
-        return 'El máximo de invitados por reserva no puede superar la capacidad total de la zona.';
-      }
-    }
-
-    if (data.usage_mode !== 'exclusive_reservation' && data.usage_mode !== 'guest_pass') {
-      return 'Modo de uso inválido.';
-    }
-    if (typeof data.requires_qr !== 'boolean') {
-      return 'Selecciona si la zona requiere invitacion QR.';
-    }
-
-    return null;
-  };
-
   const handleSave = async (data: Partial<CommonSpace>) => {
     setErrorMessage('');
-
-    const validationError = validateData(data);
-    if (validationError) {
-      setErrorMessage(validationError);
-      return;
-    }
-
     setLoading(true);
 
     try {
@@ -155,6 +67,7 @@ export default function CrearZona() {
         </View>
       ) : null}
       <ZoneForm
+        key="new"
         initialData={emptyZona}
         onSubmit={handleSave}
         onCancel={() => router.push(`/${communityId}/booking`)}

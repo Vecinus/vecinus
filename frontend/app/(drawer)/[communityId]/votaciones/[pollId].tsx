@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { isAxiosError } from 'axios';
+import { isPaymentRequiredError } from '@/lib/payment-events';
 import {
   View,
   ScrollView,
@@ -134,7 +135,7 @@ export default function PollDetail() {
         setMembershipInfo(membershipData);
         setHasVoted(votedData);
       } catch (error: unknown) {
-        if (isAxiosError(error) && error.response?.status === 402) {
+        if (isPaymentRequiredError(error)) {
           return;
         }
         console.error('Error loading poll:', error);
@@ -163,7 +164,7 @@ export default function PollDetail() {
       const newResults = await pollService.getResults(communityId, poll.id).catch(() => null);
       setResults(newResults);
     } catch (error: unknown) {
-      if (isAxiosError(error) && error.response?.status === 402) {
+      if (isPaymentRequiredError(error)) {
         return;
       }
       console.error('Error closing poll:', error);
@@ -204,7 +205,7 @@ export default function PollDetail() {
       setPoll(updated);
       setPublishDialogOpen(false);
     } catch (error: unknown) {
-      if (isAxiosError(error) && error.response?.status === 402) {
+      if (isPaymentRequiredError(error)) {
         return;
       }
       console.error('[Publish] Error:', error);
