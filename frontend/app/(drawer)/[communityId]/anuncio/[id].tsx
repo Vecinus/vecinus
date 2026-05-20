@@ -10,7 +10,7 @@ import { Drawer } from 'expo-router/drawer';
 import { ArrowLeft } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { type AnnouncementStatus } from '@/api/announcements';
+import { validateAnnouncementImageAsset, type AnnouncementStatus } from '@/api/announcements';
 import { apiClient } from '@/api/client';
 import { DateTimePickerModal } from '@/components/community/announcements/DateTimePickerModal';
 import { getUserFacingErrorMessage, normalizeRoleToBackendToken } from '@/components/community/incidents/utils';
@@ -86,7 +86,7 @@ export default function AnuncioDetailScreen() {
   const [titleDraft, setTitleDraft] = useState('');
   const [contentDraft, setContentDraft] = useState('');
   const [statusDraft, setStatusDraft] = useState<AnnouncementStatus>('PUBLISHED');
-  const [pickedImage, setPickedImage] = useState<{ uri: string; name?: string; mimeType?: string; file?: unknown } | null>(null);
+  const [pickedImage, setPickedImage] = useState<{ uri: string; name?: string; mimeType?: string; size?: number | null; file?: unknown } | null>(null);
   const [scheduledDateDraft, setScheduledDateDraft] = useState('');
   const [formError, setFormError] = useState('');
 
@@ -143,15 +143,18 @@ export default function AnuncioDetailScreen() {
       if (result.canceled) return;
       const asset = result.assets[0] as DocumentPickerAssetWithFile;
 
-      setPickedImage({
+      const picked = {
         uri: asset.uri,
         name: asset.name || undefined,
         mimeType: asset.mimeType || undefined,
+        size: asset.size,
         file: asset.file,
-      });
+      };
+      validateAnnouncementImageAsset(picked);
+      setPickedImage(picked);
       setFormError('');
-    } catch {
-      setFormError('No se pudo seleccionar la imagen.');
+    } catch (error: unknown) {
+      setFormError(error instanceof Error ? error.message : 'No se pudo seleccionar la imagen.');
     }
   };
 
