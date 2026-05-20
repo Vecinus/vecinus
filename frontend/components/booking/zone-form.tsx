@@ -71,6 +71,19 @@ export default function ZoneForm({
     usageMode !== defaultUsageMode ||
     maxGuests !== defaultMaxGuests;
 
+  const isFormComplete =
+    name.trim().length > 0 &&
+    capacity.trim().length > 0 &&
+    startTime.length > 0 &&
+    endTime.length > 0 &&
+    requiresQr !== undefined &&
+    (usageMode !== 'guest_pass' || maxGuests.trim().length > 0);
+
+  const timeToMinutes = (time: string) => {
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+
   const showValidationError = (message: string) => {
     setAlertConfig({
       visible: true,
@@ -101,6 +114,10 @@ export default function ZoneForm({
     }
     if (!/^\d{2}:\d{2}$/.test(endTime)) {
       showValidationError('Formato de hora de fin invalido. Usa HH:MM.');
+      return;
+    }
+    if (timeToMinutes(endTime) <= timeToMinutes(startTime)) {
+      showValidationError('La hora de fin debe ser posterior a la hora de inicio.');
       return;
     }
     if (!Number.isNaN(guestNum) && (!Number.isFinite(guestNum) || guestNum > MAX_COMMON_SPACE_CAPACITY)) {
@@ -298,7 +315,7 @@ export default function ZoneForm({
           <View className="mt-6 gap-2">
             <Button
               onPress={handleSubmit}
-              disabled={saving || !hasChanges}
+              disabled={saving || !hasChanges || !isFormComplete}
               className="h-12 rounded-lg bg-primary">
               <Text className="text-base font-bold text-primary-foreground">
                 {saving ? 'Guardando...' : 'Guardar cambios'}
