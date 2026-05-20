@@ -369,6 +369,7 @@ async def send_message(
        conectados instantáneamente.
     """
     verify_channel_access(str(str(channel_id)), current_user["id"], supabase)
+    ensure_channel_accepts_messages(str(channel_id), supabase)
 
     if msg_in.channel_id != channel_id:
         raise HTTPException(status_code=400, detail="Channel ID mismatch")
@@ -529,6 +530,22 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
+
+
+def ensure_channel_accepts_messages(channel_id: str, supabase: Client) -> None:
+    channel_res = (
+        supabase.table("chat_channels")
+        .select("id, is_direct_message, is_blocked")
+        .eq("id", str(channel_id))
+        .limit(1)
+        .execute()
+    )
+    if not channel_res.data:
+        raise HTTPException(status_code=404, detail="Channel not found")
+
+    channel_data = channel_res.data[0]
+    if channel_data.get("is_direct_message") and channel_data.get("is_blocked"):
+        raise HTTPException(status_code=403, detail="This direct message channel is blocked.")
 
 
 @router.websocket("/ws/{channel_id}")

@@ -44,6 +44,9 @@ export const getUserFacingErrorMessage = (error: unknown, fallback: string): str
   }
 
   if (status === 404) {
+    if (detail.includes('association') || detail.includes('community')) {
+      return 'No se encontro la incidencia solicitada o no pertenece a esta comunidad.';
+    }
     return detail || 'No se encontro la incidencia solicitada.';
   }
 
