@@ -17,6 +17,10 @@ projects:
             staticPublishPath: dist
             autoDeployTrigger: "off"
             rootDir: frontend
+            routes:
+              - type: rewrite
+                source: /*
+                destination: /index.html
 
           - type: web
             name: Vecinus-Backend
