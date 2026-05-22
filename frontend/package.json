@@ -78,7 +78,7 @@
     "expo-splash-screen": "~56.0.8",
     "expo-status-bar": "~55.0.6",
     "expo-symbols": "~55.0.5",
-    "expo-system-ui": "~55.0.17",
+    "expo-system-ui": "~56.0.5",
     "expo-web-browser": "~56.0.4",
     "jsx-ast-utils": "^3.3.5",
     "lucide-react-native": "^1.14.0",
