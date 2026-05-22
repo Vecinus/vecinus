@@ -70,7 +70,7 @@
     "expo-file-system": "~56.0.4",
     "expo-font": "~56.0.5",
     "expo-haptics": "~55.0.14",
-    "expo-image": "~55.0.10",
+    "expo-image": "~56.0.8",
     "expo-linking": "~55.0.15",
     "expo-router": "~55.0.14",
     "expo-secure-store": "^55.0.13",
