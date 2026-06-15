@@ -20,7 +20,7 @@ charset-normalizer==3.4.7
 click==8.3.3
 cloudinary==1.44.2
 colorama==0.4.6
-cryptography==48.0.0
+cryptography==49.0.0
 deprecation==2.1.0
 fastapi==0.136.1
 fsspec==2026.4.0
